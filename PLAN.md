@@ -142,7 +142,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **289 tests, 289 ✅, 0 ❌**. All fifteen
+Counts as of the 2026-07-25 run: **317 tests, 317 ✅, 0 ❌**. All fifteen
 deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
@@ -287,7 +287,10 @@ side of the connection.
 | 4035 §5.3.3 | tampered RDATA and verification under an unrelated key are rejected | ✅ |
 | 4034 §6.3 | canonical ordering applied by the validator (reversed RRset still validates) | ✅ |
 | 4034 §3.1.8 | a **live** cloudflare.com SOA RRSIG validates end-to-end (Online) | ✅ |
-| 6605 | ECDSA P-256: a separately signed BIND zone; A/TXT/SOA/NS RRSIGs, DS, wrong-key rejection | ✅ |
+| 4034 §5.1 | **every algorithm the validator claims** — 5, 7, 10, 13, 14, 15, 16 — each against a zone BIND signed with it: key shape, A/AAAA/TXT/SOA/NS RRSIGs, DS digest, tampered RDATA and wrong-key rejection | ✅ |
+| 6605 | ECDSA P-256 (13) and P-384 (14): fixed-width r\|\|s, 64/96-octet keys | ✅ |
+| 8080 | Ed25519 (15) and Ed448 (16): raw 32/57-octet keys, verified via BouncyCastle | ✅ |
+| 8624 | RSA/SHA-1 (5, 7) still validates — deprecated for signing, not for verifying | ✅ |
 | 4035 §4.3 | Secure / Insecure / Bogus / Indeterminate classification via `ValidateAsync` | ✅ |
 | 4034 §3.1.5 | expired and not-yet-valid signatures are Bogus | ✅ |
 | 5011 §2.3/§2.4.1 | 30-day hold-down; no trust on first sight; continuity required; ZSKs ignored | ✅ |
@@ -296,7 +299,6 @@ side of the connection.
 | 5011 §2.1 | a revoked KSK is dropped from the anchors and cannot come back | ✅ |
 | 4592 §2.1.1 | wildcard owner names round-trip; the `*` label is accepted leftmost only, and never by the strict hostname parser | ✅ |
 | 5155 App. A | NSEC3 hash vectors | — no NSEC3 hash function in Hermod |
-| 8080 | Ed25519 signed fixtures | — needs BIND ED25519 support |
 
 ### 4.8 Interop projects
 

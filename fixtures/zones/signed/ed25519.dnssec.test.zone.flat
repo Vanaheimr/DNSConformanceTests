@@ -1,0 +1,37 @@
+ed25519.dnssec.test.			      3600 IN SOA	ns1.ed25519.dnssec.test. hostmaster.ed25519.dnssec.test. 2026072502 7200 3600 1209600 3600
+ed25519.dnssec.test.			      3600 IN RRSIG	SOA 15 3 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. teJ9NwcMMLN5HkeqQhz2cqQK9De5Izn6DeDirJiICNcoOaIdKfb5W/Ch O5lrIfXqUqiJkSNNpSFeW73FEjvxDA==
+; resign=20260824102457
+ed25519.dnssec.test.			      3600 IN NS	ns1.ed25519.dnssec.test.
+ed25519.dnssec.test.			      3600 IN RRSIG	NS 15 3 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. H8icdfGeGfTrjurdBlmT6dfINjKqQwBTRznBXKGfu6AlUoOFBraQaglX eG/PN7yknwIU6lBtrMjidYk1XzYvAQ==
+; resign=20260824102457
+ed25519.dnssec.test.			      3600 IN NSEC	a.ed25519.dnssec.test. NS SOA RRSIG NSEC DNSKEY
+ed25519.dnssec.test.			      3600 IN RRSIG	NSEC 15 3 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. 1jn0o5g7F1duRvwoNnMIbSOyegjUsTn+0TT0/8CgS+q2EN2CGXGvmOyS JquBNMixkVKH64X5xZJznVEJ8BcOBw==
+; resign=20260824102457
+ed25519.dnssec.test.			      3600 IN DNSKEY	256 3 15 903oHKHLTIByb6BCirKaJDch86OEyKbRogAbwu4Z+jc=
+ed25519.dnssec.test.			      3600 IN DNSKEY	257 3 15 ajvZS72Q5ruN9cScBOnoglQso4NAFaQoutFEgWYzj2A=
+ed25519.dnssec.test.			      3600 IN RRSIG	DNSKEY 15 3 3600 20260824102457 20260725102457 64694 ed25519.dnssec.test. OJSPqKL98toseg27ac0c0wqJQxsiZKRFzRkogT4+ri9r3Yu8pT2vmr0B ra+svsroH5LU3HyT50upfQ61JnSHAg==
+; resign=20260824102457
+a.ed25519.dnssec.test.			      3600 IN A		192.0.2.13
+a.ed25519.dnssec.test.			      3600 IN RRSIG	A 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. JhM6NjIcambQe+1wLnPWpK8FfYC65HjsSj06kBI9uOXQJRJVmnd6qZRt WIYzBLb2M1RbprmTFWx1Bo145eRLCw==
+; resign=20260824102457
+a.ed25519.dnssec.test.			      3600 IN NSEC	aaaa.ed25519.dnssec.test. A RRSIG NSEC
+a.ed25519.dnssec.test.			      3600 IN RRSIG	NSEC 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. 1uQBIeqFgiR35e7qQ9KqNM8A4spzfbIa56q9kfRpmXG5P8fGzRGUSb5n 9A3BaHVsfgCxxRTUot77GI6IfwkyBg==
+; resign=20260824102457
+aaaa.ed25519.dnssec.test.		      3600 IN AAAA	2001:db8::13
+aaaa.ed25519.dnssec.test.		      3600 IN RRSIG	AAAA 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. HTjPrHIxKGeqBVtxXMo6irEMLpf8YSk0uNQ5WHn433xdNV6vXfaeoz9z BPFeuUgvol8vYJar4oTWVFd5WJsSBw==
+; resign=20260824102457
+aaaa.ed25519.dnssec.test.		      3600 IN NSEC	ns1.ed25519.dnssec.test. AAAA RRSIG NSEC
+aaaa.ed25519.dnssec.test.		      3600 IN RRSIG	NSEC 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. JFjLdh2Mx0/LtG6+8yVuy4bd+ZRuhPsIz+R4+ZydnxGvAbq/C0+X+Rnu h3DcGfKzC6h+f8r+2pimkmIumgtNAQ==
+; resign=20260824102457
+ns1.ed25519.dnssec.test.		      3600 IN A		192.0.2.54
+ns1.ed25519.dnssec.test.		      3600 IN RRSIG	A 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. CarWYGJBBrjeP1rwuFuduoYvy+EsWJq+lmFjQOw6H8s/XqFMqCRLIQ/L M5dDVo73Np7HFFdisS5nSXFX8TG7BQ==
+; resign=20260824102457
+ns1.ed25519.dnssec.test.		      3600 IN NSEC	txt.ed25519.dnssec.test. A RRSIG NSEC
+ns1.ed25519.dnssec.test.		      3600 IN RRSIG	NSEC 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. /74rV3CCIHgoXS21q+DM/YMZ1Xc9tkFA8kCrFxsbRASO51w0w5h8zh2p Y7xpo7r9LvRfy0kgUksxIW2kNCgADA==
+; resign=20260824102457
+txt.ed25519.dnssec.test.		      3600 IN TXT	"signed by BIND with Ed25519"
+txt.ed25519.dnssec.test.		      3600 IN RRSIG	TXT 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. 3G5niavtD1byUn3RtXrMDyXyXCIj3GE46wdCTCBTOQ8zwcjm4A7TTH6c vFSbGXRXryQFri0n7uE57W9m/w+yDQ==
+; resign=20260824102457
+txt.ed25519.dnssec.test.		      3600 IN NSEC	ed25519.dnssec.test. TXT RRSIG NSEC
+txt.ed25519.dnssec.test.		      3600 IN RRSIG	NSEC 15 4 3600 20260824102457 20260725102457 1475 ed25519.dnssec.test. WlM+P/9Xk2HxfJyZLuOte7Tnkq3R59IERodwc6ilwOJwdM/lOfxpBzPr /q1UVx1rQe+R30zp1iInr0ST4qsFCA==
+; resign=20260824102457

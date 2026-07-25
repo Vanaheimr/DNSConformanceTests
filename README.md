@@ -11,7 +11,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[PLAN.md](PLAN.md)** — architecture and the full RFC coverage matrix
 - **[FINDINGS.md](FINDINGS.md)** — conformance deviations this suite found
 
-**Current status: 289 tests · 289 ✅ · 0 ❌.**
+**Current status: 317 tests · 317 ✅ · 0 ❌.**
 
 The suite has found 15 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -115,7 +115,13 @@ wsl -e sh fixtures/zones/resign.sh
 
 This creates a fresh RSASHA256-signed `dnssec.test` zone with `dnssec-keygen` /
 `dnssec-signzone`, flattens it to one record per line for the fixture loader,
-and writes the matching DS record.
+and writes the matching DS record — then does the same once per signature
+algorithm (`ecdsa.`, `ecdsap384.`, `ed25519.`, `ed448.`, `rsasha512.`,
+`rsasha1.`, `nsec3rsasha1.`), so every verification path Hermod implements has
+real signatures to check against.
+
+An algorithm the local BIND cannot sign with is skipped rather than aborting the
+run; the matching tests then report the fixture as missing and ignore themselves.
 
 ## Adding a test
 

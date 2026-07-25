@@ -48,46 +48,101 @@ dnssec-signzone -o "$ZONE" -k "$KSK" "$ZONE.zone" "$ZSK" > signing.log 2>&1
 # The DS record of the KSK, i.e. what the parent zone would publish.
 dnssec-dsfromkey -2 "$KSK.key" > "$ZONE.ds"
 
-# ---------------------------------------------------------------------------
-# A second, separately signed zone using ECDSAP256SHA256 (algorithm 13) — the
-# modern default, and a completely different verification path from RSA. This
-# zone is actually signed, not merely key-generated, so the tests have real
-# ECDSA signatures to check.
-# ---------------------------------------------------------------------------
-EC_ZONE="ecdsa.$ZONE"
+# Flatten to exactly one record per line: the multi-line parenthesized form
+# BIND emits is awkward to consume from tests, and the flat form is what the
+# fixture loader reads.
+named-compilezone -f text -F text -o "$ZONE.zone.flat" "$ZONE" "$ZONE.zone.signed" > /dev/null 2>&1
 
-cat > "$EC_ZONE.zone" <<EOF
+# dnssec-signzone also writes "dsset-<zone>." — a trailing dot in a filename is
+# illegal on Windows and breaks git on this checkout. The DS record is already
+# in "$ZONE.ds", so drop it.
+rm -f "dsset-$ZONE."
+
+
+# ---------------------------------------------------------------------------
+# One separately signed zone per signature algorithm Hermod claims to verify.
+#
+# These are not redundant with the RSASHA256 zone above. Each algorithm family
+# has its own key and signature encoding, and those encodings are where
+# implementations actually break: RSA carries its exponent in the two forms of
+# RFC 3110, ECDSA is a fixed-width r||s pair rather than an ASN.1 sequence, and
+# the Edwards curves are raw 32- and 57-octet keys. A verifier can handle one
+# family perfectly and be entirely broken for the next.
+#
+# Algorithms that this BIND cannot sign with are skipped rather than aborting
+# the run: the matching test then reports the fixture as missing and ignores
+# itself, which keeps a bare checkout green.
+# ---------------------------------------------------------------------------
+sign_algorithm_zone() {
+
+    zone="$1"      # zone name
+    algo="$2"      # dnssec-keygen algorithm name
+    bits="$3"      # key size flags, empty for the curve algorithms
+    label="$4"     # human-readable, goes into the zone's TXT record
+
+    cat > "$zone.zone" <<EOF
 \$TTL 3600
-@       IN  SOA ns1.$EC_ZONE. hostmaster.$EC_ZONE. (
+@       IN  SOA ns1.$zone. hostmaster.$zone. (
                 2026072501 ; serial
                 7200       ; refresh
                 3600       ; retry
                 1209600    ; expire
                 3600 )     ; minimum
-@       IN  NS   ns1.$EC_ZONE.
+@       IN  NS   ns1.$zone.
 ns1     IN  A    192.0.2.54
 a       IN  A    192.0.2.13
-txt     IN  TXT  "signed by BIND with ECDSA P-256"
+aaaa    IN  AAAA 2001:db8::13
+txt     IN  TXT  "signed by BIND with $label"
 EOF
 
-EC_KSK=$(dnssec-keygen -a ECDSAP256SHA256 -f KSK -n ZONE "$EC_ZONE")
-EC_ZSK=$(dnssec-keygen -a ECDSAP256SHA256        -n ZONE "$EC_ZONE")
+    # shellcheck disable=SC2086
+    ksk=$(dnssec-keygen -a "$algo" $bits -f KSK -n ZONE "$zone" 2>/dev/null) || {
+        echo "  skipped $zone: $algo key generation unsupported"
+        rm -f "$zone.zone"
+        return 0
+    }
 
-dnssec-signzone -o "$EC_ZONE" -N INCREMENT -S -x -t "$EC_ZONE.zone" > signing-ecdsa.log 2>&1 || \
-dnssec-signzone -o "$EC_ZONE" -k "$EC_KSK" "$EC_ZONE.zone" "$EC_ZSK" > signing-ecdsa.log 2>&1
+    # shellcheck disable=SC2086
+    zsk=$(dnssec-keygen -a "$algo" $bits -n ZONE "$zone" 2>/dev/null)
 
-dnssec-dsfromkey -2 "$EC_KSK.key" > "$EC_ZONE.ds"
+    if ! dnssec-signzone -o "$zone" -N INCREMENT -S -x -t "$zone.zone" > "signing-$zone.log" 2>&1; then
+        if ! dnssec-signzone -o "$zone" -k "$ksk" "$zone.zone" "$zsk" > "signing-$zone.log" 2>&1; then
+            echo "  skipped $zone: $algo signing refused (see signing-$zone.log)"
+            rm -f "$zone.zone" "K$zone."*
+            return 0
+        fi
+    fi
 
-# Flatten to exactly one record per line: the multi-line parenthesized form
-# BIND emits is awkward to consume from tests, and the flat form is what the
-# fixture loader reads.
-named-compilezone -f text -F text -o "$ZONE.zone.flat"    "$ZONE"    "$ZONE.zone.signed"    > /dev/null 2>&1
-named-compilezone -f text -F text -o "$EC_ZONE.zone.flat" "$EC_ZONE" "$EC_ZONE.zone.signed" > /dev/null 2>&1
+    dnssec-dsfromkey -2 "$ksk.key" > "$zone.ds"
+    named-compilezone -f text -F text -o "$zone.zone.flat" "$zone" "$zone.zone.signed" > /dev/null 2>&1
+    rm -f "dsset-$zone."
 
-# dnssec-signzone also writes "dsset-<zone>." — a trailing dot in a filename is
-# illegal on Windows and breaks git on this checkout. The DS records are already
-# in "$ZONE.ds" / "$EC_ZONE.ds", so drop them.
-rm -f "dsset-$ZONE." "dsset-$EC_ZONE."
+    echo "  signed  $zone with $algo"
 
-echo "signed zone written to $OUT"
+}
+
+echo "signing one zone per algorithm:"
+
+# 13 — ECDSA P-256. Keeps its historical zone name, since tests already use it.
+sign_algorithm_zone "ecdsa.$ZONE"     ECDSAP256SHA256  ""          "ECDSA P-256"
+
+# 14 — ECDSA P-384: same r||s convention, different curve and digest size.
+sign_algorithm_zone "ecdsap384.$ZONE" ECDSAP384SHA384  ""          "ECDSA P-384"
+
+# 15 / 16 — the Edwards curves (RFC 8080), verified through BouncyCastle.
+sign_algorithm_zone "ed25519.$ZONE"   ED25519          ""          "Ed25519"
+sign_algorithm_zone "ed448.$ZONE"     ED448            ""          "Ed448"
+
+# 10 — RSA/SHA-512: same RFC 3110 key encoding as RSASHA256, different digest.
+sign_algorithm_zone "rsasha512.$ZONE" RSASHA512        "-b 2048"   "RSA/SHA-512"
+
+# 5 / 7 — RSA/SHA-1. RFC 8624 says these MUST NOT be used for new signatures but
+# MAY still be validated, and zones signed with them are still out there, so the
+# validation path is worth covering. Modern BIND often refuses to sign with them,
+# in which case these are skipped.
+sign_algorithm_zone "rsasha1.$ZONE"   RSASHA1          "-b 2048"   "RSA/SHA-1"
+sign_algorithm_zone "nsec3rsasha1.$ZONE" NSEC3RSASHA1  "-b 2048"   "RSA/SHA-1 (NSEC3)"
+
+echo
+echo "signed zones written to $OUT"
 ls -1 "$OUT"

@@ -1,12 +1,12 @@
 $TTL 3600
-@       IN  SOA ns1.ecdsa.dnssec.test. hostmaster.ecdsa.dnssec.test. (
+@       IN  SOA ns1.nsec3rsasha1.dnssec.test. hostmaster.nsec3rsasha1.dnssec.test. (
                 2026072501 ; serial
                 7200       ; refresh
                 3600       ; retry
                 1209600    ; expire
                 3600 )     ; minimum
-@       IN  NS   ns1.ecdsa.dnssec.test.
+@       IN  NS   ns1.nsec3rsasha1.dnssec.test.
 ns1     IN  A    192.0.2.54
 a       IN  A    192.0.2.13
 aaaa    IN  AAAA 2001:db8::13
-txt     IN  TXT  "signed by BIND with ECDSA P-256"
+txt     IN  TXT  "signed by BIND with RSA/SHA-1 (NSEC3)"
