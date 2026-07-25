@@ -11,18 +11,11 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[PLAN.md](PLAN.md)** — architecture and the full RFC coverage matrix
 - **[FINDINGS.md](FINDINGS.md)** — conformance deviations this suite found
 
-**Current status: 283 tests · 280 ✅ · 3 ❌.**
+**Current status: 289 tests · 289 ✅ · 0 ❌.**
 
-The suite has found 15 RFC deviations. Twelve are fixed in Hermod; three are open,
-and each open one is pinned by a red test tagged `KnownIssue` so it cannot be
-forgotten. [FINDINGS.md](FINDINGS.md) records every one with chapter and verse,
-and — for the fixed ones — the change and the test that pins it.
-
-Excluding `KnownIssue` gives a green gate:
-
-```bash
-dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker&TestCategory!=KnownIssue"
-```
+The suite has found 15 RFC deviations in Hermod. All are fixed;
+[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
+the test that pins it.
 
 ## Getting started
 
@@ -37,11 +30,11 @@ Everything that needs no network, WSL or Docker:
 dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
 ```
 
-To see only the open deviations — every one of these is expected to fail, and a
-*passing* test here means a finding has been fixed and should be untagged:
+If a future run turns up a new deviation, tag it `KnownIssue` and exclude the
+category to keep a green gate while it is open:
 
 ```bash
-dotnet test DNSConformanceTests.slnx --filter "TestCategory=KnownIssue"
+dotnet test DNSConformanceTests.slnx --filter "TestCategory!=KnownIssue"
 ```
 
 Tests requiring prerequisites `Assert.Ignore` with an actionable message rather

@@ -2,12 +2,12 @@
 
 Deviations this suite found in the Hermod DNS stack.
 
-**Status: 15 findings — 12 fixed, 3 open.**
-**283 tests · 280 pass · 3 red (each red test tracks one open finding).**
+**Status: 15 findings — all fixed.**
+**289 tests · 289 pass · 0 red.**
 
 | Run | Tests | Result |
 |-----|------:|-------:|
-| Offline conformance | 222 | 219 ✅ / 3 ❌ tracked |
+| Offline conformance | 228 | **228 ✅** |
 | WSL interop (dig, kdig, drill, BIND) | 38 | **38 ✅** |
 | Online interop (Cloudflare, Google, Quad9) | 23 | **23 ✅** |
 
@@ -23,11 +23,11 @@ Deviations this suite found in the Hermod DNS stack.
 | 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | ✅ fixed |
 | 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 | ✅ fixed |
 | 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ✅ fixed |
-| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2 | ❌ open |
+| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2.1.1 | ✅ fixed |
 | 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ✅ fixed |
 | 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
-| 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ❌ open |
-| 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ❌ open |
+| 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ✅ fixed |
+| 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ✅ fixed |
 
 ---
 
@@ -362,59 +362,94 @@ and asserts each link appears exactly once.
 RFC 2181 §10.1 was never violated — `Alias_Node_Carries_No_Data_Of_Its_Own`
 passed throughout, and still does.
 
----
-
-# Open
-
-## 11 — Wildcard owner names cannot be represented ❌
-
-*RFC 4592 §2:* `*` is an ordinary label as far as the wire format is concerned.
-
-`DomainName.Parse("*.wild.example")` throws: the regex requires a label to start
-with a letter or digit. Wildcard owner names do appear in responses — the NSEC
-and RRSIG records that prove a wildcard match carry them — so a record that a
-signer legitimately produced cannot be read back.
-
-This is why the suite's fixture loader has to substitute a parseable owner to
-reach the wildcard signature at all (`SignedZoneFixture.WildcardSignature`).
-
-Pinned by `Wildcard_Owner_Names_Cannot_Be_Represented`. Note the fix belongs
-only on the *owner name* path: a wildcard is never a valid hostname, so
-`DomainName.Parse` should not accept it everywhere.
-
-## 14 — NODATA answers are never served from the cache ❌
+## 14 — NODATA answers were never served from the cache ✅
 
 *RFC 2308 §5:* negative answers, both NXDOMAIN and NODATA, are to be cached.
 
-NXDOMAIN is cached correctly — a repeated query does not reach the wire. NODATA
-is not: two identical queries produce two requests, every time.
+NXDOMAIN was cached correctly; NODATA was not, and two identical queries produced
+two requests every time.
 
-The code path exists (`DNSClient` computes a `noDataTTL` and calls
-`DNSCache.AddNoData` per type) and the SOA does arrive and parse — the test
-asserts that as a precondition, so this is not the suite feeding Hermod a
-malformed authority section. Something between storing and looking up the entry
-does not line up; the mechanism has not been traced further.
+The cause was one condition in `DNSCache.Add`. An answer-less response was stored
+only when its RCODE was `NameError` or `Refused`; a NODATA response — NOERROR
+with an empty answer section — fell straight through to `return this` and was
+never stored at all. Everything downstream was correct and unreachable:
+`DNSClient` computed a TTL and called `AddNoData` per type, and the lookup path
+checked `IsNoData`, but that check sits behind `TryGetDNSInfo`, which had nothing
+to return.
 
-NODATA is the common case for AAAA lookups on IPv4-only names, so this is a
-steady multiplier on outbound query volume rather than a correctness bug.
+**Fix.** `Add` now recognizes NODATA as negative, on one extra condition: the
+response must carry an SOA in the authority section. That is what separates a
+NODATA answer from a *referral*, which is also NOERROR with an empty answer
+section but carries NS records instead. Caching a referral here would record
+"this type does not exist" for a name whose data merely lives on another server.
 
-Reproduced by `Repeated_Nodata_Query_Is_Served_From_The_Cache`.
+Verified by `Repeated_Nodata_Query_Is_Served_From_The_Cache` and
+`Referral_Is_Not_Cached_As_Nodata`, both counting datagrams that actually reached
+the socket rather than asking the cache what it believes.
 
-## 15 — The negative TTL ignores the SOA MINIMUM ❌
+## 15 — The negative TTL ignored the SOA MINIMUM ✅
 
-*RFC 2308 §4:* the TTL of a negative answer is the SOA's **MINIMUM field**,
-capped by the SOA record's own TTL.
+*RFC 2308 §4:* the TTL of a negative answer is the minimum of the SOA's **MINIMUM
+field** and the SOA record's own TTL.
 
-Two problems. Where the SOA is consulted at all, `DNSClient` reads
-`soa.TimeToLive` — the record's TTL — and never looks at the MINIMUM field that
-RFC 2308 repurposed for exactly this. And on the NXDOMAIN path the SOA is not
-consulted at all: `AddToCache` is called with the response and left to apply its
-own default.
+Also two problems, and the second made the first untestable.
 
-Measured: a negative answer whose SOA MINIMUM is 1 second is still cached three
-seconds later.
+Where the SOA was consulted, `DNSClient` and `DNSCache.Add` both read
+`soa.TimeToLive` — the record's TTL — and never looked at the MINIMUM field that
+RFC 2308 repurposed for exactly this. Understandable, since every *other* record's
+lifetime does come from its TTL.
 
-Reproduced by `Negative_Answer_Expires_After_The_Soa_Minimum`.
+But the entry would not have expired even with the right number: `TryGetDNSInfo`
+called `FilterExpiredRecords`, which returns a negative entry unconditionally
+(there are no answer records whose TTLs it could filter) and never consulted the
+entry's own `EndOfLife`. A negative entry was therefore returned until the
+cleanup timer happened to sweep it, whatever lifetime it had been given.
+
+**Fix.** A shared `DNSCache.ComputeNegativeCacheTTL(response)` applies §4 —
+`min(MINIMUM, SOA TTL)`, falling back to the configured default when there is no
+SOA — and is used by both the NXDOMAIN and NODATA paths. `TryGetDNSInfo` now
+enforces the entry's expiry for entries with no answers.
+
+Verified by `Negative_Answer_Expires_After_The_Soa_Minimum`, which sets MINIMUM
+to 1 s and the SOA's own TTL to an hour, so reading the record TTL instead — the
+original mistake — still fails the test.
+
+## 11 — Wildcard owner names could not be represented ✅
+
+*RFC 4592 §2.1.1:* a wildcard domain name is one whose leftmost label is a single
+asterisk. It is an ordinary label as far as the wire format is concerned.
+
+`DomainName.Parse("*.wild.example")` threw: the regex requires a label to start
+with a letter or digit. Wildcard owner names do reach clients — the NSEC and
+RRSIG records that prove a wildcard match carry them — so a record a signer
+legitimately produced could not be read back.
+
+**Fix.** The asterisk is validated and stripped before the hostname regex runs,
+in the two places that parse owner names read from the wire:
+`DomainName.ParseLenient` (via a new `AllowWildcardLabel` flag alongside the
+existing `AllowUnderscoreLabels`) and `DNSServiceName.Parse`, which is already
+the owner-name parser — it exists to allow `_` labels.
+
+Two deliberate limits:
+
+- **`DomainName.Parse` still rejects it.** A wildcard is never a hostname, and
+  leniency belongs only on the path that reads names off the wire. The test
+  asserts the strict parser keeps refusing.
+- **Only the leftmost position is accepted.** RFC 4592 §2.1.1 is specific that
+  only a leading `*` makes a wildcard; an asterisk elsewhere is an ordinary
+  label that happens to contain one. `a.*.example` and `*x.example` are legal on
+  the wire but stay rejected, because neither is a wildcard and accepting them
+  would quietly widen what this API produces.
+
+Verified by `Wildcard_Owner_Names_Are_Representable`, four
+`Wildcard_Label_Is_Only_Accepted_Leftmost` cases, and
+`Wildcard_Owner_Name_Round_Trips_Through_The_Wire`, which checks the label goes
+out as the single octet 0x2A and comes back through the suite's independent
+reader unchanged.
+
+With this the suite's fixture loader no longer needs its substitute-owner
+workaround: wildcard records load from the zone file like any other, and
+`SignedZoneFixture.WildcardSignature` has been deleted.
 
 ---
 
