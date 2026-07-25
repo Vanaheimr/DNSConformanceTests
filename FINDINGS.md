@@ -2,12 +2,12 @@
 
 Deviations this suite found in the Hermod DNS stack.
 
-**Status: 15 findings — 11 fixed, 4 open.**
-**282 tests · 276 pass · 6 red (each red test tracks one open finding).**
+**Status: 15 findings — 12 fixed, 3 open.**
+**283 tests · 280 pass · 3 red (each red test tracks one open finding).**
 
 | Run | Tests | Result |
 |-----|------:|-------:|
-| Offline conformance | 221 | 215 ✅ / 6 ❌ tracked |
+| Offline conformance | 222 | 219 ✅ / 3 ❌ tracked |
 | WSL interop (dig, kdig, drill, BIND) | 38 | **38 ✅** |
 | Online interop (Cloudflare, Google, Quad9) | 23 | **23 ✅** |
 
@@ -25,7 +25,7 @@ Deviations this suite found in the Hermod DNS stack.
 | 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ✅ fixed |
 | 11 | Wildcard owner names cannot be represented | Medium | 4592 §2 | ❌ open |
 | 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ✅ fixed |
-| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ❌ open |
+| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
 | 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ❌ open |
 | 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ❌ open |
 
@@ -317,6 +317,51 @@ regression cannot be mistaken for a test bug, and `Revoked_Key_Cannot_Come_Back`
 The rest of RFC 5011 was already correct: the 30-day hold-down, the refusal to
 trust a key on first sight, and the continuity requirement all passed unchanged.
 
+## 13 — The authoritative server ignored the CNAME rule ✅
+
+*RFC 1034 §4.3.2 step 3a:* when the queried node holds a CNAME and QTYPE is not
+CNAME, the server copies the CNAME into the answer section and restarts the
+query at the canonical name.
+
+`AuthoritativeDNSRequestHandler` delegated to a zone lookup that matches on owner
+**and** type, so an alias answered only a `QTYPE=CNAME` query. Asking for `A` at
+a name that is a CNAME returned **NOERROR with an empty answer** — NODATA. A
+resolver reads that as "this name exists and definitively has no A record" and
+caches it.
+
+Aliases therefore worked only for clients that already knew they were aliases,
+which is none of them. This was the most user-visible of the findings: the zone
+looks correct, `dig CNAME` confirms it, and every ordinary lookup returns nothing.
+
+**Fix.** A `FollowCanonicalNames` step in the handler, applied on the NODATA
+path. It is deliberately in the handler rather than in `InMemoryDNSZone`: the
+rule is server behaviour and must hold for any `IDNSZoneStore`, and it needs only
+the existing `Lookup` interface — one lookup for the CNAME, one to restart the
+query at the target.
+
+Details worth keeping:
+
+- `QTYPE=CNAME` and `QTYPE=ANY` skip the restart. The store already answers both
+  directly, and restarting would duplicate the record.
+- The chase follows the whole chain while it stays in the zone, so
+  `alias2 → alias → a` is answered in one round trip.
+- It stops at the zone edge. When the canonical name is not held here, the CNAMEs
+  gathered so far are returned and the resolver continues from them — what
+  RFC 1034 expects of an authoritative server.
+- Loops are caught by a visited set, not only by the depth limit. RFC 1034 §4.3.2
+  warns the chain can loop; a two-element cycle would otherwise be walked sixteen
+  times and each CNAME added to the answer on every pass.
+
+Verified by `Query_For_A_At_An_Alias_Returns_The_Cname` (which now also asserts
+the A record is appended, not just the CNAME),
+`Unknown_Type_At_An_Alias_Still_Returns_The_Cname`,
+`Chained_Alias_Resolves_Or_Refers` (both links plus the A record) and
+`Cname_Loop_Does_Not_Hang_The_Server`, which serves a deliberately cyclic zone
+and asserts each link appears exactly once.
+
+RFC 2181 §10.1 was never violated — `Alias_Node_Carries_No_Data_Of_Its_Own`
+passed throughout, and still does.
+
 ---
 
 # Open
@@ -336,29 +381,6 @@ reach the wildcard signature at all (`SignedZoneFixture.WildcardSignature`).
 Pinned by `Wildcard_Owner_Names_Cannot_Be_Represented`. Note the fix belongs
 only on the *owner name* path: a wildcard is never a valid hostname, so
 `DomainName.Parse` should not accept it everywhere.
-
-## 13 — The authoritative server ignores the CNAME rule ❌
-
-*RFC 1034 §4.3.2 step 3a:* when the queried node holds a CNAME and QTYPE is not
-CNAME, the server copies the CNAME into the answer section and restarts the
-query at the canonical name.
-
-`AuthoritativeDNSRequestHandler` matches on owner **and** type, so an alias
-answers only a `QTYPE=CNAME` query. Asking for `A` at a name that is a CNAME
-returns **NOERROR with an empty answer** — NODATA. A resolver reads that as
-"this name exists and definitively has no A record" and caches it.
-
-So aliases work only for clients that already know they are aliases, which is
-none of them. This is the most user-visible of the open findings: the zone looks
-correct, `dig CNAME` confirms it, and ordinary lookups return nothing.
-
-Reproduced by `Query_For_A_At_An_Alias_Returns_The_Cname`,
-`Unknown_Type_At_An_Alias_Still_Returns_The_Cname` and
-`Chained_Alias_Resolves_Or_Refers`. RFC 2181 §10.1 (no other data may coexist
-with a CNAME) is *not* violated — `Alias_Node_Carries_No_Data_Of_Its_Own` passes.
-
-Note this is a server-side gap only. `DNSClient` chases CNAME and DNAME chains
-correctly, which is why the live interop tests against public resolvers pass.
 
 ## 14 — NODATA answers are never served from the cache ❌
 

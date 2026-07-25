@@ -45,16 +45,14 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifteen deviations so far; eleven are fixed in Hermod and
-four are open. All are documented in [FINDINGS.md](FINDINGS.md), and every open
+The suite has confirmed fifteen deviations so far; twelve are fixed in Hermod and
+three are open. All are documented in [FINDINGS.md](FINDINGS.md), and every open
 one is tracked by a red test tagged `KnownIssue`.
 
 Open:
 
 * ❌ **wildcard owner names cannot be represented** — `DomainName` rejects the
   `*` label, so NSEC/RRSIG records that carry one cannot be read (RFC 4592 §2).
-* ❌ **the authoritative server ignores the CNAME rule** — an alias answers only
-  `QTYPE=CNAME`; everything else gets NODATA (RFC 1034 §4.3.2).
 * ❌ **NODATA answers are never served from the cache** (RFC 2308 §5).
 * ❌ **the negative TTL ignores the SOA MINIMUM** (RFC 2308 §4).
 
@@ -86,6 +84,9 @@ Fixed:
   (RFC 4035 §5.3.2).
 * ✅ **fixed** — a revoked KSK was never dropped from the trust anchors, because
   the REVOKE bit changes the key tag the match was keyed on (RFC 5011 §2.1).
+* ✅ **fixed** — the authoritative server ignored the CNAME rule: an alias
+  answered only `QTYPE=CNAME` and returned NODATA for everything else
+  (RFC 1034 §4.3.2).
 
 Two review suspicions did *not* survive contact with a test, which is exactly
 why the suite exists:
@@ -142,7 +143,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **282 tests, 276 ✅, 6 ❌**. Every ❌ is a
+Counts as of the 2026-07-25 run: **283 tests, 280 ✅, 3 ❌**. Every ❌ is a
 confirmed deviation tracked in [FINDINGS.md](FINDINGS.md) and tagged
 `KnownIssue`, so excluding that category gives a green gate.
 
@@ -249,7 +250,7 @@ round-trip where supported.
 | 6891 §6.1.3 | EDNS version > 0 → BADVERS | ✅ |
 | 1035 §4.1.1 | unparseable request → FORMERR rather than silence | ✅ |
 | 2181 §10.1 | no non-CNAME data is owned by an alias | ✅ |
-| 1034 §4.3.2 | a CNAME answers queries of every type at that name | ❌ [#13](FINDINGS.md) |
+| 1034 §4.3.2 | a CNAME answers queries of every type at that name; chains are followed within the zone and cycles terminate | ✅ |
 | 4592 | wildcard matching (needs zone-store support) | ⬜ |
 
 ### 4.6 Secure transports (`DNSConformance.SecureTransports.Tests`)
