@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/conformance/">
+    <Project Path="conformance/DNSConformance.Client.Tests/DNSConformance.Client.Tests.csproj" />
+    <Project Path="conformance/DNSConformance.Dnssec.Tests/DNSConformance.Dnssec.Tests.csproj" />
+    <Project Path="conformance/DNSConformance.Edns.Tests/DNSConformance.Edns.Tests.csproj" />
+    <Project Path="conformance/DNSConformance.ResourceRecords.Tests/DNSConformance.ResourceRecords.Tests.csproj" />
+    <Project Path="conformance/DNSConformance.SecureTransports.Tests/DNSConformance.SecureTransports.Tests.csproj" />
+    <Project Path="conformance/DNSConformance.Server.Tests/DNSConformance.Server.Tests.csproj" />
+    <Project Path="conformance/DNSConformance.WireFormat.Tests/DNSConformance.WireFormat.Tests.csproj" />
+  </Folder>
+  <Folder Name="/interop/">
+    <Project Path="interop/DNSInterop.ExternalServers.Tests/DNSInterop.ExternalServers.Tests.csproj" />
+    <Project Path="interop/DNSInterop.LinuxTools.Tests/DNSInterop.LinuxTools.Tests.csproj" />
+    <Project Path="interop/DNSInterop.PublicResolvers.Tests/DNSInterop.PublicResolvers.Tests.csproj" />
+  </Folder>
+  <Folder Name="/libs/" />
+  <Folder Name="/libs/Hermod/">
+    <Project Path="libs/Hermod/Hermod/Hermod.csproj" />
+  </Folder>
+  <Folder Name="/libs/Styx/">
+    <Project Path="libs/Styx/Styx/Styx.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/DNSConformance.Core/DNSConformance.Core.csproj" />
+  </Folder>
+</Solution>

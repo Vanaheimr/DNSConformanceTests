@@ -1,0 +1,14 @@
+$TTL 3600
+@       IN  SOA ns1.dnssec.test. hostmaster.dnssec.test. (
+                2026072501 ; serial
+                7200       ; refresh
+                3600       ; retry
+                1209600    ; expire
+                3600 )     ; minimum
+@       IN  NS   ns1.dnssec.test.
+ns1     IN  A    192.0.2.53
+a       IN  A    192.0.2.1
+aaaa    IN  AAAA 2001:db8::1
+mx      IN  MX   10 mail.dnssec.test.
+mail    IN  A    192.0.2.25
+txt     IN  TXT  "signed by BIND"

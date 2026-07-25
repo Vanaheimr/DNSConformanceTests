@@ -1,0 +1,26 @@
+// Minimal authoritative BIND instance used by DNSInterop.ExternalServers.Tests.
+// __DIR__ and __PORT__ are substituted by BindServerFixture at runtime.
+
+options {
+    directory "__DIR__";
+    pid-file  "__DIR__/named.pid";
+    // All interfaces: WSL2's NAT localhost relay forwards TCP but not UDP, so
+    // clients on the Windows side must reach the VM by its eth0 address.
+    listen-on port __PORT__ { any; };
+    listen-on-v6 { none; };
+    recursion no;
+    dnssec-validation no;
+    allow-query { any; };
+    // Keep the instance self-contained: no root hints, no outbound traffic.
+    empty-zones-enable no;
+};
+
+zone "interop.test" {
+    type primary;
+    file "__DIR__/interop.test.zone";
+};
+
+zone "dnssec.test" {
+    type primary;
+    file "__DIR__/dnssec.test.zone.signed";
+};

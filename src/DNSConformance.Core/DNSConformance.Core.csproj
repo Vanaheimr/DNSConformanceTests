@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Shared infrastructure for the Hermod DNS conformance and interoperability test suite: independent RawDns reference codec, scripted UDP/TCP/TLS/DoH servers, Hermod server fixtures, WSL tool bridge, capability probing.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NUnit only for Assert.Ignore-based capability gating helpers. -->
+    <PackageReference Include="NUnit" Version="4.6.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\Styx\Styx\Styx.csproj" />
+    <ProjectReference Include="..\..\libs\Hermod\Hermod\Hermod.csproj" />
+  </ItemGroup>
+
+</Project>

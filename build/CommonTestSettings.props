@@ -1,0 +1,16 @@
+<Project>
+
+  <!-- Shared settings for all DNSConformance/DNSInterop projects.
+       Deliberately NOT a root-level Directory.Build.props: a file at the
+       repository root would also apply to the Hermod/Styx submodule builds. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+</Project>

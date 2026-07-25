@@ -1,0 +1,28 @@
+$TTL 3600
+@       IN  SOA ns1.interop.test. hostmaster.interop.test. (
+                2026072501 ; serial
+                7200       ; refresh
+                3600       ; retry
+                1209600    ; expire
+                3600 )     ; minimum
+@       IN  NS    ns1.interop.test.
+ns1     IN  A     192.0.2.53
+a       IN  A     192.0.2.1
+multi   IN  A     192.0.2.10
+multi   IN  A     192.0.2.11
+multi   IN  A     192.0.2.12
+aaaa    IN  AAAA  2001:db8::1
+alias   IN  CNAME a.interop.test.
+mx      IN  MX    10 mail1.interop.test.
+mx      IN  MX    20 mail2.interop.test.
+mail1   IN  A     192.0.2.25
+mail2   IN  A     192.0.2.26
+txt     IN  TXT   "hello from BIND"
+big     IN  TXT   "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" "and a second character-string"
+_dns._udp IN SRV 10 60 5353 ns1.interop.test.
+caa     IN  CAA   0 issue "letsencrypt.org"
+hinfo   IN  HINFO "VAX-11/780" "UNIX"
+naptr   IN  NAPTR 100 50 "S" "SIP+D2U" "" sip.interop.test.
+sshfp   IN  SSHFP 1 1 123456789abcdef67890123456789abcdef67890
+tlsa    IN  TLSA  3 1 1 d2abde240d7cd3ee6b4b28c54df034b97983a1d16e8a410e4561cb106618e971
+uri     IN  URI   10 1 "https://www.interop.test/path"
