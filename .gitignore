@@ -6,7 +6,7 @@ TestResults/
 # DNSSEC fixtures are committed (the signed zone is a test input), but the
 # private keys and BIND's scratch output are not.
 fixtures/zones/signed/*.private
-fixtures/zones/signed/signing.log
+fixtures/zones/signed/signing*.log
 
 # dnssec-signzone writes "dsset-<zone>." with a trailing dot, which Windows
 # cannot index. The DS record the tests read lives in <zone>.ds instead.

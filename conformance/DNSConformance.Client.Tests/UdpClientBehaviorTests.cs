@@ -55,6 +55,68 @@ public class UdpClientBehaviorTests
 
     #endregion
 
+    #region Client_Puts_The_Query_Name_On_The_Wire_With_Its_Case()
+
+    [Test]
+    [Property("RFC", "1035 §2.3.3")]
+    public async Task Client_Puts_The_Query_Name_On_The_Wire_With_Its_Case()
+    {
+
+        await using var server = new ScriptedUdpServer(request =>
+            RawDnsResponder.Answer(request, ("MiXeD.ExAmPlE.", RawDnsType.A, 60, RawDnsWriter.IPv4("192.0.2.4"))));
+
+        await using var client = new DNSUDPClient(
+                                     IPv4Address.Localhost,
+                                     IPPort.Parse((UInt16) server.Port),
+                                     QueryTimeout: ShortTimeout
+                                 );
+
+        _ = await client.Query<A>(DomainName.Parse("MiXeD.ExAmPlE."), ShortTimeout);
+
+        Assert.That(server.Requests.TryDequeue(out var request), Is.True);
+
+        // Observed by the independent reader on the server side, so this is what
+        // actually left the socket — not what Hermod believes it sent.
+        var qname = RawDnsReader.Parse(request!).Questions.Single().Name.Presentation;
+
+        Assert.That(qname, Is.EqualTo("MiXeD.ExAmPlE"),
+                    "the capitalization the caller chose must survive to the wire");
+
+    }
+
+    #endregion
+
+    #region Response_Echoing_A_Lowercased_Question_Is_Accepted()
+
+    [Test]
+    [Property("RFC", "4343")]
+    public async Task Response_Echoing_A_Lowercased_Question_Is_Accepted()
+    {
+
+        // Plenty of resolvers normalize the QNAME before echoing it. RFC 4343 makes
+        // that the same name, so the answer must still be accepted — a client that
+        // compared the echoed question byte-for-byte would drop legitimate replies
+        // from a large slice of the internet.
+        await using var server = new ScriptedUdpServer(request =>
+            RawDnsResponder.WithLowercasedQuestion(
+                RawDnsResponder.Answer(request, ("mixed.example.", RawDnsType.A, 60, RawDnsWriter.IPv4("192.0.2.5")))));
+
+        await using var client = new DNSUDPClient(
+                                     IPv4Address.Localhost,
+                                     IPPort.Parse((UInt16) server.Port),
+                                     QueryTimeout: ShortTimeout
+                                 );
+
+        var response = await client.Query<A>(DomainName.Parse("MiXeD.ExAmPlE."), ShortTimeout);
+
+        Assert.That(response.FilteredAnswers.Select(a => a.IPv4Address.ToString()),
+                    Is.EqualTo(new[] { "192.0.2.5" }),
+                    "a differently-cased echo of the question is still the same question");
+
+    }
+
+    #endregion
+
     #region Transaction_Ids_Draw_From_A_Wide_Range()
 
     [Test]

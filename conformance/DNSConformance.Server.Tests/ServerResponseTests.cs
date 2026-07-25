@@ -86,11 +86,23 @@ public class ServerResponseTests
         var response   = RawDnsReader.Parse(raw!);
         var echoed     = response.Questions.Single().Name.Presentation;
 
-        TestContext.Out.WriteLine($"asked '{mixedCase}', server echoed '{echoed}'");
-
         Assert.Multiple(() => {
-            Assert.That(echoed, Is.EqualTo(mixedCase.TrimEnd('.')).IgnoreCase, "the name itself must match");
-            Assert.That(response.Answers, Is.Not.Empty, "matching MUST be case-insensitive (RFC 1035 §2.3.3)");
+
+            Assert.That(echoed, Is.EqualTo(mixedCase.TrimEnd('.')),
+                        "the QNAME must be echoed with its capitalization intact");
+
+            Assert.That(response.Answers, Is.Not.Empty,
+                        "…while the lookup itself is case-insensitive (RFC 1035 §2.3.3)");
+
+            // The answer's owner name comes back in the *zone's* spelling, not the
+            // query's. That is conformant: §2.3.3 is SHOULD-level and the case the
+            // zone data entered with is exactly what is preserved. It only coincides
+            // with the query's spelling when the server compresses the owner into a
+            // pointer at the QNAME (DNSServerOptions.UseCompression, off by default) —
+            // see Mixed_Case_Name_Compresses_Against_Its_Lowercase_Twin.
+            Assert.That(response.Answers[0].Name.Presentation, Is.EqualTo(mixedCase.TrimEnd('.')).IgnoreCase,
+                        "the answer's owner name must be the same name as the question");
+
         });
 
     }

@@ -22,6 +22,9 @@ public sealed class SignedZoneFixture
     public required IReadOnlyList<RRSIG>                Signatures  { get; init; }
     public required DS                                  DelegationSigner { get; init; }
 
+    /// <summary>The raw flattened zone file, for records the typed loader skips.</summary>
+    public required IReadOnlyList<String>               RawLines    { get; init; }
+
 
     /// <summary>All records of one owner name and type — an RRset in the RFC 4034 §3.1 sense.</summary>
     public List<IDNSResourceRecord> RRset(String ownerName, DNSResourceRecordTypes type)
@@ -39,6 +42,51 @@ public sealed class SignedZoneFixture
     public DNSKEY? KeyFor(RRSIG signature)
         => DnsKeys.FirstOrDefault(key => key.Algorithm == signature.Algorithm &&
                                          DNSSECValidator.ComputeKeyTag(key) == signature.KeyTag);
+
+
+    /// <summary>
+    /// The RRSIG covering a wildcard owner such as "*.wild.dnssec.test.".
+    ///
+    /// Two things make this awkward enough to deserve its own accessor. Hermod's
+    /// <see cref="DomainName"/> cannot represent a "*" label at all, so the typed
+    /// loader skips these lines; and the RRSIG's own owner name is not part of the
+    /// signed data (RFC 4034 §3.1.8.1), so substituting a parseable owner changes
+    /// nothing about what the signature covers. What matters — Labels, OriginalTTL,
+    /// the validity window, KeyTag, SignerName and the signature itself — is
+    /// preserved exactly.
+    /// </summary>
+    public RRSIG WildcardSignature(String                  WildcardOwner,
+                                   DNSResourceRecordTypes  Type,
+                                   String                  SubstituteOwner = "wildcard.invalid")
+    {
+
+        var wanted = WildcardOwner.TrimEnd('.') + ".";
+
+        foreach (var line in RawLines)
+        {
+
+            var fields = line.Split((Char[]?) null, StringSplitOptions.RemoveEmptyEntries);
+
+            if (fields.Length < 5                                                      ||
+                !fields[0].Equals(wanted, StringComparison.OrdinalIgnoreCase)          ||
+                fields[3] != "RRSIG"                                                   ||
+                !fields[4].Equals(Type.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var rewritten = String.Join(' ', new[] { SubstituteOwner }.Concat(fields[1..]));
+
+            if (TryParseFlatLine(rewritten, out var record) && record is RRSIG signature)
+                return signature;
+
+        }
+
+        throw new InvalidOperationException(
+                  $"No {Type} RRSIG for '{WildcardOwner}' in the {Origin} fixture — run fixtures/zones/resign.sh."
+              );
+
+    }
 
 
     /// <summary>The zone signing key (SEP bit clear) / key signing key (SEP bit set).</summary>
@@ -73,8 +121,11 @@ public sealed class SignedZoneFixture
     });
 
     public static Boolean IsAvailable
+        => IsAvailableFor("dnssec.test");
+
+    public static Boolean IsAvailableFor(String Origin)
         => SignedZoneDirectory is not null &&
-           File.Exists(Path.Combine(SignedZoneDirectory, "dnssec.test.zone.flat"));
+           File.Exists(Path.Combine(SignedZoneDirectory, $"{Origin}.zone.flat"));
 
     #endregion
 
@@ -92,7 +143,8 @@ public sealed class SignedZoneFixture
         if (!File.Exists(flatFile))
             throw new FileNotFoundException($"{flatFile} not found — run fixtures/zones/resign.sh (needs WSL + bind9utils).");
 
-        var records = new List<IDNSResourceRecord>();
+        var records  = new List<IDNSResourceRecord>();
+        var rawLines = new List<String>();
 
         foreach (var rawLine in File.ReadAllLines(flatFile))
         {
@@ -101,6 +153,8 @@ public sealed class SignedZoneFixture
 
             if (line.Length == 0 || line.StartsWith(';'))
                 continue;
+
+            rawLines.Add(line);
 
             if (TryParseFlatLine(line, out var record))
                 records.Add(record);
@@ -115,7 +169,8 @@ public sealed class SignedZoneFixture
                    Records           = records,
                    DnsKeys           = [.. records.OfType<DNSKEY>()],
                    Signatures        = [.. records.OfType<RRSIG>()],
-                   DelegationSigner  = ParseDs(dsLine)
+                   DelegationSigner  = ParseDs(dsLine),
+                   RawLines          = rawLines
                };
 
     }
