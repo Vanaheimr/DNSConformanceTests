@@ -44,51 +44,6 @@ public sealed class SignedZoneFixture
                                          DNSSECValidator.ComputeKeyTag(key) == signature.KeyTag);
 
 
-    /// <summary>
-    /// The RRSIG covering a wildcard owner such as "*.wild.dnssec.test.".
-    ///
-    /// Two things make this awkward enough to deserve its own accessor. Hermod's
-    /// <see cref="DomainName"/> cannot represent a "*" label at all, so the typed
-    /// loader skips these lines; and the RRSIG's own owner name is not part of the
-    /// signed data (RFC 4034 §3.1.8.1), so substituting a parseable owner changes
-    /// nothing about what the signature covers. What matters — Labels, OriginalTTL,
-    /// the validity window, KeyTag, SignerName and the signature itself — is
-    /// preserved exactly.
-    /// </summary>
-    public RRSIG WildcardSignature(String                  WildcardOwner,
-                                   DNSResourceRecordTypes  Type,
-                                   String                  SubstituteOwner = "wildcard.invalid")
-    {
-
-        var wanted = WildcardOwner.TrimEnd('.') + ".";
-
-        foreach (var line in RawLines)
-        {
-
-            var fields = line.Split((Char[]?) null, StringSplitOptions.RemoveEmptyEntries);
-
-            if (fields.Length < 5                                                      ||
-                !fields[0].Equals(wanted, StringComparison.OrdinalIgnoreCase)          ||
-                fields[3] != "RRSIG"                                                   ||
-                !fields[4].Equals(Type.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var rewritten = String.Join(' ', new[] { SubstituteOwner }.Concat(fields[1..]));
-
-            if (TryParseFlatLine(rewritten, out var record) && record is RRSIG signature)
-                return signature;
-
-        }
-
-        throw new InvalidOperationException(
-                  $"No {Type} RRSIG for '{WildcardOwner}' in the {Origin} fixture — run fixtures/zones/resign.sh."
-              );
-
-    }
-
-
     /// <summary>The zone signing key (SEP bit clear) / key signing key (SEP bit set).</summary>
     public DNSKEY? ZoneSigningKey  => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) == 0);
     public DNSKEY? KeySigningKey   => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) != 0);
@@ -184,6 +139,10 @@ public sealed class SignedZoneFixture
     /// Parse "owner TTL IN TYPE rdata..." for the record types the DNSSEC
     /// fixtures use. Deliberately small and explicit: this is reference code
     /// for the suite, so it must not depend on Hermod's own zone-file parser.
+    ///
+    /// Owner names go through ParseLenient, because a zone file legitimately holds
+    /// label forms a hostname never has — underscore names and wildcards. RDATA
+    /// targets stay on the strict parser: a CNAME or MX may not point at a wildcard.
     /// </summary>
     private static Boolean TryParseFlatLine(String line, out IDNSResourceRecord record)
     {
@@ -214,32 +173,32 @@ public sealed class SignedZoneFixture
             {
 
                 case "A":
-                    record = new A(DomainName.Parse(owner), DNSQueryClasses.IN, ttl,
+                    record = new A(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
                                    org.GraphDefined.Vanaheimr.Hermod.IPv4Address.Parse(rdata[0]));
                     return true;
 
                 case "AAAA":
-                    record = new AAAA(DomainName.Parse(owner), DNSQueryClasses.IN, ttl,
+                    record = new AAAA(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
                                       org.GraphDefined.Vanaheimr.Hermod.IPv6Address.Parse(rdata[0]));
                     return true;
 
                 case "NS":
-                    record = new NS(DomainName.Parse(owner), DNSQueryClasses.IN, ttl, DomainName.Parse(rdata[0].TrimEnd('.')));
+                    record = new NS(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl, DomainName.Parse(rdata[0].TrimEnd('.')));
                     return true;
 
                 case "MX":
-                    record = new MX(DomainName.Parse(owner), DNSQueryClasses.IN, ttl,
+                    record = new MX(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
                                     UInt16.Parse(rdata[0]), DomainName.Parse(rdata[1].TrimEnd('.')));
                     return true;
 
                 case "TXT":
-                    record = new TXT(DomainName.Parse(owner), DNSQueryClasses.IN, ttl,
+                    record = new TXT(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
                                      String.Join(' ', rdata).Trim('"'));
                     return true;
 
                 case "DNSKEY":
                     record = new DNSKEY(
-                                 DomainName.Parse(owner),
+                                 DomainName.ParseLenient(owner),
                                  DNSQueryClasses.IN,
                                  ttl,
                                  UInt16.Parse(rdata[0]),
@@ -251,7 +210,7 @@ public sealed class SignedZoneFixture
 
                 case "RRSIG":
                     record = new RRSIG(
-                                 DomainName.Parse(owner),
+                                 DomainName.ParseLenient(owner),
                                  DNSQueryClasses.IN,
                                  ttl,
                                  ParseType(rdata[0]),
@@ -268,7 +227,7 @@ public sealed class SignedZoneFixture
 
                 case "SOA":
                     record = new SOA(
-                                 DomainName.Parse(owner),
+                                 DomainName.ParseLenient(owner),
                                  DNSQueryClasses.IN,
                                  ttl,
                                  DomainName.Parse(rdata[0].TrimEnd('.')),

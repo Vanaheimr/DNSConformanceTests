@@ -2,12 +2,12 @@
 
 Deviations this suite found in the Hermod DNS stack.
 
-**Status: 15 findings — 14 fixed, 1 open.**
-**284 tests · 283 pass · 1 red (the red test tracks the open finding).**
+**Status: 15 findings — all fixed.**
+**289 tests · 289 pass · 0 red.**
 
 | Run | Tests | Result |
 |-----|------:|-------:|
-| Offline conformance | 223 | 222 ✅ / 1 ❌ tracked |
+| Offline conformance | 228 | **228 ✅** |
 | WSL interop (dig, kdig, drill, BIND) | 38 | **38 ✅** |
 | Online interop (Cloudflare, Google, Quad9) | 23 | **23 ✅** |
 
@@ -23,7 +23,7 @@ Deviations this suite found in the Hermod DNS stack.
 | 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | ✅ fixed |
 | 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 | ✅ fixed |
 | 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ✅ fixed |
-| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2 | ❌ open |
+| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2.1.1 | ✅ fixed |
 | 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ✅ fixed |
 | 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
 | 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ✅ fixed |
@@ -414,25 +414,42 @@ Verified by `Negative_Answer_Expires_After_The_Soa_Minimum`, which sets MINIMUM
 to 1 s and the SOA's own TTL to an hour, so reading the record TTL instead — the
 original mistake — still fails the test.
 
----
+## 11 — Wildcard owner names could not be represented ✅
 
-# Open
+*RFC 4592 §2.1.1:* a wildcard domain name is one whose leftmost label is a single
+asterisk. It is an ordinary label as far as the wire format is concerned.
 
-## 11 — Wildcard owner names cannot be represented ❌
+`DomainName.Parse("*.wild.example")` threw: the regex requires a label to start
+with a letter or digit. Wildcard owner names do reach clients — the NSEC and
+RRSIG records that prove a wildcard match carry them — so a record a signer
+legitimately produced could not be read back.
 
-*RFC 4592 §2:* `*` is an ordinary label as far as the wire format is concerned.
+**Fix.** The asterisk is validated and stripped before the hostname regex runs,
+in the two places that parse owner names read from the wire:
+`DomainName.ParseLenient` (via a new `AllowWildcardLabel` flag alongside the
+existing `AllowUnderscoreLabels`) and `DNSServiceName.Parse`, which is already
+the owner-name parser — it exists to allow `_` labels.
 
-`DomainName.Parse("*.wild.example")` throws: the regex requires a label to start
-with a letter or digit. Wildcard owner names do appear in responses — the NSEC
-and RRSIG records that prove a wildcard match carry them — so a record that a
-signer legitimately produced cannot be read back.
+Two deliberate limits:
 
-This is why the suite's fixture loader has to substitute a parseable owner to
-reach the wildcard signature at all (`SignedZoneFixture.WildcardSignature`).
+- **`DomainName.Parse` still rejects it.** A wildcard is never a hostname, and
+  leniency belongs only on the path that reads names off the wire. The test
+  asserts the strict parser keeps refusing.
+- **Only the leftmost position is accepted.** RFC 4592 §2.1.1 is specific that
+  only a leading `*` makes a wildcard; an asterisk elsewhere is an ordinary
+  label that happens to contain one. `a.*.example` and `*x.example` are legal on
+  the wire but stay rejected, because neither is a wildcard and accepting them
+  would quietly widen what this API produces.
 
-Pinned by `Wildcard_Owner_Names_Cannot_Be_Represented`. Note the fix belongs
-only on the *owner name* path: a wildcard is never a valid hostname, so
-`DomainName.Parse` should not accept it everywhere.
+Verified by `Wildcard_Owner_Names_Are_Representable`, four
+`Wildcard_Label_Is_Only_Accepted_Leftmost` cases, and
+`Wildcard_Owner_Name_Round_Trips_Through_The_Wire`, which checks the label goes
+out as the single octet 0x2A and comes back through the suite's independent
+reader unchanged.
+
+With this the suite's fixture loader no longer needs its substitute-owner
+workaround: wildcard records load from the zone file like any other, and
+`SignedZoneFixture.WildcardSignature` has been deleted.
 
 ---
 
