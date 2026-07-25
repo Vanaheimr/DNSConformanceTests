@@ -187,14 +187,12 @@ public class PublicResolverTests
 
     [Test]
     [Property("RFC", "9460")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #4
     public async Task Https_Svcb_Records_Resolve_In_The_Wild()
     {
 
-        // cloudflare.com publishes an HTTPS record that dig renders without
-        // complaint. Hermod currently returns SERVFAIL with zero answers,
-        // because the SvcParam loop overruns RDLENGTH and then chokes on the
-        // trailing OPT record — reproduced offline by
+        // cloudflare.com publishes an HTTPS record whose answer is followed by
+        // an OPT record. Parsing it requires honoring RDLENGTH when reading the
+        // SvcParams; the offline reproduction of that boundary lives in
         // DNSConformance.ResourceRecords.Tests.Https_Record_Followed_By_Another_Record_Does_Not_Overrun.
         await using var client = new DNSUDPClient(IPv4Address.Parse("1.1.1.1"), QueryTimeout: Timeout);
 

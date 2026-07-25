@@ -309,7 +309,6 @@ public class SecurityAndBinaryRecordTests
 
     [Test]
     [Property("RFC", "1035 §4.1.3")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #4
     public void Https_Record_Followed_By_Another_Record_Does_Not_Overrun()
     {
 

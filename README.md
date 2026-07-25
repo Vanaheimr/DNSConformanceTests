@@ -11,8 +11,11 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[PLAN.md](PLAN.md)** — architecture and the full RFC coverage matrix
 - **[FINDINGS.md](FINDINGS.md)** — conformance deviations this suite found
 
-**Current status: 211 tests · 199 ✅ · 12 ❌** (every ❌ is a documented,
-reproducible RFC deviation, not a flaky test).
+**Current status: 211 tests · 211 ✅ · 0 ❌.**
+
+The suite's first run found 12 failures across 8 distinct RFC deviations. All
+were confirmed as real Hermod bugs and fixed; [FINDINGS.md](FINDINGS.md) records
+each one with chapter and verse, the fix, and the test that pins it.
 
 ## Getting started
 
@@ -27,8 +30,8 @@ Everything that needs no network, WSL or Docker:
 dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
 ```
 
-Only the tests that currently pass (useful as a regression gate while the
-findings are open):
+If a future run turns up new deviations, tag them `KnownIssue` and exclude them
+to keep a green gate while they are open:
 
 ```bash
 dotnet test DNSConformanceTests.slnx --filter "TestCategory!=KnownIssue"

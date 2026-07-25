@@ -34,7 +34,6 @@ public class ServerEdnsAndTruncationTests
 
     [Test]
     [Property("RFC", "6891 §6.1.1")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #6
     public async Task Response_To_Edns_Query_Contains_An_Opt_Record()
     {
 
@@ -59,7 +58,6 @@ public class ServerEdnsAndTruncationTests
 
     [Test]
     [Property("RFC", "6891 §6.1.3")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #6
     public async Task Unknown_Edns_Version_Yields_BADVERS()
     {
 
@@ -118,7 +116,6 @@ public class ServerEdnsAndTruncationTests
 
     [Test]
     [Property("RFC", "1035 §4.2.1")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #7
     public async Task Large_Answer_Without_Edns_Is_Truncated_Or_Fits_512_Bytes()
     {
 
@@ -152,7 +149,6 @@ public class ServerEdnsAndTruncationTests
 
     [Test]
     [Property("RFC", "6891 §6.2.5")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #7
     public async Task Answer_Respects_The_Advertised_Edns_Payload_Size()
     {
 
