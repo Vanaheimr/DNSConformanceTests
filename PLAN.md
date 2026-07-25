@@ -45,16 +45,14 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifteen deviations so far; twelve are fixed in Hermod and
-three are open. All are documented in [FINDINGS.md](FINDINGS.md), and every open
+The suite has confirmed fifteen deviations so far; fourteen are fixed in Hermod
+and one is open. All are documented in [FINDINGS.md](FINDINGS.md), and the open
 one is tracked by a red test tagged `KnownIssue`.
 
 Open:
 
 * ❌ **wildcard owner names cannot be represented** — `DomainName` rejects the
   `*` label, so NSEC/RRSIG records that carry one cannot be read (RFC 4592 §2).
-* ❌ **NODATA answers are never served from the cache** (RFC 2308 §5).
-* ❌ **the negative TTL ignores the SOA MINIMUM** (RFC 2308 §4).
 
 Fixed:
 
@@ -87,6 +85,11 @@ Fixed:
 * ✅ **fixed** — the authoritative server ignored the CNAME rule: an alias
   answered only `QTYPE=CNAME` and returned NODATA for everything else
   (RFC 1034 §4.3.2).
+* ✅ **fixed** — NODATA answers were never stored in the cache, so the per-type
+  negative cache behind them was unreachable (RFC 2308 §5).
+* ✅ **fixed** — the negative TTL read the SOA's record TTL rather than
+  `min(MINIMUM, TTL)`, and negative entries never expired on read anyway
+  (RFC 2308 §4).
 
 Two review suspicions did *not* survive contact with a test, which is exactly
 why the suite exists:
@@ -143,7 +146,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **283 tests, 280 ✅, 3 ❌**. Every ❌ is a
+Counts as of the 2026-07-25 run: **284 tests, 283 ✅, 1 ❌**. Every ❌ is a
 confirmed deviation tracked in [FINDINGS.md](FINDINGS.md) and tagged
 `KnownIssue`, so excluding that category gives a green gate.
 
@@ -227,8 +230,8 @@ round-trip where supported.
 | robustness | garbage responses produce a result object, not an unhandled exception | ✅ |
 | 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
-| 2308 §5 | NODATA served from the negative cache | ❌ [#14](FINDINGS.md) |
-| 2308 §4 | negative TTL taken from the SOA MINIMUM | ❌ [#15](FINDINGS.md) |
+| 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
+| 2308 §4 | negative TTL is min(SOA MINIMUM, SOA TTL), and the entry actually expires | ✅ |
 | 6672 | CNAME/DNAME chase with loop protection (covered live in interop) | 🟡 |
 
 ### 4.5 Server behavior (`DNSConformance.Server.Tests`) — raw sockets vs. `DNSServer`

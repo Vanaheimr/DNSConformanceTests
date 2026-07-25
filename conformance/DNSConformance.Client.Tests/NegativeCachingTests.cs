@@ -125,7 +125,6 @@ public class NegativeCachingTests
 
     [Test]
     [Property("RFC", "2308 §5")]
-    [Category(TestCategories.KnownIssue)]
     public async Task Repeated_Nodata_Query_Is_Served_From_The_Cache()
     {
 
@@ -162,19 +161,20 @@ public class NegativeCachingTests
     [Test]
     [Property("RFC", "2308 §4")]
     [Category(TestCategories.Slow)]
-    [Category(TestCategories.KnownIssue)]
     public async Task Negative_Answer_Expires_After_The_Soa_Minimum()
     {
 
-        // RFC 2308 §4: the negative TTL is taken from the SOA's MINIMUM field.
-        // With MINIMUM = 1 s the entry must be gone shortly afterwards — a cache
-        // that ignores the field and applies its own default would still be
-        // holding it.
+        // RFC 2308 §4: the negative TTL is min(SOA MINIMUM, SOA record TTL).
+        //
+        // The two are deliberately far apart here. MINIMUM is 1 s and the SOA's own
+        // TTL is an hour, so a cache that reads only the record's TTL — which is the
+        // easy mistake, since every other record's lifetime does come from there —
+        // would still be holding the entry three seconds later.
         var requests = 0;
 
         await using var server = new ScriptedUdpServer(request => {
             Interlocked.Increment(ref requests);
-            return RawDnsResponder.Negative(request, 3, "example.", SoaMinimum: 1, SoaTtl: 1);
+            return RawDnsResponder.Negative(request, 3, "example.", SoaMinimum: 1, SoaTtl: 3600);
         });
 
         using var client = ClientFor(server.Port);
@@ -189,6 +189,42 @@ public class NegativeCachingTests
 
         Assert.That(requests, Is.EqualTo(2),
                     $"the negative entry must expire after the SOA MINIMUM; saw {requests} requests");
+
+    }
+
+    #endregion
+
+    #region Referral_Is_Not_Cached_As_Nodata()
+
+    [Test]
+    [Property("RFC", "2308 §2.2")]
+    public async Task Referral_Is_Not_Cached_As_Nodata()
+    {
+
+        // A referral and a NODATA answer are indistinguishable by RCODE and answer
+        // count — both are NOERROR with nothing in the answer section. The SOA is
+        // the only difference: RFC 2308 §2.2 defines NODATA as carrying one, and a
+        // referral carries NS records instead.
+        //
+        // Treating a referral as NODATA would cache "this type does not exist" for
+        // a name whose data is merely served elsewhere, and the second query must
+        // therefore still go out.
+        var requests = 0;
+
+        await using var server = new ScriptedUdpServer(request => {
+            Interlocked.Increment(ref requests);
+            return RawDnsResponder.Referral(request, "example.", "ns1.example.");
+        });
+
+        using var client = ClientFor(server.Port);
+
+        var name = DomainName.Parse("delegated.example.");
+
+        await client.Query<A>(name, Timeout);
+        await client.Query<A>(name, Timeout);
+
+        Assert.That(requests, Is.EqualTo(2),
+                    $"a referral carries no SOA and must not be cached as NODATA; saw {requests} requests");
 
     }
 

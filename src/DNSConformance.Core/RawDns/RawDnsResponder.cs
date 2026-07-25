@@ -98,6 +98,33 @@ public static class RawDnsResponder
 
 
     /// <summary>
+    /// A referral: NOERROR, no answers, NS records in the authority section and no
+    /// SOA.
+    ///
+    /// It looks exactly like a NODATA answer from the outside — same RCODE, same
+    /// empty answer section — and the SOA is the only thing that tells them apart.
+    /// Caching one as the other would record "this type does not exist" for a name
+    /// whose data simply lives on another server.
+    /// </summary>
+    public static Byte[] Referral(Byte[]  request,
+                                  String  Zone,
+                                  String  NameServer)
+    {
+
+        var query          = RawDnsReader.Parse(request, RawDnsReaderOptions.Lenient);
+        var question       = query.Questions[0];
+        var questionBytes  = request[12..(12 + question.Name.WireLength + 4)];
+
+        return new RawDnsWriter().
+                   Header(query.Id, DefaultFlags, 1, 0, 1, 0).
+                   Bytes(questionBytes).
+                   RR(Zone, RawDnsType.NS, RawDnsClass.IN, 3600, RawDnsWriter.NameBytes(NameServer)).
+                   ToArray();
+
+    }
+
+
+    /// <summary>
     /// Fold the QNAME in the question section to lower case, leaving the rest of
     /// the message untouched. Models the many resolvers that normalize names
     /// internally: RFC 4343 makes the result the same name, so a client must still

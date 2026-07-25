@@ -11,11 +11,10 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[PLAN.md](PLAN.md)** — architecture and the full RFC coverage matrix
 - **[FINDINGS.md](FINDINGS.md)** — conformance deviations this suite found
 
-**Current status: 283 tests · 280 ✅ · 3 ❌.**
+**Current status: 284 tests · 283 ✅ · 1 ❌.**
 
-The suite has found 15 RFC deviations. Twelve are fixed in Hermod; three are open,
-and each open one is pinned by a red test tagged `KnownIssue` so it cannot be
-forgotten. [FINDINGS.md](FINDINGS.md) records every one with chapter and verse,
+The suite has found 15 RFC deviations. Fourteen are fixed in Hermod; one is open,
+and it is pinned by a red test tagged `KnownIssue` so it cannot be forgotten. [FINDINGS.md](FINDINGS.md) records every one with chapter and verse,
 and — for the fixed ones — the change and the test that pins it.
 
 Excluding `KnownIssue` gives a green gate:
