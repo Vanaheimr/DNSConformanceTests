@@ -45,19 +45,14 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifteen deviations so far; nine are fixed in Hermod and
-six are open. All are documented in [FINDINGS.md](FINDINGS.md), and every open
+The suite has confirmed fifteen deviations so far; eleven are fixed in Hermod and
+four are open. All are documented in [FINDINGS.md](FINDINGS.md), and every open
 one is tracked by a red test tagged `KnownIssue`.
 
 Open:
 
-* ❌ **wildcard-expanded RRsets fail DNSSEC validation** — the signed data is
-  rebuilt from the expanded owner name instead of the wildcard (RFC 4035 §5.3.2).
 * ❌ **wildcard owner names cannot be represented** — `DomainName` rejects the
   `*` label, so NSEC/RRSIG records that carry one cannot be read (RFC 4592 §2).
-* ❌ **a revoked KSK is never removed from the trust anchors** — the REVOKE bit
-  changes the key tag, so the match against the stored anchor never fires
-  (RFC 5011 §2.1). Fails open.
 * ❌ **the authoritative server ignores the CNAME rule** — an alias answers only
   `QTYPE=CNAME`; everything else gets NODATA (RFC 1034 §4.3.2).
 * ❌ **NODATA answers are never served from the cache** (RFC 2308 §5).
@@ -86,6 +81,11 @@ Fixed:
 * ✅ **fixed** — name compression's suffix table could never match (keys lacked
   the trailing dot), and the offsets it recorded were wrong in two further ways
   that the first defect masked (RFC 1035 §4.1.4).
+* ✅ **fixed** — wildcard-expanded RRsets failed DNSSEC validation: the signed
+  data was rebuilt from the expanded owner name instead of the wildcard
+  (RFC 4035 §5.3.2).
+* ✅ **fixed** — a revoked KSK was never dropped from the trust anchors, because
+  the REVOKE bit changes the key tag the match was keyed on (RFC 5011 §2.1).
 
 Two review suspicions did *not* survive contact with a test, which is exactly
 why the suite exists:
@@ -142,7 +142,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **281 tests, 273 ✅, 8 ❌**. Every ❌ is a
+Counts as of the 2026-07-25 run: **282 tests, 276 ✅, 6 ❌**. Every ❌ is a
 confirmed deviation tracked in [FINDINGS.md](FINDINGS.md) and tagged
 `KnownIssue`, so excluding that category gives a green gate.
 
@@ -293,9 +293,9 @@ side of the connection.
 | 4034 §3.1.5 | expired and not-yet-valid signatures are Bogus | ✅ |
 | 5011 §2.3/§2.4.1 | 30-day hold-down; no trust on first sight; continuity required; ZSKs ignored | ✅ |
 | 4034 §3.1.3 | RRSIG Labels excludes the leading asterisk | ✅ |
-| 4035 §5.3.2 | wildcard-expanded RRsets validate against the wildcard signature | ❌ [#10](FINDINGS.md) |
+| 4035 §5.3.2 | wildcard-expanded RRsets validate against the wildcard signature | ✅ |
+| 5011 §2.1 | a revoked KSK is dropped from the anchors and cannot come back | ✅ |
 | 4592 §2 | wildcard owner names can be represented | ❌ [#11](FINDINGS.md) |
-| 5011 §2.1 | a revoked KSK is dropped from the trust anchors | ❌ [#12](FINDINGS.md) |
 | 5155 App. A | NSEC3 hash vectors | — no NSEC3 hash function in Hermod |
 | 8080 | Ed25519 signed fixtures | — needs BIND ED25519 support |
 
