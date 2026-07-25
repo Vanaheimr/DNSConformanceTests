@@ -158,7 +158,7 @@ deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 | 1035 §4.1.4 | Compression (encode) | shared suffixes actually emit pointers; repeated labels resolve correctly; mixed case compresses against its lowercase twin | ✅ |
 | 2181 §8 | TTLs | TTL is 31-bit ✅; MSB-set TTL handling | 📋 |
 | 3597 | Unknown RR types | unknown-type RDATA treated as opaque; no compression emitted in new-type RDATA | 🟡 |
-| 6895 | IANA considerations | type/class code points used correctly (spot checks) | ✅ |
+| 6895 | IANA registries | code points exercised throughout the RR tests; no dedicated assertion, so [README](README.md#rfc-coverage) does not list it as covered | 📋 |
 | — | Robustness | empty/short/garbage messages, absurd section counts: typed failure, never a hang | ✅ |
 
 ### 4.2 Resource records (`DNSConformance.ResourceRecords.Tests`)

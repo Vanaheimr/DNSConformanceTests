@@ -24,6 +24,9 @@ namespace DNSConformance.Dnssec.Tests;
 /// </summary>
 [TestFixture]
 [Property("RFC", "4034 §5.1")]
+[Property("RFC", "6605")]        // ECDSA P-256 (13) and P-384 (14)
+[Property("RFC", "8080")]        // Ed25519 (15) and Ed448 (16)
+[Property("RFC", "8624")]        // every algorithm 8624 asks a validator to implement, plus deprecated RSA/SHA-1
 public class SignatureAlgorithmMatrixTests
 {
 
