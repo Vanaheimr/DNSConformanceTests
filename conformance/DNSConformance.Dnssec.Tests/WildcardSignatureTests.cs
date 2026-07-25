@@ -63,7 +63,6 @@ public class WildcardSignatureTests
     #region Wildcard_Expanded_Rrset_Validates()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public void Wildcard_Expanded_Rrset_Validates()
     {
 

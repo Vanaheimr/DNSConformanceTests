@@ -196,7 +196,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task Revoked_Ksk_Is_Removed_From_The_Trust_Anchors()
     {
 
@@ -233,6 +232,51 @@ public class TrustAnchorRolloverTests
 
         Assert.That(validator.TrustAnchors, Is.Empty,
                     "a revoked KSK must be removed from the trust anchors");
+
+    }
+
+    #endregion
+
+    #region Revoked_Key_Cannot_Come_Back()
+
+    [Test]
+    [Property("RFC", "5011 §2.1")]
+    public async Task Revoked_Key_Cannot_Come_Back()
+    {
+
+        // Revocation has to be permanent. If republishing the key with REVOKE
+        // cleared started a fresh hold-down, an attacker holding a compromised key
+        // would only need to wait 30 days to have it trusted again — and the
+        // operator's revocation would have bought nothing.
+        var key      = RootKey(KskFlags, 0x77);
+        var revoked  = RootKey((UInt16) (KskFlags | RevokeBit), 0x77);
+
+        var anchor   = new DS(
+                           DomainName.Parse("."),
+                           DNSQueryClasses.IN,
+                           TimeSpan.FromDays(365),
+                           DNSSECValidator.ComputeKeyTag(key),
+                           RsaSha256,
+                           2,
+                           new Byte[32]
+                       );
+
+        var resolver  = RootServing(revoked);
+        var validator = new DNSSECValidator(resolver, [anchor]);
+
+        await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.That(validator.TrustAnchors, Is.Empty, "revocation took effect");
+
+        // The zone publishes the very same key again, REVOKE cleared.
+        resolver.Answer(".", DNSResourceRecordTypes.DNSKEY, key);
+
+        await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.Multiple(() => {
+            Assert.That(validator.PendingAnchors, Is.Empty, "a revoked key must not start a new hold-down");
+            Assert.That(validator.TrustAnchors,   Is.Empty);
+        });
 
     }
 

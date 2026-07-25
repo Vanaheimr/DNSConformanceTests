@@ -2,12 +2,12 @@
 
 Deviations this suite found in the Hermod DNS stack.
 
-**Status: 15 findings — 9 fixed, 6 open.**
-**281 tests · 273 pass · 8 red (each red test tracks one open finding).**
+**Status: 15 findings — 12 fixed, 3 open.**
+**283 tests · 280 pass · 3 red (each red test tracks one open finding).**
 
 | Run | Tests | Result |
 |-----|------:|-------:|
-| Offline conformance | 220 | 212 ✅ / 8 ❌ tracked |
+| Offline conformance | 222 | 219 ✅ / 3 ❌ tracked |
 | WSL interop (dig, kdig, drill, BIND) | 38 | **38 ✅** |
 | Online interop (Cloudflare, Google, Quad9) | 23 | **23 ✅** |
 
@@ -22,10 +22,10 @@ Deviations this suite found in the Hermod DNS stack.
 | 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1 | ✅ fixed |
 | 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | ✅ fixed |
 | 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 | ✅ fixed |
-| 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ❌ open |
+| 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ✅ fixed |
 | 11 | Wildcard owner names cannot be represented | Medium | 4592 §2 | ❌ open |
-| 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ❌ open |
-| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ❌ open |
+| 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ✅ fixed |
+| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
 | 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ❌ open |
 | 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ❌ open |
 
@@ -258,30 +258,113 @@ never answered, so two servers cannot ping-pong error replies.
 
 Verified by `Truncated_Request_Does_Not_Break_The_Server`.
 
----
-
-# Open
-
-## 10 — Wildcard-expanded RRsets fail validation ❌
+## 10 — Wildcard-expanded RRsets failed validation ✅
 
 *RFC 4035 §5.3.2:* if the RRSIG's Labels field is less than the number of labels
 in the RRset's owner name, the RRset was synthesized from a wildcard, and the
 validator must rebuild the signed data using `*.` followed by the rightmost
 `Labels` labels — not the expanded name.
 
-`DNSSECValidator.BuildSignedData` always uses `rr.DomainName.FullName`. For an
-answer at `anything.wild.example.` covered by the signature over
-`*.wild.example.`, it therefore hashes a name no signer ever signed, and the
-result is **Bogus**.
+`BuildSignedData` always used `rr.DomainName.FullName`. For an answer at
+`anything.wild.example.` covered by the signature over `*.wild.example.`, it
+hashed a name no signer ever signed, and the result was **Bogus**.
 
-Wildcards are not an edge case — they are how most of the DNS serves catch-all
-subdomains. A validating client would reject all of it. The failure is
-fail-closed, so it denies rather than admits, but it denies correctly-signed data.
+Wildcards are not an edge case — they are how much of the DNS serves catch-all
+subdomains, and a validating client would have rejected all of it. The failure
+was fail-closed, so it denied rather than admitted, but it denied
+correctly-signed data.
 
-Reproduced against a signature made by BIND's `dnssec-signzone`:
-`Wildcard_Expanded_Rrset_Validates`. The Labels field itself is read correctly —
-`Wildcard_Rrsig_Has_Fewer_Labels_Than_Its_Owner` passes — so only the
-reconstruction step is missing.
+**Fix.** A `SignedOwnerName(OwnerName, Labels)` helper applies §5.3.2 and is used
+for every RR's canonical owner name. Three cases are handled explicitly: the root
+name (which splits into one empty label and must not be treated as a real one), a
+wildcard directly at the root (`Labels = 0` → `*.`), and a Labels count that
+*exceeds* the owner's — where the name is left alone so the signature check fails
+on its own rather than having a name invented for it.
+
+This needed no change to `DomainName`, because the canonical form is built from
+strings by `SerializeCanonicalName`. Finding 11 therefore does not block it.
+
+Verified by `Wildcard_Expanded_Rrset_Validates` against a signature made by
+BIND's `dnssec-signzone`, with the non-wildcard path still covered by the ten
+existing RSA and ECDSA RRSIG tests.
+
+## 12 — A revoked KSK was never removed from the trust anchors ✅
+
+*RFC 5011 §2.1:* once a resolver sees a trust-anchor key republished with the
+REVOKE bit set, it must stop treating that key as a trust anchor.
+
+`ProbeForTrustAnchorUpdatesAsync` matched the revoked key against the stored
+anchors by key tag. But the key tag is a checksum over the whole DNSKEY RDATA,
+**including the Flags field** — so setting REVOKE changes it. The tag computed
+from the revoked key could never equal the tag stored while the key was live, the
+`RemoveAll` matched nothing, and the revocation was silently ignored.
+
+This one failed *open*: a key the zone operator had explicitly announced as
+compromised stayed trusted indefinitely — the exact scenario RFC 5011's
+revocation mechanism exists to handle. It also broke the "never re-admit"
+guard, which recorded the revoked key under its post-revocation identity and so
+never recognized the key when it came back.
+
+**Fix.** `ComputeKeyTag` gained a private overload taking the RDATA fields, so
+the tag the key had *before* revocation can be computed. Revocation now matches
+anchors on that tag (and the post-revocation one, harmlessly), and records both
+identities in `revokedAnchors` so the key cannot start a fresh hold-down later.
+
+Verified by `Revoked_Ksk_Is_Removed_From_The_Trust_Anchors`, which first asserts
+the premise (`ComputeKeyTag(revoked) != ComputeKeyTag(live)`) so a future
+regression cannot be mistaken for a test bug, and `Revoked_Key_Cannot_Come_Back`.
+
+The rest of RFC 5011 was already correct: the 30-day hold-down, the refusal to
+trust a key on first sight, and the continuity requirement all passed unchanged.
+
+## 13 — The authoritative server ignored the CNAME rule ✅
+
+*RFC 1034 §4.3.2 step 3a:* when the queried node holds a CNAME and QTYPE is not
+CNAME, the server copies the CNAME into the answer section and restarts the
+query at the canonical name.
+
+`AuthoritativeDNSRequestHandler` delegated to a zone lookup that matches on owner
+**and** type, so an alias answered only a `QTYPE=CNAME` query. Asking for `A` at
+a name that is a CNAME returned **NOERROR with an empty answer** — NODATA. A
+resolver reads that as "this name exists and definitively has no A record" and
+caches it.
+
+Aliases therefore worked only for clients that already knew they were aliases,
+which is none of them. This was the most user-visible of the findings: the zone
+looks correct, `dig CNAME` confirms it, and every ordinary lookup returns nothing.
+
+**Fix.** A `FollowCanonicalNames` step in the handler, applied on the NODATA
+path. It is deliberately in the handler rather than in `InMemoryDNSZone`: the
+rule is server behaviour and must hold for any `IDNSZoneStore`, and it needs only
+the existing `Lookup` interface — one lookup for the CNAME, one to restart the
+query at the target.
+
+Details worth keeping:
+
+- `QTYPE=CNAME` and `QTYPE=ANY` skip the restart. The store already answers both
+  directly, and restarting would duplicate the record.
+- The chase follows the whole chain while it stays in the zone, so
+  `alias2 → alias → a` is answered in one round trip.
+- It stops at the zone edge. When the canonical name is not held here, the CNAMEs
+  gathered so far are returned and the resolver continues from them — what
+  RFC 1034 expects of an authoritative server.
+- Loops are caught by a visited set, not only by the depth limit. RFC 1034 §4.3.2
+  warns the chain can loop; a two-element cycle would otherwise be walked sixteen
+  times and each CNAME added to the answer on every pass.
+
+Verified by `Query_For_A_At_An_Alias_Returns_The_Cname` (which now also asserts
+the A record is appended, not just the CNAME),
+`Unknown_Type_At_An_Alias_Still_Returns_The_Cname`,
+`Chained_Alias_Resolves_Or_Refers` (both links plus the A record) and
+`Cname_Loop_Does_Not_Hang_The_Server`, which serves a deliberately cyclic zone
+and asserts each link appears exactly once.
+
+RFC 2181 §10.1 was never violated — `Alias_Node_Carries_No_Data_Of_Its_Own`
+passed throughout, and still does.
+
+---
+
+# Open
 
 ## 11 — Wildcard owner names cannot be represented ❌
 
@@ -298,53 +381,6 @@ reach the wildcard signature at all (`SignedZoneFixture.WildcardSignature`).
 Pinned by `Wildcard_Owner_Names_Cannot_Be_Represented`. Note the fix belongs
 only on the *owner name* path: a wildcard is never a valid hostname, so
 `DomainName.Parse` should not accept it everywhere.
-
-## 12 — A revoked KSK is never removed from the trust anchors ❌
-
-*RFC 5011 §2.1:* once a resolver sees a trust-anchor key republished with the
-REVOKE bit set, it must stop treating that key as a trust anchor.
-
-`ProbeForTrustAnchorUpdatesAsync` matches the revoked key against the stored
-anchors by key tag. But the key tag is a checksum over the whole DNSKEY RDATA,
-**including the Flags field** — so setting REVOKE changes it. The tag computed
-from the revoked key can never equal the tag stored when the key was live, the
-`RemoveAll` matches nothing, and the revocation is silently ignored.
-
-This one fails *open*: a key the zone operator has explicitly announced as
-compromised stays trusted indefinitely. That is the exact scenario RFC 5011's
-revocation mechanism exists to handle.
-
-Reproduced by `Revoked_Ksk_Is_Removed_From_The_Trust_Anchors`, which first
-asserts the premise (`ComputeKeyTag(revoked) != ComputeKeyTag(live)`) so the
-cause is unambiguous. The fix is to match on the public key, or to recompute the
-tag with REVOKE cleared before comparing.
-
-The rest of RFC 5011 is correct: the 30-day hold-down, the refusal to trust a
-key on first sight, and the requirement that a pending key be seen continuously
-all pass.
-
-## 13 — The authoritative server ignores the CNAME rule ❌
-
-*RFC 1034 §4.3.2 step 3a:* when the queried node holds a CNAME and QTYPE is not
-CNAME, the server copies the CNAME into the answer section and restarts the
-query at the canonical name.
-
-`AuthoritativeDNSRequestHandler` matches on owner **and** type, so an alias
-answers only a `QTYPE=CNAME` query. Asking for `A` at a name that is a CNAME
-returns **NOERROR with an empty answer** — NODATA. A resolver reads that as
-"this name exists and definitively has no A record" and caches it.
-
-So aliases work only for clients that already know they are aliases, which is
-none of them. This is the most user-visible of the open findings: the zone looks
-correct, `dig CNAME` confirms it, and ordinary lookups return nothing.
-
-Reproduced by `Query_For_A_At_An_Alias_Returns_The_Cname`,
-`Unknown_Type_At_An_Alias_Still_Returns_The_Cname` and
-`Chained_Alias_Resolves_Or_Refers`. RFC 2181 §10.1 (no other data may coexist
-with a CNAME) is *not* violated — `Alias_Node_Carries_No_Data_Of_Its_Own` passes.
-
-Note this is a server-side gap only. `DNSClient` chases CNAME and DNAME chains
-correctly, which is why the live interop tests against public resolvers pass.
 
 ## 14 — NODATA answers are never served from the cache ❌
 
