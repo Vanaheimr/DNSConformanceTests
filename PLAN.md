@@ -46,46 +46,9 @@ unbiased referee, and be run against any Hermod revision.
 ### Deviations found, and their fate
 
 The suite has confirmed fifteen deviations so far, and all of them are now fixed
-in Hermod. Each is documented in [FINDINGS.md](FINDINGS.md) with chapter and
-verse, the change, and the test that pins it:
-
-* ✅ **fixed** — `TXT`/`SPF` parsed only the first character-string, losing data
-  above 255 bytes and desynchronizing later records (RFC 1035 §3.3.14).
-* ✅ **fixed** — `URI` wrote its target through the domain-name encoder instead
-  of as raw RDATA octets (RFC 7553 §4.5).
-* ✅ **fixed** — `SVCB`/`HTTPS` read SvcParams to end-of-stream rather than to
-  RDLENGTH, swallowing the following record (RFC 1035 §4.1.3).
-* ✅ **fixed** — `DNSUDPClient` aborted a query on the first non-matching
-  datagram instead of continuing to wait (RFC 5452 §4.2).
-* ✅ **fixed** — server responses to EDNS queries carried no OPT record, and
-  version > 0 was not answered with BADVERS (RFC 6891 §6.1.1, §6.1.3).
-* ✅ **fixed** — no UDP truncation: oversized responses were sent whole rather
-  than trimmed with TC=1 (RFC 1035 §4.2.1, RFC 6891 §6.2.5).
-* ✅ **fixed** — unparseable requests were dropped instead of answered FORMERR
-  (RFC 1035 §4.1.1).
-* ✅ **fixed** — query names were lowercased before reaching the wire
-  (RFC 1035 §2.3.3). Parsing now preserves case and every comparison is
-  case-insensitive instead (RFC 4343), which also repaired an `Equals`/
-  `GetHashCode` contract break that normalization had been hiding.
-* ✅ **fixed** — name compression's suffix table could never match (keys lacked
-  the trailing dot), and the offsets it recorded were wrong in two further ways
-  that the first defect masked (RFC 1035 §4.1.4).
-* ✅ **fixed** — wildcard-expanded RRsets failed DNSSEC validation: the signed
-  data was rebuilt from the expanded owner name instead of the wildcard
-  (RFC 4035 §5.3.2).
-* ✅ **fixed** — a revoked KSK was never dropped from the trust anchors, because
-  the REVOKE bit changes the key tag the match was keyed on (RFC 5011 §2.1).
-* ✅ **fixed** — the authoritative server ignored the CNAME rule: an alias
-  answered only `QTYPE=CNAME` and returned NODATA for everything else
-  (RFC 1034 §4.3.2).
-* ✅ **fixed** — NODATA answers were never stored in the cache, so the per-type
-  negative cache behind them was unreachable (RFC 2308 §5).
-* ✅ **fixed** — the negative TTL read the SOA's record TTL rather than
-  `min(MINIMUM, TTL)`, and negative entries never expired on read anyway
-  (RFC 2308 §4).
-* ✅ **fixed** — wildcard owner names could not be represented: `DomainName`
-  rejected the `*` label, so NSEC/RRSIG records carrying one could not be read
-  back (RFC 4592 §2.1.1).
+in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
+record, with chapter and verse, the mechanism, the change, and the test that
+pins each one. The summary table at the top of that file is the fastest way in.
 
 Two review suspicions did *not* survive contact with a test, which is exactly
 why the suite exists:

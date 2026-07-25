@@ -1,33 +1,41 @@
 # Conformance Findings — Hermod DNS
 
-Deviations this suite found in the Hermod DNS stack.
+What this suite caught. Fifteen RFC deviations in the Hermod DNS stack, each
+with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-**Status: 15 findings — all fixed.**
-**317 tests · 317 pass · 0 red.**
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
+themselves: several of them look arbitrary until you know which bug they were
+shaped to catch, and that reasoning lives here.
 
-| Run | Tests | Result |
-|-----|------:|-------:|
-| Offline conformance | 256 | **256 ✅** |
-| WSL interop (dig, kdig, drill, BIND) | 38 | **38 ✅** |
-| Online interop (Cloudflare, Google, Quad9) | 23 | **23 ✅** |
+One section is **current documentation rather than record**:
+[Interpretations](#interpretations), which holds the places where the RFCs are
+honestly ambiguous and the suite had to choose a reading. Coverage boundaries —
+what is queued, what is out of scope — are not here at all; they live in
+[README § RFC coverage](README.md#rfc-coverage).
 
-| # | Area | Severity | RFC | Status |
-|---|------|----------|-----|--------|
-| 1 | QNAME case not preserved | Low (SHOULD) | 1035 §2.3.3 | ✅ fixed |
-| 2 | TXT/SPF: only the first character-string parsed | **High** | 1035 §3.3.14 | ✅ fixed |
-| 3 | URI: target emitted as DNS labels | **High** | 7553 §4.5 | ✅ fixed |
-| 4 | SVCB/HTTPS: RDATA parsing overruns RDLENGTH | **High** | 1035 §4.1.3, 9460 | ✅ fixed |
-| 5 | Client aborts on the first non-matching UDP response | **High** | 5452 §4.2 | ✅ fixed |
-| 6 | Server omits OPT; no BADVERS | Medium | 6891 §6.1.1, §6.1.3 | ✅ fixed |
-| 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1 | ✅ fixed |
-| 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | ✅ fixed |
-| 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 | ✅ fixed |
-| 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ✅ fixed |
-| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2.1.1 | ✅ fixed |
-| 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ✅ fixed |
-| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
-| 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ✅ fixed |
-| 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ✅ fixed |
+| # | Finding | Severity | RFC |
+|---|---------|----------|-----|
+| 1 | QNAME case not preserved | Low (SHOULD) | 1035 §2.3.3 |
+| 2 | TXT/SPF: only the first character-string parsed | **High** | 1035 §3.3.14 |
+| 3 | URI: target emitted as DNS labels | **High** | 7553 §4.5 |
+| 4 | SVCB/HTTPS: RDATA parsing overruns RDLENGTH | **High** | 1035 §4.1.3, 9460 |
+| 5 | Client aborts on the first non-matching UDP response | **High** | 5452 §4.2 |
+| 6 | Server omits OPT; no BADVERS | Medium | 6891 §6.1.1, §6.1.3 |
+| 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1 |
+| 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 |
+| 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 |
+| 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 |
+| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2.1.1 |
+| 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 |
+| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 |
+| 14 | NODATA answers are never served from the cache | Medium | 2308 §5 |
+| 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 |
+
+The last seven were found *after* the first eight were already fixed, by tests
+written to deepen areas the suite had reported green. That is the argument for
+the queued list in the README: untested working code is where the next one will
+be.
 
 ---
 
@@ -49,9 +57,12 @@ stream lands exactly on the RDATA end.
 
 ---
 
-# Fixed
+# The findings in detail
 
-## 1 — Query names were lowercased before reaching the wire ✅
+Ordered by how they were found rather than by number, so the ones that share a
+root cause stay together.
+
+## 1 — Query names were lowercased before reaching the wire
 
 *RFC 1035 §2.3.3:* "When you receive a domain name or label, you should preserve
 its case." *RFC 4343* then makes clear that preserving case must not make case
@@ -96,7 +107,7 @@ with is what is preserved — and it coincides with the query's spelling once
 `DNSServerOptions.UseCompression` is on, because the owner then becomes a
 pointer at the QNAME.
 
-## 9 — Name compression: the suffix table could never match ✅
+## 9 — Name compression: the suffix table could never match
 
 *RFC 1035 §4.1.4.*
 
@@ -132,7 +143,7 @@ genuinely emitted, not merely that the message still decodes),
 interop tests, where dig, kdig, drill and BIND all still parse what Hermod
 emits.
 
-## 2 — TXT/SPF: only the first character-string was parsed ✅
+## 2 — TXT/SPF: only the first character-string was parsed
 
 *RFC 1035 §3.3.14:* "TXT-DATA: One or more `<character-string>`s."
 *RFC 7208 §3.3:* they are concatenated.
@@ -153,7 +164,7 @@ Verified by `TXT_MultiString_Rdata_Is_Fully_Parsed`,
 `TXT_MultiString_Parsing_Leaves_Stream_At_Rdata_End`, and — against real BIND
 output — `Hermod_Handles_A_MultiString_Txt_From_Bind`.
 
-## 3 — URI: target was emitted as DNS labels ✅
+## 3 — URI: target was emitted as DNS labels
 
 *RFC 7553 §4.5:* the Target is "the remaining octets of the RDATA" — not a
 domain name, not a character-string.
@@ -169,7 +180,7 @@ back. Name compression is explicitly not applied.
 
 Verified by `URI_Target_Is_The_Remaining_Rdata_Octets`.
 
-## 4 — SVCB/HTTPS: SvcParam loop ran past its own RDATA ✅
+## 4 — SVCB/HTTPS: SvcParam loop ran past its own RDATA
 
 *RFC 1035 §4.1.3, RFC 9460 §2.2.*
 
@@ -187,7 +198,7 @@ the last param. The two constructors that never read RDLENGTH at all now do.
 Verified by `Https_Record_Followed_By_Another_Record_Does_Not_Overrun` (offline)
 and `Https_Svcb_Records_Resolve_In_The_Wild` (live against 1.1.1.1).
 
-## 5 — A single spoofed datagram killed the pending query ✅
+## 5 — A single spoofed datagram killed the pending query
 
 *RFC 5452 §4.2:* a resolver "MUST ignore" responses that do not match the
 outstanding query.
@@ -207,7 +218,7 @@ or the existing timeout expires.
 
 Verified by `Spoofed_Response_Does_Not_Kill_The_Pending_Query`.
 
-## 6 — Server omitted OPT and never answered BADVERS ✅
+## 6 — Server omitted OPT and never answered BADVERS
 
 *RFC 6891 §6.1.1:* responders "MUST include an OPT record in their respective
 responses." *§6.1.3:* an unsupported EDNS VERSION "MUST" be answered with BADVERS.
@@ -225,7 +236,7 @@ and reflecting them would make the server an amplifier.
 Verified by `Response_To_Edns_Query_Contains_An_Opt_Record`,
 `Unknown_Edns_Version_Yields_BADVERS`, and `Unknown_Edns_Options_Are_Not_Echoed`.
 
-## 7 — Server never truncated oversized UDP responses ✅
+## 7 — Server never truncated oversized UDP responses
 
 *RFC 1035 §4.2.1:* "Longer messages are truncated and the TC bit is set."
 *RFC 6891 §6.2.5:* never exceed the requestor's advertised buffer.
@@ -243,7 +254,7 @@ response stays EDNS-conformant.
 Verified by `Large_Answer_Without_Edns_Is_Truncated_Or_Fits_512_Bytes` and
 `Answer_Respects_The_Advertised_Edns_Payload_Size`.
 
-## 8 — Unparseable requests were dropped instead of answered FORMERR ✅
+## 8 — Unparseable requests were dropped instead of answered FORMERR
 
 *RFC 1035 §4.1.1:* RCODE 1 means "the name server was unable to interpret the
 query."
@@ -258,7 +269,7 @@ never answered, so two servers cannot ping-pong error replies.
 
 Verified by `Truncated_Request_Does_Not_Break_The_Server`.
 
-## 10 — Wildcard-expanded RRsets failed validation ✅
+## 10 — Wildcard-expanded RRsets failed validation
 
 *RFC 4035 §5.3.2:* if the RRSIG's Labels field is less than the number of labels
 in the RRset's owner name, the RRset was synthesized from a wildcard, and the
@@ -288,7 +299,7 @@ Verified by `Wildcard_Expanded_Rrset_Validates` against a signature made by
 BIND's `dnssec-signzone`, with the non-wildcard path still covered by the ten
 existing RSA and ECDSA RRSIG tests.
 
-## 12 — A revoked KSK was never removed from the trust anchors ✅
+## 12 — A revoked KSK was never removed from the trust anchors
 
 *RFC 5011 §2.1:* once a resolver sees a trust-anchor key republished with the
 REVOKE bit set, it must stop treating that key as a trust anchor.
@@ -317,7 +328,7 @@ regression cannot be mistaken for a test bug, and `Revoked_Key_Cannot_Come_Back`
 The rest of RFC 5011 was already correct: the 30-day hold-down, the refusal to
 trust a key on first sight, and the continuity requirement all passed unchanged.
 
-## 13 — The authoritative server ignored the CNAME rule ✅
+## 13 — The authoritative server ignored the CNAME rule
 
 *RFC 1034 §4.3.2 step 3a:* when the queried node holds a CNAME and QTYPE is not
 CNAME, the server copies the CNAME into the answer section and restarts the
@@ -362,7 +373,7 @@ and asserts each link appears exactly once.
 RFC 2181 §10.1 was never violated — `Alias_Node_Carries_No_Data_Of_Its_Own`
 passed throughout, and still does.
 
-## 14 — NODATA answers were never served from the cache ✅
+## 14 — NODATA answers were never served from the cache
 
 *RFC 2308 §5:* negative answers, both NXDOMAIN and NODATA, are to be cached.
 
@@ -387,7 +398,7 @@ Verified by `Repeated_Nodata_Query_Is_Served_From_The_Cache` and
 `Referral_Is_Not_Cached_As_Nodata`, both counting datagrams that actually reached
 the socket rather than asking the cache what it believes.
 
-## 15 — The negative TTL ignored the SOA MINIMUM ✅
+## 15 — The negative TTL ignored the SOA MINIMUM
 
 *RFC 2308 §4:* the TTL of a negative answer is the minimum of the SOA's **MINIMUM
 field** and the SOA record's own TTL.
@@ -414,7 +425,7 @@ Verified by `Negative_Answer_Expires_After_The_Soa_Minimum`, which sets MINIMUM
 to 1 s and the SOA's own TTL to an hour, so reading the record TTL instead — the
 original mistake — still fails the test.
 
-## 11 — Wildcard owner names could not be represented ✅
+## 11 — Wildcard owner names could not be represented
 
 *RFC 4592 §2.1.1:* a wildcard domain name is one whose leftmost label is a single
 asterisk. It is an ordinary label as far as the wire format is concerned.
@@ -455,6 +466,11 @@ workaround: wildcard records load from the zone file like any other, and
 
 ## Interpretations
 
+Current, not historical. Places where the RFC genuinely permits both readings,
+so there is nothing to fix and nothing to close — the suite asserts the dominant
+implementation behavior and records the choice here. Anything added to this list
+stays on it.
+
 **Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as referring
 to "a prior occurrence of the same name". Hermod accepts forward pointers; the
 suite's strict reference reader rejects them. Leniency on receive is a
@@ -473,19 +489,10 @@ false. Compression is optional (RFC 1035 §4.1.4), so this is a size/CPU trade-o
 rather than a conformance question — but it is the reason answer owner names come
 back in the zone's capitalization rather than the query's.
 
-## Not implemented in Hermod
+## Where the coverage ends
 
-Not deviations — capabilities the stack does not claim, recorded so the coverage
-matrix does not imply they were tested.
-
-- **NSEC3 hashing.** NSEC3 and NSEC3PARAM records parse and serialize, but there
-  is no hash function, so RFC 5155 Appendix A's published vectors have nothing to
-  measure. The consequence is larger than a missing test: without it the
-  validator cannot check authenticated denial of existence for an NSEC3-signed
-  zone — most signed zones — so it cannot tell a genuine "no such name" from an
-  attacker who stripped the records.
-- **DoH server, AXFR/IXFR, RFC 2136 dynamic update.**
-
-All eight signature algorithms the validator claims *are* now covered, each
-against a zone BIND signed with it — see
-`SignatureAlgorithmMatrixTests`.
+Capabilities Hermod does not claim are **not** findings, and they are no longer
+listed here — keeping a second copy of the coverage boundary only guaranteed the
+two would drift apart. One source now:
+[README § RFC coverage](README.md#rfc-coverage), which says for each gap what is
+missing and what is blocking it.

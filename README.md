@@ -11,7 +11,8 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[RFC coverage](#rfc-coverage)** — what is asserted, what is queued, what is
   out of scope and why
 - **[PLAN.md](PLAN.md)** — architecture and the section-by-section coverage matrix
-- **[FINDINGS.md](FINDINGS.md)** — conformance deviations this suite found
+- **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
+  RFC ambiguities it had to rule on
 
 **Current status: 317 tests · 317 ✅ · 0 ❌.**
 
@@ -117,9 +118,11 @@ names it in a `[Property("RFC", …)]` attribute.
 | **8976** | ZONEMD | serial/scheme/hash |
 | **9460** | SVCB, HTTPS | alias and service mode, SvcParams parsed to RDLENGTH |
 
-Every DNSSEC algorithm Hermod claims — 5, 7, 10, 13, 14, 15, 16 — is measured
-against a zone BIND signed with that exact algorithm, not against a shared
-fixture. See `SignatureAlgorithmMatrixTests`.
+All eight signature algorithms Hermod's validator claims are covered against
+real BIND signatures, each from a zone signed with that exact algorithm rather
+than a shared fixture: 5, 7, 10, 13, 14, 15 and 16 in
+`SignatureAlgorithmMatrixTests`, and 8 (RSA/SHA-256) as the main `dnssec.test`
+fixture zone in `RrsigValidationTests`.
 
 ### Queued — on the todo list
 
@@ -141,6 +144,12 @@ fixture. See `SignatureAlgorithmMatrixTests`.
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | CI | GitHub Actions: offline on every push, `Online`/`WSL` nightly on a Linux runner | phase 8 |
+
+The NSEC3 gap is the one worth weighing, because it is larger than a missing
+test. Without a hash function the validator cannot check authenticated denial of
+existence for an NSEC3-signed zone — which is most signed zones — so it cannot
+tell a genuine "no such name" from an attacker who stripped the records. The
+queue entry is therefore a Hermod feature request, not suite work.
 
 ### Out of scope
 
