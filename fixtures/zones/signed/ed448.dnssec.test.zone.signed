@@ -1,0 +1,113 @@
+; File written on Sat Jul 25 13:24:58 2026
+; dnssec-signzone version 9.20.26-1~deb13u1-Debian
+ed448.dnssec.test.	3600	IN SOA	ns1.ed448.dnssec.test. hostmaster.ed448.dnssec.test. (
+					2026072502 ; serial
+					7200       ; refresh (2 hours)
+					3600       ; retry (1 hour)
+					1209600    ; expire (2 weeks)
+					3600       ; minimum (1 hour)
+					)
+			3600	RRSIG	SOA 16 3 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					le0UbmmmGwRdTPBGhVofnW+4ybtuSngJifru
+					i7Jpb2k5SOoHY5VFDSIi8Wxkfj4ludxVFqgU
+					z5+AXXv8T4XBYuWgXyuqqYgsEPJ5IiZVSb+z
+					dQXdU5Dq6F5nz2psPYXh2GgWx4SUwjxj/N2i
+					i227HT0A )
+			3600	NS	ns1.ed448.dnssec.test.
+			3600	RRSIG	NS 16 3 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					YrlH5c6/jUoQzE2aekWa6zIoOuLBG8p0X8Bw
+					Le4nXHW3eTEL4iNI+NwVJxwqgLJakTbJN8wF
+					itSA0y0Ha0/5/5r6eZg6v2mzPej2+qWpl4og
+					dH9q8WGZDrGHgakHPPyr40ZDbX/2/Epr9ZSe
+					b9QBDSsA )
+			3600	NSEC	a.ed448.dnssec.test. NS SOA RRSIG NSEC DNSKEY
+			3600	RRSIG	NSEC 16 3 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					DW3QXhnXy7TovS6blF28ljmkTcQVbW4ljmb3
+					5EU4KU7tGcmoXEvroHqJWHpcWeslCDsiO3cp
+					jE+AtIurY9Q82yIVAP78CZh9+Jr5FTA0A4x/
+					A0D/ZyPvm55BujFTJzVhO5Gb85rLKnRnytxo
+					dJy8VDIA )
+			3600	DNSKEY	256 3 16 (
+					J9BFj55flCwDmQ8xQsXggmmxPE0r22HaodEU
+					FbmFGcLVMZLGYEbYgOzdsMa7o1T03Gm23R/3
+					1rmA
+					) ; ZSK; alg = ED448 ; key id = 61413
+			3600	DNSKEY	257 3 16 (
+					ei6gdKqn9cmW7dJQH8j1eAUaKUo53vkQBDde
+					c6i9eQpz3AWULH3KIeYC+6BVp3zTZOXOj8VI
+					TKaA
+					) ; KSK; alg = ED448 ; key id = 3326
+			3600	RRSIG	DNSKEY 16 3 3600 (
+					20260824102458 20260725102458 3326 ed448.dnssec.test.
+					YYJbPKlyfP6JNThEnXAL8S27nxthL/b46lGA
+					Zf8idFklnl7KqDIlX+HoLsvY05CO/vO9c7se
+					DqaAoiK2f1CB79Wr8xCdsUeU9pWU/uO9p/vt
+					KH0uWG+w4p5pCgBBO1a8w3u8YHXseQ1JbEGP
+					r+99gSIA )
+a.ed448.dnssec.test.	3600	IN A	192.0.2.13
+			3600	RRSIG	A 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					1/RS+zu8VGVsAoJ92p2PHTJ7BiiZ66yHhtzS
+					nMpp1chuT3QL/P2ANdz0ZUHPOdq8/ppN4nya
+					FwMA9gOjiGcxGhK2vLCe4MQDBhNIseSNeEcg
+					VReaUrW57Nv/kdqgK1iRsIrnQwcRNdfcqKXN
+					xdd6oRsA )
+			3600	NSEC	aaaa.ed448.dnssec.test. A RRSIG NSEC
+			3600	RRSIG	NSEC 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					x3+GFxPcOHe81rLtb4cRauRyjFMQP2DWbdlM
+					RRuVYxFOsSLjTZtqGMrw0dgt8Q6IfFwKmGgN
+					laSAyQazVoxJHlLuoJA6ByTx7T+QOlIykicr
+					+VyWbJyGbEkgVGC8Q6vdqAWVAy2NLZ1rMJMv
+					qtTFeioA )
+aaaa.ed448.dnssec.test.	3600	IN AAAA	2001:db8::13
+			3600	RRSIG	AAAA 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					ZlqV/CcxRQ2z/4UHU5JTYOSvoaf9dyIa7lt+
+					TmSgp2nLZpaD9TRY8YEJiyC4D3BK20IlYxu5
+					R08Axo1lpz+Tq4gih2j9JcFYkG6CBTTLXJTi
+					T8hGTwCodW3nsYp0F+ATTVrFoUEo8YPhJvSP
+					O8S7oRAA )
+			3600	NSEC	ns1.ed448.dnssec.test. AAAA RRSIG NSEC
+			3600	RRSIG	NSEC 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					5ROwPCKnak2dgfakM1L5vegEN5BMhlrb+IWB
+					BLzLpSLwBiWBe7jWuFLgE/xVadBKD6C3ae+e
+					R06AVK8N6Znf9+55IM3we709FrauwEWo1Bxd
+					fQdIxeMvlfJnyqnIgabYYTJrRRe4F645QQGR
+					OoYw+SkA )
+ns1.ed448.dnssec.test.	3600	IN A	192.0.2.54
+			3600	RRSIG	A 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					ZfLSOqXt1Sqrgx7BCXx4ebrpWRpf1yjWTJlC
+					ByARPVkuMmmjyFxUr5uWT+ywnOqOQAKzSaxg
+					KWYAhr8daFtLvZy7qcsSRU+9CnIW95m7/8T2
+					BUF/zMXlKnxGl3HZfv+7Jf5GBF/3QGIX1wFY
+					GjUN/y4A )
+			3600	NSEC	txt.ed448.dnssec.test. A RRSIG NSEC
+			3600	RRSIG	NSEC 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					KBFnOd8O1p81htnl2wE3SdjckP0KSCIySE8C
+					Y339X5/VtpRprZanIwwkgBFkN+OgqgcpIkqU
+					FYCA8oO+i0drnHKYjybQ62Z/jKcQLdu2Ft0T
+					VJMJX4VvBrrHm4o7FfDD7jVfFV0Z3fDj+l9f
+					RqiQtDIA )
+txt.ed448.dnssec.test.	3600	IN TXT	"signed by BIND with Ed448"
+			3600	RRSIG	TXT 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					I/uMazF91KdVqCikaC5/28w+k8wtGLoDICFw
+					Cd1ftw061EqEHaM7PC9v+/IHCNNaSYCLW78F
+					cQyAzW6qkW85sZe0zblSSVS0uiVWNns/nKCt
+					onDwIsa9dBmZg3i9lKCi6EaThPpzJUeZTTh6
+					mkH5og4A )
+			3600	NSEC	ed448.dnssec.test. TXT RRSIG NSEC
+			3600	RRSIG	NSEC 16 4 3600 (
+					20260824102458 20260725102458 61413 ed448.dnssec.test.
+					H7SGYMl3VlLbEgvn+RcLK+uc9hmJWCUAly16
+					xhPY3c1YKJ3DQhinEqC2Xi411Hxy8YcZLfGQ
+					6Y+ADVSLpj/znVBEliqQx6mSEIe+Snbmj4N5
+					sJDRAg2LN/U5Fe1RNYJ8i/Qw1pBe0Slj7ZQN
+					ifIXxCwA )

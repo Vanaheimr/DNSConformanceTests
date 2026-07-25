@@ -3,11 +3,11 @@
 Deviations this suite found in the Hermod DNS stack.
 
 **Status: 15 findings — all fixed.**
-**289 tests · 289 pass · 0 red.**
+**317 tests · 317 pass · 0 red.**
 
 | Run | Tests | Result |
 |-----|------:|-------:|
-| Offline conformance | 228 | **228 ✅** |
+| Offline conformance | 256 | **256 ✅** |
 | WSL interop (dig, kdig, drill, BIND) | 38 | **38 ✅** |
 | Online interop (Cloudflare, Google, Quad9) | 23 | **23 ✅** |
 
@@ -480,8 +480,12 @@ matrix does not imply they were tested.
 
 - **NSEC3 hashing.** NSEC3 and NSEC3PARAM records parse and serialize, but there
   is no hash function, so RFC 5155 Appendix A's published vectors have nothing to
-  measure and denial-of-existence proofs cannot be validated.
-- **Ed25519/Ed448 signing fixtures.** Verification exists (algorithms 15 and 16);
-  the suite has no signed fixture for them, because generating one honestly needs
-  BIND support rather than a constant transcribed from RFC 8080.
+  measure. The consequence is larger than a missing test: without it the
+  validator cannot check authenticated denial of existence for an NSEC3-signed
+  zone — most signed zones — so it cannot tell a genuine "no such name" from an
+  attacker who stripped the records.
 - **DoH server, AXFR/IXFR, RFC 2136 dynamic update.**
+
+All eight signature algorithms the validator claims *are* now covered, each
+against a zone BIND signed with it — see
+`SignatureAlgorithmMatrixTests`.
