@@ -43,26 +43,39 @@ unbiased referee, and be run against any Hermod revision.
 | DNSSEC | `DNSSECValidator`: `ValidateRRSig` (RFC 4034 §3), `VerifyDS` (§5, SHA-1/256/384), `ComputeKeyTag` (App. B), chain-of-trust walk, IANA root trust anchor (KeyTag 20326), RFC 5011 rollover with hold-down |
 | Not present | DoH **server** (client only), zone transfer (AXFR/IXFR), dynamic update (RFC 2136) |
 
-### Suspected deviations already spotted during code review (to be encoded as tests)
+### Deviations found, and their fate
 
-* `DNSPacket.Parse` (server request path) understands only A and OPT resource
-  records inside request sections — any other type throws, the packet is
-  dropped, no FORMERR is returned (RFC 1035 §4.1.1).
-* `DNSTools.Serialize` compression bookkeeping stores wrong offsets for
-  suffixes after the first label (RFC 1035 §4.1.4) — latent until
-  `UseCompression = true` (server option, default false).
-* `TXT` parses only the **first** character-string of the RDATA; multi-string
-  TXT (> 255 bytes, RFC 1035 §3.3.14, RFC 7208) loses data and desynchronizes
-  the stream for subsequent records.
-* Server responses to EDNS queries carry **no OPT record** (RFC 6891 §6.1.1
-  "MUST include an OPT record in their respective responses") and version > 0
-  is not answered with BADVERS (§6.1.3).
-* No UDP truncation: responses larger than the advertised/512-byte limit are
-  sent whole instead of being truncated with TC=1 (RFC 1035 §4.2.1, RFC 6891 §4.3).
-* `DNSInfo.ReadResponse` checks the transaction ID but not that the question
-  section matches the query (RFC 5452 §4.2).
-* Compression pointers pointing *forward* are accepted (RFC 1035 §4.1.4 allows
-  only pointers to a **prior** location).
+Code review flagged several suspected deviations before any test existed. The
+suite then confirmed eight of them; seven have been fixed in Hermod and are
+documented in [FINDINGS.md](FINDINGS.md):
+
+* ✅ **fixed** — `TXT`/`SPF` parsed only the first character-string, losing data
+  above 255 bytes and desynchronizing later records (RFC 1035 §3.3.14).
+* ✅ **fixed** — `URI` wrote its target through the domain-name encoder instead
+  of as raw RDATA octets (RFC 7553 §4.5).
+* ✅ **fixed** — `SVCB`/`HTTPS` read SvcParams to end-of-stream rather than to
+  RDLENGTH, swallowing the following record (RFC 1035 §4.1.3).
+* ✅ **fixed** — `DNSUDPClient` aborted a query on the first non-matching
+  datagram instead of continuing to wait (RFC 5452 §4.2).
+* ✅ **fixed** — server responses to EDNS queries carried no OPT record, and
+  version > 0 was not answered with BADVERS (RFC 6891 §6.1.1, §6.1.3).
+* ✅ **fixed** — no UDP truncation: oversized responses were sent whole rather
+  than trimmed with TC=1 (RFC 1035 §4.2.1, RFC 6891 §6.2.5).
+* ✅ **fixed** — unparseable requests were dropped instead of answered FORMERR
+  (RFC 1035 §4.1.1).
+* 📋 **open by design** — query names are lowercased before reaching the wire.
+  SHOULD-level, and the fix belongs in `DomainName`/`DNSServiceName`, which are
+  used well beyond DNS.
+
+Two review suspicions did *not* survive contact with a test, which is exactly
+why the suite exists:
+
+* `DNSPacket.Parse` handling only A and OPT in request sections turned out not
+  to matter for well-formed queries, whose question section carries no RRs;
+  the real gap was the missing FORMERR, now fixed.
+* The compression-offset bookkeeping produces messages that decode correctly
+  under the suite's strict reader, including multi-record shared-suffix cases
+  (`Compressed_Response_With_Many_Shared_Suffix_Names_Stays_Valid`).
 
 ---
 
@@ -109,7 +122,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **211 tests, 199 ✅, 12 ❌.**
+Counts as of the 2026-07-25 run: **211 tests, 211 ✅, 0 ❌** — the twelve
+initial failures were confirmed Hermod deviations and have since been fixed;
+see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -134,7 +149,7 @@ round-trip where supported.
 | RFC | Types | Notable edge cases | Status |
 |-----|-------|--------------------|:--:|
 | 1035 | A, NS, CNAME, SOA, PTR, MX, HINFO | SOA 32-bit serial/timers; MX preference; two-name and character-string RDATA | ✅ |
-| 1035 §3.3.14 | TXT | multi-character-string RDATA (> 255 B): only the first string is parsed | ❌ [#2](FINDINGS.md) |
+| 1035 §3.3.14 | TXT | multi-character-string RDATA (> 255 B), concatenated per RFC 7208 §3.3 | ✅ |
 | 3596 | AAAA | full/compressed IPv6 forms | ✅ |
 | 1183 | RP, AFSDB | two-name RDATA | ✅ |
 | 1876 | LOC | lat/lon/alt encoding, size/precision octets | 🟡 |
@@ -149,11 +164,11 @@ round-trip where supported.
 | 7208 | SPF | as TXT-shaped record | ✅ |
 | 7344 | CDS, CDNSKEY | mirror the parent DS/DNSKEY formats ✅; delete-sentinel forms | 🟡 |
 | 7477 | CSYNC | SOA-serial + flags + type bitmap | ✅ |
-| 7553 | URI | target is raw remaining octets, **not** a domain name | ❌ [#3](FINDINGS.md) |
+| 7553 | URI | target is raw remaining octets, **not** a domain name | ✅ |
 | 7929 | OPENPGPKEY | binary blob | ✅ |
 | 8659 | CAA | critical flag bit, length-prefixed tag, unprefixed value | ✅ |
 | 8976 | ZONEMD | serial/scheme/hash | ✅ |
-| 9460 | SVCB, HTTPS | alias mode ✅, service mode + SvcParams ✅, round-trip ✅; RDATA parsing overruns RDLENGTH | ❌ [#4](FINDINGS.md) |
+| 9460 | SVCB, HTTPS | alias mode, service mode + SvcParams, round-trip, RDLENGTH-bounded parsing | ✅ |
 | 6672 | DNAME | RDATA shape ✅; subtree rewrite semantics (client layer) | 🟡 |
 | 6891 | OPT | see EDNS project | ✅ |
 | 8945/2930 | TSIG, TKEY | wire shape only (no signing infrastructure yet) | ⬜ |
@@ -179,7 +194,7 @@ round-trip where supported.
 | 1035 §4.1.2 | query construction: QDCOUNT=1, QR=0, RD set, correct QTYPE/QCLASS | ✅ |
 | 5452 §9.2 | transaction IDs vary and span the 16-bit space | ✅ |
 | 5452 §4.1 | a response with a non-matching ID is never accepted as the answer | ✅ |
-| 5452 §4.2 | …and the query keeps waiting for the genuine response instead of aborting | ❌ [#5](FINDINGS.md) |
+| 5452 §4.2 | …and the query keeps waiting for the genuine response instead of aborting | ✅ |
 | 6891 §6.2.3 | client advertises EDNS0 with a payload size ≥ 512 | ✅ |
 | 7766 §5 | TC=1 over UDP → retry over TCP, full answer surfaced | ✅ |
 | 7766 §8 | TCP 2-byte length framing; reassembly of split prefix / dribbled bytes | ✅ |
@@ -202,11 +217,11 @@ round-trip where supported.
 | 3597 | query for an unassigned TYPE does not break the server | ✅ |
 | robustness | garbage, absurd counts, pointer loops: server stays healthy | ✅ |
 | 7858 | DoT server: TLS 1.2/1.3, framing, multiple queries per session | ✅ |
-| 1035 §4.2.1 | >512 B UDP answer without EDNS → TC=1 + truncation | ❌ [#7](FINDINGS.md) |
-| 6891 §6.2.5 | answer respects the advertised EDNS payload size | ❌ [#7](FINDINGS.md) |
-| 6891 §6.1.1 | OPT record present in responses to EDNS queries | ❌ [#6](FINDINGS.md) |
-| 6891 §6.1.3 | EDNS version > 0 → BADVERS | ❌ [#6](FINDINGS.md) |
-| 1035 §4.1.1 | unparseable request → FORMERR rather than silence | ❌ [#8](FINDINGS.md) |
+| 1035 §4.2.1 | >512 B UDP answer without EDNS → TC=1 + truncation | ✅ |
+| 6891 §6.2.5 | answer respects the advertised EDNS payload size | ✅ |
+| 6891 §6.1.1 | OPT record present in responses to EDNS queries | ✅ |
+| 6891 §6.1.3 | EDNS version > 0 → BADVERS | ✅ |
+| 1035 §4.1.1 | unparseable request → FORMERR rather than silence | ✅ |
 | 2181 §10.1 | CNAME and target coexistence rules in answers | ⬜ |
 | 4592 | wildcard matching (needs zone-store support) | ⬜ |
 
@@ -255,7 +270,7 @@ side of the connection.
 
 ### 4.8 Interop projects
 
-**`DNSInterop.PublicResolvers.Tests`** (category `Online`) — 22 ✅ / 1 ❌
+**`DNSInterop.PublicResolvers.Tests`** (category `Online`) — 23 ✅
 
 | Focus | Status |
 |-------|:--:|
@@ -265,7 +280,7 @@ side of the connection.
 | DoH POST/GET against Cloudflare, POST against Google | ✅ |
 | DoH JSON (`application/dns-json`) against Cloudflare | ✅ |
 | MX, AAAA, CAA resolve in the wild | ✅ |
-| HTTPS/SVCB resolves in the wild | ❌ [#4](FINDINGS.md) |
+| HTTPS/SVCB resolves in the wild | ✅ |
 | root DNSKEY: large answer completed (no truncation surfaced) | ✅ |
 | NXDOMAIN reported as NXDOMAIN; CNAME chain followed | ✅ |
 | live root DNSKEY contains the IANA KSK; live RRSIG validates | ✅ |
@@ -284,7 +299,7 @@ Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 | dig, kdig and drill agree on a multi-record answer set | ✅ |
 | `delv` DNSSEC validation of a Hermod-served signed zone | ⬜ |
 
-**`DNSInterop.ExternalServers.Tests`** (category `WSL`) — 12 ✅ / 1 ❌
+**`DNSInterop.ExternalServers.Tests`** (category `WSL`) — 13 ✅
 BIND `named` in WSL serving the fixture zone; Hermod is the client:
 
 | Focus | Status |
@@ -292,7 +307,7 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 | A, multi-A (BIND emits compression), AAAA, MX, TXT, SRV, SOA, CAA, TLSA | ✅ |
 | CNAME chase against BIND | ✅ |
 | NXDOMAIN from BIND; TCP transport | ✅ |
-| multi-character-string TXT served by BIND | ❌ [#2](FINDINGS.md) |
+| multi-character-string TXT served by BIND | ✅ |
 | Knot / Unbound / CoreDNS via Docker | ⬜ (no Docker daemon here) |
 
 ---

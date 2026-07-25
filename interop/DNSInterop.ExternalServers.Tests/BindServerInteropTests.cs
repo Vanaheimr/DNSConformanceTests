@@ -275,7 +275,6 @@ public class BindServerInteropTests
 
     [Test]
     [Property("RFC", "1035 §3.3.14")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #2
     public async Task Hermod_Handles_A_MultiString_Txt_From_Bind()
     {
 

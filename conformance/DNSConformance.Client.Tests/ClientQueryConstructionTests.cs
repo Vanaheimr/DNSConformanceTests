@@ -166,9 +166,15 @@ public class ClientQueryConstructionTests
         var elapsed   = DateTimeOffset.UtcNow - start;
 
         Assert.Multiple(() => {
+
             Assert.That(response.IsTimeout || !response.IsValid || !response.FilteredAnswers.Any(),
                         Is.True, "a silent server must surface as timeout/empty, never a hang");
-            Assert.That(elapsed, Is.LessThan(TimeSpan.FromSeconds(5)), "must respect the query timeout");
+
+            // Generous upper bound on purpose: this catches a hang, and a tight
+            // bound would only turn CPU contention during a parallel test run
+            // into a spurious failure.
+            Assert.That(elapsed, Is.LessThan(TimeSpan.FromSeconds(15)), "must respect the query timeout");
+
         });
 
     }

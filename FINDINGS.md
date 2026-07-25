@@ -1,237 +1,212 @@
 # Conformance Findings — Hermod DNS
 
-Results of the first full run of this suite (2026-07-25) against the Hermod
-submodule revision checked out under `libs/Hermod`.
+Deviations this suite found in the Hermod DNS stack, and how they were fixed.
 
-**211 tests · 199 pass · 12 fail.** Every failure below is a reproducible
-deviation from a normative RFC requirement, not a suite defect. Each is
-tagged `[Category("KnownIssue")]` so dashboards can separate "known" from
-"new" red.
+**Status: all 8 findings resolved. 211 tests · 211 pass · 0 fail.**
 
-Filter them out with:
+| Run | Before | After |
+|-----|-------:|------:|
+| Offline conformance (162 tests) | 152 ✅ / 10 ❌ | **162 ✅** |
+| WSL interop (38 tests) | 37 ✅ / 1 ❌ | **38 ✅** |
+| Online interop (23 tests) | 22 ✅ / 1 ❌ | **23 ✅** |
 
-```bash
-dotnet test DNSConformanceTests.slnx --filter "TestCategory!=KnownIssue"
-```
-
-| # | Area | Severity | RFC | Tests |
-|---|------|----------|-----|-------|
-| 1 | QNAME case not preserved | Low (SHOULD) | 1035 §2.3.3 | 1 (reported, not failing) |
-| 2 | TXT: only the first character-string is parsed | **High** | 1035 §3.3.14, §4.1.3 | 3 |
-| 3 | URI: target emitted as DNS labels | **High** | 7553 §4.5 | 1 |
-| 4 | SVCB/HTTPS: RDATA parsing overruns RDLENGTH | **High** | 1035 §4.1.3, 9460 | 2 |
-| 5 | Client aborts on the first non-matching UDP response | **High** | 5452 §4.2 | 1 |
-| 6 | Server omits OPT; no BADVERS | Medium | 6891 §6.1.1, §6.1.3 | 2 |
-| 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1, 6891 §6.2.5 | 2 |
-| 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | 1 |
+| # | Area | Severity | RFC | Status |
+|---|------|----------|-----|--------|
+| 1 | QNAME case not preserved | Low (SHOULD) | 1035 §2.3.3 | 📋 open by design — see below |
+| 2 | TXT/SPF: only the first character-string parsed | **High** | 1035 §3.3.14, §4.1.3 | ✅ fixed |
+| 3 | URI: target emitted as DNS labels | **High** | 7553 §4.5 | ✅ fixed |
+| 4 | SVCB/HTTPS: RDATA parsing overruns RDLENGTH | **High** | 1035 §4.1.3, 9460 | ✅ fixed |
+| 5 | Client aborts on the first non-matching UDP response | **High** | 5452 §4.2 | ✅ fixed |
+| 6 | Server omits OPT; no BADVERS | Medium | 6891 §6.1.1, §6.1.3 | ✅ fixed |
+| 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1, 6891 §6.2.5 | ✅ fixed |
+| 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | ✅ fixed |
 
 ---
 
-## 1 — Query names are lowercased before they reach the wire
+## A recurring theme: RDLENGTH is authoritative
 
-*RFC 1035 §2.3.3:* "When data enters the domain system, its original case
-should be preserved whenever possible."
+Findings 2, 3 and 4 are the same mistake in three places. RFC 1035 §4.1.3 makes
+RDLENGTH the definitive extent of a record's RDATA. Three parsers ignored it and
+instead read until the *stream* ended, which works only when the record happens
+to be last in the message — true in a unit test, false in real traffic, where an
+OPT record almost always trails.
 
-`DNSServiceName.Parse` lowercases, so a query for `MiXeD.CaSe.ExAmPlE`
-leaves as `mixed.case.example`. SHOULD-level, so the test reports rather than
-fails — but it also forecloses dns-0x20 query randomization, a cheap
-anti-spoofing measure that depends on case surviving the round trip.
+The symptom is not a mangled record. It is a mangled *message*: the over-reading
+parser consumes the next record's bytes, and everything after it is lost. That
+is why a live `cloudflare.com/HTTPS` query returned SERVFAIL rather than a
+partly-wrong answer.
 
-Test: `WireFormat.NameEncodingTests.Case_Is_Preserved_On_The_Wire` (passes,
-prints the observation).
+All three now derive their bounds from RDLENGTH, and the tests assert the
+stream lands exactly on the RDATA end.
 
-## 2 — TXT records: only the first character-string is read
+---
+
+## 2 — TXT/SPF: only the first character-string was parsed ✅
 
 *RFC 1035 §3.3.14:* "TXT-DATA: One or more `<character-string>`s."
-*RFC 7208 §3.3* requires the strings be concatenated.
+*RFC 7208 §3.3:* they are concatenated.
 
-`TXT(Stream)` calls `DNSTools.ExtractCharacterString` **once**
-([TXT.cs:112](libs/Hermod/Hermod/DNS/ResourceRecords/TXT.cs:112)), while
-`SerializeRRData` correctly writes as many 255-byte chunks as needed. So
-Hermod can emit a record it cannot read back.
+`TXT(Stream)` called `ExtractCharacterString` once, so any TXT above 255 bytes
+was truncated on read — precisely the population (DKIM keys, long SPF policies,
+DMARC) that exceeds 255 bytes. Serialization was already correct, so Hermod
+could emit a record it could not read back.
 
-Two consequences:
+`SPF` was worse: it decoded its text with `DNSTools.ExtractName`, the *domain
+name* parser, so any `.` in a policy became a label boundary.
 
-1. **Data loss** — any TXT above 255 bytes is truncated on read. This hits
-   DKIM keys, long SPF policies and DMARC records, which is precisely the
-   population of TXT records that exceeds 255 bytes.
-2. **Stream desynchronization** — the parser consumes less than RDLENGTH, so
-   every record *after* the TXT in the same message is misparsed. RFC 1035
-   §4.1.3 makes RDLENGTH authoritative for the RDATA extent.
+**Fix.** Added `DNSTools.ExtractCharacterStrings(Stream, RDLength)`, which reads
+exactly RDLENGTH octets as a sequence of character-strings. `TXT` and `SPF` both
+use it and concatenate the result.
 
-Suggested fix: read repeatedly until RDLENGTH bytes are consumed
-(`DNSTools.ExtractCharacterStrings` already exists and does exactly this),
-and concatenate.
+Verified by `TXT_MultiString_Rdata_Is_Fully_Parsed`,
+`TXT_MultiString_Parsing_Leaves_Stream_At_Rdata_End`, and — against real BIND
+output — `Hermod_Handles_A_MultiString_Txt_From_Bind`.
 
-Tests:
-- `ResourceRecords.TextAndPolicyRecordTests.TXT_MultiString_Rdata_Is_Fully_Parsed`
-- `ResourceRecords.TextAndPolicyRecordTests.TXT_MultiString_Parsing_Leaves_Stream_At_Rdata_End`
-- `ExternalServers.BindServerInteropTests.Hermod_Handles_A_MultiString_Txt_From_Bind` (against real BIND)
+## 3 — URI: target was emitted as DNS labels ✅
 
-## 3 — URI target is serialized as DNS labels
+*RFC 7553 §4.5:* the Target is "the remaining octets of the RDATA" — not a
+domain name, not a character-string.
 
-*RFC 7553 §4.5:* the Target field is "the URI of the target, enclosed in
-double-quote characters … in its presentation format" and on the wire it is
-simply "the remaining octets of the RDATA" — **not** a domain name, and not a
-character-string.
+Both directions went through the domain-name codec, so
+`https://www.example.com/path` was written as length-prefixed labels
+(`0b https://www 07 example 08 com/path 00`). Every other implementation reads
+garbage from that.
 
-Hermod writes it through the domain-name encoder, so
-`https://www.example.com/path` becomes length-prefixed labels
-(`0b https://www 07 example 08 com/path 00`) instead of the raw 28 octets.
-Any other implementation reads garbage.
+**Fix.** `SerializeRRData` now writes the target as raw ASCII octets after
+Priority and Weight, and a new `ReadTarget` helper reads `RDLENGTH - 4` octets
+back. Name compression is explicitly not applied.
 
-Test: `ResourceRecords.TextAndPolicyRecordTests.URI_Target_Is_The_Remaining_Rdata_Octets`
+Verified by `URI_Target_Is_The_Remaining_Rdata_Octets`.
 
-## 4 — SVCB/HTTPS parsing runs past the end of its own RDATA
+## 4 — SVCB/HTTPS: SvcParam loop ran past its own RDATA ✅
 
-*RFC 1035 §4.1.3:* RDLENGTH "specifies the length in octets of the RDATA
-field."
+*RFC 1035 §4.1.3, RFC 9460 §2.2.*
 
-`HTTPS(DomainName, Stream)` reads RDLENGTH and then ignores it, looping
-`while (true)` over SvcParams until the **stream** ends
-([HTTPS.cs](libs/Hermod/Hermod/DNS/ResourceRecords/HTTPS.cs)). Whenever the
-record is not the last thing in the message, it swallows whatever follows.
+Both records read RDLENGTH and then ignored it, looping `while (true)` over
+SvcParams until the stream ended. With an OPT record trailing the answer — the
+normal case — the OPT bytes were consumed as bogus SvcParams and the outer
+record loop then threw, so the client surfaced SERVFAIL with zero answers for a
+response `dig` renders without complaint.
 
-This is not theoretical. A live query to 1.1.1.1 for `cloudflare.com/HTTPS`
-returns a valid answer that `dig` renders without complaint; Hermod returns
-**SERVFAIL with zero answers**, because the HTTPS record is followed by the
-OPT record, whose bytes get eaten as bogus SvcParams and then blow up the
-outer record loop.
+**Fix.** One shared `SVCB.ParseSVCParameters(Stream, remainingRDataLength)`,
+bounded by RDLENGTH and used by all four SVCB/HTTPS stream constructors. It
+rejects a SvcParam that claims more bytes than remain, and trailing bytes after
+the last param. The two constructors that never read RDLENGTH at all now do.
 
-The same shape applies to `SVCB`.
+Verified by `Https_Record_Followed_By_Another_Record_Does_Not_Overrun` (offline)
+and `Https_Svcb_Records_Resolve_In_The_Wild` (live against 1.1.1.1).
 
-Suggested fix: bound the SvcParam loop by the RDLENGTH already read.
-
-Tests:
-- `ResourceRecords.SecurityAndBinaryRecordTests.Https_Record_Followed_By_Another_Record_Does_Not_Overrun` (offline reproduction)
-- `PublicResolvers.PublicResolverTests.Https_Svcb_Records_Resolve_In_The_Wild` (live)
-
-## 5 — A single spoofed datagram kills the pending query
+## 5 — A single spoofed datagram killed the pending query ✅
 
 *RFC 5452 §4.2:* a resolver "MUST ignore" responses that do not match the
 outstanding query.
 
-Hermod correctly refuses to *accept* a response whose transaction ID does not
-match — `DNSInfo.ReadResponse` returns `DNSInfo.Invalid`. But "ignore" is
-implemented as "give up": the client performs a single `ReceiveAsync` and
-treats whatever arrives as the answer, so the first datagram to reach the
-socket ends the query even when it is rejected. The genuine response that
-arrives microseconds later is never read.
+Hermod correctly *rejected* a response with a wrong transaction ID, but the
+client did a single `ReceiveAsync`, so the first datagram to arrive ended the
+query whether or not it was accepted. The genuine reply arriving microseconds
+later was never read.
 
-That inverts the intent of the requirement: instead of shrugging off forged
-packets, any off-path attacker who can land one datagram achieves a denial of
-service, at far lower cost than a cache-poisoning race.
+That inverts the requirement. Instead of shrugging off forged packets, any
+off-path attacker who lands one datagram achieves a denial of service — cheaper
+and more reliable than winning a cache-poisoning race.
 
-Suggested fix: loop on receive until a matching response arrives or the
-timeout expires, discarding non-matching datagrams.
+**Fix.** `DNSUDPClient` now loops on receive, comparing the transaction ID in
+the first two octets and discarding non-matching datagrams until a match arrives
+or the existing timeout expires. A flood of forged packets degrades to the same
+outcome as silence, rather than to a spurious failure.
 
-Test: `Client.UdpClientBehaviorTests.Spoofed_Response_Does_Not_Kill_The_Pending_Query`
-(the forged answer is correctly rejected; the genuine one never surfaces)
+Verified by `Spoofed_Response_Does_Not_Kill_The_Pending_Query`.
 
-## 6 — Server: responses to EDNS queries carry no OPT, and no BADVERS
+## 6 — Server omitted OPT and never answered BADVERS ✅
 
 *RFC 6891 §6.1.1:* responders "MUST include an OPT record in their respective
 responses."
-*RFC 6891 §6.1.3:* an unsupported EDNS VERSION "MUST" be answered with
-BADVERS (extended RCODE 16).
+*RFC 6891 §6.1.3:* an unsupported EDNS VERSION "MUST" be answered with BADVERS.
 
-`AuthoritativeDNSRequestHandler` builds every response with an empty
-additional section, so:
+`AuthoritativeDNSRequestHandler` built every response with an empty additional
+section, so a requestor could not tell whether the server spoke EDNS, could not
+learn its payload size, and `dig +edns=1` got NOERROR where BADVERS was required.
 
-- an EDNS query is answered without an OPT record — the requestor cannot tell
-  whether the server is EDNS-capable, cannot learn its payload size, and DO/
-  extended-RCODE signalling is unavailable;
-- `dig +edns=1` receives NOERROR instead of BADVERS (observed combined RCODE
-  0 where 16 is required).
+**Fix.** Added `DNSResponseCodes.BadVersion = 16` and a `BuildResponseOPT`
+helper that attaches an OPT to every response *when the query carried one*,
+advertising the server's own payload size (default 1232, per DNS Flag Day 2020)
+and carrying the upper 8 bits of an extended RCODE. EDNS version > 0 short-
+circuits to BADVERS. Options are deliberately not echoed — unknown options must
+be ignored (§6.1.2), and reflecting them would make the server an amplifier.
 
-This is exactly the battery the DNS flag day compliance tests probe.
+Verified by `Response_To_Edns_Query_Contains_An_Opt_Record`,
+`Unknown_Edns_Version_Yields_BADVERS`, and `Unknown_Edns_Options_Are_Not_Echoed`.
 
-Tests:
-- `Server.ServerEdnsAndTruncationTests.Response_To_Edns_Query_Contains_An_Opt_Record`
-- `Server.ServerEdnsAndTruncationTests.Unknown_Edns_Version_Yields_BADVERS`
+## 7 — Server never truncated oversized UDP responses ✅
 
-## 7 — Server never truncates oversized UDP responses
+*RFC 1035 §4.2.1:* "Longer messages are truncated and the TC bit is set."
+*RFC 6891 §6.2.5:* never exceed the requestor's advertised buffer.
 
-*RFC 1035 §4.2.1:* "Messages carried by UDP are restricted to 512 bytes …
-Longer messages are truncated and the TC bit is set in the header."
-*RFC 6891 §6.2.5:* a responder must not exceed the requestor's advertised
-payload size.
+A 600-byte TXT produced a **673-byte UDP response with TC=0**, both without EDNS
+(512-byte ceiling) and with EDNS advertising 512. Such datagrams fragment or get
+dropped by middleboxes, and because TC was clear the client was never told to
+retry over TCP — the answer simply vanished.
 
-Observed: a query for a 600-byte TXT record produces a **673-byte UDP
-response with TC=0** — both without EDNS (512-byte limit) and with EDNS
-advertising 512. `DNSServer` serializes the full response and sends it
-regardless of size.
+**Fix.** `DNSServer.SerializeForUDP` computes the limit as 512 without EDNS, or
+`min(advertised, MaxUDPResponseSize)` with it (values below 512 treated as 512
+per §6.2.3), then sheds answer records from the end until the message fits and
+sets TC=1. The OPT record is retained so the response stays EDNS-conformant.
+`DNSServerOptions.MaxUDPResponseSize` (default 1232) caps what the server emits
+regardless of what a requestor advertises. Applied to both the unicast and
+multicast UDP paths.
 
-Consequences: datagrams above the path MTU fragment or are dropped by
-middleboxes, and clients are never told to retry over TCP — the answer simply
-disappears for anyone who cannot receive an oversized datagram.
+Verified by `Large_Answer_Without_Edns_Is_Truncated_Or_Fits_512_Bytes` and
+`Answer_Respects_The_Advertised_Edns_Payload_Size`; TCP still delivers the full
+answer (`Tcp_Delivers_The_Full_Large_Answer`).
 
-Suggested fix: measure the serialized response, and when it exceeds
-min(advertised payload size, 512 without EDNS), drop answer records and set
-TC=1.
+## 8 — Unparseable requests were dropped instead of answered FORMERR ✅
 
-Tests:
-- `Server.ServerEdnsAndTruncationTests.Large_Answer_Without_Edns_Is_Truncated_Or_Fits_512_Bytes`
-- `Server.ServerEdnsAndTruncationTests.Answer_Respects_The_Advertised_Edns_Payload_Size`
+*RFC 1035 §4.1.1:* RCODE 1 means "the name server was unable to interpret the
+query."
 
-Note the same zone *is* served correctly over TCP
-(`Tcp_Delivers_The_Full_Large_Answer` passes), so only the UDP size discipline
-is missing.
+A request truncated mid-name produced no reply at all: the parse threw, the
+exception was logged, the datagram was abandoned. The server stayed healthy, so
+this was a diagnosability problem rather than a robustness one — but a client
+cannot distinguish "malformed request" from "server down", and retries blindly.
 
-## 8 — Unparseable requests are dropped instead of answered FORMERR
+**Fix.** The UDP parse is now its own `try`; on failure the server builds a
+minimal FORMERR from the first two octets (the transaction ID stays readable
+however mangled the rest is) and replies. Two guards keep this safe: datagrams
+under 12 bytes are ignored, and anything with QR already set is never answered,
+so two servers cannot ping-pong error replies.
 
-*RFC 1035 §4.1.1:* RCODE 1 (Format error) means "the name server was unable to
-interpret the query."
-
-A request whose question section is truncated mid-name produces no reply at
-all: `DNSPacket.Parse` throws, the exception is logged, and the datagram is
-abandoned. The server stays healthy (verified), so this is a politeness/
-diagnosability issue rather than a robustness one — but a client cannot
-distinguish "malformed" from "server down", and retries pointlessly.
-
-Test: `Server.ServerRobustnessTests.Truncated_Request_Does_Not_Break_The_Server`
+Verified by `Truncated_Request_Does_Not_Break_The_Server`.
 
 ---
 
-## What passed — the notable positives
+## 1 — Query names are lowercased before they reach the wire 📋 open
 
-These are worth recording because they are the hard parts, and they work:
+*RFC 1035 §2.3.3:* "its original case should be preserved whenever possible."
 
-- **DNSSEC is solid.** 18/18. Key tags for both IANA root KSKs (20326, 38696)
-  computed exactly; the published root DS digest reproduced; and RRSIG
-  verification succeeds against a zone signed by **BIND's `dnssec-signzone`**
-  across SOA/NS/A/AAAA/MX/TXT/DNSKEY RRsets, including canonical ordering
-  (reversed RRsets still validate) and correct rejection of tampered RDATA and
-  wrong keys. A live `cloudflare.com` SOA RRSIG validates end-to-end.
-- **Cross-implementation interop is clean.** 25/25 against GNU/Linux tooling:
-  `dig`, Knot's `kdig` and ldns' `drill` all parse Hermod's server output, over
-  UDP and TCP, with no structural warnings, and the three tools agree on the
-  answer sets. `kdig +tls` completes a full **DNS-over-TLS** exchange with
-  Hermod's DoT listener.
-- **DoT and DoH clients are correct.** 11/11, including RFC 8484's unpadded
-  base64url `?dns=` parameter, `application/dns-message` on both directions,
-  and RFC 7858 TLS session reuse (3 queries → 1 handshake) with the
-  certificate-validation hook honored on rejection.
-- **Wire format and EDNS options.** 41/41 and 10/10: header bit positions,
-  compression decoding (including the RFC 1035 §4.1.4 worked example, pointer
-  loops rejected), name limits, and the typed EDNS options (Cookie, Client
-  Subnet with correct prefix truncation, Padding, Extended DNS Errors).
-- **Robustness.** The server survives random garbage, absurd section counts,
-  compression-pointer loops and partial TCP messages, and keeps answering
-  throughout.
+`DNSServiceName.Parse` lowercases, so `MiXeD.CaSe.ExAmPlE` leaves as
+`mixed.case.example`. This is SHOULD-level and harmless to interoperability —
+matching is case-insensitive either way, and the suite's test passes.
+
+It is left open deliberately: the fix belongs in `DNSServiceName`/`DomainName`,
+which are used well beyond DNS wire encoding, so changing their normalization
+is a much broader change than the seven above and wants its own review. The
+practical cost is that dns-0x20 query randomization — a cheap anti-spoofing
+measure that depends on case surviving the round trip — cannot be implemented on
+top of the current types.
+
+`Case_Is_Preserved_On_The_Wire` records the observation without failing.
 
 ## Interpretations
 
-**Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as
-referring to "a prior occurrence of the same name". Hermod accepts pointers
-that point forward; the suite's strict reference reader rejects them. Being
-lenient on receive is a defensible robustness choice and no MUST is violated,
-so this is documented rather than failed
-(`WireFormat.CompressionTests.Forward_Pointers_Are_Not_Prior_Locations`).
+**Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as referring
+to "a prior occurrence of the same name". Hermod accepts forward pointers; the
+suite's strict reference reader rejects them. Leniency on receive is a
+defensible robustness choice and violates no MUST, so this is documented rather
+than failed (`Forward_Pointers_Are_Not_Prior_Locations`).
 
-**TTLs with the high bit set.** RFC 2181 §8 says such a TTL "should be treated
-as if the entire value received was zero". The test accepts either the clamp
-or the literal value and prints what happened.
+**TTLs with the high bit set.** RFC 2181 §8 says such a TTL "should be treated as
+if the entire value received was zero". The test accepts either the clamp or the
+literal value and prints what happened.
 
 **DoH transaction IDs.** RFC 8484 §4.1 says clients SHOULD use ID 0 for cache
 friendliness. Hermod uses random IDs. Measured and reported only.

@@ -102,7 +102,6 @@ public class ServerRobustnessTests
     #region Truncated_Request_Does_Not_Break_The_Server()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #8: unparseable requests are silently dropped
     public async Task Truncated_Request_Does_Not_Break_The_Server()
     {
 

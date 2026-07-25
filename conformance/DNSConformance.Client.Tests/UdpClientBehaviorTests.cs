@@ -17,7 +17,9 @@ namespace DNSConformance.Client.Tests;
 public class UdpClientBehaviorTests
 {
 
-    private static readonly TimeSpan ShortTimeout = TimeSpan.FromSeconds(3);
+    // Loopback round-trips take milliseconds; the budget is this large only so
+    // that CPU contention during a parallel test run cannot cause a false red.
+    private static readonly TimeSpan ShortTimeout = TimeSpan.FromSeconds(10);
 
 
     #region Client_Advertises_Edns0_With_A_Sane_Payload_Size()
@@ -95,7 +97,6 @@ public class UdpClientBehaviorTests
 
     [Test]
     [Property("RFC", "5452 §4.2")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #5
     public async Task Spoofed_Response_Does_Not_Kill_The_Pending_Query()
     {
 

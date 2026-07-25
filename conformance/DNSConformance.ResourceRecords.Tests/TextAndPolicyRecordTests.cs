@@ -68,7 +68,6 @@ public class TextAndPolicyRecordTests
 
     [Test]
     [Property("RFC", "1035 §3.3.14")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #2: only the first character-string is read
     public void TXT_MultiString_Rdata_Is_Fully_Parsed()
     {
 
@@ -97,7 +96,6 @@ public class TextAndPolicyRecordTests
 
     [Test]
     [Property("RFC", "1035 §4.1.3")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #2: under-read desynchronizes all subsequent records
     public void TXT_MultiString_Parsing_Leaves_Stream_At_Rdata_End()
     {
 
@@ -211,7 +209,6 @@ public class TextAndPolicyRecordTests
 
     [Test]
     [Property("RFC", "7553 §4.5")]
-    [Category(TestCategories.KnownIssue)]   // FINDINGS.md #3: target is emitted as dot-split DNS labels
     public void URI_Target_Is_The_Remaining_Rdata_Octets()
     {
 
