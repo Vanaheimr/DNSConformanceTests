@@ -12,3 +12,4 @@ aaaa    IN  AAAA 2001:db8::1
 mx      IN  MX   10 mail.dnssec.test.
 mail    IN  A    192.0.2.25
 txt     IN  TXT  "signed by BIND"
+*.wild  IN  A    192.0.2.77

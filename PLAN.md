@@ -45,9 +45,25 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-Code review flagged several suspected deviations before any test existed. The
-suite then confirmed eight of them; seven have been fixed in Hermod and are
-documented in [FINDINGS.md](FINDINGS.md):
+The suite has confirmed fifteen deviations so far; nine are fixed in Hermod and
+six are open. All are documented in [FINDINGS.md](FINDINGS.md), and every open
+one is tracked by a red test tagged `KnownIssue`.
+
+Open:
+
+* ❌ **wildcard-expanded RRsets fail DNSSEC validation** — the signed data is
+  rebuilt from the expanded owner name instead of the wildcard (RFC 4035 §5.3.2).
+* ❌ **wildcard owner names cannot be represented** — `DomainName` rejects the
+  `*` label, so NSEC/RRSIG records that carry one cannot be read (RFC 4592 §2).
+* ❌ **a revoked KSK is never removed from the trust anchors** — the REVOKE bit
+  changes the key tag, so the match against the stored anchor never fires
+  (RFC 5011 §2.1). Fails open.
+* ❌ **the authoritative server ignores the CNAME rule** — an alias answers only
+  `QTYPE=CNAME`; everything else gets NODATA (RFC 1034 §4.3.2).
+* ❌ **NODATA answers are never served from the cache** (RFC 2308 §5).
+* ❌ **the negative TTL ignores the SOA MINIMUM** (RFC 2308 §4).
+
+Fixed:
 
 * ✅ **fixed** — `TXT`/`SPF` parsed only the first character-string, losing data
   above 255 bytes and desynchronizing later records (RFC 1035 §3.3.14).
@@ -63,9 +79,13 @@ documented in [FINDINGS.md](FINDINGS.md):
   than trimmed with TC=1 (RFC 1035 §4.2.1, RFC 6891 §6.2.5).
 * ✅ **fixed** — unparseable requests were dropped instead of answered FORMERR
   (RFC 1035 §4.1.1).
-* 📋 **open by design** — query names are lowercased before reaching the wire.
-  SHOULD-level, and the fix belongs in `DomainName`/`DNSServiceName`, which are
-  used well beyond DNS.
+* ✅ **fixed** — query names were lowercased before reaching the wire
+  (RFC 1035 §2.3.3). Parsing now preserves case and every comparison is
+  case-insensitive instead (RFC 4343), which also repaired an `Equals`/
+  `GetHashCode` contract break that normalization had been hiding.
+* ✅ **fixed** — name compression's suffix table could never match (keys lacked
+  the trailing dot), and the offsets it recorded were wrong in two further ways
+  that the first defect masked (RFC 1035 §4.1.4).
 
 Two review suspicions did *not* survive contact with a test, which is exactly
 why the suite exists:
@@ -122,9 +142,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **211 tests, 211 ✅, 0 ❌** — the twelve
-initial failures were confirmed Hermod deviations and have since been fixed;
-see [FINDINGS.md](FINDINGS.md).
+Counts as of the 2026-07-25 run: **281 tests, 273 ✅, 8 ❌**. Every ❌ is a
+confirmed deviation tracked in [FINDINGS.md](FINDINGS.md) and tagged
+`KnownIssue`, so excluding that category gives a green gate.
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -134,7 +154,9 @@ see [FINDINGS.md](FINDINGS.md).
 | 1035 §4.1.2 | Question | QNAME/QTYPE/QCLASS encoding, round-trip | ✅ |
 | 1035 §3.1 | Name encoding | root name, single/max label (63), max name (255), rejection of oversize | ✅ |
 | 1035 §4.1.4 | Compression | decode pointer chains (incl. RFC's F.ISI.ARPA example layout), pointer loops rejected, forward pointers, encode-side pointer correctness (decode with RawDns) | ✅ |
-| 1035 §2.3.3 | Case | case-insensitive matching ✅; original case preserved on the wire | 📋 [#1](FINDINGS.md) |
+| 1035 §2.3.3 | Case | original case preserved byte-exactly on the wire | ✅ |
+| 4343 | Case-insensitive identity | names differing only in case are equal, hash alike and order alike | ✅ |
+| 1035 §4.1.4 | Compression (encode) | shared suffixes actually emit pointers; repeated labels resolve correctly; mixed case compresses against its lowercase twin | ✅ |
 | 2181 §8 | TTLs | TTL is 31-bit ✅; MSB-set TTL handling | 📋 |
 | 3597 | Unknown RR types | unknown-type RDATA treated as opaque; no compression emitted in new-type RDATA | 🟡 |
 | 6895 | IANA considerations | type/class code points used correctly (spot checks) | ✅ |
@@ -185,7 +207,8 @@ round-trip where supported.
 | 7873 | Cookie option: 8-byte initial client cookie | ✅ |
 | 7830 | Padding option is all-zero | ✅ |
 | 8914 | Extended DNS Error: info-code + extra-text | ✅ |
-| 7828 | TCP Keepalive: absent timeout in queries, 2-byte timeout in responses | ⬜ |
+| 7828 | TCP Keepalive: zero-length in queries, 2-byte 100 ms units in responses, malformed lengths rejected | ✅ |
+| 7830/8467 | Padding: all-zero octets, 128-byte query blocks, 468-byte response blocks | ✅ |
 
 ### 4.4 Client behavior (`DNSConformance.Client.Tests`) — vs. scripted servers
 
@@ -201,7 +224,10 @@ round-trip where supported.
 | 7766 §6.2.1 | multiple queries on one TCP connection; recovery when the server closes | ✅ |
 | 1035 §4.2.1 | UDP timeout respected; silence never hangs the caller | ✅ |
 | robustness | garbage responses produce a result object, not an unhandled exception | ✅ |
-| 2308 | NODATA / NXDOMAIN negative caching semantics | ⬜ |
+| 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |
+| 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
+| 2308 §5 | NODATA served from the negative cache | ❌ [#14](FINDINGS.md) |
+| 2308 §4 | negative TTL taken from the SOA MINIMUM | ❌ [#15](FINDINGS.md) |
 | 6672 | CNAME/DNAME chase with loop protection (covered live in interop) | 🟡 |
 
 ### 4.5 Server behavior (`DNSConformance.Server.Tests`) — raw sockets vs. `DNSServer`
@@ -222,7 +248,8 @@ round-trip where supported.
 | 6891 §6.1.1 | OPT record present in responses to EDNS queries | ✅ |
 | 6891 §6.1.3 | EDNS version > 0 → BADVERS | ✅ |
 | 1035 §4.1.1 | unparseable request → FORMERR rather than silence | ✅ |
-| 2181 §10.1 | CNAME and target coexistence rules in answers | ⬜ |
+| 2181 §10.1 | no non-CNAME data is owned by an alias | ✅ |
+| 1034 §4.3.2 | a CNAME answers queries of every type at that name | ❌ [#13](FINDINGS.md) |
 | 4592 | wildcard matching (needs zone-store support) | ⬜ |
 
 ### 4.6 Secure transports (`DNSConformance.SecureTransports.Tests`)
@@ -261,12 +288,16 @@ side of the connection.
 | 4035 §5.3.3 | tampered RDATA and verification under an unrelated key are rejected | ✅ |
 | 4034 §6.3 | canonical ordering applied by the validator (reversed RRset still validates) | ✅ |
 | 4034 §3.1.8 | a **live** cloudflare.com SOA RRSIG validates end-to-end (Online) | ✅ |
-| 6605 | ECDSA P-256 fixtures are generated by resign.sh; not yet asserted | 🟡 |
-| 8080 | Ed25519 published test vectors | ⬜ |
-| 4035 §5.3.4 | wildcard signature label-count handling | ⬜ |
-| 5155 App. A | NSEC3 hash vectors (H(example) = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom) | ⬜ |
-| 4035 §4.3 | Secure / Insecure / Bogus classification via `ValidateAsync` over a full chain | ⬜ |
-| 5011 | trust-anchor hold-down (unit level) | ⬜ |
+| 6605 | ECDSA P-256: a separately signed BIND zone; A/TXT/SOA/NS RRSIGs, DS, wrong-key rejection | ✅ |
+| 4035 §4.3 | Secure / Insecure / Bogus / Indeterminate classification via `ValidateAsync` | ✅ |
+| 4034 §3.1.5 | expired and not-yet-valid signatures are Bogus | ✅ |
+| 5011 §2.3/§2.4.1 | 30-day hold-down; no trust on first sight; continuity required; ZSKs ignored | ✅ |
+| 4034 §3.1.3 | RRSIG Labels excludes the leading asterisk | ✅ |
+| 4035 §5.3.2 | wildcard-expanded RRsets validate against the wildcard signature | ❌ [#10](FINDINGS.md) |
+| 4592 §2 | wildcard owner names can be represented | ❌ [#11](FINDINGS.md) |
+| 5011 §2.1 | a revoked KSK is dropped from the trust anchors | ❌ [#12](FINDINGS.md) |
+| 5155 App. A | NSEC3 hash vectors | — no NSEC3 hash function in Hermod |
+| 8080 | Ed25519 signed fixtures | — needs BIND ED25519 support |
 
 ### 4.8 Interop projects
 
@@ -297,6 +328,7 @@ Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 | `kdig`: UDP, TCP, and **DoT (`+tls`)** against Hermod's TLS listener | ✅ |
 | `drill`: A, AAAA, MX, SRV, SOA — a third parser lineage | ✅ |
 | dig, kdig and drill agree on a multi-record answer set | ✅ |
+| all of the above still pass after the case-preservation and compression changes | ✅ |
 | `delv` DNSSEC validation of a Hermod-served signed zone | ⬜ |
 
 **`DNSInterop.ExternalServers.Tests`** (category `WSL`) — 13 ✅
@@ -400,7 +432,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: NSEC3 hash vectors, wildcard signatures, TSIG signing, RFC 2181 §10.1 coexistence, negative caching, DNAME chase | ⬜ next |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics | 🟡 mostly done — TSIG signing, LOC edge cases, CDS delete-sentinel, RFC 3597 opacity and `delv` interop remain |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — offline projects on every push; `Online` + `WSL` lanes nightly on a Linux runner (the tools are native there, so no WSL bridge needed) | ⬜ next |
 

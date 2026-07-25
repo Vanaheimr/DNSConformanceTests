@@ -257,6 +257,27 @@ public sealed class RawDnsWriter
         => new RawDnsWriter().Name(name).ToArray();
 
     /// <summary>RDATA helper: IPv4 address bytes.</summary>
+    /// <summary>SOA RDATA (RFC 1035 §3.3.13), uncompressed. MINIMUM is the field
+    /// RFC 2308 §4 repurposed as the negative-caching TTL.</summary>
+    public static Byte[] Soa(String  MName,
+                             String  RName,
+                             UInt32  Serial   = 1,
+                             UInt32  Refresh  = 7200,
+                             UInt32  Retry    = 3600,
+                             UInt32  Expire   = 1209600,
+                             UInt32  Minimum  = 3600)
+
+        => new RawDnsWriter().
+               Name(MName).
+               Name(RName).
+               U32(Serial).
+               U32(Refresh).
+               U32(Retry).
+               U32(Expire).
+               U32(Minimum).
+               ToArray();
+
+
     public static Byte[] IPv4(String dotted)
     {
 

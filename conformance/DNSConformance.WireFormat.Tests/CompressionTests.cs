@@ -307,6 +307,146 @@ public class CompressionTests
 
     #endregion
 
+    #region Shared_Suffix_Is_Actually_Compressed()
+
+    [Test]
+    public void Shared_Suffix_Is_Actually_Compressed()
+    {
+
+        // RFC 1035 §4.1.4 exists so that "deep.example.com." appearing after
+        // "www.deep.example.com." costs two bytes, not eighteen. The question name
+        // starts at offset 12, so its "deep…" suffix begins at 12 + 4 = 16 and the
+        // answer's owner must be a pointer to exactly that.
+        var packet = new DNSPacket(
+                         0x5117,
+                         DNSQueryResponse.Response,
+                         0, true, false, true, true,
+                         DNSResponseCodes.NoError,
+                         [ new DNSQuestion(DNSServiceName.Parse("www.deep.example.com."), DNSResourceRecordTypes.NS, DNSQueryClasses.IN) ],
+                         [ new NS(DomainName.Parse("deep.example.com."), DNSQueryClasses.IN, TimeSpan.FromMinutes(5), DomainName.Parse("ns1.deep.example.com.")) ],
+                         [],
+                         []
+                     );
+
+        var ms = new MemoryStream();
+        packet.Serialize(ms, UseCompression: true, CompressionOffsets: []);
+        var compressed = ms.ToArray();
+
+        RawDnsMessage decoded = null!;
+
+        Assert.That(
+            () => decoded = RawDnsReader.Parse(compressed),
+            Throws.Nothing,
+            () => "compressed message is structurally invalid:\n" + Bytes.Dump(compressed)
+        );
+
+        Assert.Multiple(() => {
+
+            Assert.That(decoded.Answers.Single().Name.Compressed, Is.True,
+                        "a suffix of an earlier name must be emitted as a pointer");
+
+            Assert.That(decoded.Answers.Single().Name.Canonical, Is.EqualTo("deep.example.com"),
+                        "and it must resolve back to the right name");
+
+            Assert.That(compressed.Length, Is.LessThan(packet.ToByteArray().Length),
+                        "compression must actually save bytes here");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Name_With_Repeated_Labels_Compresses_To_Correct_Offsets()
+
+    [Test]
+    public void Name_With_Repeated_Labels_Compresses_To_Correct_Offsets()
+    {
+
+        // A name whose labels repeat ("a.b.a.example.") is where naive suffix
+        // bookkeeping goes wrong: looking a label up by value rather than by
+        // position resolves the second "a" to the first one's offset, and every
+        // suffix recorded after it points into the middle of a different label.
+        // The strict reader catches that as a malformed name or a wrong answer.
+        var packet = new DNSPacket(
+                         0x6ABA,
+                         DNSQueryResponse.Response,
+                         0, true, false, true, true,
+                         DNSResponseCodes.NoError,
+                         [ new DNSQuestion(DNSServiceName.Parse("a.b.a.example."), DNSResourceRecordTypes.MX, DNSQueryClasses.IN) ],
+                         [
+                             new MX(DomainName.Parse("a.b.a.example."), DNSQueryClasses.IN, TimeSpan.FromMinutes(5), 10, DomainName.Parse("b.a.example.")),
+                             new MX(DomainName.Parse("a.b.a.example."), DNSQueryClasses.IN, TimeSpan.FromMinutes(5), 20, DomainName.Parse("a.example."))
+                         ],
+                         [],
+                         []
+                     );
+
+        var ms = new MemoryStream();
+        packet.Serialize(ms, UseCompression: true, CompressionOffsets: []);
+        var compressed = ms.ToArray();
+
+        RawDnsMessage decoded = null!;
+
+        Assert.That(
+            () => decoded = RawDnsReader.Parse(compressed),
+            Throws.Nothing,
+            () => "compressed message is structurally invalid:\n" + Bytes.Dump(compressed)
+        );
+
+        var exchanges = decoded.Answers.
+                            Select(rr => RawDnsReader.ReadNameAt(decoded.Wire, rr.RdataOffset + 2).Name.Canonical).
+                            ToArray();
+
+        Assert.That(exchanges, Is.EqualTo(new[] { "b.a.example", "a.example" }),
+                    () => "repeated labels resolved to the wrong offsets:\n" + Bytes.Dump(compressed));
+
+    }
+
+    #endregion
+
+    #region Mixed_Case_Name_Compresses_Against_Its_Lowercase_Twin()
+
+    [Test]
+    [Property("RFC", "4343")]
+    public void Mixed_Case_Name_Compresses_Against_Its_Lowercase_Twin()
+    {
+
+        // RFC 4343 makes "MiXeD.example." and "mixed.example." the same name, so a
+        // pointer from one to the other is legal — and it is exactly what lets a
+        // server answer a dns-0x20 query without rewriting the owner name in the
+        // client's randomized capitalization by hand.
+        var packet = new DNSPacket(
+                         0x0C25,
+                         DNSQueryResponse.Response,
+                         0, true, false, true, true,
+                         DNSResponseCodes.NoError,
+                         [ new DNSQuestion(DNSServiceName.Parse("MiXeD.ExAmPlE."), DNSResourceRecordTypes.A, DNSQueryClasses.IN) ],
+                         [ new A(DomainName.Parse("mixed.example."), DNSQueryClasses.IN, TimeSpan.FromMinutes(5), IPv4Address.Parse("192.0.2.7")) ],
+                         [],
+                         []
+                     );
+
+        var ms = new MemoryStream();
+        packet.Serialize(ms, UseCompression: true, CompressionOffsets: []);
+        var decoded = RawDnsReader.Parse(ms.ToArray());
+
+        Assert.Multiple(() => {
+
+            Assert.That(decoded.Questions.Single().Name.Presentation, Is.EqualTo("MiXeD.ExAmPlE"),
+                        "the question keeps the capitalization it was given");
+
+            Assert.That(decoded.Answers.Single().Name.Compressed, Is.True,
+                        "the owner name differs only in case, so it may point at the question");
+
+            Assert.That(decoded.Answers.Single().Name.Canonical, Is.EqualTo("mixed.example"));
+
+        });
+
+    }
+
+    #endregion
+
     #region Uncompressed_Serialization_Contains_No_Pointers()
 
     [Test]

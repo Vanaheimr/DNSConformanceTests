@@ -63,18 +63,72 @@ public class NameEncodingTests
     public void Case_Is_Preserved_On_The_Wire()
     {
 
-        // "When data enters the domain system, its original case should be
-        // preserved whenever possible." — SHOULD-level, therefore this test
-        // accepts either behavior but documents the deviation (FINDINGS.md #1):
-        // DNSServiceName.Parse lowercases, so the original spelling never
-        // reaches the wire. This also defeats dns0x20-style entropy schemes.
+        // RFC 1035 §2.3.3: "When you receive a domain name or label, you should
+        // preserve its case." Byte-exact, not merely case-insensitively equal —
+        // dns-0x20 query randomization is built entirely on the case of a QNAME
+        // surviving the round trip untouched.
         var decoded  = RawDnsReader.Parse(SerializeQuestionName("MiXeD.CaSe.ExAmPlE."));
         var onWire   = decoded.Questions.Single().Name.Presentation;
 
-        TestContext.Out.WriteLine($"QNAME on the wire: '{onWire}' (submitted: 'MiXeD.CaSe.ExAmPlE')");
+        Assert.That(onWire, Is.EqualTo("MiXeD.CaSe.ExAmPlE"),
+                    "the original spelling must reach the wire unchanged");
 
-        Assert.That(onWire, Is.EqualTo("MiXeD.CaSe.ExAmPlE").IgnoreCase,
-                    "name must at least survive case-insensitively");
+    }
+
+    #endregion
+
+    #region Names_Differing_Only_In_Case_Are_The_Same_Name()
+
+    [Test]
+    [Property("RFC", "4343")]
+    public void Names_Differing_Only_In_Case_Are_The_Same_Name()
+    {
+
+        // RFC 4343: preserving case must not make case significant. Equality and
+        // GetHashCode have to agree, or every dictionary keyed on a name (the
+        // server's zone store, the client's caches) silently loses entries.
+        var lower  = DomainName.Parse("example.com.");
+        var upper  = DomainName.Parse("EXAMPLE.COM.");
+        var mixed  = DomainName.Parse("ExAmPlE.cOm.");
+
+        Assert.Multiple(() => {
+
+            Assert.That(lower.FullName, Is.EqualTo("example.com."), "case is preserved…");
+            Assert.That(upper.FullName, Is.EqualTo("EXAMPLE.COM."), "…in both directions");
+
+            Assert.That(lower,               Is.EqualTo(upper),           "RFC 4343: same name");
+            Assert.That(lower,               Is.EqualTo(mixed));
+            Assert.That(lower.GetHashCode(), Is.EqualTo(upper.GetHashCode()),
+                        "Equals/GetHashCode contract");
+            Assert.That(lower.CompareTo(upper), Is.Zero, "ordering must ignore case too");
+
+            Assert.That(new HashSet<DomainName> { lower, upper, mixed }, Has.Count.EqualTo(1),
+                        "three spellings of one name must collapse to one set entry");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Service_Names_Differing_Only_In_Case_Are_The_Same_Name()
+
+    [Test]
+    [Property("RFC", "4343")]
+    public void Service_Names_Differing_Only_In_Case_Are_The_Same_Name()
+    {
+
+        // Same contract on DNSServiceName — InMemoryDNSZone keys a
+        // ConcurrentDictionary on this type, so a mismatch here means a zone
+        // lookup for "WWW.example.com" cannot find the record stored as "www…".
+        var lower = DNSServiceName.Parse("_25._tcp.example.com.");
+        var upper = DNSServiceName.Parse("_25._TCP.EXAMPLE.COM.");
+
+        Assert.Multiple(() => {
+            Assert.That(upper.FullName,      Is.EqualTo("_25._TCP.EXAMPLE.COM."));
+            Assert.That(lower,               Is.EqualTo(upper));
+            Assert.That(lower.GetHashCode(), Is.EqualTo(upper.GetHashCode()));
+        });
 
     }
 

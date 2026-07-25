@@ -30,6 +30,45 @@ public static class RawDnsResponder
         => Build(request, (UInt16) (DefaultFlags | RawDnsFlags.RCode(rcode)));
 
 
+    /// <summary>
+    /// A negative answer carrying an SOA in the authority section.
+    ///
+    /// RFC 2308 §3: a negative answer is only cacheable if the responder says for
+    /// how long, and the place it says so is the SOA — specifically
+    /// min(SOA.MINIMUM, the SOA record's own TTL). Without it a resolver has no
+    /// licence to remember the answer at all.
+    /// </summary>
+    /// <param name="Rcode">0 for NODATA (RFC 2308 §2.2), 3 for NXDOMAIN (§2.1).</param>
+    public static Byte[] Negative(Byte[]  request,
+                                  Int32   Rcode,
+                                  String  Zone,
+                                  UInt32  SoaMinimum  = 3600,
+                                  UInt32  SoaTtl      = 3600)
+    {
+
+        var query          = RawDnsReader.Parse(request, RawDnsReaderOptions.Lenient);
+        var question       = query.Questions[0];
+        var questionBytes  = request[12..(12 + question.Name.WireLength + 4)];
+
+        var soa            = RawDnsWriter.Soa(
+                                 $"ns1.{Zone}",
+                                 $"hostmaster.{Zone}",
+                                 Minimum: SoaMinimum
+                             );
+
+        return new RawDnsWriter().
+                   Header(
+                       query.Id,
+                       (UInt16) (DefaultFlags | RawDnsFlags.AA | RawDnsFlags.RCode(Rcode)),
+                       1, 0, 1, 0
+                   ).
+                   Bytes(questionBytes).
+                   RR(Zone, RawDnsType.SOA, RawDnsClass.IN, SoaTtl, soa).
+                   ToArray();
+
+    }
+
+
     /// <summary>Response builder with full flag control. The question section is echoed byte-identically.</summary>
     public static Byte[] Build(Byte[]                                                        request,
                                UInt16                                                        flags,
@@ -54,6 +93,39 @@ public static class RawDnsResponder
             writer.RR(name, type, RawDnsClass.IN, ttl, rdata);
 
         return writer.ToArray();
+
+    }
+
+
+    /// <summary>
+    /// Fold the QNAME in the question section to lower case, leaving the rest of
+    /// the message untouched. Models the many resolvers that normalize names
+    /// internally: RFC 4343 makes the result the same name, so a client must still
+    /// accept it as the answer to its differently-cased query.
+    /// </summary>
+    public static Byte[] WithLowercasedQuestion(Byte[] message)
+    {
+
+        var folded  = (Byte[]) message.Clone();
+        var offset  = 12;
+
+        while (offset < folded.Length && folded[offset] != 0)
+        {
+
+            var length = folded[offset];
+
+            if (length >= 0xC0)   // a compression pointer terminates the name
+                break;
+
+            for (var i = offset + 1; i <= offset + length && i < folded.Length; i++)
+                if (folded[i] >= (Byte) 'A' && folded[i] <= (Byte) 'Z')
+                    folded[i] |= 0x20;
+
+            offset += 1 + length;
+
+        }
+
+        return folded;
 
     }
 
