@@ -1,4 +1,4 @@
-# Hermod DNS Conformance & Interoperability Test Suite
+# DNS Conformance & Interoperability Test Suite
 
 An independent .NET 10 test solution that measures the DNS client and server of
 [Vanaheimr Hermod](https://github.com/Vanaheimr/Hermod) against the DNS RFCs,
