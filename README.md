@@ -145,11 +145,23 @@ fixture zone in `RrsigValidationTests`.
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | CI | GitHub Actions: offline on every push, `Online`/`WSL` nightly on a Linux runner | phase 8 |
 
-The NSEC3 gap is the one worth weighing, because it is larger than a missing
-test. Without a hash function the validator cannot check authenticated denial of
-existence for an NSEC3-signed zone — which is most signed zones — so it cannot
-tell a genuine "no such name" from an attacker who stripped the records. The
-queue entry is therefore a Hermod feature request, not suite work.
+Two of these are larger than a missing test, and both are Hermod feature
+requests rather than suite work. They are called out because a reader scanning
+the table would otherwise read them as "someone still has to write the test".
+
+**NSEC3.** Without a hash function the validator cannot check authenticated
+denial of existence for an NSEC3-signed zone — which is most signed zones — so
+it cannot tell a genuine "no such name" from an attacker who stripped the
+records. That is also what blocks the RFC 4035 §5.4 row above it.
+
+**TSIG.** `TSIG.cs` models the record, `MAC` field included, and there is no
+HMAC anywhere under `Hermod/DNS/` to fill it — the primitives exist in Hermod,
+just not on this path. Neither the client nor the server touches the record:
+nothing signs an outgoing message and nothing verifies an incoming one. What
+could be tested today is the record's shape, which the generic RR round-trips
+already cover. Everything that makes TSIG interesting needs the signing path
+first, because RFC 8945 §4.1 makes it a meta-RR whose MAC covers the whole
+message plus fields that never appear on the wire in that form.
 
 ### Out of scope
 
