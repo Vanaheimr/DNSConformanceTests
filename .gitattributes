@@ -1,0 +1,6 @@
+# Shell scripts have to reach WSL with LF endings. This checkout runs with
+# core.autocrlf=true, which hands dash a script whose first directive is
+# "set -e<CR>" — rejected as an illegal option. That made
+# fixtures/zones/resign.sh unrunnable, and it is the one documented way to
+# regenerate the DNSSEC fixtures.
+*.sh text eol=lf
