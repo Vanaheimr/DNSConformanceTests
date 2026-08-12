@@ -59,6 +59,17 @@ partly-wrong answer.
 All three now derive their bounds from RDLENGTH, and the tests assert the
 stream lands exactly on the RDATA end.
 
+A fourth instance surfaced later, and it had never been reachable. Every record
+type also carried a bare `X(Stream)` constructor that `DNSInfo`'s reflection
+registry could not reach — it looks up `(DomainName, Stream)` and
+`(DNSServiceName, Stream)`, and nothing else. Their shared base left RDLENGTH
+unread and the subclasses disagreed about whose job that was: `TXT`, `DNSKEY`
+and `SVCB` read it, `A`, `MX` and `SOA` did not, and would have taken the two
+length octets for RDATA. Dead code deviates from nothing, so this is not a
+sixteenth finding — but it sat in all forty record files beside the correct
+constructor, which is what the next record type would have been modelled on.
+All forty are gone, and `RecordTypeRegistryTests` goes red if one comes back.
+
 ---
 
 # The findings in detail
@@ -152,10 +163,10 @@ emits.
 *RFC 1035 §3.3.14:* "TXT-DATA: One or more `<character-string>`s."
 *RFC 7208 §3.3:* they are concatenated.
 
-`TXT(Stream)` called `ExtractCharacterString` once, so any TXT above 255 bytes
-was truncated on read — precisely the population (DKIM keys, long SPF policies,
-DMARC) that exceeds 255 bytes. Serialization was already correct, so Hermod
-could emit a record it could not read back.
+TXT's stream constructor called `ExtractCharacterString` once, so any TXT above
+255 bytes was truncated on read — precisely the population (DKIM keys, long SPF
+policies, DMARC) that exceeds 255 bytes. Serialization was already correct, so
+Hermod could emit a record it could not read back.
 
 `SPF` was worse: it decoded its text with `DNSTools.ExtractName`, the *domain
 name* parser, so any `.` in a policy became a label boundary.
