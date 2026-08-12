@@ -409,7 +409,7 @@ leak into the submodule builds. Shared settings live in
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — LOC edge cases, CDS delete-sentinel, the rest of RFC 3597 opacity and `delv` interop remain |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
-| 8 | CI: GitHub Actions — offline projects on every push; `Online` + `WSL` lanes nightly on a Linux runner (the tools are native there, so no WSL bridge needed) | ⬜ next |
+| 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
 ## 8. Running the suite
 

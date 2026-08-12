@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  # Manual runs from the Actions tab ("Run workflow"), same as nightly.yml.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-suite:
+    # The same two legs as Hermod's own CI, for the same reason: the code under
+    # test is Hermod, and a conformance result that only holds on one platform
+    # is worth knowing about. TLS goes through Schannel on Windows and OpenSSL
+    # on Debian, which is exactly the kind of difference the DoT tests can see.
+    #
+    # fail-fast is off on purpose — "red on exactly one platform" is the most
+    # informative thing this matrix can produce, so one leg must not cancel the
+    # other.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-latest
+            container: debian:13
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    steps:
+      # Unlike Hermod, this repository consumes its dependencies as submodules,
+      # so one recursive checkout gets Hermod and Styx at the revisions the
+      # gitlinks name. That is the point: the gate tests the pinned pair, which
+      # is what a fresh clone would build. Testing against Hermod master is the
+      # nightly's job, and deliberately a different question.
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      # The bare debian:13 container has none of the .NET prerequisites: curl
+      # for the dotnet-install script setup-dotnet runs, ICU and tzdata for
+      # globalization, OpenSSL for crypto, ca-certificates for NuGet over HTTPS.
+      # Package names are Debian 13 (trixie).
+      - name: Install .NET prerequisites (Debian container)
+        if: runner.os == 'Linux'
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 libssl3t64 libstdc++6 tzdata
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build DNSConformanceTests.slnx --configuration Release
+
+      # Everything that needs nothing but loopback sockets. No network, no
+      # external tools, no Docker — so a red here means a conformance result
+      # changed, never that a resolver was slow or a package was missing. That
+      # is what makes it usable as a gate.
+      #
+      # Online and WSL run in nightly.yml, where a network failure can be read
+      # as a network failure instead of turning a merge red.
+      - name: Test (offline)
+        timeout-minutes: 30
+        run: >
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
+          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+          --logger "console;verbosity=normal"

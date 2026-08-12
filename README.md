@@ -49,10 +49,38 @@ than failing, so a bare checkout is always green-or-skipped.
 |----------|-------|----------|
 | *(none)* | nothing — loopback sockets only | the default filter above |
 | `Online` | outbound DNS (UDP/53, TCP/853, HTTPS) | `--filter "TestCategory=Online"` |
-| `WSL` | WSL + BIND/Knot/ldns tools | `--filter "TestCategory=WSL"` |
+| `WSL` | the BIND/Knot/ldns tools — via WSL on Windows, natively on Linux | `--filter "TestCategory=WSL"` |
 | `Docker` | a reachable Docker daemon | `--filter "TestCategory=Docker"` |
 | `Slow` | > ~5 s runtime | exclude to keep the inner loop fast |
 | `KnownIssue` | — | marks a confirmed deviation ([FINDINGS.md](FINDINGS.md)) |
+
+### Continuous integration
+
+Two workflows, mirroring Hermod's own, on the same two legs — `windows-latest`
+and Debian 13 in a container — because Hermod is what is under test and a
+conformance result that holds on only one platform is worth knowing about.
+
+| Workflow | Trigger | Runs |
+|----------|---------|------|
+| `ci.yml` | push, pull request | the offline suite, both platforms. Nothing but loopback sockets, so red means a conformance result changed |
+| `nightly.yml` | 03:41 UTC | the offline suite again, plus interop and the live resolvers, plus the suite against Hermod **master** |
+
+The nightly does three things the gate structurally cannot.
+
+It **re-signs the DNSSEC fixtures** on the Linux leg before testing. Real BIND
+signatures expire a month after they are made, so a committed fixture is a
+deadline; regenerating removes it, and exercises `resign.sh` while it is at it.
+
+It **runs the interop lane natively**. On a Linux runner `dig`, `kdig`, `drill`
+and `named` are ordinary programs on the same loopback as the server under
+test — no bridge, no firewall. The `WSL` category keeps its name because that is
+where the tools live on a developer machine, but nothing about those tests needs
+WSL.
+
+And it **tests against Hermod master**, not against the pinned submodule. The
+gate answers "would a fresh clone build"; nothing in it notices when Hermod
+moves, because a push to Hermod does not touch this repository. A referee that
+only ever sees one frozen revision is not refereeing.
 
 ### Preparing WSL for the interop lane
 
@@ -148,9 +176,8 @@ fixture zone in `RrsigValidationTests`.
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | **8198** | aggressive NSEC caching — **implemented** in `DNSCache`/`DNSClient`, currently untested | — |
 | interop | `delv` validating a Hermod-served signed zone | WSL lane |
-| interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
-| CI | GitHub Actions: offline on every push, `Online`/`WSL` nightly on a Linux runner | phase 8 |
+| interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
 **TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
 stating rather than discovering.** The exchange is unauthenticated on its own —
