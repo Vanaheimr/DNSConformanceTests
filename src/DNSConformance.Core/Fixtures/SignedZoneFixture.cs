@@ -242,8 +242,47 @@ public sealed class SignedZoneFixture
                              );
                     return true;
 
+                case "NSEC":
+                    // "<next owner> <type> <type> …" (RFC 4034 §4.2).
+                    record = new NSEC(
+                                 DomainName.ParseLenient(owner),
+                                 DNSQueryClasses.IN,
+                                 ttl,
+                                 DomainName.ParseLenient(rdata[0]),
+                                 EncodeTypeBitMaps(rdata[1..])
+                             );
+                    return true;
+
+                case "NSEC3":
+                    // "<alg> <flags> <iterations> <salt> <next hash> <type>…"
+                    // (RFC 5155 §3.3). The salt is "-" when there is none, and
+                    // the next hashed owner is Base32hex rather than hex.
+                    record = new NSEC3(
+                                 DomainName.ParseLenient(owner),
+                                 DNSQueryClasses.IN,
+                                 ttl,
+                                 Byte.  Parse(rdata[0]),
+                                 Byte.  Parse(rdata[1]),
+                                 UInt16.Parse(rdata[2]),
+                                 rdata[3] == "-" ? [] : Convert.FromHexString(rdata[3]),
+                                 NSEC3.Base32HexDecode(rdata[4]),
+                                 EncodeTypeBitMaps(rdata[5..])
+                             );
+                    return true;
+
+                case "NSEC3PARAM":
+                    record = new NSEC3PARAM(
+                                 DomainName.ParseLenient(owner),
+                                 DNSQueryClasses.IN,
+                                 ttl,
+                                 Byte.  Parse(rdata[0]),
+                                 Byte.  Parse(rdata[1]),
+                                 UInt16.Parse(rdata[2]),
+                                 rdata[3] == "-" ? [] : Convert.FromHexString(rdata[3])
+                             );
+                    return true;
+
                 default:
-                    // NSEC and others are not needed by the current tests.
                     return false;
 
             }
@@ -261,6 +300,66 @@ public sealed class SignedZoneFixture
         => Enum.TryParse<DNSResourceRecordTypes>(text, true, out var type)
                ? type
                : throw new FormatException($"Unknown RR type '{text}'!");
+
+
+    /// <summary>
+    /// Encode a list of RR type names as a type bit map (RFC 4034 §4.1.2).
+    /// </summary>
+    /// <remarks>
+    /// Written here rather than borrowed from Hermod on purpose: these bitmaps
+    /// are the input to the denial-of-existence tests, and a fixture that shared
+    /// an encoder with the code under test would agree with its own mistakes.
+    ///
+    /// Layout is one block per 256-type window, each "window number, length,
+    /// bitmap", windows in increasing order and never empty. Bit 0 of an octet
+    /// is its most significant bit.
+    /// </remarks>
+    private static Byte[] EncodeTypeBitMaps(IEnumerable<String> Types)
+    {
+
+        var windows = new SortedDictionary<Byte, Byte[]>();
+
+        foreach (var name in Types)
+        {
+
+            if (!Enum.TryParse<DNSResourceRecordTypes>(name, true, out var type))
+                continue;
+
+            var number = (UInt16) type;
+            var window = (Byte) (number >> 8);
+
+            if (!windows.TryGetValue(window, out var bitmap))
+            {
+                bitmap = new Byte[32];
+                windows[window] = bitmap;
+            }
+
+            bitmap[(number & 0xFF) >> 3] |= (Byte) (0x80 >> (number & 0x07));
+
+        }
+
+        var result = new List<Byte>();
+
+        foreach (var (window, bitmap) in windows)
+        {
+
+            // Trailing all-zero octets are not transmitted.
+            var length = 32;
+            while (length > 0 && bitmap[length - 1] == 0)
+                length--;
+
+            if (length == 0)
+                continue;
+
+            result.Add(window);
+            result.Add((Byte) length);
+            result.AddRange(bitmap[..length]);
+
+        }
+
+        return [.. result];
+
+    }
 
 
     /// <summary>RRSIG timestamps are YYYYMMDDHHmmSS in the presentation format (RFC 4034 §3.2).</summary>

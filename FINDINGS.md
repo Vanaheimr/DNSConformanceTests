@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifteen RFC deviations in the Hermod DNS stack, each
+What this suite caught. Sixteen RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -31,6 +31,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
 | 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ✅ fixed |
 | 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ✅ fixed |
+| 16 | An unknown RR type in a request yields FORMERR | Medium | 3597 §2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -476,6 +477,40 @@ reader unchanged.
 With this the suite's fixture loader no longer needs its substitute-owner
 workaround: wildcard records load from the zone file like any other, and
 `SignedZoneFixture.WildcardSignature` has been deleted.
+
+
+## 16 — An unknown RR type in a request was answered FORMERR
+
+*RFC 3597 §2:* an implementation must be able to handle records of a type it
+does not recognise, treating their RDATA as opaque.
+
+`DNSPacket.ParseResourceRecords` dispatched on the record type with a `switch`
+expression carrying arms for `A` and `OPT` and no default. Any other type threw
+a `SwitchExpressionException`, the parse failed, and the server answered
+FORMERR — the very path added for finding 8, now firing on messages that were
+not malformed at all.
+
+The question section was always readable; only a record in the additional
+section was not. So a query carrying anything the build had no parser for — a
+TSIG, a client-side cookie in record form, any type assigned after this build —
+was refused rather than served, and RFC 1035 §4.1.1's "unable to interpret the
+query" was reported for a query that was perfectly interpretable.
+
+It had gone unnoticed because well-formed queries carry no records outside the
+additional section, and the only additional record Hermod had ever been sent
+was OPT. Wiring up TSIG is what produced the first request with something else
+in it.
+
+**Fix.** Unknown types are skipped rather than parsed: CLASS and TTL are stepped
+over, RDLENGTH is read, and the stream advances past the RDATA, which keeps it
+aligned for whatever follows. The two known types keep their existing
+constructors.
+
+Verified by `A_Server_Without_Keys_Ignores_Tsig_Entirely`, which sends a
+TSIG-signed query to a server that has no TSIG keys configured and asserts it is
+answered normally — the record is unknown to that server, and unknown is not
+malformed.
+
 
 ---
 
