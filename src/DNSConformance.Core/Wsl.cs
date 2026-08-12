@@ -4,14 +4,36 @@ using System.Text;
 namespace DNSConformance.Core;
 
 /// <summary>
-/// Bridge to the local WSL distribution for running GNU/Linux DNS tools
-/// (dig, kdig, delv, drill, named, dnssec-signzone, …) from tests.
+/// Bridge to the GNU/Linux DNS tools (dig, kdig, delv, drill, named,
+/// dnssec-signzone, …) the interop tests drive.
 /// </summary>
+/// <remarks>
+/// <para>
+/// On Windows those tools live inside WSL and every command goes through
+/// <c>wsl.exe</c>, which is where the name comes from. On a Linux host they are
+/// simply installed, and the bridge runs <c>/bin/sh</c> directly.
+/// </para>
+/// <para>
+/// The distinction matters for more than the process launch. Under WSL the
+/// tools sit in a separate network namespace, so reaching a server on the
+/// Windows side means finding a gateway address and the Windows firewall gets a
+/// vote; natively there is one host, one loopback, and no firewall in the way.
+/// That is why the same interop tests can be permanently skipped on a developer
+/// machine and run without ceremony on a Linux CI runner.
+/// </para>
+/// </remarks>
 public static class Wsl
 {
 
     private static readonly Dictionary<String, Boolean> toolCache = [];
     private static readonly Lock                        cacheLock = new();
+
+    /// <summary>
+    /// Whether commands have to be tunnelled through <c>wsl.exe</c> rather than
+    /// executed directly.
+    /// </summary>
+    public static Boolean UsesWslBridge
+        => OperatingSystem.IsWindows();
 
 
     public sealed record Result(Int32 ExitCode, String StdOut, String StdErr)
@@ -26,18 +48,28 @@ public static class Wsl
     }
 
 
-    /// <summary>Run a POSIX shell command inside the default WSL distribution.</summary>
+    /// <summary>
+    /// Run a POSIX shell command — inside the default WSL distribution on
+    /// Windows, or directly on a Linux host.
+    /// </summary>
+    /// <param name="shellCommand">The command, as <c>sh</c> would read it.</param>
+    /// <param name="timeout">How long to wait before killing the process tree.</param>
+    /// <param name="asRoot">Run as root. Under WSL that is a flag; natively it means the process is expected to already be root, as it is inside a CI container — no sudo is invoked, because a runner that needs one should say so rather than prompt.</param>
     public static Result Run(String    shellCommand,
                              TimeSpan? timeout   = null,
                              Boolean   asRoot    = false)
     {
 
-        var arguments = asRoot
-                            ? $"-u root -e sh -c \"{shellCommand.Replace("\"", "\\\"")}\""
-                            : $"-e sh -c \"{shellCommand.Replace("\"", "\\\"")}\"";
+        var fileName  = UsesWslBridge ? "wsl.exe" : "/bin/sh";
+
+        var arguments = UsesWslBridge
+                            ? (asRoot
+                                   ? $"-u root -e sh -c \"{shellCommand.Replace("\"", "\\\"")}\""
+                                   : $"-e sh -c \"{shellCommand.Replace("\"", "\\\"")}\"")
+                            : $"-c \"{shellCommand.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
 
         var psi = new ProcessStartInfo {
-                      FileName                = "wsl.exe",
+                      FileName                = fileName,
                       Arguments               = arguments,
                       RedirectStandardOutput  = true,
                       RedirectStandardError   = true,
@@ -71,7 +103,10 @@ public static class Wsl
     }
 
 
-    /// <summary>True when wsl.exe exists and the default distribution starts.</summary>
+    /// <summary>
+    /// True when a POSIX shell can be run: <c>wsl.exe</c> exists and its default
+    /// distribution starts, or — on a Linux host — <c>/bin/sh</c> answers.
+    /// </summary>
     public static Boolean IsAvailable
         => available.Value;
 
@@ -118,6 +153,11 @@ public static class Wsl
         if (!IsAvailable)
             return null;
 
+        // Natively there is no "host" to reach across a boundary: the tools and
+        // the server under test share one loopback.
+        if (!UsesWslBridge)
+            return "127.0.0.1";
+
         var mode = Run("wslinfo --networking-mode 2>/dev/null || true", TimeSpan.FromSeconds(15)).StdOut.Trim();
 
         if (mode.Equals("mirrored", StringComparison.OrdinalIgnoreCase))
@@ -143,6 +183,10 @@ public static class Wsl
         if (!IsAvailable)
             return null;
 
+        // There is no VM natively — the "other side" is this machine.
+        if (!UsesWslBridge)
+            return "127.0.0.1";
+
         var mode = Run("wslinfo --networking-mode 2>/dev/null || true", TimeSpan.FromSeconds(15)).StdOut.Trim();
 
         if (mode.Equals("mirrored", StringComparison.OrdinalIgnoreCase))
@@ -155,9 +199,15 @@ public static class Wsl
     });
 
 
-    /// <summary>Convert a Windows path to its /mnt/... WSL equivalent.</summary>
+    /// <summary>
+    /// Convert a path to the form the shell will see: the <c>/mnt/…</c>
+    /// equivalent under WSL, and the path itself on a Linux host.
+    /// </summary>
     public static String ToWslPath(String windowsPath)
     {
+
+        if (!UsesWslBridge)
+            return Path.GetFullPath(windowsPath);
 
         var full = Path.GetFullPath(windowsPath).Replace('\\', '/');
 

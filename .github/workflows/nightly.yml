@@ -1,0 +1,167 @@
+name: Nightly
+
+# The counterpart to ci.yml, which gates every push on the offline tests alone.
+# This runs the two lanes that cannot gate a merge — the ones that query real
+# resolvers, and the ones that drive external tools — plus the question the
+# gate structurally cannot ask: does the suite still agree with Hermod's
+# *current* master, rather than with the revision the gitlinks pin?
+#
+# Two things worth knowing about scheduled workflows: they only ever run on the
+# default branch, and GitHub disables them after 60 days without repository
+# activity. If this stops reporting, that is the first thing to check.
+on:
+  schedule:
+    # 03:41 UTC. Off the hour on purpose: GitHub's scheduler is busiest then and
+    # delays runs by tens of minutes.
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # The full suite against the pinned submodules, on both platforms.
+  # ---------------------------------------------------------------------------
+  full-suite:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-latest
+            container: debian:13
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install .NET prerequisites (Debian container)
+        if: runner.os == 'Linux'
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 libssl3t64 libstdc++6 tzdata
+
+      # The interop lane drives dig, kdig, drill and delv, and BIND signs the
+      # DNSSEC fixtures. On a developer machine these live inside WSL and the
+      # Windows firewall usually blocks the tools from reaching the server under
+      # test, so the 38 interop tests skip. Here they are native, on the same
+      # loopback as the server, with nothing in between — which is the main
+      # reason this workflow is worth having at all.
+      - name: Install the DNS tools (Debian container)
+        if: runner.os == 'Linux'
+        run: apt-get install -y --no-install-recommends bind9-dnsutils knot-dnsutils ldnsutils bind9 bind9utils
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # The committed DNSSEC fixtures carry real BIND signatures, and real
+      # signatures expire — a month after they were made. Re-signing here means
+      # this workflow can never go red for that reason, and it exercises
+      # resign.sh itself, which had been unrunnable on a Windows checkout for
+      # some time without anyone noticing.
+      #
+      # Windows keeps the committed fixtures: re-signing needs BIND, which is
+      # what the WSL lane is for and is not installed on that runner.
+      - name: Re-sign the DNSSEC fixtures (Debian container)
+        if: runner.os == 'Linux'
+        run: sh fixtures/zones/resign.sh
+
+      - name: Build
+        run: dotnet build DNSConformanceTests.slnx --configuration Release
+
+      # Fatal: the same set the gate runs. Repeating it catches tests that only
+      # fail sometimes, and on the Linux leg it now runs against freshly signed
+      # fixtures rather than the committed ones.
+      - name: Test (offline)
+        timeout-minutes: 45
+        run: >
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
+          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+          --logger "console;verbosity=normal"
+
+      # Fatal on Linux, where the tools are present and reachable: a red here is
+      # a real interoperability regression — dig, kdig or drill disagreeing with
+      # what Hermod put on the wire. On Windows there is no WSL on the runner,
+      # so every test in this category skips and the step passes trivially.
+      - name: Test (interop against dig, kdig, drill, BIND)
+        timeout-minutes: 45
+        run: >
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
+          --filter "TestCategory=WSL"
+          --logger "console;verbosity=normal"
+
+      # Informational, and it has to be. These query Cloudflare, Google and
+      # Quad9 for real, and a hosted runner is not a normal client: datacentre
+      # egress on UDP/53 is often restricted and the DoH endpoints rate-limit
+      # these address ranges. A failure here means "the runner could not ask",
+      # which says nothing about Hermod's resolver — so it must not be able to
+      # turn the night red. Read the numbers for a trend; a sudden 23/23 failure
+      # IS worth looking at.
+      - name: Test (live resolvers, informational)
+        continue-on-error: true
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set +e
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
+            --filter "TestCategory=Online" --logger "console;verbosity=normal" 2>&1 | tee online.txt
+          {
+            echo '## Live resolvers (informational, ${{ runner.os }})'
+            echo
+            echo 'Network-dependent: failures here reflect runner egress, not Hermod.'
+            echo
+            echo '```'
+            grep -E "Passed!|Failed!|error|Passed:|Failed:" online.txt || tail -5 online.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+  # ---------------------------------------------------------------------------
+  # The referee job: the same suite against Hermod's current master.
+  # ---------------------------------------------------------------------------
+  against-hermod-master:
+    # The gate above tests the revision the gitlinks pin, which is the right
+    # question for "would a fresh clone build". It is the wrong question for
+    # what this repository claims to be — an unbiased referee that can be
+    # pointed at any Hermod revision. Nothing in the gate notices when Hermod
+    # moves, because a push to Hermod does not touch this repository at all.
+    #
+    # So: check the submodule out at master and run the offline suite against
+    # it. Red here means Hermod changed in a way the suite disagrees with, and
+    # it is a finding rather than a build failure — which is why this job is
+    # separate from the one above, and why the interop and live lanes are left
+    # out. One question at a time.
+    runs-on: ubuntu-latest
+    container: debian:13
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install .NET prerequisites (Debian container)
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git libicu76 libssl3t64 libstdc++6 tzdata
+
+      - name: Move the submodules to master
+        run: |
+          git config --global --add safe.directory '*'
+          git submodule foreach 'git fetch origin master && git checkout FETCH_HEAD'
+          echo "### Submodule revisions under test" >> "$GITHUB_STEP_SUMMARY"
+          git submodule status >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build DNSConformanceTests.slnx --configuration Release
+
+      - name: Test (offline, against Hermod master)
+        timeout-minutes: 45
+        run: >
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
+          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+          --logger "console;verbosity=normal"
