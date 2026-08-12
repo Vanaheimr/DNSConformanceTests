@@ -24,6 +24,9 @@ public sealed class HermodServerFixtureOptions
 
     public X509Certificate2?  Certificate         { get; init; }
 
+    /// <summary>TSIG keys the server accepts (RFC 8945). Empty leaves TSIG inactive.</summary>
+    public IEnumerable<TSIGKey>  TSIGKeys         { get; init; } = [];
+
 }
 
 
@@ -88,7 +91,9 @@ public sealed class HermodServerFixture : IAsyncDisposable
                              TLSUnicastSocket      = new IPSocket(bindAddress, IPPort.Zero),
                              TLSServerCertificate  = certificate,
 
-                             UseCompression        = Options.UseCompression
+                             UseCompression        = Options.UseCompression,
+
+                             TSIGKeys              = Options.TSIGKeys
 
                          }
 

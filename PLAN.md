@@ -105,9 +105,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-12 run: **356 tests, 356 ✅, 0 ❌** — 295 offline and
+Counts as of the 2026-08-12 run: **380 tests, 380 ✅, 0 ❌** — 319 offline and
 23 online verified on that run, 38 `WSL` skipped behind a firewall rule. All
-fifteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+sixteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -121,7 +121,7 @@ fifteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 | 4343 | Case-insensitive identity | names differing only in case are equal, hash alike and order alike | ✅ |
 | 1035 §4.1.4 | Compression (encode) | shared suffixes actually emit pointers; repeated labels resolve correctly; mixed case compresses against its lowercase twin | ✅ |
 | 2181 §8 | TTLs | TTL is 31-bit ✅; MSB-set TTL handling | 📋 |
-| 3597 | Unknown RR types | unknown-type RDATA treated as opaque; no compression emitted in new-type RDATA | 🟡 |
+| 3597 §2 | Unknown RR types | an unknown type in a *request* is skipped rather than answered FORMERR ✅ (finding 16); no compression emitted in new-type RDATA | 🟡 |
 | 6895 | IANA registries | code points exercised throughout the RR tests; no dedicated assertion, so [README](README.md#rfc-coverage) does not list it as covered | 📋 |
 | — | Robustness | empty/short/garbage messages, absurd section counts: typed failure, never a hang | ✅ |
 
@@ -156,7 +156,8 @@ round-trip where supported.
 | 9460 | SVCB, HTTPS | alias mode, service mode + SvcParams, round-trip, RDLENGTH-bounded parsing | ✅ |
 | 6672 | DNAME | RDATA shape ✅; subtree rewrite semantics (client layer) | 🟡 |
 | 6891 | OPT | see EDNS project | ✅ |
-| 8945/2930 | TSIG, TKEY | record shape ✅; TSIG signing and verification ✅ (`TsigSigningTests`); TKEY key exchange, and calling either from `DNSClient`/`DNSServer` | 🟡 |
+| 8945 | TSIG | record shape ✅, signing and verification ✅, and both ends wired: the server verifies signed queries and signs replies, the client signs and checks (UDP/TCP) | ✅ |
+| 2930 | TKEY | record shape only — the key exchange is blocked on the missing KEY record type (RFC 2539) | ⬜ |
 
 ### 4.3 EDNS0 (`DNSConformance.Edns.Tests`)
 
@@ -263,6 +264,7 @@ side of the connection.
 | 5011 §2.1 | a revoked KSK is dropped from the anchors and cannot come back | ✅ |
 | 4592 §2.1.1 | wildcard owner names round-trip; the `*` label is accepted leftmost only, and never by the strict hostname parser | ✅ |
 | 5155 App. A | NSEC3 hash vectors: all twelve hashed owner names, salt per iteration, canonical-wire input, Base32hex | ✅ |
+| 5155 §8, 4035 §5.4 | authenticated denial of existence: match/cover, closest encloser, opt-out, wildcard NODATA, and canonical ordering against the §6.1 list | ✅ |
 | 8945 | TSIG: MAC over the §4.3.3 variables, CLASS/TTL/placement, BADSIG vs BADKEY vs BADTIME, fudge window, rewritten ID, request-bound responses | ✅ |
 
 ### 4.8 Interop projects
@@ -398,7 +400,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics | 🟡 mostly done — TSIG signing, LOC edge cases, CDS delete-sentinel, RFC 3597 opacity and `delv` interop remain |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — LOC edge cases, CDS delete-sentinel, the rest of RFC 3597 opacity and `delv` interop remain |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — offline projects on every push; `Online` + `WSL` lanes nightly on a Linux runner (the tools are native there, so no WSL bridge needed) | ⬜ next |
 

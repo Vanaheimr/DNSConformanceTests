@@ -14,9 +14,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 356 tests · 356 ✅ · 0 ❌.**
+**Current status: 380 tests · 380 ✅ · 0 ❌.**
 
-The suite has found 15 RFC deviations in Hermod. All are fixed;
+The suite has found 16 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -93,7 +93,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **4398** | CERT | type/keytag/algorithm |
 | **4592** §2.1.1 | Wildcards | `*` accepted as leftmost label only, and never by the strict hostname parser |
 | **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good |
-| **5155** | NSEC3 hashing | all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, input is the canonical wire form; Base32hex order-preserving and round-tripping |
+| **5155** | NSEC3 | hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs: match, cover, closest encloser, opt-out |
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
 | **6605** | ECDSA | P-256 and P-384: fixed-width r‖s, 64/96-octet keys |
 | **6698**, **8162** | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names |
@@ -116,7 +116,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **8624** | Algorithm selection | every algorithm 8624 asks a *validator* to implement — 8, 10, 13, 14, 15, 16 — verifies a real BIND signature; deprecated RSA/SHA-1 (5, 7) still validates, as it must |
 | **8659** | CAA | critical-flag bit, length-prefixed tag, unprefixed value |
 | **8914** | Extended DNS Errors | info-code + extra-text |
-| **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, and a response bound to its request's MAC |
+| **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, a response bound to its request's MAC. End to end: the server verifies signed queries and signs its replies, the client signs and checks the answer |
 | **8976** | ZONEMD | serial/scheme/hash |
 | **9460** | SVCB, HTTPS | alias and service mode, SvcParams parsed to RDLENGTH |
 
@@ -132,11 +132,11 @@ fixture zone in `RrsigValidationTests`.
 |------------|-----------------|---------|
 | **1876** LOC | size/precision/altitude edge cases; only the common shape is covered | — |
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
-| **2930** | TKEY: the key exchange itself | record shape only; TSIG keys are configured out of band today |
-| **8945** (integration) | signing a query from `DNSClient`, verifying one in `DNSServer` | the primitives exist and are covered above; nothing calls them yet |
+| **2930** | TKEY: the key exchange itself | **blocked** — RFC 2930 §4.2 exchanges key material in KEY records (RFC 2539, type 25), which Hermod does not have; the GSS-API mode of RFC 3645 needs a Kerberos stack |
+| **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form | needs a hand-built key |
 | **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
-| **4035** §5.4, **7129** | authenticated denial of existence — NSEC/NSEC3 proofs of non-existence. This is where NSEC3 actually earns its keep | the hash exists now; `DNSSECValidator` does not yet use it to check a proof |
+| **7129** | the *server* producing denial records for a signed zone it serves | `InMemoryDNSZone` holds no NSEC or NSEC3 chain to serve from |
 | **4592** (server side) | wildcard *matching* at query time; only the owner-name representation is covered | `InMemoryDNSZone` has no wildcard lookup |
 | **5155** (zone side) | walking an NSEC3 chain to answer from a signed zone; opt-out | the hash exists; `InMemoryDNSZone` has no NSEC3 chain to walk |
 | **6672** | DNAME subtree rewrite and the synthesized CNAME; only the record shape is covered | — |
@@ -148,18 +148,14 @@ fixture zone in `RrsigValidationTests`.
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | CI | GitHub Actions: offline on every push, `Online`/`WSL` nightly on a Linux runner | phase 8 |
 
-The NSEC3 and TSIG rows above are narrower than they used to be, and it is worth
-being precise about what changed. Hermod grew the two **primitives** — the
-RFC 5155 §5 hash, and RFC 8945 signing and verification — and both are covered
-by passing tests. What is still missing in each case is the layer that *uses*
-them, and that is a Hermod feature request rather than suite work:
+**TKEY is the one entry here that is blocked rather than merely queued.** RFC 2930
+§4.2 negotiates a shared secret by exchanging Diffie-Hellman material in KEY
+records — RFC 2539, type 25 — and Hermod has DNSKEY and CDNSKEY but no KEY. The
+other mode anyone deploys is GSS-TSIG (RFC 3645), which needs a Kerberos stack
+and is not something a DNS library grows on its own. So TKEY needs a new record
+type first, and TSIG keys are configured out of band until it gets one.
 
-- **NSEC3** can hash a name, but `DNSSECValidator` does not yet walk a chain to
-  check a proof of non-existence, so a validator still cannot tell a genuine
-  "no such name" from an attacker who stripped the records.
-- **TSIG** can sign and verify a message, but `DNSClient` never signs a query and
-  `DNSServer` never checks one. The primitives are reachable from application
-  code; they are not yet on any path Hermod takes by itself.
+Nothing else on this list is blocked; the rest is work that has not been done.
 
 ### Out of scope
 
