@@ -14,7 +14,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 380 tests · 380 ✅ · 0 ❌.**
+**Current status: 390 tests · 390 ✅ · 0 ❌.**
 
 The suite has found 16 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -84,7 +84,10 @@ names it in a `[Property("RFC", …)]` attribute.
 | **1183** | RP, AFSDB | two-name RDATA |
 | **2181** §10.1 | Clarifications | an alias owns no other data |
 | **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA |
+| **2535** §3, **3445** | KEY | wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
+| **2539** | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; a well-known-group index refused rather than read as a literal prime; truncated and over-long RDATA rejected |
 | **2782** | SRV | priority/weight/port/target, no RDATA compression on emit |
+| **2930** §4.1 | TKEY, Diffie-Hellman mode | keying material against the §4.1 formula applied by hand; nonce order not interchangeable; the derived secret actually signs and verifies as a TSIG key |
 | **3403** | NAPTR | flags/service/regexp character-strings |
 | **3596** | AAAA | full and compressed IPv6 forms |
 | **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2) |
@@ -132,7 +135,8 @@ fixture zone in `RrsigValidationTests`.
 |------------|-----------------|---------|
 | **1876** LOC | size/precision/altitude edge cases; only the common shape is covered | — |
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
-| **2930** | TKEY: the key exchange itself | **blocked** — RFC 2930 §4.2 exchanges key material in KEY records (RFC 2539, type 25), which Hermod does not have; the GSS-API mode of RFC 3645 needs a Kerberos stack |
+| **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
+| **2931** | SIG(0): per-message signatures under a public key, the asymmetric alternative to TSIG | the KEY record exists now; SIG (type 24) and the signing path do not |
 | **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form | needs a hand-built key |
 | **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
@@ -148,14 +152,21 @@ fixture zone in `RrsigValidationTests`.
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | CI | GitHub Actions: offline on every push, `Online`/`WSL` nightly on a Linux runner | phase 8 |
 
-**TKEY is the one entry here that is blocked rather than merely queued.** RFC 2930
-§4.2 negotiates a shared secret by exchanging Diffie-Hellman material in KEY
-records — RFC 2539, type 25 — and Hermod has DNSKEY and CDNSKEY but no KEY. The
-other mode anyone deploys is GSS-TSIG (RFC 3645), which needs a Kerberos stack
-and is not something a DNS library grows on its own. So TKEY needs a new record
-type first, and TSIG keys are configured out of band until it gets one.
+**TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
+stating rather than discovering.** The exchange is unauthenticated on its own —
+RFC 2930 §5 requires the KEY records themselves to be authenticated before the
+derived secret means anything. Its key derivation is fixed to MD5 by §4.1, with
+no conforming alternative, so the code path cannot run on a FIPS-restricted host
+and says so instead of substituting a hash no peer would agree with. And it is
+not what anyone actually deploys: that is GSS-TSIG (RFC 3645, mode 3), which
+needs a Kerberos stack and stays out of scope.
 
-Nothing else on this list is blocked; the rest is work that has not been done.
+There are also no published test vectors for the derivation — RFC 2930 gives the
+formula and no worked example — so the tests encode the specification text
+directly rather than reproducing someone else's numbers, which is weaker
+evidence than the RFC 5155 Appendix A vectors and is called out as such.
+
+Nothing on this list is blocked; the rest is work that has not been done.
 
 ### Out of scope
 

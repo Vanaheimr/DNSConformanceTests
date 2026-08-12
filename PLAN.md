@@ -35,7 +35,7 @@ unbiased referee, and be run against any Hermod revision.
 |------|----------------|
 | Message model | `DNSPacket` (+`DNSResponse`), `DNSQuestion`, `DNSInfo` (client view), `DomainName`/`DNSServiceName` (63-byte label / 255-byte name limits) |
 | Wire codec | `DNSPacket.Serialize/ToByteArray` (optional name compression), `DNSPacket.Parse` (server-side request parsing), `DNSInfo.ReadResponse` (client-side, reflection-based RR registry), `DNSTools` (names, compression pointers with loop detection, character-strings) |
-| Resource records | ~45 types: A, AAAA, NS, CNAME, DNAME, SOA, PTR, MX, TXT, SPF, HINFO, RP, AFSDB, LOC, SRV, NAPTR, URI, CAA, EUI48/64, TLSA, SMIMEA, CERT, SSHFP, OPENPGPKEY, DS, DNSKEY, RRSIG, NSEC, NSEC3, NSEC3PARAM, CDS, CDNSKEY, CSYNC, ZONEMD, SVCB, HTTPS, OPT, TSIG, TKEY — each with wire parse/serialize, zone-file presentation (`ToZoneFileString`, `ParseZoneFileString`), and DoH-JSON parsing |
+| Resource records | ~45 types: A, AAAA, NS, CNAME, DNAME, SOA, PTR, MX, TXT, SPF, HINFO, RP, AFSDB, LOC, SRV, NAPTR, URI, CAA, EUI48/64, TLSA, SMIMEA, CERT, SSHFP, OPENPGPKEY, DS, DNSKEY, RRSIG, NSEC, NSEC3, NSEC3PARAM, CDS, CDNSKEY, CSYNC, ZONEMD, SVCB, HTTPS, OPT, TSIG, TKEY, KEY — each with wire parse/serialize, zone-file presentation (`ToZoneFileString`, `ParseZoneFileString`), and DoH-JSON parsing |
 | EDNS0 | OPT pseudo-RR (payload size, ext-RCODE, version, DO bit), typed options: Client Subnet (7871), Cookie (7873), TCP Keepalive (7828), Padding (7830), Extended DNS Errors (8914); extended-RCODE combining on receive |
 | Client transports | `DNSUDPClient` (with TCP fallback on TC), `DNSTCPClient`, `DNSTLSClient` (DoT, custom cert validation), `DNSHTTPSClient` (DoH: GET base64url, POST binary, Google/Cloudflare JSON; plain-HTTP test modes) |
 | Client orchestration | `DNSClient`: multi-server race, SERVFAIL retry, pooling, positive cache, NODATA negative cache (2308), aggressive NSEC cache (8198), CNAME/DNAME chasing with loop detection (6672), auto DNS Cookies, auto Client Subnet, DNSSEC validation hook |
@@ -45,20 +45,24 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifteen deviations so far, and all of them are now fixed
+The suite has confirmed sixteen deviations so far, and all of them are now fixed
 in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
 record, with chapter and verse, the mechanism, the change, and the test that
 pins each one. The summary table at the top of that file is the fastest way in.
 
-Two review suspicions did *not* survive contact with a test, which is exactly
-why the suite exists:
+One review suspicion did *not* survive contact with a test: the compression-offset
+bookkeeping produces messages that decode correctly under the suite's strict
+reader, including multi-record shared-suffix cases
+(`Compressed_Response_With_Many_Shared_Suffix_Names_Stays_Valid`).
 
-* `DNSPacket.Parse` handling only A and OPT in request sections turned out not
-  to matter for well-formed queries, whose question section carries no RRs;
-  the real gap was the missing FORMERR, now fixed.
-* The compression-offset bookkeeping produces messages that decode correctly
-  under the suite's strict reader, including multi-record shared-suffix cases
-  (`Compressed_Response_With_Many_Shared_Suffix_Names_Stays_Valid`).
+A second one was dismissed too early, and is worth keeping as a caution. This
+plan used to record that `DNSPacket.Parse` handling only A and OPT in request
+sections "turned out not to matter for well-formed queries, whose question
+section carries no RRs". The reasoning was sound and the conclusion was wrong:
+a *query* carries no records, but a signed one does, and the first TSIG request
+Hermod ever received made the parser throw and the server answer FORMERR. It
+became finding 16. The lesson is not that the review was careless — it is that
+"no caller does this today" is an observation about callers, not about the code.
 
 ---
 
@@ -105,7 +109,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-12 run: **380 tests, 380 ✅, 0 ❌** — 319 offline and
+Counts as of the 2026-08-13 run: **390 tests, 390 ✅, 0 ❌** — 329 offline and
 23 online verified on that run, 38 `WSL` skipped behind a firewall rule. All
 sixteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
@@ -157,7 +161,10 @@ round-trip where supported.
 | 6672 | DNAME | RDATA shape ✅; subtree rewrite semantics (client layer) | 🟡 |
 | 6891 | OPT | see EDNS project | ✅ |
 | 8945 | TSIG | record shape ✅, signing and verification ✅, and both ends wired: the server verifies signed queries and signs replies, the client signs and checks (UDP/TCP) | ✅ |
-| 2930 | TKEY | record shape only — the key exchange is blocked on the missing KEY record type (RFC 2539) | ⬜ |
+| 2535 §3, 3445 | KEY | wire round-trip, protocol fixed at 3, the use bits, "no key information" distinguished from a restricted key | ✅ |
+| 2539 | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; well-known-group indices refused rather than read as a prime | ✅ |
+| 2930 §4.1 | TKEY, Diffie-Hellman mode | the §4.1 keying material, checked against the formula applied by hand; the derived secret used as a real TSIG key | ✅ |
+| 2930 §4.2 | TKEY, GSS-API mode | needs a Kerberos/SPNEGO stack | ⬜ |
 
 ### 4.3 EDNS0 (`DNSConformance.Edns.Tests`)
 
