@@ -79,6 +79,7 @@ sign_algorithm_zone() {
     algo="$2"      # dnssec-keygen algorithm name
     bits="$3"      # key size flags, empty for the curve algorithms
     label="$4"     # human-readable, goes into the zone's TXT record
+    extra="$5"     # extra dnssec-signzone flags, e.g. "-3 aabbccdd" for NSEC3
 
     cat > "$zone.zone" <<EOF
 \$TTL 3600
@@ -93,6 +94,7 @@ ns1     IN  A    192.0.2.54
 a       IN  A    192.0.2.13
 aaaa    IN  AAAA 2001:db8::13
 txt     IN  TXT  "signed by BIND with $label"
+*.wild  IN  A    192.0.2.77
 EOF
 
     # shellcheck disable=SC2086
@@ -105,8 +107,10 @@ EOF
     # shellcheck disable=SC2086
     zsk=$(dnssec-keygen -a "$algo" $bits -n ZONE "$zone" 2>/dev/null)
 
-    if ! dnssec-signzone -o "$zone" -N INCREMENT -S -x -t "$zone.zone" > "signing-$zone.log" 2>&1; then
-        if ! dnssec-signzone -o "$zone" -k "$ksk" "$zone.zone" "$zsk" > "signing-$zone.log" 2>&1; then
+    # shellcheck disable=SC2086
+    if ! dnssec-signzone -o "$zone" -N INCREMENT -S -x -t $extra "$zone.zone" > "signing-$zone.log" 2>&1; then
+        # shellcheck disable=SC2086
+        if ! dnssec-signzone -o "$zone" -k "$ksk" $extra "$zone.zone" "$zsk" > "signing-$zone.log" 2>&1; then
             echo "  skipped $zone: $algo signing refused (see signing-$zone.log)"
             rm -f "$zone.zone" "K$zone."*
             return 0
@@ -142,6 +146,15 @@ sign_algorithm_zone "rsasha512.$ZONE" RSASHA512        "-b 2048"   "RSA/SHA-512"
 # in which case these are skipped.
 sign_algorithm_zone "rsasha1.$ZONE"   RSASHA1          "-b 2048"   "RSA/SHA-1"
 sign_algorithm_zone "nsec3rsasha1.$ZONE" NSEC3RSASHA1  "-b 2048"   "RSA/SHA-1 (NSEC3)"
+
+# A zone actually signed with NSEC3, which none of the above are: the names
+# ending in "nsec3rsasha1" refer to the *signature* algorithm, and BIND emits
+# plain NSEC unless it is told otherwise. Authenticated denial of existence over
+# NSEC3 needs a chain of hashed owner names to walk, so it needs this zone.
+#
+# Salt and iterations match the RFC 5155 Appendix A example, so a hash computed
+# here can be checked against the published vectors as well as against BIND.
+sign_algorithm_zone "nsec3.$ZONE"     RSASHA256        "-b 2048"   "RSASHA256 (NSEC3)"  "-3 aabbccdd -H 12"
 
 echo
 echo "signed zones written to $OUT"
