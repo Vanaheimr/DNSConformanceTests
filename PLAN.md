@@ -105,8 +105,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-07-25 run: **317 tests, 317 ✅, 0 ❌**. All fifteen
-deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+Counts as of the 2026-08-12 run: **356 tests, 356 ✅, 0 ❌** — 295 offline and
+23 online verified on that run, 38 `WSL` skipped behind a firewall rule. All
+fifteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -155,7 +156,7 @@ round-trip where supported.
 | 9460 | SVCB, HTTPS | alias mode, service mode + SvcParams, round-trip, RDLENGTH-bounded parsing | ✅ |
 | 6672 | DNAME | RDATA shape ✅; subtree rewrite semantics (client layer) | 🟡 |
 | 6891 | OPT | see EDNS project | ✅ |
-| 8945/2930 | TSIG, TKEY | wire shape only (no signing infrastructure yet) | ⬜ |
+| 8945/2930 | TSIG, TKEY | record shape ✅; TSIG signing and verification ✅ (`TsigSigningTests`); TKEY key exchange, and calling either from `DNSClient`/`DNSServer` | 🟡 |
 
 ### 4.3 EDNS0 (`DNSConformance.Edns.Tests`)
 
@@ -261,7 +262,8 @@ side of the connection.
 | 4035 §5.3.2 | wildcard-expanded RRsets validate against the wildcard signature | ✅ |
 | 5011 §2.1 | a revoked KSK is dropped from the anchors and cannot come back | ✅ |
 | 4592 §2.1.1 | wildcard owner names round-trip; the `*` label is accepted leftmost only, and never by the strict hostname parser | ✅ |
-| 5155 App. A | NSEC3 hash vectors | — no NSEC3 hash function in Hermod |
+| 5155 App. A | NSEC3 hash vectors: all twelve hashed owner names, salt per iteration, canonical-wire input, Base32hex | ✅ |
+| 8945 | TSIG: MAC over the §4.3.3 variables, CLASS/TTL/placement, BADSIG vs BADKEY vs BADTIME, fudge window, rewritten ID, request-bound responses | ✅ |
 
 ### 4.8 Interop projects
 
