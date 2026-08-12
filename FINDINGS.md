@@ -14,23 +14,27 @@ honestly ambiguous and the suite had to choose a reading. Coverage boundaries �
 what is queued, what is out of scope — are not here at all; they live in
 [README § RFC coverage](README.md#rfc-coverage).
 
-| # | Finding | Severity | RFC |
-|---|---------|----------|-----|
-| 1 | QNAME case not preserved | Low (SHOULD) | 1035 §2.3.3 |
-| 2 | TXT/SPF: only the first character-string parsed | **High** | 1035 §3.3.14 |
-| 3 | URI: target emitted as DNS labels | **High** | 7553 §4.5 |
-| 4 | SVCB/HTTPS: RDATA parsing overruns RDLENGTH | **High** | 1035 §4.1.3, 9460 |
-| 5 | Client aborts on the first non-matching UDP response | **High** | 5452 §4.2 |
-| 6 | Server omits OPT; no BADVERS | Medium | 6891 §6.1.1, §6.1.3 |
-| 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1 |
-| 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 |
-| 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 |
-| 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 |
-| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2.1.1 |
-| 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 |
-| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 |
-| 14 | NODATA answers are never served from the cache | Medium | 2308 §5 |
-| 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 |
+| # | Finding | Severity | RFC | Status |
+|---|---------|----------|-----|--------|
+| 1 | QNAME case not preserved | Low (SHOULD) | 1035 §2.3.3 | ✅ fixed |
+| 2 | TXT/SPF: only the first character-string parsed | **High** | 1035 §3.3.14 | ✅ fixed |
+| 3 | URI: target emitted as DNS labels | **High** | 7553 §4.5 | ✅ fixed |
+| 4 | SVCB/HTTPS: RDATA parsing overruns RDLENGTH | **High** | 1035 §4.1.3, 9460 | ✅ fixed |
+| 5 | Client aborts on the first non-matching UDP response | **High** | 5452 §4.2 | ✅ fixed |
+| 6 | Server omits OPT; no BADVERS | Medium | 6891 §6.1.1, §6.1.3 | ✅ fixed |
+| 7 | Server never truncates oversized UDP responses | **High** | 1035 §4.2.1 | ✅ fixed |
+| 8 | Unparseable requests silently dropped | Low | 1035 §4.1.1 | ✅ fixed |
+| 9 | Name compression: suffix table never matched | Medium | 1035 §4.1.4 | ✅ fixed |
+| 10 | Wildcard-expanded RRsets fail DNSSEC validation | **High** | 4035 §5.3.2 | ✅ fixed |
+| 11 | Wildcard owner names cannot be represented | Medium | 4592 §2.1.1 | ✅ fixed |
+| 12 | Revoked KSK is not removed from the trust anchors | **High** | 5011 §2.1 | ✅ fixed |
+| 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
+| 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ✅ fixed |
+| 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ✅ fixed |
+
+The Status column is uniform by design. It says nothing today, and that is the
+point — it is where a future finding lands as **open**, with its test left red
+as the tracking signal ([PLAN.md §9](PLAN.md)).
 
 The last seven were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
