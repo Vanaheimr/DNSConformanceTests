@@ -1,5 +1,8 @@
 # DNS Conformance & Interoperability Test Suite
 
+[![CI](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/ci.yml)
+[![Nightly](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/nightly.yml/badge.svg)](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/nightly.yml)
+
 An independent .NET 10 test solution that measures the DNS client and server of
 [Vanaheimr Hermod](https://github.com/Vanaheimr/Hermod) against the DNS RFCs,
 and against real implementations: ISC BIND, Knot DNS, NLnet Labs ldns and the
