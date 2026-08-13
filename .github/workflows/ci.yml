@@ -22,13 +22,21 @@ jobs:
     # fail-fast is off on purpose — "red on exactly one platform" is the most
     # informative thing this matrix can produce, so one leg must not cancel the
     # other.
+    #
+    # `leg` exists so the two runs can be told apart by name rather than by
+    # runner image: the Linux leg runs on ubuntu-latest but IS Debian 13, and
+    # an artifact called "test-results-ubuntu-latest" would say the opposite of
+    # what it contains.
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
+            leg: windows-latest
           - os: ubuntu-latest
             container: debian:13
+            leg: debian-13-container
+    name: ${{ matrix.leg }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
@@ -69,3 +77,24 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=offline"
+          --results-directory artifacts
+
+      # Which tests ran, which skipped and with what reason is the most useful
+      # thing this workflow knows, and exactly what the console log does not
+      # preserve once a run ages out. TRX keeps it per test, including the skip
+      # reason — one file per test project, which is why this is LogFilePrefix
+      # rather than LogFileName: ten projects writing the same name would
+      # overwrite each other.
+      #
+      # !cancelled() rather than success(): a red run is when these files
+      # matter most, and uploading only on green would throw away the evidence
+      # in exactly that case. A build that fails before the test step leaves no
+      # .trx at all, which upload-artifact reports as a warning rather than a
+      # second failure — the build error is the finding there.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.leg }}
+          path: artifacts/*.trx
