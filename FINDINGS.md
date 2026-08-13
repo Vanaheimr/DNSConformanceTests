@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Eighteen RFC deviations in the Hermod DNS stack, each
+What this suite caught. Nineteen RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -34,6 +34,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 16 | Any request record other than A or OPT answered FORMERR | Medium | 3597 §2 | ✅ fixed |
 | 17 | Aggressive NSEC caching: unreachable, unvalidated, and mis-ordered | **High** | 8198 §3, 4034 §6.1 | ✅ fixed |
 | 18 | Negative answers carried no SOA, so none of them could be cached | **High** | 2308 §3 | ✅ fixed |
+| 19 | The TCP fallback dropped the query's transaction signature | **High** | 8945 §5.3, 2931 §3.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -625,6 +626,53 @@ in `Wildcard_Does_Not_Reach_Past_The_Closest_Encloser`,
 
 ---
 
+## 19 — The TCP fallback dropped the query's transaction signature
+
+*RFC 8945 §5.3, RFC 2931 §3.1.*
+
+A truncated UDP answer sends the client back over TCP (RFC 7766 §5). Hermod's
+fallback built that second query from the `DNSPacket` object and wrote it
+straight to the socket — correctly framed, correctly addressed, and unsigned.
+The TSIG key the caller configured was applied to the first attempt and to
+nothing else.
+
+**Nothing reports this.** A server serves unsigned requests: RFC 8945 §5.2 only
+governs what to do with a signature that fails, and RFC 2931 §3.1 says servers
+are "not required to check a request SIG(0)" at all. So the retry is answered
+normally, the answer is returned, and the caller — who asked for an
+authenticated exchange and got no error — has an unauthenticated one. There is
+no failed assertion anywhere in the system to notice.
+
+**And it is not a corner case.** Truncation is what happens when the answer is
+large, and the answers that are large are exactly the interesting ones: a signed
+zone's NXDOMAIN with three NSEC3 records and their RSA signatures runs past
+1232 octets without effort — see
+`Oversized_Signed_Answer_Truncates_And_Survives_Over_Tcp`, which was written the
+same week for a different reason. So the mechanism reliably switched itself off
+under precisely the conditions that make it worth having.
+
+The response side had the mirror gap: the TCP reply was parsed without checking
+any signature it carried, so even a server that did sign got no benefit.
+
+This was found while wiring SIG(0) into the same client, which is the honest
+version of events. The TSIG path had been in the suite for three rounds and
+looked well covered — the tests drove UDP, where the code was right, and the
+fallback was a different method nobody had a reason to look at.
+
+**Fix.** Signing and verification move into `SignQuery` and
+`TryAcceptSignedResponse`, and both transports call them — one implementation,
+so the next transport to be added has to opt out rather than merely forget. The
+TCP retry now carries the same signature the datagram did and checks the reply
+the same way.
+
+Verified by `The_Tcp_Retry_Carries_The_Same_Signature`, which reads the retry off
+a scripted TCP listener and checks the signature with the platform's own RSA
+over the data RFC 2931 §3.1 defines, rather than by handing it back to the code
+that made it.
+
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
@@ -649,6 +697,24 @@ friendliness. Hermod uses random IDs. Measured and reported only.
 false. Compression is optional (RFC 1035 §4.1.4), so this is a size/CPU trade-off
 rather than a conformance question — but it is the reason answer owner names come
 back in the zone's capitalization rather than the query's.
+
+**What a server answers a failed SIG(0).** RFC 2931 names no RCODE. §3.1 only
+says servers are "not required to check a request SIG(0)" outside privileged
+operations, and having decided to check, the specification offers nothing about
+what to say when the check fails. Hermod answers NOTAUTH (9), which is what
+RFC 8945 §5.2 prescribes for the same situation under TSIG and what BIND sends;
+the refusal is unsigned, because a sender whose key was just rejected cannot
+tell our signature from anyone else's. The tests assert this reading rather than
+a requirement, and it is the one thing here another implementation could
+reasonably differ on.
+
+**A message carrying both a TSIG and a SIG(0).** RFC 2931 §3.2 forbids the
+combination — "either a single TSIG or one SIG(0) but not both" — and again
+names no RCODE. Hermod answers FORMERR (1), reading it as a malformed message
+rather than an unauthenticated one; NOTAUTH would be defensible too. What is
+*not* defensible is serving it, which is why this is asserted at all: a server
+that checks only the outermost record lets a sender attach a valid signature of
+the kind that is checked and a decorative one of the kind that is not.
 
 ## Where the coverage ends
 
