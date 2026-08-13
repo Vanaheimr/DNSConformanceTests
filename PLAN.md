@@ -111,9 +111,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **670 tests, 657 ✅, 0 ❌, 13 skipped** — 598
+Counts as of the 2026-08-13 run: **701 tests, 688 ✅, 0 ❌, 13 skipped** — 629
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
-BIND as a peer skip without it. All twenty-seven deviations the suite found are
+BIND as a peer skip without it. All twenty-nine deviations the suite found are
 fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
@@ -147,7 +147,9 @@ round-trip where supported.
 | 1035 §3.3.14 | TXT | multi-character-string RDATA (> 255 B), concatenated per RFC 7208 §3.3 | ✅ |
 | 3596 | AAAA | full/compressed IPv6 forms | ✅ |
 | 1183 | RP, AFSDB | two-name RDATA | ✅ |
-| 1876 | LOC | lat/lon/alt encoding, size/precision octets | 🟡 |
+| 1876 §2 | LOC | the scaled octet over all 256 values, the lat/lon 2^31 offset, the altitude reference at both extremes | ✅ |
+| 1876 §2 | LOC version | an unrecognised version, or an undefined scaled octet, is written generically per RFC 3597 §5 ✅ (finding 29) | ✅ |
+| 1876 §3 | LOC master file | size and both precisions survive a zone-file line ✅ (finding 28); the defaults apply only to omitted fields | ✅ |
 | 2782 | SRV | priority/weight/port/target; no RDATA compression on emit | ✅ |
 | 3403 | NAPTR | flags/service/regexp character-strings | ✅ |
 | 4034 | DNSKEY, RRSIG, DS, NSEC | type bitmap windows (RFC 4034 §4.3 worked example, wire + zone-file), RRSIG field layout, DS digest lengths | ✅ |

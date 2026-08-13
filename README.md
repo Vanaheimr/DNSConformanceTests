@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 670 tests · 657 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 701 tests · 688 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 27 RFC deviations in Hermod. All are fixed;
+The suite has found 29 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -113,6 +113,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **1034** | Domain concepts | the CNAME rule (§4.3.2) — an alias answers *every* QTYPE; chains followed in-zone, cycles terminate. Zone cuts end the search: a name below a delegation is answered with the child's NS records and glue, AA clear, while the apex's own NS records are not a delegation to itself |
 | **1035** | Message format | header bit positions, question encoding, name limits (63/255), compression pointers both directions, case preserved byte-exactly, UDP truncation, FORMERR |
 | **1183** | RP, AFSDB | two-name RDATA |
+| **1876** | LOC | the six fields that hold something other than what they mean. §2's scaled octet across all 256 values — 91 of them defined, the rest refused rather than rendered as a sphere wider than the solar system. The 2^31 offset on latitude and longitude and the 100 km offset on altitude, at both ends of the 32-bit range. §3's master-file defaults applied only to fields that are absent, not to fields that were written (finding 28). And the version field checked, with a record this build cannot read written in RFC 3597 §5's generic form — which is the example §5 itself gives |
 | **2181** §10.1 | Clarifications | an alias owns no other data |
 | **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA — and on the serving side (§3) every negative answer cites the zone's SOA, without which none of the above has anything to work from |
 | **2535** §3, **3445** | KEY | wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
@@ -184,7 +185,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 
 | RFC / area | What is missing | Blocker |
 |------------|-----------------|---------|
-| **1876** LOC | size/precision/altitude edge cases; only the common shape is covered | — |
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
