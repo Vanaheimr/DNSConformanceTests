@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Twenty-five RFC deviations in the Hermod DNS stack, each
+What this suite caught. Twenty-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -41,16 +41,20 @@ what is queued, what is out of scope — are not here at all; they live in
 | 23 | A bare decimal in a zone-file line was read as a class, not a TTL | Medium | 3597 §5 | ✅ fixed |
 | 24 | The resolver's DNAME substitution matched characters, not labels | **High** | 6672 §2.2, §2.3 | ✅ fixed |
 | 25 | One spoofed response replaced the client's DNS Cookie for good | **High** | 7873 §5.3 | ✅ fixed |
+| 26 | A delegation the validator cannot follow was reported forged | **High** | 6840 §5.2 | ✅ fixed |
+| 27 | Malformed key material threw out of validation | Medium | 4035 §5.3.3, 4033 §5 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last twelve were found *after* the first eight were already fixed, by tests
+The last fourteen were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
 the queued list in the README: untested working code is where the next one will
-be. Findings 21, 23 and 25 make a sharper version of the same point — all three
-sit in code that was already there and already believed to work.
+be. Findings 21, 23, 25 and 27 make a sharper version of the same point — all
+four sit in code that was already there and already believed to work. Findings
+26 and 27 add another: both were found while implementing something else, by
+a test written for a different purpose that happened to walk past them.
 
 ---
 
@@ -982,6 +986,88 @@ returned one, and a client that treats BADCOOKIE as an error can never talk to a
 server that requires them. Both halves are implemented now, with the server
 cookie bound to the client cookie, the client's address and a timestamp — the
 three things that separate a proof of return-routability from a bearer token.
+
+
+## 26 and 27 — the validator's two wrong answers
+
+Both came out of the CDS work, both live in `DNSSECValidator`, and they are each
+other's mirror image. RFC 4033 §5 gives a validator four things it may say, and
+the whole value of the mechanism is in saying the right one: **Secure** is proof,
+**Bogus** is an accusation, **Insecure** is "this zone is not signed", and
+**Indeterminate** is "no trust anchor covers this". Confusing any two of them
+turns a working name into an outage or an outage into a working name.
+
+### 26 — A delegation the validator cannot follow was reported forged
+
+*RFC 6840 §5.2:*
+
+> when determining the security status of a zone, a validator disregards any
+> authenticated DS records that specify unknown or unsupported DNSKEY
+> algorithms. If none are left, the zone is treated as if it were unsigned.
+
+— and the same section extends that to unsupported *digest* algorithms.
+
+The chain walk went straight from "no DS verified" to Bogus:
+
+```csharp
+var dsVerified = dsRecords.Any(ds => VerifyDS(ksk, ds));
+
+if (!dsVerified)
+    return DNSSECValidationResult.Bogus;
+```
+
+Nothing anywhere asked whether the DS RRset was *followable* — `VerifyDS`
+computes a digest and returns false for a type it cannot compute, and false is
+indistinguishable from a mismatch by the time the caller sees it.
+
+So a delegation using an algorithm or digest this build has not learned came back
+Bogus, which is not "I cannot check this" but "this is forged" — and a resolver
+that believes it answers SERVFAIL. The name stops resolving for every client
+behind the validator, over a zone that is very likely perfectly fine and merely
+newer than the code reading it. It is the failure that arrives on the day someone
+else upgrades.
+
+RFC 8078 §4 says the same thing about algorithm 0 in particular, which is where
+this surfaced: the delete sentinel gives 0 a meaning in CDS, and "must treat it
+as unknown. Accordingly, the zone is treated as unsigned".
+
+**Fix.** `HasUsableDelegationSigner` asks the question §5.2 requires, and a DS
+RRset with nothing usable left is treated exactly as no DS RRset at all —
+Insecure. One followable record among unusable ones is still enough, because §5.2
+says to *disregard* the others rather than fail on them; a validator that stopped
+at the first unreadable DS would treat every zone mid-rollover as unsigned, which
+is a downgrade and the worse of the two mistakes.
+
+Verified by `A_Delegation_Whose_Ds_Nobody_Can_Follow_Is_Insecure` and its control
+`A_Delegation_With_One_Usable_Ds_Among_Unusable_Ones_Still_Validates`, both
+driving the real chain walk through the stub resolver.
+
+### 27 — Malformed key material threw out of validation
+
+`VerifyRSA` parsed an RFC 3110 key by indexing straight into it, and `VerifyECDSA`
+handed a point to `ECDsa.Create` without checking it was on the curve. Both throw
+on input that is merely wrong: a DNSKEY too short to hold its own exponent-length
+octet, a length prefix running past the end of the key, a point that is not a
+point. The two Edwards implementations already caught their exceptions and
+returned false — so six algorithms behaved one way and two the other, which is
+the shape of a bug nobody chose.
+
+The call site catches everything and returns **Indeterminate**. That is the wrong
+one of the four: RFC 4033 §5 defines Indeterminate as there being no trust anchor
+covering this part of the tree, and a zone that claims to be signed and presents
+an unusable key has not become a zone nobody has an opinion about. The right
+answer is that this key does not verify this signature — which, with no other key
+working, is Bogus (RFC 4035 §5.3.3).
+
+Every one of those keys arrives over the wire, so their contents are whatever the
+far side chose to send.
+
+**Fix.** Both verifiers now fail rather than throw, matching what the Edwards
+pair already did. Indeterminate is left to mean what RFC 4033 §5 says it means.
+
+Verified by `Malformed_Key_Material_Fails_Rather_Than_Throws`, which puts seven
+malformed keys through all eight algorithms and asserts on both halves: no
+exception, and no acceptance.
 
 
 ---

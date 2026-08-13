@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 628 tests · 615 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 670 tests · 657 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 25 RFC deviations in Hermod. All are fixed;
+The suite has found 27 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -137,7 +137,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **6891** | EDNS0 | OPT wire form (golden bytes), extended-RCODE combining, exactly one OPT, BADVERS for version > 0, payload-size negotiation |
 | **7043** | EUI48, EUI64 | fixed-width RDATA |
 | **7208** | SPF | multi-character-string concatenation |
-| **7344** | CDS, CDNSKEY | mirror the parent DS/DNSKEY formats |
+| **7344**, **8078** | CDS, CDNSKEY | the records mirror DS and DNSKEY (7344 §3.1/§3.2), and the protocol around them. RFC 8078 §4's delete sentinel — `CDS 0 0 0 0`, `CDNSKEY 0 3 0 0` — recognised only in the mandated form and only as an RRset of exactly one record, since a sentinel beside a real CDS asks for a DS to be installed and for all of them removed at once. RFC 7344 §4.1's acceptance rules, which are what keeps the sentinel from being a way for anyone who can write in a child zone to switch its DNSSEC off: apex, signed by a key in **both** the current DNSKEY and DS RRsets, and not breaking the delegation |
 | **7477** | CSYNC | SOA-serial + flags + type bitmap |
 | **7553** | URI | target is raw remaining octets, **not** a domain name |
 | **7766** | DNS over TCP | 2-byte framing, TC→TCP fallback, split/dribbled reassembly, connection reuse, recovery on close |
@@ -188,7 +188,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
-| **7344** | the delete sentinel (algorithm 0) | — |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 

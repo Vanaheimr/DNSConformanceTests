@@ -274,6 +274,101 @@ public class ChainValidationTests
 
     #endregion
 
+    #region A_Delegation_Whose_Ds_Nobody_Can_Follow_Is_Insecure()
+
+    [Test]
+    [Property("RFC", "6840 §5.2")]
+    [Property("RFC", "8078 §4")]
+    public async Task A_Delegation_Whose_Ds_Nobody_Can_Follow_Is_Insecure()
+    {
+
+        // RFC 6840 §5.2: "a validator disregards any authenticated DS records
+        // that specify unknown or unsupported DNSKEY algorithms. If none are
+        // left, the zone is treated as if it were unsigned."
+        //
+        // Unsigned, not broken — and the distinction is the whole point of the
+        // rule. Reporting Bogus turns "I cannot check this" into "this is
+        // forged", which fails the name for every client behind the validator
+        // over a zone that is very likely fine and merely newer than the code
+        // reading it. It fires the day a child moves to an algorithm this build
+        // has not learned, which is precisely when the answer must not be an
+        // outage.
+        //
+        // The DS below is the parent's real one with its algorithm set to 0 —
+        // RFC 8078 §4 reserves that value for the CDS delete sentinel and says a
+        // validator "must treat it as unknown", so it is the sharpest case: the
+        // digest still matches the KSK, and the delegation is still unfollowable.
+        var (rrset, signature) = SignedA();
+
+        var anchor      = zone.DelegationSigner;
+
+        var unfollowable = new DS(
+                               DomainName.Parse("dnssec.test"),
+                               DNSQueryClasses.IN,
+                               TimeSpan.FromHours(1),
+                               anchor.KeyTag,
+                               0,                        // algorithm 0 — never a signature algorithm
+                               anchor.DigestType,
+                               anchor.Digest
+                           );
+
+        var validator = new DNSSECValidator(
+                            new StubDnsClient().
+                                Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
+                                Answer("dnssec.test", DNSResourceRecordTypes.DS,     [ unfollowable ])
+                        );
+
+        var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Insecure),
+                    "a delegation this validator cannot follow is one it has no opinion about, " +
+                    "not one it has caught forging");
+
+    }
+
+    #endregion
+
+    #region A_Delegation_With_One_Usable_Ds_Among_Unusable_Ones_Still_Validates()
+
+    [Test]
+    [Property("RFC", "6840 §5.2")]
+    public async Task A_Delegation_With_One_Usable_Ds_Among_Unusable_Ones_Still_Validates()
+    {
+
+        // The control for the test above, and the half of §5.2 that is easy to
+        // lose: the rule is to *disregard* the unusable records, not to fail on
+        // them. A validator that stopped at the first DS it could not read would
+        // treat every zone mid-algorithm-rollover as unsigned — which is a
+        // downgrade, and a far worse outcome than the one the rule prevents.
+        var (rrset, signature) = SignedA();
+
+        var anchor    = zone.DelegationSigner;
+
+        var unusable  = new DS(
+                            DomainName.Parse("dnssec.test"),
+                            DNSQueryClasses.IN,
+                            TimeSpan.FromHours(1),
+                            anchor.KeyTag,
+                            0,
+                            anchor.DigestType,
+                            anchor.Digest
+                        );
+
+        var validator = new DNSSECValidator(
+                            new StubDnsClient().
+                                Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
+                                Answer("dnssec.test", DNSResourceRecordTypes.DS,     [ unusable, anchor ])
+                        );
+
+        var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
+
+        Assert.That(result, Is.Not.EqualTo(DNSSECValidationResult.Insecure),
+                    "one followable DS is enough — the others are disregarded, not fatal");
+
+    }
+
+    #endregion
+
     #region Signed_Answer_Without_A_Trust_Anchor_Is_Not_Secure()
 
     [Test]
