@@ -60,27 +60,8 @@ public static class Wsl
                              Boolean   asRoot    = false)
     {
 
-        var fileName  = UsesWslBridge ? "wsl.exe" : "/bin/sh";
-
-        var arguments = UsesWslBridge
-                            ? (asRoot
-                                   ? $"-u root -e sh -c \"{shellCommand.Replace("\"", "\\\"")}\""
-                                   : $"-e sh -c \"{shellCommand.Replace("\"", "\\\"")}\"")
-                            : $"-c \"{shellCommand.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
-
-        var psi = new ProcessStartInfo {
-                      FileName                = fileName,
-                      Arguments               = arguments,
-                      RedirectStandardOutput  = true,
-                      RedirectStandardError   = true,
-                      UseShellExecute         = false,
-                      CreateNoWindow          = true,
-                      StandardOutputEncoding  = Encoding.UTF8,
-                      StandardErrorEncoding   = Encoding.UTF8
-                  };
-
-    using var process = Process.Start(psi)
-                            ?? throw new InvalidOperationException("Could not start wsl.exe!");
+        using var process = Process.Start(BuildStartInfo(shellCommand, asRoot))
+                                ?? throw new InvalidOperationException("Could not start the shell!");
 
         var stdOutTask = process.StandardOutput.ReadToEndAsync();
         var stdErrTask = process.StandardError. ReadToEndAsync();
@@ -99,6 +80,58 @@ public static class Wsl
         }
 
         return new Result(process.ExitCode, stdOutTask.Result, stdErrTask.Result);
+
+    }
+
+
+    /// <summary>
+    /// Start a long-running command without waiting for it to finish — through
+    /// <c>wsl.exe</c> on Windows, directly via <c>/bin/sh</c> on a Linux host.
+    /// The caller owns the returned process and must kill it (named runs until stopped).
+    /// </summary>
+    public static Process StartDetached(String shellCommand, Boolean asRoot = true)
+
+        => Process.Start(BuildStartInfo(shellCommand, asRoot))
+               ?? throw new InvalidOperationException("Could not start the shell!");
+
+
+    /// <summary>
+    /// The launch recipe both entry points share. Under the bridge the command
+    /// is embedded into wsl.exe's argument string, which needs its quotes
+    /// escaped. Natively it goes through ArgumentList instead, and deliberately
+    /// so: an Arguments string is re-parsed with backslash rules, so a fixture
+    /// writing a config file via <c>printf '%s\n'</c> would come out the other
+    /// side as a literal backslash-n — the whole file one long line.
+    /// ArgumentList hands the command to <c>sh -c</c> byte for byte.
+    /// </summary>
+    private static ProcessStartInfo BuildStartInfo(String shellCommand, Boolean asRoot)
+    {
+
+        var psi = new ProcessStartInfo {
+                      FileName                = UsesWslBridge ? "wsl.exe" : "/bin/sh",
+                      RedirectStandardOutput  = true,
+                      RedirectStandardError   = true,
+                      UseShellExecute         = false,
+                      CreateNoWindow          = true,
+                      StandardOutputEncoding  = Encoding.UTF8,
+                      StandardErrorEncoding   = Encoding.UTF8
+                  };
+
+        if (UsesWslBridge)
+        {
+            psi.Arguments = asRoot
+                                ? $"-u root -e sh -c \"{shellCommand.Replace("\"", "\\\"")}\""
+                                : $"-e sh -c \"{shellCommand.Replace("\"", "\\\"")}\"";
+        }
+        else
+        {
+            // asRoot is not sudo: natively the process is expected to already be root,
+            // as it is inside a CI container.
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add(shellCommand);
+        }
+
+        return psi;
 
     }
 

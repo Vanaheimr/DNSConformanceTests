@@ -75,15 +75,9 @@ public sealed class BindServerFixture : IAsyncDisposable
         // WSL terminates a session's whole process tree when wsl.exe exits, so
         // neither '&' nor setsid/nohup keeps named alive. Instead run it in the
         // foreground and hold the launching process open for the fixture's
-        // lifetime; disposing kills it.
-        var host = Process.Start(new ProcessStartInfo {
-                       FileName                = "wsl.exe",
-                       Arguments               = $"-u root -e sh -c \"named -c {workDirWsl}/named.conf -g > {workDirWsl}/named.log 2>&1\"",
-                       RedirectStandardOutput  = true,
-                       RedirectStandardError   = true,
-                       UseShellExecute         = false,
-                       CreateNoWindow          = true
-                   });
+        // lifetime; disposing kills it. Natively the held process is simply
+        // /bin/sh running named.
+        var host = Wsl.StartDetached($"named -c {workDirWsl}/named.conf -g > {workDirWsl}/named.log 2>&1");
 
         var fixture = new BindServerFixture(port, workDirWsl, host) {
                           Address = Wsl.VmAddress ?? "127.0.0.1"

@@ -26,13 +26,18 @@ jobs:
   # The full suite against the pinned submodules, on both platforms.
   # ---------------------------------------------------------------------------
   full-suite:
+    # `leg` names the runs and their artifacts: the Linux leg runs on
+    # ubuntu-latest but IS Debian 13 — see ci.yml.
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
+            leg: windows-latest
           - os: ubuntu-latest
             container: debian:13
+            leg: debian-13-container
+    name: ${{ matrix.leg }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
@@ -82,6 +87,8 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=offline"
+          --results-directory artifacts
 
       # Fatal on Linux, where the tools are present and reachable: a red here is
       # a real interoperability regression — dig, kdig or drill disagreeing with
@@ -93,6 +100,8 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory=WSL"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=interop"
+          --results-directory artifacts
 
       # Informational, and it has to be. These query Cloudflare, Google and
       # Quad9 for real, and a hosted runner is not a normal client: datacentre
@@ -108,7 +117,8 @@ jobs:
         run: |
           set +e
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
-            --filter "TestCategory=Online" --logger "console;verbosity=normal" 2>&1 | tee online.txt
+            --filter "TestCategory=Online" --logger "console;verbosity=normal" \
+            --logger "trx;LogFilePrefix=online" --results-directory artifacts 2>&1 | tee online.txt
           {
             echo '## Live resolvers (informational, ${{ runner.os }})'
             echo
@@ -119,6 +129,21 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
+
+      # One artifact per leg, holding every lane's TRX files. The interop and
+      # live lanes run only in this workflow, so their per-test outcomes —
+      # including every skip reason — exist nowhere else once the console log
+      # ages out.
+      #
+      # !cancelled() rather than success(): a red night is when these files
+      # matter most, and uploading only on green would throw away the evidence
+      # in exactly that case.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.leg }}
+          path: artifacts/*.trx
 
   # ---------------------------------------------------------------------------
   # The referee job: the same suite against Hermod's current master.
@@ -165,3 +190,13 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=offline"
+          --results-directory artifacts
+
+      # Same reasoning as the full suite: red is when the evidence matters.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-against-hermod-master
+          path: artifacts/*.trx
