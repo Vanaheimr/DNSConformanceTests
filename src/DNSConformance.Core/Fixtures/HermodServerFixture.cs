@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 
@@ -101,8 +102,15 @@ public sealed class HermodServerFixture : IAsyncDisposable
         for (var attempt = 0; ; attempt++)
         {
 
+            // Probe the candidate before handing it over. A shared port has to be
+            // free in two port spaces at once, and on Windows large blocks of the
+            // range are reserved by Hyper-V — a bind there fails with WSAEACCES,
+            // "not yours" rather than "in use". Finding that out from a throwaway
+            // socket costs microseconds; finding it out from DNSServer costs the
+            // listener-startup deadline, because Start() reports a failed bind
+            // only by never publishing an endpoint.
             var port = Options.SharePortAcrossTransports
-                           ? IPPort.Parse((UInt16) Random.Shared.Next(20000, 60000))
+                           ? IPPort.Parse((UInt16) FreeSharedPort())
                            : IPPort.Zero;
 
             var server = new DNSServer(
@@ -140,7 +148,7 @@ public sealed class HermodServerFixture : IAsyncDisposable
             }
             catch (SocketException) when (Options.SharePortAcrossTransports && attempt < attempts - 1)
             {
-                await server.Stop();
+                await StopQuietly(server);
                 continue;
             }
 
@@ -158,7 +166,7 @@ public sealed class HermodServerFixture : IAsyncDisposable
 
             if (!bound && attempt < attempts - 1)
             {
-                await server.Stop();
+                await StopQuietly(server);
                 continue;
             }
 
@@ -174,6 +182,69 @@ public sealed class HermodServerFixture : IAsyncDisposable
 
         }
 
+    }
+
+
+    /// <summary>
+    /// A port number a UDP and a TCP socket could both take a moment ago.
+    /// </summary>
+    /// <remarks>
+    /// The candidates are drawn at random rather than sequentially: consecutive
+    /// ephemeral ports come from one narrow window, so a window that sits inside
+    /// a reservation makes every retry fail identically.
+    /// </remarks>
+    private static Int32 FreeSharedPort(Int32 Attempts = 200)
+    {
+
+        for (var attempt = 0; attempt < Attempts; attempt++)
+        {
+
+            var candidate = Random.Shared.Next(20000, 60000);
+
+            try
+            {
+
+                using var udp = new Socket(AddressFamily.InterNetwork, SocketType.Dgram,  ProtocolType.Udp);
+                using var tcp = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                udp.Bind(new IPEndPoint(System.Net.IPAddress.Any, candidate));
+                tcp.Bind(new IPEndPoint(System.Net.IPAddress.Any, candidate));
+
+                return candidate;
+
+            }
+            catch (SocketException)
+            {
+                // Taken, or reserved. Try elsewhere in the range.
+            }
+
+        }
+
+        throw new InvalidOperationException(
+                  $"No port number was free for both UDP and TCP after {Attempts} probes."
+              );
+
+    }
+
+
+    /// <summary>
+    /// Stop a server that may never have started properly.
+    /// </summary>
+    /// <remarks>
+    /// <c>Stop()</c> awaits the listener tasks, and a listener whose bind failed
+    /// is a faulted task — so stopping a half-started server rethrows the very
+    /// exception that made it half-started, out of the cleanup path, replacing
+    /// whatever the caller was doing about it. Which is how a retry loop ends up
+    /// propagating the failure it exists to retry.
+    /// </remarks>
+    private static async Task StopQuietly(DNSServer Server)
+    {
+        try
+        {
+            await Server.Stop();
+        }
+        catch (Exception)
+        { }
     }
 
 
