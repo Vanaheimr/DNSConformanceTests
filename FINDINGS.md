@@ -31,6 +31,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 13 | Server ignores the CNAME rule | **High** | 1034 §4.3.2 | ✅ fixed |
 | 14 | NODATA answers are never served from the cache | Medium | 2308 §5 | ✅ fixed |
 | 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ✅ fixed |
+| 16 | Any request record other than A or OPT answered FORMERR | Medium | 3597 §2 | ✅ fixed |
+| 17 | Aggressive NSEC caching: unreachable, unvalidated, and mis-ordered | **High** | 8198 §3, 4034 §6.1 | ✅ fixed |
 | 16 | An unknown RR type in a request yields FORMERR | Medium | 3597 §2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
@@ -510,6 +512,67 @@ Verified by `A_Server_Without_Keys_Ignores_Tsig_Entirely`, which sends a
 TSIG-signed query to a server that has no TSIG keys configured and asserts it is
 answered normally — the record is unknown to that server, and unknown is not
 malformed.
+
+## 17 — Aggressive NSEC caching: unreachable, unvalidated, and mis-ordered
+
+*RFC 8198 §3, RFC 4034 §6.1.*
+
+RFC 8198 lets a resolver answer from a cached NSEC record: one record proves a
+whole *range* of names absent, so any name inside that range can be denied
+without asking again. Hermod had an implementation of this, and both the README
+and PLAN listed it as "implemented, currently untested". Testing it turned up
+four defects, and the order in which they hid each other is the interesting part.
+
+**It never ran.** The block that cached NSEC records sat *after* an early
+`break` for `NameError` — and NXDOMAIN is precisely the response that carries
+denial records. The feature was dead code for its entire purpose. This was found
+by mutation: removing the validation check below changed nothing, which it
+should have, and that only makes sense if the code was unreachable.
+
+**It validated nothing.** §3 permits aggressive use only for DNSSEC-validated
+records, and that condition is the whole safety argument. Hermod cached NSEC
+records out of any response at all. Had the code been reachable, an off-path
+attacker who lands one forged NXDOMAIN carrying a wide NSEC range would have
+suppressed every name in that range for the TTL — cheaper than cache poisoning,
+because there is no race to win against a specific query. The two defects
+cancelled out, which is luck rather than design: fixing the reachability alone
+would have opened the hole.
+
+**It compared names as strings.** The lookup's own comment cited RFC 4034 §6.1
+canonical order; the code below it called `String.Compare(…, Ordinal)`. Those
+are different orders — canonical compares labels from the rightmost, ordinal
+walks characters left to right. The consequence is not a missed cache hit but a
+wrong denial: with an NSEC spanning `b.example.` → `d.example.`, the name
+`c.z.example.` looks like it falls inside, because `c` sits between `b` and `d`.
+It does not; it lives under `z.example.`, outside the span entirely. A resolver
+believing that returns NXDOMAIN for a name that may well exist.
+
+**It guessed the zone.** Both the store and the lookup derived a zone by taking
+the last three labels of the query name, with `// use last 2+ labels as
+approximation` written next to it. That is right for `a.example.com` and wrong
+wherever the zone cut sits elsewhere.
+
+**Fix.** The caching moves ahead of the early returns, so it sees every
+response. It is gated on `DNSSECStatus == Secure`; since `DNSClient` does not
+validate inline, the path is now dormant — which is the correct state for a
+feature whose precondition is unmet, and strictly better than an unauthenticated
+denial cache. The range check uses `DenialOfExistenceValidator.CompareCanonical`,
+the comparator finding 17's sibling work already needed, rather than a second
+copy. The zone comes from the SOA in the authority section when storing, and the
+lookup walks the query name's ancestors instead of guessing.
+
+Verified by `Range_Is_Judged_In_Canonical_Order_Not_String_Order`,
+`Deeper_Names_Inside_The_Gap_Are_Recognised`, `The_Last_Nsec_In_A_Zone_Wraps_Around`,
+`The_Zone_Is_Not_Guessed_From_The_Shape_Of_The_Name` and
+`An_Unvalidated_Nsec_Never_Reaches_The_Cache`. The last one needed its own
+correction: its first version used a scripted responder whose authority section
+carries only an SOA, so there was no NSEC to cache and the test passed with or
+without the fix. It now builds the NXDOMAIN by hand with an NSEC in it, and
+fails when the validation gate is removed.
+
+This is the entry the queued list predicted. It sat under "implemented,
+currently untested" for the whole life of the suite, and every one of the four
+defects was reachable by reading the code — nobody had.
 
 
 ---
