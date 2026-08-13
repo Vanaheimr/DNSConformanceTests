@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Twenty-seven RFC deviations in the Hermod DNS stack, each
+What this suite caught. Twenty-nine RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -43,12 +43,14 @@ what is queued, what is out of scope — are not here at all; they live in
 | 25 | One spoofed response replaced the client's DNS Cookie for good | **High** | 7873 §5.3 | ✅ fixed |
 | 26 | A delegation the validator cannot follow was reported forged | **High** | 6840 §5.2 | ✅ fixed |
 | 27 | Malformed key material threw out of validation | Medium | 4035 §5.3.3, 4033 §5 | ✅ fixed |
+| 28 | The LOC parser discarded the size and both precisions | Medium | 1876 §3 | ✅ fixed |
+| 29 | An unknown LOC version was rendered as if it were version 0 | Low | 1876 §2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last fourteen were found *after* the first eight were already fixed, by tests
+The last sixteen were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
 the queued list in the README: untested working code is where the next one will
 be. Findings 21, 23, 25 and 27 make a sharper version of the same point — all
@@ -1068,6 +1070,76 @@ pair already did. Indeterminate is left to mean what RFC 4033 §5 says it means.
 Verified by `Malformed_Key_Material_Fails_Rather_Than_Throws`, which puts seven
 malformed keys through all eight algorithms and asserts on both halves: no
 exception, and no acceptance.
+
+
+## 28 and 29 — LOC, where every field means something else
+
+RFC 1876 gives the LOC record seven fields, and six of them hold something
+other than the measurement they stand for. Latitude and longitude are unsigned
+with 2^31 for the origin, altitude is unsigned with 100 km subtracted, and size
+and the two precisions are a mantissa and an exponent packed into one octet.
+Every one of those conversions lived inside `ZoneFileRData` as a local variable,
+which is why the coverage note had said "only the common shape is covered": the
+only way to ask what any of it meant was to read a rendered string.
+
+### 28 — The LOC parser discarded the size and both precisions
+
+*RFC 1876 §3* gives defaults "if omitted" — size 1 m, horizontal precision
+10000 m, vertical precision 10 m. `TryParseFromJSON` applied them whether or not
+the fields were there, and said so:
+
+```csharp
+// Parsing the full presentation format is complex; create a minimal record
+// preserving the version=0 and default precision values.
+```
+
+So a zone file line reading `42 21 54 N 71 6 18 W -24m 30m 40m 50m` loaded as
+`-24m 1m 10000m 10m`. Three values written down by hand, replaced by defaults,
+with nothing anywhere to say it had happened — and the record still parsed, still
+served, still round-tripped, and still rendered as a perfectly ordinary location.
+
+Defaults are for absent values. Substituting them for present ones is a way of
+discarding data that looks like a specification.
+
+The fields that vanished are the ones that say how much to trust the two that
+survived: a zone claiming its coordinates are good to 40 m loaded as one claiming
+10 km.
+
+**Fix.** The three optional fields are read when present and defaulted only when
+absent. They are positional, so giving two means the third defaults, which is
+what `Omitted_Fields_Take_The_Defaults_Section_Three_Gives` pins across all four
+combinations.
+
+### 29 — An unknown LOC version was rendered as if it were version 0
+
+*RFC 1876 §2:* "Implementations are required to check this field and make no
+assumptions about the format of unrecognized versions."
+
+Nothing checked it. A LOC with VERSION 1 — whose RDATA layout is by definition
+unknown — was decoded as latitude, longitude, altitude and three scaled octets,
+and came out as a coordinate that looks entirely ordinary and means nothing.
+
+The same held one field down, for the scaled octets §2 leaves undefined: "Four-bit
+values greater than 9 are undefined, as are values with a base of zero and a
+non-zero exponent." `0xFF` rendered as 150000000000000 m — a sphere wider than
+the solar system — and `0x05` rendered as 0 m, quietly agreeing with a sender who
+meant something the RFC declines to define.
+
+**Fix.** A LOC whose version is not 0, or whose scaled octets are not values §2
+assigns a meaning to, is written in RFC 3597 §5's generic form. That is not an
+invention: §5 gives this exact record as its example of why the generic form
+exists — "an RR type where the text format varies depending on a version ... e.g.,
+a LOC RR [RFC1876] with a VERSION other than 0". The two rounds meet here.
+
+Severity is Low because nothing in the wild publishes a version other than 0 —
+but that is also why it would have stayed wrong indefinitely.
+
+**And the semantics came out of the formatter.** `SizeInCentimetres`,
+`LatitudeInMilliArcSeconds`, `AltitudeInCentimetres` and the rest are properties
+now, so the conversions can be asserted as numbers. That is what let the mutation
+pass reach them: reversing the latitude offset, dropping the altitude reference
+and ignoring the exponent are all caught, and none of the three would have
+changed a rendered string in a way a reader would notice.
 
 
 ---
