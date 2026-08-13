@@ -39,7 +39,8 @@ public class ServerCookieTests
 
     private const UInt16 CookieOptionCode = 10;
 
-    private static readonly Byte[] Secret = Convert.FromHexString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+    /// <summary>A 128-bit secret, which is what SipHash-2-4 takes as its key (RFC 9018 §4.4).</summary>
+    private static readonly Byte[] Secret = Convert.FromHexString("0123456789abcdef0123456789abcdef");
 
 
     #region (private static) helpers
@@ -363,6 +364,155 @@ public class ServerCookieTests
 
 
     #region The cookie itself — what a socket cannot reach
+
+    #region RFC 9018 Appendix A — the published vectors
+
+    #region The_Published_Server_Cookies_Are_Reproduced_Exactly()
+
+    [TestCase("198.51.100.100",                     "2464c4abcf10c957", "e5e973e5a6b2a43f48e7dc849e37bfcf", 1559731985u,
+              "2464c4abcf10c957010000005cf79f111f8130c3eee29480", TestName = "RFC9018_vector__A1_learning_a_server_cookie")]
+    [TestCase("198.51.100.100",                     "2464c4abcf10c957", "e5e973e5a6b2a43f48e7dc849e37bfcf", 1559734385u,
+              "2464c4abcf10c957010000005cf7a871d4a564a1442aca77", TestName = "RFC9018_vector__A2_renewing_it")]
+    [TestCase("203.0.113.203",                      "fc93fc62807ddb86", "e5e973e5a6b2a43f48e7dc849e37bfcf", 1559734700u,
+              "fc93fc62807ddb86010000005cf7a9acf73a7810aca2381e", TestName = "RFC9018_vector__A3_another_client")]
+    [TestCase("2001:db8:220:1:59de:d0f4:8769:82b8", "22681ab97d52c298", "445536bcd2513298075a5d379663c962", 1559741961u,
+              "22681ab97d52c298010000005cf7c609a6bb79d16625507a", TestName = "RFC9018_vector__A4_an_IPv6_client")]
+    [Property("RFC", "9018 §4.4")]
+    public void The_Published_Server_Cookies_Are_Reproduced_Exactly(String  ClientIP,
+                                                                    String  ClientCookieHex,
+                                                                    String  SecretHex,
+                                                                    UInt32  Timestamp,
+                                                                    String  ExpectedOption)
+    {
+
+        // The reason RFC 9018 exists at all, and the reason it is worth
+        // following: a server cookie is normally only ever checked by the server
+        // that made it, so any keyed hash would do — until an anycast cluster
+        // shares one secret and a cookie issued by one node arrives at another.
+        // Then the construction has to be the same construction, down to the
+        // octet, and these four vectors are what "the same" means.
+        //
+        // §4.4 gives the formula and not the byte order of the 64-bit hash. The
+        // vectors settle it: all four reproduce with the little-endian
+        // serialisation SipHash's own reference implementation uses, and none
+        // with the other. Worth knowing rather than guessing, since a big-endian
+        // implementation would validate its own cookies perfectly and nobody
+        // else's — which is the one failure this RFC is written to prevent.
+        var cookie = DNSCookies.Create(
+                         Convert.FromHexString(ClientCookieHex),
+                         org.GraphDefined.Vanaheimr.Hermod.IPAddress.Parse(ClientIP),
+                         Convert.FromHexString(SecretHex),
+                         DateTimeOffset.FromUnixTimeSeconds(Timestamp)
+                     );
+
+        var option = Convert.FromHexString(ClientCookieHex).Concat(cookie).ToArray();
+
+        Assert.That(Convert.ToHexString(option).ToLowerInvariant(), Is.EqualTo(ExpectedOption));
+
+    }
+
+    #endregion
+
+    #region A_Published_Vector_Validates_Against_Its_Own_Inputs()
+
+    [Test]
+    [Property("RFC", "9018 §4.4")]
+    public void A_Published_Vector_Validates_Against_Its_Own_Inputs()
+    {
+
+        // The other direction: the RFC's own cookie, handed back to this
+        // implementation, is accepted. Producing a matching cookie and
+        // recognising one are different code paths, and an implementation can
+        // get the first right and still refuse everything.
+        var clientCookie = Convert.FromHexString("2464c4abcf10c957");
+        var serverCookie = Convert.FromHexString("010000005cf79f111f8130c3eee29480");
+        var secret       = Convert.FromHexString("e5e973e5a6b2a43f48e7dc849e37bfcf");
+        var address      = org.GraphDefined.Vanaheimr.Hermod.IPAddress.Parse("198.51.100.100");
+
+        // The vector's timestamp is from 2019, so validity has to be measured
+        // from then — the point here is the hash, not the clock.
+        var issued       = DateTimeOffset.FromUnixTimeSeconds(1559731985);
+
+        Assert.Multiple(() => {
+
+            Assert.That(DNSCookies.Validate(serverCookie, clientCookie, address, secret, issued),
+                        Is.True);
+
+            Assert.That(DNSCookies.Validate(serverCookie, clientCookie, address, DNSCookies.GenerateSecret(), issued),
+                        Is.False,
+                        "and not under a secret that did not make it");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Secret_Of_The_Wrong_Size_Is_Refused()
+
+    [TestCase(15, TestName = "Wrong_secret_size__one_short")]
+    [TestCase(17, TestName = "Wrong_secret_size__one_long")]
+    [TestCase(32, TestName = "Wrong_secret_size__an_HMAC_sized_key")]
+    [Property("RFC", "9018 §4.4")]
+    public void A_Secret_Of_The_Wrong_Size_Is_Refused(Int32 Size)
+    {
+
+        // SipHash-2-4 takes a 128-bit key and RFC 9018 names no other. A longer
+        // one is the shape a previous construction here used, and silently
+        // truncating or padding it would produce cookies that no other member of
+        // a cluster could check — which is the failure this whole RFC exists to
+        // remove, arrived at by being lenient.
+        //
+        // The message is asserted, not just the type. BouncyCastle rejects a
+        // wrong-sized key too, with an ArgumentException of its own, so a test
+        // that only checked the type would pass with this check removed — a
+        // redundant guard hiding a broken one, which is the second time this
+        // suite has met that shape. The message is also the deliverable here:
+        // it is what an operator who mis-sized a secret in a config file reads.
+        Assert.That(
+            () => DNSCookies.Create(new Byte[8], org.GraphDefined.Vanaheimr.Hermod.IPAddress.Parse("192.0.2.1"), new Byte[Size]),
+            Throws.InstanceOf<ArgumentException>().With.Message.Contains("RFC 9018")
+        );
+
+    }
+
+    #endregion
+
+    #region The_Timestamp_Window_Survives_The_2106_Wrap()
+
+    [Test]
+    [Property("RFC", "9018 §4.3")]
+    [Property("RFC", "1982")]
+    public void The_Timestamp_Window_Survives_The_2106_Wrap()
+    {
+
+        // §4.3: "since the Timestamp is a 32-bit field, comparisons must use
+        // serial number arithmetic [RFC1982]".
+        //
+        // The field runs out in February 2106 and starts again at zero. A
+        // validator comparing the two as absolute instants would then see every
+        // freshly issued cookie as 136 years in the future and refuse it, for an
+        // hour, once — a failure nobody would be able to reproduce and everybody
+        // would blame on something else. Serial arithmetic makes the distance
+        // the short way round the circle, which is seconds.
+        var clientCookie = new Byte[8];
+        var address      = org.GraphDefined.Vanaheimr.Hermod.IPAddress.Parse("192.0.2.1");
+
+        // Ten seconds before the field wraps.
+        var beforeWrap   = DateTimeOffset.FromUnixTimeSeconds(UInt32.MaxValue - 10);
+        var afterWrap    = DateTimeOffset.FromUnixTimeSeconds((Int64) UInt32.MaxValue + 20);
+
+        var cookie       = DNSCookies.Create(clientCookie, address, Secret, beforeWrap);
+
+        Assert.That(DNSCookies.Validate(cookie, clientCookie, address, Secret, afterWrap), Is.True,
+                    "a cookie thirty seconds old is thirty seconds old, whichever side of the wrap it sits");
+
+    }
+
+    #endregion
+
+    #endregion
+
 
     #region A_Server_Cookie_Is_Bound_To_The_Address_It_Was_Issued_To()
 
