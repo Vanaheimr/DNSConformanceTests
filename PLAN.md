@@ -111,9 +111,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **628 tests, 615 ✅, 0 ❌, 13 skipped** — 556
+Counts as of the 2026-08-13 run: **670 tests, 657 ✅, 0 ❌, 13 skipped** — 598
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
-BIND as a peer skip without it. All twenty-five deviations the suite found are
+BIND as a peer skip without it. All twenty-seven deviations the suite found are
 fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
@@ -157,7 +157,11 @@ round-trip where supported.
 | 6698/8162 | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names | ✅ |
 | 7043 | EUI48, EUI64 | fixed-width RDATA | ✅ |
 | 7208 | SPF | as TXT-shaped record | ✅ |
-| 7344 | CDS, CDNSKEY | mirror the parent DS/DNSKEY formats ✅; delete-sentinel forms | 🟡 |
+| 7344 §3 | CDS, CDNSKEY | mirror the parent DS/DNSKEY formats | ✅ |
+| 8078 §4 | delete sentinel | `CDS 0 0 0 0` and `CDNSKEY 0 3 0 0` built, recognised only in the mandated form, refused as a near miss, and only as an RRset of exactly one record | ✅ |
+| 7344 §4.1 | parent acceptance | apex, signed by a key in *both* the current DNSKEY and DS RRsets, must not break the delegation — each refusal told apart from the others | ✅ |
+| 6840 §5.2 | unfollowable delegations | a DS RRset with no usable algorithm or digest leaves the zone unsigned rather than forged ✅ (finding 26); one usable record among unusable ones still validates | ✅ |
+| 4035 §5.3.3 | malformed keys | seven malformed key shapes through all eight algorithms: refused, never thrown ✅ (finding 27) | ✅ |
 | 7477 | CSYNC | SOA-serial + flags + type bitmap | ✅ |
 | 7553 | URI | target is raw remaining octets, **not** a domain name | ✅ |
 | 7929 | OPENPGPKEY | binary blob | ✅ |
