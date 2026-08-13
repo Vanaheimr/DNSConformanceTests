@@ -14,9 +14,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 390 tests · 390 ✅ · 0 ❌.**
+**Current status: 392 tests · 392 ✅ · 0 ❌.**
 
-The suite has found 16 RFC deviations in Hermod. All are fixed;
+The suite has found 17 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -142,6 +142,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **7873** | Cookies | 8-byte initial client cookie encoding |
 | **7929** | OPENPGPKEY | binary blob |
 | **8080** | Ed25519, Ed448 | raw 32/57-octet keys, cross-checked with BouncyCastle |
+| **8198** | Aggressive NSEC caching | ranges judged in canonical order, not string order; the zone taken from the SOA rather than guessed; and an NSEC that was never DNSSEC-validated never reaches the cache |
 | **8310** §8.1 | DoT auth profile | a rejecting certificate validator means no query leaves the host |
 | **8484** | DoH | GET `?dns=` base64url **unpadded**, POST content types, no trailing bytes, HTTP errors never reach the wire parser |
 | **8624** | Algorithm selection | every algorithm 8624 asks a *validator* to implement — 8, 10, 13, 14, 15, 16 — verifies a real BIND signature; deprecated RSA/SHA-1 (5, 7) still validates, as it must |
@@ -173,7 +174,6 @@ fixture zone in `RrsigValidationTests`.
 | **7129** | the *server* producing denial records for a signed zone it serves | `InMemoryDNSZone` holds no NSEC or NSEC3 chain to serve from |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
-| **8198** | aggressive NSEC caching — **implemented** in `DNSCache`/`DNSClient`, currently untested | — |
 | **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
 | interop | `delv` validating a Hermod-served signed zone | — the interop lane runs on CI now, so this is work rather than a prerequisite |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
