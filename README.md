@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 457 tests · 457 ✅ · 0 ❌.**
+**Current status: 465 tests · 465 ✅ · 0 ❌.**
 
 The suite has found 19 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -162,6 +162,22 @@ than a shared fixture: 5, 7, 10, 13, 14, 15 and 16 in
 `SignatureAlgorithmMatrixTests`, and 8 (RSA/SHA-256) as the main `dnssec.test`
 fixture zone in `RrsigValidationTests`.
 
+**And BIND's own validator agrees.** `delv` — pointed at a Hermod server serving
+the signed fixture zone, with that zone's KSK as its trust anchor — reports
+*fully validated* for a signed answer, a wildcard answer, an NSEC name error, an
+NSEC NODATA, an NSEC3 closest-encloser proof, and the DNSKEY RRset. That last
+one only arrives over the TCP retry, since two 2048-bit keys and their signature
+do not fit in a datagram.
+
+This matters more than the count suggests. Every other DNSSEC test here compares
+what Hermod sent against the records BIND *wrote* — which catches an invented or
+mangled record and cannot catch a wrong reading of RFC 4035 §3.1 or RFC 5155 §7,
+because the same reading produced both the server and the assertions. `delv`
+brings its own, from the people who wrote the signer. A companion test hands it
+the identical answer under a trust anchor with the right name and the wrong key
+and requires it to refuse — otherwise "fully validated" would only prove that
+`delv` says yes.
+
 ### Queued — on the todo list
 
 | RFC / area | What is missing | Blocker |
@@ -177,7 +193,6 @@ fixture zone in `RrsigValidationTests`.
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | **8080** (SIG(0)) | signing with Ed25519 and Ed448; verification covers both, and the private-key half is not wired up | needs BouncyCastle's signer, as the verifier already uses |
 | **8945**, **2931** (transports) | signing over DoT and DoH | both mechanisms are wired for UDP and TCP, which is where they are deployed; the TLS and HTTPS clients each serialize separately and are untouched. Finding 19 is the argument for doing this properly rather than per transport |
-| interop | `delv` validating a Hermod-served signed zone | — `InMemoryDNSZone` serves one now, so this is work rather than a prerequisite |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 

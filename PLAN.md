@@ -111,8 +111,8 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **457 tests, 457 ✅, 0 ❌** — 396 offline and
-23 online and 25 interop verified on that run; the 13 tests needing BIND as a
+Counts as of the 2026-08-13 run: **465 tests, 465 ✅, 0 ❌** — 396 offline and
+23 online and 33 interop verified on that run; the 13 tests needing BIND as a
 peer skip without it. All
 nineteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
@@ -306,7 +306,7 @@ side of the connection.
 | live root DNSKEY contains the IANA KSK; live RRSIG validates | ✅ |
 | deliberately bogus zone (dnssec-failed.org) does not resolve | ✅ |
 
-**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 25 ✅
+**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 33 ✅
 Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 
 | Focus | Status |
@@ -318,7 +318,8 @@ Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 | `drill`: A, AAAA, MX, SRV, SOA — a third parser lineage | ✅ |
 | dig, kdig and drill agree on a multi-record answer set | ✅ |
 | all of the above still pass after the case-preservation and compression changes | ✅ |
-| `delv` DNSSEC validation of a Hermod-served signed zone | ⬜ |
+| `delv` fully validates a Hermod-served signed answer, a wildcard answer, an NSEC NXDOMAIN, an NSEC NODATA, an NSEC3 closest-encloser proof, and the DNSKEY RRset — the last only reachable over the TCP retry | ✅ |
+| …and refuses the identical answer under a trust anchor with the right name and the wrong key: the control that makes "fully validated" mean something | ✅ |
 
 **`DNSInterop.ExternalServers.Tests`** (category `WSL`) — 13 ✅
 BIND `named` in WSL serving the fixture zone; Hermod is the client:
