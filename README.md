@@ -165,17 +165,17 @@ fixture zone in `RrsigValidationTests`.
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **2931** | SIG(0): per-message signatures under a public key, the asymmetric alternative to TSIG | the KEY record exists now; SIG (type 24) and the signing path do not |
-| **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form | needs a hand-built key |
 | **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
-| **7129** | the *server* producing denial records for a signed zone it serves | `InMemoryDNSZone` holds no NSEC or NSEC3 chain to serve from |
 | **4592** (server side) | wildcard *matching* at query time; only the owner-name representation is covered | `InMemoryDNSZone` has no wildcard lookup |
 | **5155** (zone side) | walking an NSEC3 chain to answer from a signed zone; opt-out | the hash exists; `InMemoryDNSZone` has no NSEC3 chain to walk |
 | **6672** | DNAME subtree rewrite and the synthesized CNAME; only the record shape is covered | — |
+| **7129** | the *server* producing denial records for a signed zone it serves | `InMemoryDNSZone` holds no NSEC or NSEC3 chain to serve from |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | **8198** | aggressive NSEC caching — **implemented** in `DNSCache`/`DNSClient`, currently untested | — |
-| interop | `delv` validating a Hermod-served signed zone | WSL lane |
+| **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
+| interop | `delv` validating a Hermod-served signed zone | — the interop lane runs on CI now, so this is work rather than a prerequisite |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
