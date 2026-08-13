@@ -49,6 +49,89 @@ public class Sig0ServerTests
                  });
 
 
+    #region A_Query_Signed_With_Each_Algorithm_Is_Verified_And_Served()
+
+    [TestCase((Byte)  8, TestName = "Signed_query_served__RSA_SHA256")]
+    [TestCase((Byte) 10, TestName = "Signed_query_served__RSA_SHA512")]
+    [TestCase((Byte) 13, TestName = "Signed_query_served__ECDSA_P256")]
+    [TestCase((Byte) 14, TestName = "Signed_query_served__ECDSA_P384")]
+    [TestCase((Byte) 15, TestName = "Signed_query_served__Ed25519")]
+    [TestCase((Byte) 16, TestName = "Signed_query_served__Ed448")]
+    [Property("RFC", "2931 §3.1")]
+    [Property("RFC", "8080")]
+    public async Task A_Query_Signed_With_Each_Algorithm_Is_Verified_And_Served(Byte Algorithm)
+    {
+
+        // Every algorithm RFC 8624 §3.1 lets a signer choose, end to end over a
+        // socket: the client signs, the server looks the KEY record up by tag and
+        // name, verifies, and serves. The Edwards curves are the ones this exists
+        // for — verification of them was covered against BIND's fixtures long
+        // before anything here could produce a signature to verify.
+        var key = SIG0Key.Generate(ClientName, Algorithm);
+
+        await using var algorithmServer = await ServerAsync(key);
+
+        var algorithmQuery  = RawDnsWriter.Query(0x8080, ZoneFixtures.AName, RawDnsType.A);
+        var algorithmSigned = SIG0Signer.Sign(algorithmQuery, key);
+        var algorithmRaw    = await RawDnsProbe.UdpAsync(algorithmServer.UdpPort, algorithmSigned);
+
+        Assert.That(algorithmRaw, Is.Not.Null, $"the server must answer a query signed with algorithm {Algorithm}");
+
+        var algorithmResponse = RawDnsReader.Parse(algorithmRaw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(algorithmResponse.RCode,   Is.Zero,      "a valid signature must not change the answer");
+            Assert.That(algorithmResponse.Answers, Is.Not.Empty);
+            Assert.That(algorithmResponse.Answers[0].Rdata, Is.EqualTo(RawDnsWriter.IPv4(ZoneFixtures.AAddress)));
+
+            Assert.That(key.PublicKey.Algorithm, Is.EqualTo(Algorithm),
+                        "and the KEY record the server was given names the algorithm that signed");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Query_Signed_With_An_Edwards_Key_Is_Refused_When_The_Key_Is_Wrong()
+
+    [TestCase((Byte) 15, TestName = "Wrong_Edwards_key_refused__Ed25519")]
+    [TestCase((Byte) 16, TestName = "Wrong_Edwards_key_refused__Ed448")]
+    [Property("RFC", "2931 §3.1")]
+    [Property("RFC", "8080")]
+    public async Task A_Query_Signed_With_An_Edwards_Key_Is_Refused_When_The_Key_Is_Wrong(Byte Algorithm)
+    {
+
+        // The control for the test above. Without it, "the server served the
+        // answer" would also be satisfied by a server that never checked the
+        // signature at all — which is exactly what an unimplemented algorithm
+        // looks like from outside, since RFC 2931 §3.2 has a server ignore
+        // signatures it cannot process.
+        var trusted  = SIG0Key.Generate(ClientName, Algorithm);
+        var impostor = SIG0Key.Generate(ClientName, Algorithm);   // same name, different pair
+
+        await using var refusingServer = await ServerAsync(trusted);
+
+        var refusedQuery  = RawDnsWriter.Query(0x8081, ZoneFixtures.AName, RawDnsType.A);
+        var refusedSigned = SIG0Signer.Sign(refusedQuery, impostor);
+        var refusedRaw    = await RawDnsProbe.UdpAsync(refusingServer.UdpPort, refusedSigned);
+
+        Assert.That(refusedRaw, Is.Not.Null, "an unverifiable signature is answered, not dropped");
+
+        var refusedResponse = RawDnsReader.Parse(refusedRaw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(refusedResponse.RCode,   Is.EqualTo(9), "NOTAUTH");
+            Assert.That(refusedResponse.Answers, Is.Empty,      "and nothing is served under a signature that did not check out");
+
+        });
+
+    }
+
+    #endregion
+
     #region Signed_Query_Is_Verified_And_Served()
 
     [Test]

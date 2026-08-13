@@ -67,9 +67,29 @@ public class Sig0ClientTests
         unsigned[10] = (Byte) ((message.Additionals.Count - 1) >> 8);
         unsigned[11] = (Byte) ((message.Additionals.Count - 1) & 0xFF);
 
+        // The verifying key is read out of the KEY record the signer publishes,
+        // decoded here from RFC 3110 §2 rather than taken from the key object —
+        // which is the same route a real verifier has, and which also checks that
+        // the published record actually matches the signatures being made under
+        // it. Getting it from the private key instead would verify a signature
+        // against the thing that produced it and prove nothing about what a
+        // verifier would see.
+        var encoded       = Key.PublicKey.PublicKey;
+        var exponentLen   = (Int32) encoded[0];
+        var at            = 1;
+
+        if (exponentLen == 0)
+        {
+            exponentLen = (encoded[1] << 8) | encoded[2];
+            at          = 3;
+        }
+
         using var rsa = RSA.Create();
 
-        rsa.ImportParameters(((RSA) Key.PrivateKey).ExportParameters(false));
+        rsa.ImportParameters(new RSAParameters {
+            Exponent = encoded[at..(at + exponentLen)],
+            Modulus  = encoded[(at + exponentLen)..]
+        });
 
         Byte[] signedData = [.. rdataPrefix, .. unsigned];
 

@@ -962,6 +962,21 @@ tell our signature from anyone else's. The tests assert this reading rather than
 a requirement, and it is the one thing here another implementation could
 reasonably differ on.
 
+**RFC 8080 §6's examples carry a labels field their own owner name does not
+justify.** The published RRSIG lines read `RRSIG MX 3 3600 …`, which is one field
+short of the presentation format — the algorithm is missing and the 3 is the
+labels. RFC 4034 §3.1.3 counts the labels of the owner name without the root,
+making `example.com.` two; the signatures only reproduce with three. Since the
+labels octet is inside the signed data, there is no reading under which both the
+counting rule and the published signature can hold.
+
+The suite reproduces the examples as they are rather than as they should be, and
+says so at the call site. What the vectors are there to measure is the EdDSA
+construction — PureEdDSA rather than the pre-hashed variant, an empty Ed448
+context, the right canonical form underneath — and for that purpose the field
+values only have to match whatever produced the signature. A test that "corrected"
+the labels to 2 would be a different test, and a failing one.
+
 **A message carrying both a TSIG and a SIG(0).** RFC 2931 §3.2 forbids the
 combination — "either a single TSIG or one SIG(0) but not both" — and again
 names no RCODE. Hermod answers FORMERR (1), reading it as a malformed message
