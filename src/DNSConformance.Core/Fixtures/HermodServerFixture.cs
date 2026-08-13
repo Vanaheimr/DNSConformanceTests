@@ -144,6 +144,31 @@ public sealed class HermodServerFixture : IAsyncDisposable
                 continue;
             }
 
+            // Start() does not report a failed bind synchronously — the listeners
+            // come up on background tasks — so a port that could not be taken
+            // leaves the socket unset and the port reading as 0. Checking the
+            // ports rather than trusting the absence of an exception is the
+            // difference between retrying and handing back a server nothing can
+            // reach: an external tool then gets "-p 0", times out, and the test
+            // skips itself with a message about the firewall.
+            var bound = (!Options.EnableUdp || server.ActiveUDPUnicastSocket is not null) &&
+                        (!Options.EnableTcp || server.ActiveTCPUnicastSocket is not null) &&
+                        (!Options.EnableTls || server.ActiveTLSUnicastSocket is not null);
+
+            if (!bound && attempt < attempts - 1)
+            {
+                await server.Stop();
+                continue;
+            }
+
+            if (!bound)
+                throw new InvalidOperationException(
+                          $"The DNS server did not bind its listeners after {attempts} attempts" +
+                          (Options.SharePortAcrossTransports
+                               ? " — UDP and TCP were asked to share one port number."
+                               : ".")
+                      );
+
             return new HermodServerFixture(server, zone, certificate);
 
         }

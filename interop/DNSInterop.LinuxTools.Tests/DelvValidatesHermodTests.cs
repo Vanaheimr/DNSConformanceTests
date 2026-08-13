@@ -178,10 +178,15 @@ public class DelvValidatesHermodTests
         TestContext.Out.WriteLine(result.ToString());
 
         if (result.ExitCode == -1 ||
-            result.StdErr.Contains("timed out",                 StringComparison.OrdinalIgnoreCase) ||
+            result.StdErr.Contains("timed out",                   StringComparison.OrdinalIgnoreCase) ||
             result.StdErr.Contains("no servers could be reached", StringComparison.OrdinalIgnoreCase))
         {
-            Assert.Ignore("WSL cannot reach the Hermod server — usually a Windows Firewall rule blocking the WSL subnet.");
+            // The message carries delv's own words. A skip that blames the
+            // firewall when the real cause was a server bound to port 0 sends
+            // the next reader somewhere useless — which is exactly what happened
+            // before the fixture learned to check that its listeners came up.
+            Assert.Ignore($"WSL could not reach the Hermod server at {hostAddress}:{Server.UdpPort} — " +
+                          $"usually a Windows Firewall rule blocking the WSL subnet. delv said: {result.StdErr.Trim()}");
         }
 
         return result.StdOut + result.StdErr;
