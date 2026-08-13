@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Sixteen RFC deviations in the Hermod DNS stack, each
+What this suite caught. Eighteen RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -33,7 +33,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 15 | Negative TTL ignores the SOA MINIMUM | Medium | 2308 §4 | ✅ fixed |
 | 16 | Any request record other than A or OPT answered FORMERR | Medium | 3597 §2 | ✅ fixed |
 | 17 | Aggressive NSEC caching: unreachable, unvalidated, and mis-ordered | **High** | 8198 §3, 4034 §6.1 | ✅ fixed |
-| 16 | An unknown RR type in a request yields FORMERR | Medium | 3597 §2 | ✅ fixed |
+| 18 | Negative answers carried no SOA, so none of them could be cached | **High** | 2308 §3 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -68,8 +68,8 @@ registry could not reach — it looks up `(DomainName, Stream)` and
 `(DNSServiceName, Stream)`, and nothing else. Their shared base left RDLENGTH
 unread and the subclasses disagreed about whose job that was: `TXT`, `DNSKEY`
 and `SVCB` read it, `A`, `MX` and `SOA` did not, and would have taken the two
-length octets for RDATA. Dead code deviates from nothing, so this is not a
-sixteenth finding — but it sat in all forty record files beside the correct
+length octets for RDATA. Dead code deviates from nothing, so this gets no number
+of its own — but it sat in all forty record files beside the correct
 constructor, which is what the next record type would have been modelled on.
 All forty are gone, and `RecordTypeRegistryTests` goes red if one comes back.
 
@@ -573,6 +573,54 @@ fails when the validation gate is removed.
 This is the entry the queued list predicted. It sat under "implemented,
 currently untested" for the whole life of the suite, and every one of the four
 defects was reachable by reading the code — nobody had.
+
+
+---
+
+## 18 — Negative answers carried no SOA, so none of them could be cached
+
+*RFC 2308 §3.*
+
+> Name servers authoritative for a zone MUST include the SOA record of the zone
+> in the authority section of the response when reporting an NXDOMAIN or
+> indicating that no data of the requested type exists. This is required so that
+> the response may be cached.
+
+Hermod's authoritative server answered NXDOMAIN and NODATA correctly and sent
+both with an empty authority section. The RCODE was right; the record that makes
+it *usable* was missing.
+
+The consequence is not a wrong answer, which is why it survives review easily —
+it is that no resolver in the path can remember the answer. Every repetition of
+a query for a name that does not exist goes back to the origin, and negative
+traffic is not a rounding error: a typo in a mail server's configuration, a stale
+CNAME target, or a probe for a name that never existed all repeat indefinitely.
+RFC 2308 exists precisely because this was a real load problem in the 1990s, and
+the SOA is how the responder tells the world how long it may stop asking.
+
+It also removes the only handle the resolver has on *how long*: finding 15 fixed
+Hermod's client to compute the negative TTL as `min(SOA.MINIMUM, SOA.TTL)`, and
+that code had nothing to work with when Hermod itself was the server. The two
+findings are the same requirement seen from the two ends of the wire, which is
+why the client side passed its tests while the server side was silently
+unhelpful.
+
+**Fix.** `InMemoryDNSZone` now knows its own apex — the owner name of the SOA it
+holds — and every NXDOMAIN and NODATA it returns cites that SOA. The zone gained
+the rest of RFC 1034 §4.3.2 at the same time, since all of it turns on the same
+question of what the zone actually contains: empty non-terminals (a name with
+descendants but no records is NODATA, not NXDOMAIN), wildcard synthesis, and
+delegations answered as referrals with AA clear.
+
+Records the store happens to hold outside its apex — an `in-addr.arpa` name
+alongside a forward zone, as the standard test fixture does — are still answered
+by exact name and still get no SOA. That is deliberate: there is no zone to cite
+for them, and inventing one would be worse than citing none.
+
+Verified by `Negative_Answer_Cites_The_Zone_Apex_Soa`, and by the SOA assertions
+in `Wildcard_Does_Not_Reach_Past_The_Closest_Encloser`,
+`Wildcard_Does_Not_Apply_To_An_Empty_Non_Terminal` and
+`Nodata_Carries_The_Soa_The_Nsec_And_Both_Signatures`.
 
 
 ---

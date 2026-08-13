@@ -168,4 +168,82 @@ public static class ZoneFixtures
 
     }
 
+
+    #region The wildcard / delegation zone (RFC 4592, RFC 1034 §4.3.2)
+
+    public const String WildOrigin        = "wild.test.";
+    public const String WildNameServer    = "ns1.wild.test.";
+
+    /// <summary>The wildcard at the apex: <c>*.wild.test.</c></summary>
+    public const String WildcardAddress   = "192.0.2.100";
+    public const String WildcardMailHost  = "mail.wild.test.";
+
+    /// <summary>A name that exists, so the wildcard must not answer for it.</summary>
+    public const String WildExactName     = "sub.wild.test.";
+    public const String WildExactAddress  = "192.0.2.1";
+
+    /// <summary>Below <c>sub</c>, which is the closest encloser — and holds no wildcard of its own.</summary>
+    public const String WildBelowExact    = "nothing.sub.wild.test.";
+
+    /// <summary>An empty non-terminal: no records, but a name below it has some.</summary>
+    public const String WildEmptyName     = "empty.wild.test.";
+    public const String WildBelowEmpty    = "x.empty.wild.test.";
+    public const String WildBelowEmptyTxt = "the name above me exists";
+
+    /// <summary>A delegation, with in-subtree glue.</summary>
+    public const String WildDelegation    = "child.wild.test.";
+    public const String WildChildNS       = "ns1.child.wild.test.";
+    public const String WildChildGlue     = "192.0.2.200";
+
+
+    /// <summary>
+    /// A zone built to ask the wildcard questions RFC 4592 cares about: a
+    /// wildcard at the apex, a name that must beat it, a name *below* that name
+    /// which must not reach past it, an empty non-terminal the wildcard must not
+    /// apply to, and a delegation.
+    /// </summary>
+    public static InMemoryDNSZone CreateWildcardZone()
+    {
+
+        var ttl  = DefaultTtl;
+        var zone = new InMemoryDNSZone();
+
+        zone.Add(
+
+            new SOA(
+                DomainName.Parse(WildOrigin),
+                DNSQueryClasses.IN,
+                ttl,
+                DomainName.Parse(WildNameServer),
+                SimpleEMailAddress.Parse("hostmaster@wild.test"),
+                2026081301,
+                TimeSpan.FromHours(2),
+                TimeSpan.FromHours(1),
+                TimeSpan.FromDays(14),
+                TimeSpan.FromMinutes(5)
+            ),
+
+            new NS  (DomainName.Parse(WildOrigin),     DNSQueryClasses.IN, ttl, DomainName.Parse(WildNameServer)),
+            new A   (DomainName.Parse(WildNameServer), DNSQueryClasses.IN, ttl, IPv4Address.Parse("192.0.2.53")),
+
+            // The wildcard itself. ParseLenient, because '*' is not a hostname
+            // label and the strict parser is right to refuse it everywhere else.
+            new A   (DomainName.ParseLenient("*." + WildOrigin), DNSQueryClasses.IN, ttl, IPv4Address.Parse(WildcardAddress)),
+            new MX  (DomainName.ParseLenient("*." + WildOrigin), DNSQueryClasses.IN, ttl, 10, DomainName.Parse(WildcardMailHost)),
+
+            new A   (DomainName.Parse(WildExactName),  DNSQueryClasses.IN, ttl, IPv4Address.Parse(WildExactAddress)),
+
+            new TXT (DomainName.Parse(WildBelowEmpty), DNSQueryClasses.IN, ttl, WildBelowEmptyTxt),
+
+            new NS  (DomainName.Parse(WildDelegation), DNSQueryClasses.IN, ttl, DomainName.Parse(WildChildNS)),
+            new A   (DomainName.Parse(WildChildNS),    DNSQueryClasses.IN, ttl, IPv4Address.Parse(WildChildGlue))
+
+        );
+
+        return zone;
+
+    }
+
+    #endregion
+
 }

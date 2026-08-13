@@ -27,15 +27,15 @@ public class TcpFallbackAndFramingTests
 
         // UDP answers TC=1 with no data; TCP carries the real answer. Both
         // listeners must share one port number, since the client retries the
-        // same server endpoint over TCP.
-        await using var tcp = new ScriptedTcpServer(
-            request => RawDnsResponder.Answer(request, ("tc.example.", RawDnsType.A, 300, [203, 0, 113, 9]))
+        // same server endpoint over TCP — and UDP and TCP have separate port
+        // spaces, so the pair has to be allocated with that in mind.
+        var (udpServer, tcpServer) = await ScriptedServerPair.CreateAsync(
+            UdpResponder: request => RawDnsResponder.Truncated(request),
+            TcpResponder: request => RawDnsResponder.Answer(request, ("tc.example.", RawDnsType.A, 300, [203, 0, 113, 9]))
         );
 
-        await using var udp = new ScriptedUdpServer(
-            request => RawDnsResponder.Truncated(request),
-            FixedPort: tcp.Port
-        );
+        await using var udp = udpServer;
+        await using var tcp = tcpServer;
 
         await using var client = new DNSUDPClient(
                                      IPv4Address.Localhost,
