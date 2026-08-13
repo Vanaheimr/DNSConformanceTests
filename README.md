@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 474 tests · 474 ✅ · 0 ❌.**
+**Current status: 530 tests · 517 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 20 RFC deviations in Hermod. All are fixed;
+The suite has found 23 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -122,6 +122,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **2931** | SIG(0) | the record shape §3 asks for — root owner, class ANY, TTL 0, type covered 0 — and the signed data of §3.1 assembled by hand and checked with the platform's own RSA and ECDSA rather than with Hermod's verifier: `RDATA \| request` for a query, `RDATA \| query \| response` for a transaction, over the message *before* ARCOUNT counted the SIG(0). Tampering, a foreign key, the right key under the wrong name, and both ends of the validity window all rejected; RSA/SHA-1 refused for signing and still accepted for verifying (RFC 8624 §3.1). End to end: the client signs over UDP *and* over the TCP retry, the server verifies before serving and refuses what does not verify, an unsigned query is still served and a signed one is ignored without error when no key is configured (§3.2), and a message carrying both a TSIG and a SIG(0) is refused |
 | **3403** | NAPTR | flags/service/regexp character-strings |
 | **3596** | AAAA | full and compressed IPv6 forms |
+| **3597** | Unknown RR types | §2 a type with no parser is kept as opaque data, in requests and in responses, and stepping over it leaves the reader where the next record begins — so it costs no record behind it. §3 the RDATA is served back octet for octet, including RDATA that reads as a compression pointer. §4 the eleven post-1035 types that carry a name in their RDATA emit it uncompressed, while the five RFC 1035 types still compress. §5 the `\#` generic form both ways, `TYPEnnn`/`CLASSnn`, a bare decimal read as a TTL and not a class, and a *known* type written generically re-read as that type. §6 RDATA compared as octets, case sensitively |
 | **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent; and a DS query at a zone cut is answered by the parent rather than referred (§3.1.4.1) |
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
 | **4343** | Case-insensitivity | names differing only in case are equal, hash alike, order alike |
@@ -186,7 +187,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
-| **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
 | **6672** | DNAME subtree rewrite and the synthesized CNAME; only the record shape is covered | — |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |

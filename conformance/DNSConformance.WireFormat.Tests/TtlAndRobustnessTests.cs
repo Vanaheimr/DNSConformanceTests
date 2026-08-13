@@ -76,6 +76,49 @@ public class TtlAndRobustnessTests
     #endregion
 
 
+    #region Message_Parser_Keeps_A_Record_It_Cannot_Read()
+
+    [Test]
+    [Property("RFC", "3597 §2")]
+    public void Message_Parser_Keeps_A_Record_It_Cannot_Read()
+    {
+
+        // The request path. DNSPacket.Parse runs a deliberately narrow set of
+        // type-specific parsers — a query has no business making a server run
+        // the SSHFP decoder — but "not parsed" and "not kept" are different
+        // things, and RFC 3597 §2 only licenses the first. A record read by its
+        // outer shape alone still has an owner name, a type, a class, a TTL and
+        // its RDATA; dropping it throws all five away to avoid decoding one.
+        var wire = new RawDnsWriter().
+                       Header(0x3597, 0, 1, 0, 0, 2).
+                       Question("q.example.", RawDnsType.A).
+                       RR("x.example.", 65280, RawDnsClass.IN, 300, Bytes.FromHex("deadbeef")).
+                       RR(".",          65281, RawDnsClass.IN, 300, Bytes.FromHex("cafe")).
+                       ToArray();
+
+        var packet = DNSPacket.Parse(IPSocket.Zero, IPSocket.Zero, new MemoryStream(wire));
+
+        Assert.That(packet.AdditionalRRs.Count(), Is.EqualTo(2),
+                    "both records must survive the parse, including the one owned by the root name");
+
+        var first = packet.AdditionalRRs.First();
+
+        Assert.Multiple(() => {
+
+            Assert.That((UInt16) first.Type,                 Is.EqualTo(65280));
+            Assert.That(first.Class,                         Is.EqualTo(DNSQueryClasses.IN));
+            Assert.That(first.TimeToLive.TotalSeconds,       Is.EqualTo(300));
+            Assert.That(first.DomainName.ToString(),         Is.EqualTo("x.example."));
+            Assert.That(((UnknownRecord) first).RData,       Is.EqualTo(Bytes.FromHex("deadbeef")));
+
+            Assert.That((UInt16) packet.AdditionalRRs.Last().Type, Is.EqualTo(65281));
+
+        });
+
+    }
+
+    #endregion
+
     #region Parser_Survives_Empty_And_Short_Messages()
 
     [TestCase(0)]

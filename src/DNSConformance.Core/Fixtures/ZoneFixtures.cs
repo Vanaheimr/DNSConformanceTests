@@ -246,4 +246,100 @@ public static class ZoneFixtures
 
     #endregion
 
+    #region The opaque zone (RFC 3597)
+
+    public const String OpaqueOrigin      = "opaque.test.";
+    public const String OpaqueNameServer  = "ns1.opaque.test.";
+
+    /// <summary>
+    /// Type codes with no parser in this build. 65280–65534 is the IANA
+    /// private-use range, which is where a type that will never be allocated
+    /// belongs — a currently-unassigned code from the ordinary range would stop
+    /// being unknown the day IANA assigns it.
+    /// </summary>
+    public const UInt16 OpaqueType        = 65280;
+    public const UInt16 OpaqueSecondType  = 65281;
+    public const UInt16 OpaquePointerType = 65282;
+
+    /// <summary>A name holding two records of one unknown type, i.e. an RRset.</summary>
+    public const String OpaqueName        = "weird.opaque.test.";
+    public static readonly Byte[] OpaqueRData1 = [ 0xDE, 0xAD, 0xBE, 0xEF ];
+    public static readonly Byte[] OpaqueRData2 = [ 0x00, 0x01, 0x02, 0x03, 0x04 ];
+
+    /// <summary>A name holding both a known and an unknown type.</summary>
+    public const String OpaqueMixedName    = "mixed.opaque.test.";
+    public const String OpaqueMixedAddress = "192.0.2.5";
+    public static readonly Byte[] OpaqueMixedRData = [ 0xC0, 0xFF, 0xEE ];
+
+    /// <summary>
+    /// RDATA that is a valid RFC 1035 §4.1.4 compression pointer to offset 12 —
+    /// the first byte after the header, where the question name begins.
+    /// </summary>
+    /// <remarks>
+    /// Nothing may act on that. RFC 3597 §4 forbids writing such a pointer into
+    /// the RDATA of a type that is not well-known, and §2 leaves a receiver no
+    /// way to know one is there — so these two octets have to arrive as two
+    /// octets. An implementation that "helpfully" expands them turns three bytes
+    /// of RDATA into a name, and one that rewrites them on the way out points at
+    /// whatever happens to sit at offset 12 of the new message.
+    /// </remarks>
+    public const String OpaquePointerName  = "pointerish.opaque.test.";
+    public static readonly Byte[] OpaquePointerRData = [ 0xC0, 0x0C ];
+
+    /// <summary>An unknown type behind a wildcard, so synthesis has to copy RDATA it cannot read.</summary>
+    public const String OpaqueWildcardName = "anything.wild.opaque.test.";
+    public static readonly Byte[] OpaqueWildcardRData = [ 0x2A, 0x2A, 0x2A ];
+
+
+    /// <summary>
+    /// A zone whose interesting records this build has no parser for (RFC 3597).
+    /// </summary>
+    /// <remarks>
+    /// The point of the zone is that the server has to do its job without
+    /// understanding its contents: store the records, pick the right ones for a
+    /// question, synthesise one from a wildcard, and put the RDATA back on the
+    /// wire exactly as it came in — all by the outer shape of a record alone.
+    /// </remarks>
+    public static InMemoryDNSZone CreateOpaqueZone()
+    {
+
+        var ttl  = DefaultTtl;
+        var zone = new InMemoryDNSZone();
+
+        zone.Add(
+
+            new SOA(
+                DomainName.Parse(OpaqueOrigin),
+                DNSQueryClasses.IN,
+                ttl,
+                DomainName.Parse(OpaqueNameServer),
+                SimpleEMailAddress.Parse("hostmaster@opaque.test"),
+                2026081301,
+                TimeSpan.FromHours(2),
+                TimeSpan.FromHours(1),
+                TimeSpan.FromDays(14),
+                TimeSpan.FromMinutes(5)
+            ),
+
+            new NS  (DomainName.Parse(OpaqueOrigin),     DNSQueryClasses.IN, ttl, DomainName.Parse(OpaqueNameServer)),
+            new A   (DomainName.Parse(OpaqueNameServer), DNSQueryClasses.IN, ttl, IPv4Address.Parse("192.0.2.53")),
+
+            new UnknownRecord(DomainName.Parse(OpaqueName),         (DNSResourceRecordTypes) OpaqueType,        DNSQueryClasses.IN, ttl, OpaqueRData1),
+            new UnknownRecord(DomainName.Parse(OpaqueName),         (DNSResourceRecordTypes) OpaqueType,        DNSQueryClasses.IN, ttl, OpaqueRData2),
+
+            new A            (DomainName.Parse(OpaqueMixedName),                                                DNSQueryClasses.IN, ttl, IPv4Address.Parse(OpaqueMixedAddress)),
+            new UnknownRecord(DomainName.Parse(OpaqueMixedName),    (DNSResourceRecordTypes) OpaqueSecondType,  DNSQueryClasses.IN, ttl, OpaqueMixedRData),
+
+            new UnknownRecord(DomainName.Parse(OpaquePointerName),  (DNSResourceRecordTypes) OpaquePointerType, DNSQueryClasses.IN, ttl, OpaquePointerRData),
+
+            new UnknownRecord(DomainName.ParseLenient("*.wild." + OpaqueOrigin), (DNSResourceRecordTypes) OpaqueType, DNSQueryClasses.IN, ttl, OpaqueWildcardRData)
+
+        );
+
+        return zone;
+
+    }
+
+    #endregion
+
 }
