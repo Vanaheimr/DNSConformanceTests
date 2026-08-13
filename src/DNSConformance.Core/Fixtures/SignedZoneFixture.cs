@@ -200,6 +200,10 @@ public sealed class SignedZoneFixture
                     record = new NS(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl, DomainName.Parse(rdata[0].TrimEnd('.')));
                     return true;
 
+                case "DNAME":
+                    record = new DNAME(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl, DomainName.Parse(rdata[0].TrimEnd('.')));
+                    return true;
+
                 case "MX":
                     record = new MX(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
                                     UInt16.Parse(rdata[0]), DomainName.Parse(rdata[1].TrimEnd('.')));

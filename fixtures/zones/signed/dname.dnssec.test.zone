@@ -1,0 +1,15 @@
+$TTL 3600
+@       IN  SOA ns1.dname.dnssec.test. hostmaster.dname.dnssec.test. (
+                2026072501 ; serial
+                7200       ; refresh
+                3600       ; retry
+                1209600    ; expire
+                3600 )     ; minimum
+@       IN  NS   ns1.dname.dnssec.test.
+ns1     IN  A    192.0.2.54
+a       IN  A    192.0.2.13
+aaaa    IN  AAAA 2001:db8::13
+txt     IN  TXT  "signed by BIND with RSASHA256 (DNAME)"
+*.wild  IN  A    192.0.2.77
+redirect     IN  DNAME  target.dname.dnssec.test.
+host.target  IN  A      192.0.2.14

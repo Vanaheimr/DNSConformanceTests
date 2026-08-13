@@ -111,9 +111,9 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **530 tests, 517 ✅, 0 ❌, 13 skipped** — 460
-offline, 23 online and 34 interop verified on that run; the 13 tests needing
-BIND as a peer skip without it. All twenty-three deviations the suite found are
+Counts as of the 2026-08-13 run: **568 tests, 555 ✅, 0 ❌, 13 skipped** — 496
+offline, 23 online and 36 interop verified on that run; the 13 tests needing
+BIND as a peer skip without it. All twenty-four deviations the suite found are
 fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
@@ -164,7 +164,7 @@ round-trip where supported.
 | 8659 | CAA | critical flag bit, length-prefixed tag, unprefixed value | ✅ |
 | 8976 | ZONEMD | serial/scheme/hash | ✅ |
 | 9460 | SVCB, HTTPS | alias mode, service mode + SvcParams, round-trip, RDLENGTH-bounded parsing | ✅ |
-| 6672 | DNAME | RDATA shape ✅; subtree rewrite semantics (client layer) | 🟡 |
+| 6672 §2.2 | DNAME | RDATA shape ✅; the substitution on labels, so a name that merely ends with the owner's spelling is not redirected ✅ (finding 24); the 255-octet limit told apart from "does not apply" ✅ | ✅ |
 | 6891 | OPT | see EDNS project | ✅ |
 | 8945 | TSIG | record shape ✅, signing and verification ✅, and both ends wired: the server verifies signed queries and signs replies, the client signs and checks (UDP/TCP) | ✅ |
 | 2535 §3, 3445 | KEY | wire round-trip, protocol fixed at 3, the use bits, "no key information" distinguished from a restricted key | ✅ |
@@ -206,7 +206,7 @@ round-trip where supported.
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
 | 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
 | 2308 §4 | negative TTL is min(SOA MINIMUM, SOA TTL), and the entry actually expires | ✅ |
-| 6672 | CNAME/DNAME chase with loop protection (covered live in interop) | 🟡 |
+| 6672 §2.2 | the resolver performs the substitution itself when a server sends a DNAME without the synthesized CNAME, and declines the names it does not cover ✅ (finding 24); loop protection | ✅ |
 | 2931 §3.1 | the client signs its query, and signs the TCP retry too — finding 19 was that the retry went out unsigned and nothing reported it | ✅ |
 | 2931 §3.2 | a response signature that does not verify is discarded; one that cannot be checked is ignored without error | ✅ |
 | 8945, 2931 (transports) | both mechanisms over DoT and DoH: the message read back out of the TLS framing and out of a `?dns=` parameter, signature present, last, and verifying; an unconfigured client signs nothing | ✅ |
@@ -222,6 +222,11 @@ round-trip where supported.
 | 1035 §3.3.9/2782 | multi-record answers, MX and SRV RDATA well-formed on the wire | ✅ |
 | 7766 §6.2.1 | several queries on one TCP connection; partial message survived | ✅ |
 | 3597 §2/§3 | an unassigned TYPE is stored, answered, told apart from the other types at the same name, synthesized from a wildcard, and served with its RDATA untouched — including RDATA that reads as a compression pointer | ✅ |
+| 6672 §2.2/§3.1 | a name below a DNAME is redirected, the DNAME and a synthesized CNAME carrying the DNAME's TTL go into the answer, and the query restarts at the rewritten name | ✅ |
+| 6672 §2.2 | an oversized substitution is YXDOMAIN with the DNAME as proof, and the 255-octet boundary is pinned from both sides | ✅ |
+| 6672 §2.3 | the DNAME owner is not redirected: its own data answers, a DNAME query returns the record, a missing type is NODATA | ✅ |
+| 6672 §2.4 | a record below the owner is occluded rather than served | ✅ |
+| 6672 §3.1 | signed zone: the DNAME travels with the zone's RRSIG, the synthesized CNAME with none — confirmed by `delv` | ✅ |
 | robustness | garbage, absurd counts, pointer loops: server stays healthy | ✅ |
 | 7858 | DoT server: TLS 1.2/1.3, framing, multiple queries per session | ✅ |
 | 1035 §4.2.1 | >512 B UDP answer without EDNS → TC=1 + truncation | ✅ |

@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 530 tests · 517 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 568 tests · 555 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 23 RFC deviations in Hermod. All are fixed;
+The suite has found 24 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -132,6 +132,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **5155** | NSEC3 | hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material. §6 opt-out, against a zone BIND signed with `-A`: the flag on every record, no NSEC3 for the insecure delegation, and the §7.2.7 referral proof whose covering record carries the flag |
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
 | **6605** | ECDSA | P-256 and P-384: fixed-width r‖s, 64/96-octet keys |
+| **6672** | DNAME | the substitution of §2.2 on labels rather than characters — so a name that merely ends with the owner's spelling is not redirected, and neither is the owner itself (§2.3). Served: the DNAME in the answer, the synthesized CNAME beside it with the DNAME's TTL (§3.1, where RFC 2672 said zero), YXDOMAIN when the rewritten name passes 255 octets (§2.2), records below the owner occluded (§2.4), and a chain into its own subtree bounded. Followed: the same substitution in the resolver, shared rather than written twice. `delv` validates the redirection end to end, including the CNAME carrying no signature |
 | **6698**, **8162** | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names |
 | **6891** | EDNS0 | OPT wire form (golden bytes), extended-RCODE combining, exactly one OPT, BADVERS for version > 0, payload-size negotiation |
 | **7043** | EUI48, EUI64 | fixed-width RDATA |
@@ -187,7 +188,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
-| **6672** | DNAME subtree rewrite and the synthesized CNAME; only the record shape is covered | — |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | **8080** (SIG(0)) | signing with Ed25519 and Ed448; verification covers both, and the private-key half is not wired up | needs BouncyCastle's signer, as the verifier already uses |

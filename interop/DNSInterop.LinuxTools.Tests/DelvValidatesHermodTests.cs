@@ -36,6 +36,7 @@ public class DelvValidatesHermodTests
     private const String NsecZone  = "dnssec.test";
     private const String Nsec3Zone = "nsec3.dnssec.test";
     private const String OptOutZone = "optout.dnssec.test";
+    private const String DNameZone  = "dname.dnssec.test";
 
     /// <summary>The unsigned delegation inside the opt-out zone.</summary>
     private const String DelegatedZone = "insecure.optout.dnssec.test";
@@ -43,10 +44,12 @@ public class DelvValidatesHermodTests
     private HermodServerFixture  nsecServer   = null!;
     private HermodServerFixture  nsec3Server  = null!;
     private HermodServerFixture  optOutServer = null!;
+    private HermodServerFixture  dnameServer  = null!;
     private String               hostAddress  = null!;
     private String               nsecAnchor   = null!;
     private String               nsec3Anchor  = null!;
     private String               optOutAnchor = null!;
+    private String               dnameAnchor  = null!;
 
 
     [OneTimeSetUp]
@@ -57,7 +60,8 @@ public class DelvValidatesHermodTests
 
         if (!SignedZoneFixture.IsAvailableFor(NsecZone)  ||
             !SignedZoneFixture.IsAvailableFor(Nsec3Zone) ||
-            !SignedZoneFixture.IsAvailableFor(OptOutZone))
+            !SignedZoneFixture.IsAvailableFor(OptOutZone) ||
+            !SignedZoneFixture.IsAvailableFor(DNameZone))
         {
             Assert.Ignore("The BIND-signed fixtures are missing — run fixtures/zones/resign.sh.");
         }
@@ -65,10 +69,12 @@ public class DelvValidatesHermodTests
         var nsecFixture  = SignedZoneFixture.Load(NsecZone);
         var nsec3Fixture = SignedZoneFixture.Load(Nsec3Zone);
         var optOutFixture = SignedZoneFixture.Load(OptOutZone);
+        var dnameFixture  = SignedZoneFixture.Load(DNameZone);
 
         RequireUnexpiredSignatures(nsecFixture);
         RequireUnexpiredSignatures(nsec3Fixture);
         RequireUnexpiredSignatures(optOutFixture);
+        RequireUnexpiredSignatures(dnameFixture);
 
         hostAddress  = Wsl.WindowsHostAddress
                            ?? throw new InvalidOperationException("Could not determine the Windows host address as seen from WSL!");
@@ -76,6 +82,7 @@ public class DelvValidatesHermodTests
         nsecAnchor   = WriteTrustAnchor(nsecFixture);
         nsec3Anchor  = WriteTrustAnchor(nsec3Fixture);
         optOutAnchor = WriteTrustAnchor(optOutFixture);
+        dnameAnchor  = WriteTrustAnchor(dnameFixture);
 
         // Shared ports, because delv is a real client: the DNSKEY RRset of a
         // 2048-bit RSA zone does not fit in a datagram, and the TCP retry goes to
@@ -98,6 +105,12 @@ public class DelvValidatesHermodTests
                                  SharePortAcrossTransports  = true
                              });
 
+        dnameServer  = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions {
+                                 Zone                       = dnameFixture. ToZone(),
+                                 BindAllInterfaces          = true,
+                                 SharePortAcrossTransports  = true
+                             });
+
     }
 
     [OneTimeTearDown]
@@ -107,6 +120,7 @@ public class DelvValidatesHermodTests
         if (nsecServer  is not null) await nsecServer. DisposeAsync();
         if (nsec3Server is not null) await nsec3Server.DisposeAsync();
         if (optOutServer is not null) await optOutServer.DisposeAsync();
+        if (dnameServer is not null) await dnameServer.DisposeAsync();
 
     }
 
@@ -438,6 +452,72 @@ public class DelvValidatesHermodTests
 
         Assert.That(result.StdOut, Does.Not.Contain("fully validated"),
                     "a name outside the signed zone must not come back validated");
+
+    }
+
+    #endregion
+
+    #region Delv_Fully_Validates_A_Dname_Redirection()
+
+    [Test]
+    [Property("RFC", "6672 §3.1")]
+    public void Delv_Fully_Validates_A_Dname_Redirection()
+    {
+
+        // The DNAME answer is the one where "did the server sign the right
+        // things" cannot be checked by looking at the answer alone. Two records
+        // arrive that look alike: the DNAME, which the zone signed, and the
+        // CNAME, which the server invented while answering and which RFC 6672
+        // §3.1 leaves unsigned. A validator has to authenticate the first,
+        // re-derive the second for itself, and accept the result.
+        //
+        // delv does all three, and it learned to from the people who wrote the
+        // signer — so a pass here says the redirection is right by a reading
+        // that had no part in producing it.
+        var output = Delv(dnameServer, dnameAnchor, DNameZone, $"host.redirect.{DNameZone}.", "A");
+
+        Assert.Multiple(() => {
+
+            Assert.That(output, Does.Contain("fully validated"),
+                        "the redirection and the data it leads to must both validate");
+
+            Assert.That(output, Does.Contain("DNAME"),
+                        "the DNAME itself is part of what was validated");
+
+            Assert.That(output, Does.Contain("192.0.2.14"),
+                        "and the answer is the address at the rewritten name");
+
+            Assert.That(output, Does.Not.Contain("unsigned answer"));
+
+        });
+
+    }
+
+    #endregion
+
+    #region Delv_Validates_The_Dname_Owner_Without_Redirecting_It()
+
+    [Test]
+    [Property("RFC", "6672 §2.3")]
+    public void Delv_Validates_The_Dname_Owner_Without_Redirecting_It()
+    {
+
+        // §2.3: the owner name is not redirected. Asking delv for the DNAME at
+        // its own name has to come back as the record, validated — not as a
+        // redirection into the target, and not as a failure.
+        var output = Delv(dnameServer, dnameAnchor, DNameZone, $"redirect.{DNameZone}.", "DNAME");
+
+        Assert.Multiple(() => {
+
+            Assert.That(output, Does.Contain("fully validated"));
+
+            Assert.That(output, Does.Contain($"target.{DNameZone}"),
+                        "the DNAME's target is its RDATA here, not a name that was resolved");
+
+            Assert.That(output, Does.Not.Contain("CNAME"),
+                        "nothing was redirected, so no synthesized CNAME belongs in this answer");
+
+        });
 
     }
 
