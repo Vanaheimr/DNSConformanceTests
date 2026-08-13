@@ -41,13 +41,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
+      # Must precede the checkout: without git in the container, checkout falls
+      # back to a REST-API tarball, which cannot carry submodules. See ci.yml.
+      - name: Install git (Debian container)
+        if: runner.os == 'Linux'
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+
       - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Install .NET prerequisites (Debian container)
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 libssl3t64 libstdc++6 tzdata
+        run: apt-get install -y --no-install-recommends curl libicu76 libssl3t64 libstdc++6 tzdata
 
       # The interop lane drives dig, kdig, drill and delv, and BIND signs the
       # DNSSEC fixtures. On a developer machine these live inside WSL and the
@@ -163,12 +169,17 @@ jobs:
     runs-on: ubuntu-latest
     container: debian:13
     steps:
+      # Must precede the checkout, as in the job above — and this job needs git
+      # afterwards too, to move the submodules off their pinned revisions.
+      - name: Install git (Debian container)
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+
       - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Install .NET prerequisites (Debian container)
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git libicu76 libssl3t64 libstdc++6 tzdata
+        run: apt-get install -y --no-install-recommends curl libicu76 libssl3t64 libstdc++6 tzdata
 
       - name: Move the submodules to master
         run: |

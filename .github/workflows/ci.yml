@@ -45,6 +45,15 @@ jobs:
       # gitlinks name. That is the point: the gate tests the pinned pair, which
       # is what a fresh clone would build. Testing against Hermod master is the
       # nightly's job, and deliberately a different question.
+      # Before the checkout, and this order is load-bearing. The bare debian:13
+      # image ships no git, and without it actions/checkout does not clone — it
+      # downloads a tarball through the REST API, which cannot carry submodules
+      # and fails with "Input 'submodules' not supported". Hermod's CI never
+      # meets this because it checks out two plain repositories side by side.
+      - name: Install git (Debian container)
+        if: runner.os == 'Linux'
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -55,7 +64,7 @@ jobs:
       # Package names are Debian 13 (trixie).
       - name: Install .NET prerequisites (Debian container)
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 libssl3t64 libstdc++6 tzdata
+        run: apt-get install -y --no-install-recommends curl libicu76 libssl3t64 libstdc++6 tzdata
 
       - uses: actions/setup-dotnet@v6
         with:
