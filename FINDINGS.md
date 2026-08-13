@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Twenty-three RFC deviations in the Hermod DNS stack, each
+What this suite caught. Twenty-four RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -39,12 +39,13 @@ what is queued, what is out of scope — are not here at all; they live in
 | 21 | An unknown RR type in a response cost every record behind it | **High** | 3597 §2 | ✅ fixed |
 | 22 | Names in the RDATA of post-1035 types were compressed | Medium | 3597 §4 | ✅ fixed |
 | 23 | A bare decimal in a zone-file line was read as a class, not a TTL | Medium | 3597 §5 | ✅ fixed |
+| 24 | The resolver's DNAME substitution matched characters, not labels | **High** | 6672 §2.2, §2.3 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last ten were found *after* the first eight were already fixed, by tests
+The last eleven were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
 the queued list in the README: untested working code is where the next one will
 be. Findings 21 and 23 make a sharper version of the same point — both sit in
@@ -848,6 +849,80 @@ as bare numbers that nothing could read back.
 Verified by `A_Bare_Decimal_Is_A_Ttl_And_Not_A_Class`, which asserts both
 orderings against a deliberately different `DefaultTimeToLive` so that a lost TTL
 cannot coincide with the expected one.
+
+## 24 — The resolver's DNAME substitution matched characters, not labels
+
+*RFC 6672 §2.2*, whose whole definition is one sentence:
+
+> A DNAME substitution is performed by replacing the suffix labels of the name
+> being sought matching the owner name of the DNAME resource record with the
+> string of labels in the RDATA field.
+
+The word carrying the requirement is **labels**. `DNSClient` compared strings:
+
+```csharp
+var ownerSuffix = dname.DomainName.ToString();
+if (currentName.EndsWith(ownerSuffix, StringComparison.OrdinalIgnoreCase))
+{
+    var prefix  = currentName[..^ownerSuffix.Length];
+    cnameTarget = prefix + dname.Target.FullName;
+}
+```
+
+A domain name is a sequence of labels that happens to be written with dots
+between them, and the two readings disagree exactly where a shorter name is
+spelled inside a longer one. Three consequences, all measured before the fix:
+
+**A DNAME rewrote names it had no relationship with.** `notold.example.` ends
+with the characters of `old.example.` and is not below it — the boundary falls
+inside a label. The comparison matched, the prefix came out as `not`, and
+concatenation produced `notnew.example.`: a name in a different zone, reached by
+a redirection nobody authorized. A DNAME is published by whoever controls its
+owner name, and this let that publisher redirect names outside their control.
+
+**The one name §2.3 exempts was redirected most cleanly of all.** "The owner name
+of a DNAME is not redirected itself" — but a suffix comparison matches the owner
+against itself with an empty prefix, so `old.example.` became the bare target.
+
+**An oversized substitution threw.** There was no 255-octet check, so a long
+target and a long prefix produced a name `DNSServiceName.Parse` refuses, and the
+`ArgumentException` came out of the query rather than an answer.
+
+The severity is High for the first of the three. The second is a correctness bug
+with a visible wrong answer; the first is a trust-boundary bug, and it fails in
+the direction of following a redirection rather than refusing one.
+
+**Fix.** `DNAME.TrySubstitute` — the substitution on labels, with the length
+check, returning the two failures separately because they mean opposite things
+to a server: a name the DNAME does not cover is answered as if the DNAME were
+not there, while a name it covers but cannot build is YXDOMAIN with the DNAME as
+proof (§2.2). Both the resolver and the authoritative side call it. That
+sharing is the point rather than a tidiness: a second implementation of a
+label-suffix rule is a second chance to write it as a string comparison.
+
+Verified by `DNameSubstitutionTests` on the rule itself — `notold.example.` and
+the DNAME owner both among the names it must decline — and by
+`DNameFollowingTests`, which drives the resolver against a scripted server
+sending a DNAME with no synthesized CNAME, so the client has to perform the
+substitution, and asserts on the name it asks for next. Three of those five
+tests fail against the previous revision.
+
+**What was missing rather than wrong.** The authoritative server had no DNAME
+handling at all — the record type parsed, served and round-tripped, and nothing
+redirected. That is a gap and not a deviation, so it gets no number, but it is
+where most of this round's work went: the substitution, the synthesized CNAME
+(§3.1, with the DNAME's TTL rather than RFC 2672's zero), YXDOMAIN for a name
+that will not fit, occlusion of anything below the owner (§2.4), and a bound on
+chains for a DNAME pointing inside its own subtree. `delv` validates the result,
+including the part a server cannot fake: the DNAME carries the zone's signature
+and the CNAME beside it carries none, because the server invented it while
+answering.
+
+**One thing found in passing.** `DNSResponseCodes.Reserved` was declared as
+`6 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15` — a bitwise OR, which is 15, not the
+set of reserved codes it reads as. Nothing referenced it, so nothing was broken;
+it is noted because it stood exactly where YXDOMAIN (6) had to go. The RCODEs
+RFC 2136 §2.2 defines now have their own names.
 
 
 ---

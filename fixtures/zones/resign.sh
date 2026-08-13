@@ -170,6 +170,22 @@ sign_algorithm_zone "optout.$ZONE"    RSASHA256        "-b 2048"   "RSASHA256 (N
 "insecure      IN  NS   ns1.insecure
 ns1.insecure  IN  A    192.0.2.90"
 
+# A zone holding a DNAME, so that the redirection can be checked by something
+# that did not perform it.
+#
+# RFC 6672 §3.1 leaves the synthesized CNAME unsigned — the server invents it
+# while answering, so there is nothing to have signed it. What a validator
+# authenticates is the DNAME, and it then derives the CNAME for itself; a test
+# that only looked at the answer section could not tell that apart from a
+# server that simply forgot to sign one record.
+#
+# "redirect" is a sibling of "target" rather than above it, because RFC 6672
+# §2.4 forbids records below a DNAME owner and BIND is right to refuse a zone
+# that has them.
+sign_algorithm_zone "dname.$ZONE"     RSASHA256        "-b 2048"   "RSASHA256 (DNAME)"  "" \
+"redirect     IN  DNAME  target.dname.$ZONE.
+host.target  IN  A      192.0.2.14"
+
 echo
 echo "signed zones written to $OUT"
 ls -1 "$OUT"

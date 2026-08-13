@@ -246,6 +246,123 @@ public static class ZoneFixtures
 
     #endregion
 
+    #region The DNAME zone (RFC 6672)
+
+    public const String DNameOrigin       = "dname.test.";
+    public const String DNameNameServer   = "ns1.dname.test.";
+
+    /// <summary>A DNAME whose target is in the same zone, so a query can be followed to the end.</summary>
+    public const String DNameOwner        = "alias.dname.test.";
+    public const String DNameTarget       = "target.dname.test.";
+
+    /// <summary>Data <i>at</i> the DNAME owner. RFC 6672 §2.3 leaves the owner name itself unredirected.</summary>
+    public const String DNameOwnerMail    = "mail.dname.test.";
+
+    /// <summary>One label below the DNAME: <c>host.alias</c> → <c>host.target</c>.</summary>
+    public const String DNameQueried      = "host.alias.dname.test.";
+    public const String DNameResolved     = "host.target.dname.test.";
+    public const String DNameAddress      = "192.0.2.10";
+
+    /// <summary>Several labels below it — the whole prefix is carried over, not just one label.</summary>
+    public const String DNameDeepQueried  = "a.b.c.alias.dname.test.";
+    public const String DNameDeepResolved = "a.b.c.target.dname.test.";
+    public const String DNameDeepAddress  = "192.0.2.11";
+
+    /// <summary>
+    /// A record below the DNAME owner, which RFC 6672 §2.4 says must not exist:
+    /// "Resource records MUST NOT exist at any subdomain of the owner of a DNAME
+    /// RR." It is here so that the occlusion is observable — a server that
+    /// answered from it would be preferring a record the zone should not contain
+    /// over the redirection the zone does contain.
+    /// </summary>
+    public const String DNameOccluded     = "occluded.alias.dname.test.";
+    public const String DNameOccludedAddr = "192.0.2.66";
+
+    /// <summary>A DNAME pointing out of the zone, which is the ordinary case.</summary>
+    public const String DNameForeignOwner = "away.dname.test.";
+    public const String DNameForeign      = "elsewhere.example.";
+
+    /// <summary>A name beside the DNAME, which nothing may redirect.</summary>
+    public const String DNameSibling      = "other.dname.test.";
+    public const String DNameSiblingAddr  = "192.0.2.12";
+
+    /// <summary>
+    /// A DNAME whose target is long enough that the substitution runs into the
+    /// 255-octet limit — four labels of 60, i.e. 245 octets on the wire.
+    /// </summary>
+    /// <remarks>
+    /// A one-label prefix adds 1 + its length, so a prefix of 9 characters lands
+    /// on exactly 255 and one of 10 goes over. RFC 6672 §2.2 answers the second
+    /// with YXDOMAIN, and the pair is what pins the boundary to the octet rather
+    /// than to somewhere near it.
+    /// </remarks>
+    public const String DNameLongOwner    = "long.dname.test.";
+    public static readonly String DNameLongTarget =
+        new String('a', 60) + "." + new String('b', 60) + "." +
+        new String('c', 60) + "." + new String('d', 60) + ".";
+
+    /// <summary>A DNAME pointing into its own subtree: every pass produces a longer name.</summary>
+    public const String DNameLoopOwner    = "loop.dname.test.";
+    public const String DNameLoopTarget   = "sub.loop.dname.test.";
+
+
+    /// <summary>
+    /// A zone built to ask what RFC 6672 actually requires of a server: which
+    /// names a DNAME redirects, which it leaves alone, what the answer carries,
+    /// and what happens when the rewritten name will not fit.
+    /// </summary>
+    public static InMemoryDNSZone CreateDNameZone()
+    {
+
+        var ttl  = DefaultTtl;
+        var zone = new InMemoryDNSZone();
+
+        zone.Add(
+
+            new SOA(
+                DomainName.Parse(DNameOrigin),
+                DNSQueryClasses.IN,
+                ttl,
+                DomainName.Parse(DNameNameServer),
+                SimpleEMailAddress.Parse("hostmaster@dname.test"),
+                2026081301,
+                TimeSpan.FromHours(2),
+                TimeSpan.FromHours(1),
+                TimeSpan.FromDays(14),
+                TimeSpan.FromMinutes(5)
+            ),
+
+            new NS   (DomainName.Parse(DNameOrigin),     DNSQueryClasses.IN, ttl, DomainName.Parse(DNameNameServer)),
+            new A    (DomainName.Parse(DNameNameServer), DNSQueryClasses.IN, ttl, IPv4Address.Parse("192.0.2.53")),
+
+            new DNAME(DomainName.Parse(DNameOwner),      DNSQueryClasses.IN, ttl, DomainName.Parse(DNameTarget)),
+
+            // Beside the DNAME at the same name — legal, and the proof that the
+            // owner is not itself redirected.
+            new MX   (DomainName.Parse(DNameOwner),      DNSQueryClasses.IN, ttl, 10, DomainName.Parse(DNameOwnerMail)),
+            new A    (DomainName.Parse(DNameOwnerMail),  DNSQueryClasses.IN, ttl, IPv4Address.Parse("192.0.2.25")),
+
+            new A    (DomainName.Parse(DNameResolved),     DNSQueryClasses.IN, ttl, IPv4Address.Parse(DNameAddress)),
+            new A    (DomainName.Parse(DNameDeepResolved), DNSQueryClasses.IN, ttl, IPv4Address.Parse(DNameDeepAddress)),
+
+            new A    (DomainName.Parse(DNameOccluded),    DNSQueryClasses.IN, ttl, IPv4Address.Parse(DNameOccludedAddr)),
+
+            new DNAME(DomainName.Parse(DNameForeignOwner), DNSQueryClasses.IN, ttl, DomainName.Parse(DNameForeign)),
+
+            new A    (DomainName.Parse(DNameSibling),      DNSQueryClasses.IN, ttl, IPv4Address.Parse(DNameSiblingAddr)),
+
+            new DNAME(DomainName.Parse(DNameLongOwner),    DNSQueryClasses.IN, ttl, DomainName.Parse(DNameLongTarget)),
+
+            new DNAME(DomainName.Parse(DNameLoopOwner),    DNSQueryClasses.IN, ttl, DomainName.Parse(DNameLoopTarget))
+
+        );
+
+        return zone;
+
+    }
+
+    #endregion
+
     #region The opaque zone (RFC 3597)
 
     public const String OpaqueOrigin      = "opaque.test.";
