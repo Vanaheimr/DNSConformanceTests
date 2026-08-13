@@ -32,6 +32,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
+      # Before the checkout, and this order is load-bearing. The bare debian:13
+      # image ships no git, and without it actions/checkout does not clone — it
+      # downloads a tarball through the REST API, which cannot carry submodules
+      # and fails with "Input 'submodules' not supported". Hermod's CI never
+      # meets this because it checks out two plain repositories side by side.
+      - name: Install git (Debian container)
+        if: runner.os == 'Linux'
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+
       # Unlike Hermod, this repository consumes its dependencies as submodules,
       # so one recursive checkout gets Hermod and Styx at the revisions the
       # gitlinks name. That is the point: the gate tests the pinned pair, which
