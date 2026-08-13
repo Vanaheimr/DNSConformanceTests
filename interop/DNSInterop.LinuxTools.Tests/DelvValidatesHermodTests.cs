@@ -35,12 +35,18 @@ public class DelvValidatesHermodTests
 
     private const String NsecZone  = "dnssec.test";
     private const String Nsec3Zone = "nsec3.dnssec.test";
+    private const String OptOutZone = "optout.dnssec.test";
+
+    /// <summary>The unsigned delegation inside the opt-out zone.</summary>
+    private const String DelegatedZone = "insecure.optout.dnssec.test";
 
     private HermodServerFixture  nsecServer   = null!;
     private HermodServerFixture  nsec3Server  = null!;
+    private HermodServerFixture  optOutServer = null!;
     private String               hostAddress  = null!;
     private String               nsecAnchor   = null!;
     private String               nsec3Anchor  = null!;
+    private String               optOutAnchor = null!;
 
 
     [OneTimeSetUp]
@@ -49,23 +55,27 @@ public class DelvValidatesHermodTests
 
         TestEnvironment.RequireWsl("delv");
 
-        if (!SignedZoneFixture.IsAvailableFor(NsecZone) ||
-            !SignedZoneFixture.IsAvailableFor(Nsec3Zone))
+        if (!SignedZoneFixture.IsAvailableFor(NsecZone)  ||
+            !SignedZoneFixture.IsAvailableFor(Nsec3Zone) ||
+            !SignedZoneFixture.IsAvailableFor(OptOutZone))
         {
             Assert.Ignore("The BIND-signed fixtures are missing — run fixtures/zones/resign.sh.");
         }
 
         var nsecFixture  = SignedZoneFixture.Load(NsecZone);
         var nsec3Fixture = SignedZoneFixture.Load(Nsec3Zone);
+        var optOutFixture = SignedZoneFixture.Load(OptOutZone);
 
         RequireUnexpiredSignatures(nsecFixture);
         RequireUnexpiredSignatures(nsec3Fixture);
+        RequireUnexpiredSignatures(optOutFixture);
 
         hostAddress  = Wsl.WindowsHostAddress
                            ?? throw new InvalidOperationException("Could not determine the Windows host address as seen from WSL!");
 
         nsecAnchor   = WriteTrustAnchor(nsecFixture);
         nsec3Anchor  = WriteTrustAnchor(nsec3Fixture);
+        optOutAnchor = WriteTrustAnchor(optOutFixture);
 
         // Shared ports, because delv is a real client: the DNSKEY RRset of a
         // 2048-bit RSA zone does not fit in a datagram, and the TCP retry goes to
@@ -82,6 +92,12 @@ public class DelvValidatesHermodTests
                                  SharePortAcrossTransports  = true
                              });
 
+        optOutServer = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions {
+                                 Zone                       = optOutFixture.ToZone(),
+                                 BindAllInterfaces          = true,
+                                 SharePortAcrossTransports  = true
+                             });
+
     }
 
     [OneTimeTearDown]
@@ -90,6 +106,7 @@ public class DelvValidatesHermodTests
 
         if (nsecServer  is not null) await nsecServer. DisposeAsync();
         if (nsec3Server is not null) await nsec3Server.DisposeAsync();
+        if (optOutServer is not null) await optOutServer.DisposeAsync();
 
     }
 
@@ -310,6 +327,34 @@ public class DelvValidatesHermodTests
         Assert.Multiple(() => {
             Assert.That(output, Does.Contain("fully validated"));
             Assert.That(output, Does.Contain("DNSKEY"));
+        });
+
+    }
+
+    #endregion
+
+    #region Delv_Accepts_The_Opt_Out_Proof_For_An_Insecure_Delegation()
+
+    [Test]
+    [Property("RFC", "5155 §7.2.7, §8.9")]
+    public void Delv_Accepts_The_Opt_Out_Proof_For_An_Insecure_Delegation()
+    {
+
+        // The DS query at the zone cut, which the parent must answer itself
+        // (RFC 4035 §3.1.4.1) — and in an opt-out zone the answer is a NODATA
+        // proven by a covering NSEC3 with the Opt-Out flag rather than by a
+        // matching one. §8.9 is where a validator decides, from exactly that,
+        // that the child is Insecure.
+        var output = Delv(optOutServer, optOutAnchor, OptOutZone, $"{DelegatedZone}.", "DS");
+
+        Assert.Multiple(() => {
+
+            Assert.That(output, Does.Contain("fully validated"),
+                        "the absence of a DS is itself proven, and delv must accept the proof");
+
+            Assert.That(output, Does.Not.Contain("broken trust chain"),
+                        "an opt-out span is a legitimate proof, not a hole in the chain");
+
         });
 
     }

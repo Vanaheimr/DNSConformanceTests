@@ -47,7 +47,7 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed nineteen deviations so far, and all of them are now fixed
+The suite has confirmed twenty deviations so far, and all of them are now fixed
 in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
 record, with chapter and verse, the mechanism, the change, and the test that
 pins each one. The summary table at the top of that file is the fastest way in.
@@ -111,10 +111,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **465 tests, 465 ✅, 0 ❌** — 396 offline and
-23 online and 33 interop verified on that run; the 13 tests needing BIND as a
+Counts as of the 2026-08-13 run: **474 tests, 474 ✅, 0 ❌** — 406 offline and
+23 online and 34 interop verified on that run; the 13 tests needing BIND as a
 peer skip without it. All
-nineteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+twenty deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -206,6 +206,7 @@ round-trip where supported.
 | 6672 | CNAME/DNAME chase with loop protection (covered live in interop) | 🟡 |
 | 2931 §3.1 | the client signs its query, and signs the TCP retry too — finding 19 was that the retry went out unsigned and nothing reported it | ✅ |
 | 2931 §3.2 | a response signature that does not verify is discarded; one that cannot be checked is ignored without error | ✅ |
+| 8945, 2931 (transports) | both mechanisms over DoT and DoH: the message read back out of the TLS framing and out of a `?dns=` parameter, signature present, last, and verifying; an unconfigured client signs nothing | ✅ |
 
 ### 4.5 Server behavior (`DNSConformance.Server.Tests`) — raw sockets vs. `DNSServer`
 
@@ -283,6 +284,8 @@ side of the connection.
 | 4592 §2.1.1 | wildcard owner names round-trip; the `*` label is accepted leftmost only, and never by the strict hostname parser | ✅ |
 | 5155 App. A | NSEC3 hash vectors: all twelve hashed owner names, salt per iteration, canonical-wire input, Base32hex | ✅ |
 | 5155 §8, 4035 §5.4 | authenticated denial of existence: match/cover, closest encloser, opt-out, wildcard NODATA, and canonical ordering against the §6.1 list | ✅ |
+| 5155 §6, §7.2.7 | opt-out, against a zone BIND signed with `-A`: the flag on every NSEC3, no NSEC3 for the insecure delegation, and a referral whose covering record carries the flag; a name inside an opted-out span is covered but not proven | ✅ |
+| 4035 §3.1.4.1 | a DS query at a zone cut is answered by the parent rather than referred | ✅ |
 | 4035 §3.1, 5155 §7 | the *serving* side, against the BIND-signed fixture zones: RRSIGs with the answer and denial records with the "no", both gated on the DO bit; NSEC and NSEC3 NXDOMAIN and NODATA proofs; a wildcard answer keeping its RRSIG's `labels` field and carrying the proof the queried name was absent; no spare NSEC3s | ✅ |
 | 8945 | TSIG: MAC over the §4.3.3 variables, CLASS/TTL/placement, BADSIG vs BADKEY vs BADTIME, fudge window, rewritten ID, request-bound responses | ✅ |
 | 2931 | SIG(0): the §3 record shape, the §3.1 signed data for both the request and the transaction form, ARCOUNT taken before the record was appended, tampering and foreign keys and the validity window all rejected | ✅ |
@@ -306,7 +309,7 @@ side of the connection.
 | live root DNSKEY contains the IANA KSK; live RRSIG validates | ✅ |
 | deliberately bogus zone (dnssec-failed.org) does not resolve | ✅ |
 
-**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 33 ✅
+**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 34 ✅
 Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 
 | Focus | Status |

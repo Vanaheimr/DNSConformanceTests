@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Nineteen RFC deviations in the Hermod DNS stack, each
+What this suite caught. Twenty RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -35,6 +35,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 17 | Aggressive NSEC caching: unreachable, unvalidated, and mis-ordered | **High** | 8198 §3, 4034 §6.1 | ✅ fixed |
 | 18 | Negative answers carried no SOA, so none of them could be cached | **High** | 2308 §3 | ✅ fixed |
 | 19 | The TCP fallback dropped the query's transaction signature | **High** | 8945 §5.3, 2931 §3.1 | ✅ fixed |
+| 20 | A DS query at a zone cut was answered with a referral | Medium | 4035 §3.1.4.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -669,6 +670,41 @@ Verified by `The_Tcp_Retry_Carries_The_Same_Signature`, which reads the retry of
 a scripted TCP listener and checks the signature with the platform's own RSA
 over the data RFC 2931 §3.1 defines, rather than by handing it back to the code
 that made it.
+
+
+---
+
+## 20 — A DS query at a zone cut was answered with a referral
+
+*RFC 4035 §3.1.4.1.*
+
+> The DS RRset and its associated RRSIG RRs are authoritative data in the parent
+> zone.
+
+Every other question about a delegated name belongs to the child, so a server
+that finds a zone cut on the way to QNAME stops and refers. DS is the one
+exception, and Hermod's zone did not make it: `FindDelegation` began its search
+at QNAME itself, so `insecure.example. DS` matched the delegation and came back
+as a referral — AA clear, NS records in the authority section, no SOA.
+
+The consequence is that the chain of trust cannot be walked. A validator asks
+the *parent* for the DS precisely because the DS is what says whether the child
+is signed; being told "ask the child" sends it to the one party whose answer
+cannot settle the question. Every delegation becomes a dead end, and it fails in
+the direction that looks like an unsigned zone rather than like an error.
+
+It surfaced from the opt-out work rather than from review: the RFC 5155 §7.2.7
+test asks for the DS at a zone cut, because that is where an opt-out proof is
+carried. The referral logic had been in the suite since the wildcard round and
+looked well covered — every test that reached it queried for A.
+
+**Fix.** The delegation search starts one label further down for QTYPE=DS. A
+zone cut *above* QNAME still ends the search, even for a DS: that name really is
+in the child's half of the tree.
+
+Verified by `A_Ds_Query_At_A_Zone_Cut_Is_Answered_By_The_Parent`, and — since
+the opt-out fixture makes it possible — by `delv`, which now validates the
+insecure delegation's proof end to end.
 
 
 ---

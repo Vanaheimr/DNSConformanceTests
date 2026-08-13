@@ -1,4 +1,4 @@
-; File written on Wed Aug 12 07:56:49 2026
+; File written on Thu Aug 13 11:31:19 2026
 ; dnssec-signzone version 9.20.26-1~deb13u1-Debian
 ecdsa.dnssec.test.	3600	IN SOA	ns1.ecdsa.dnssec.test. hostmaster.ecdsa.dnssec.test. (
 					2026072502 ; serial
@@ -8,94 +8,94 @@ ecdsa.dnssec.test.	3600	IN SOA	ns1.ecdsa.dnssec.test. hostmaster.ecdsa.dnssec.te
 					3600       ; minimum (1 hour)
 					)
 			3600	RRSIG	SOA 13 3 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					ZQIYo4WBwCirRuPjv7SHq6iZxWSBIEnxdjEy
-					kwiKjud9Ie9p9IL5SMtaSG2DRlulw3RyqvSO
-					UhSY5791y4F1oQ== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					PBf8M7+vW3AlD87tjzNaUS+8s4spj6kOipVk
+					dIZvccw3TeXOaHSk5bPHBW70surUnj1ngjzy
+					o8kSblh+vy+AtQ== )
 			3600	NS	ns1.ecdsa.dnssec.test.
 			3600	RRSIG	NS 13 3 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					M0FwFhpyiEw3Ak3aNT3qO74nPRu1WKOfwiww
-					nNl5kpPazmgupmXKTLmhf3vIX4RaAK9FV52j
-					YZhAioBlSIGRyw== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					7aR2/0jlxD7F+qZ30jmP9BWgl73qQy560XYf
+					HNfSXh/NYZXUPMJAAkAwY4ncNrNekgNw2lhj
+					53fuX0MpS9MFJQ== )
 			3600	NSEC	a.ecdsa.dnssec.test. NS SOA RRSIG NSEC DNSKEY
 			3600	RRSIG	NSEC 13 3 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					JfXssAyf8WzMxD/yyMyHGBVnXaFXSaGQ2Q4V
-					N7l4Je4CfkdZrpWZ4ozItljVfbfNXq7stnu4
-					aVosOleIfjXTCw== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					mDGCryXSqopOdHjiWDJFR2tljmXtELQ4G3M0
+					AoUimVYobTNeUow7xQmtJBzuRsEiYCcEANhI
+					r3lquU5J3IAydA== )
 			3600	DNSKEY	256 3 13 (
-					OwEn/fqytzlaJ15lM4U62uIWhVPKZLQUYIi0
-					DcQlK50QRo0v/pEXjaMS/yp/MGJWW8hiJXxQ
-					zRdP5O+danf4qw==
-					) ; ZSK; alg = ECDSAP256SHA256 ; key id = 2934
+					amCmN1uixPy74EPYcg7Md0bHNR2KmBesEr4c
+					M3QVgtB9KwvempsDzxNA1TbQHIpR7fKZzjl6
+					F6gVrtolo6gPEg==
+					) ; ZSK; alg = ECDSAP256SHA256 ; key id = 40271
 			3600	DNSKEY	257 3 13 (
-					lTO47F4mOlPro55XsKnK3L8OMy/RGf9e/SOl
-					VjVs2oWeiolvTpx4WF3lh6fxuKntMtcVHP4P
-					+b4r/za3fuyG3Q==
-					) ; KSK; alg = ECDSAP256SHA256 ; key id = 32178
+					TbA+7z/QZyFGR7MA2krbGNKJSdHzVEGUcM/A
+					xqpga40+7bNjE9WjwcHN6jzliy+e3JLO4NbM
+					SpCD0sKIIPGalA==
+					) ; KSK; alg = ECDSAP256SHA256 ; key id = 47329
 			3600	RRSIG	DNSKEY 13 3 3600 (
-					20260911045649 20260812045649 32178 ecdsa.dnssec.test.
-					A/BFcKv4ejgUJgL0zn/NXvkVZ9N8tbJTPywe
-					nwJMxDQti+j+qfqQ/rt3X1Kd9uY+fpW8oIcG
-					hwkiiEaWpsd4Bw== )
+					20260912083119 20260813083119 47329 ecdsa.dnssec.test.
+					hpO5isetJuRDhTHNLonbqipnPZuEgXwt6Q1U
+					hxP8xJjYvSyLpeN19TFCYz03ETQvkDSQel7V
+					c4P9hrB3nga0Lw== )
 a.ecdsa.dnssec.test.	3600	IN A	192.0.2.13
 			3600	RRSIG	A 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					KmZT/JrwySHndSLBvQJzW/dFF5U7FWb02ktB
-					AlgbMq7qf910znIXQDotXtNPeys6oBsAd0uO
-					TpQw5YxE+BzBhA== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					3UeIlK74Eph9vkaq0KKE0D5tSGdAP8LaqTe/
+					GAqo5pUbLsok1ULU8nwFPxL86o7jigXCzp0h
+					F7+WG3Xq081q7g== )
 			3600	NSEC	aaaa.ecdsa.dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					b6mkyX1d2J7HSILKegn9yYrL90Qk+FUAC0Q5
-					c5hznvo2fzJQ0e33Gs/FHOBALhHeTS0ZlB+8
-					MSL8QFxciB1ozA== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					2OwHbS91JnAvX/5RDvimN5HBV8sfJFwFCDX2
+					83zr1e+XOMw51eH9cCxVZZRmQnUzu4hk1ndc
+					6DR5DhCLiu45qQ== )
 aaaa.ecdsa.dnssec.test.	3600	IN AAAA	2001:db8::13
 			3600	RRSIG	AAAA 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					Ro+NxRx3KXQYJxvcdArvfQ9d/WypSEwHjxfV
-					p6t9RJtXFboWf9D3nNsOee6MKcUpkwyW8cTs
-					MTl+FfWLQMlcnQ== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					hrBrVhcuFrO+4M2Oxu6QCfNS50j6/cdDSL7q
+					OPMYtyjJOXYw8ucviKXXT5HUUs+FVzeqar4l
+					FOcjPLxC88a5Yw== )
 			3600	NSEC	ns1.ecdsa.dnssec.test. AAAA RRSIG NSEC
 			3600	RRSIG	NSEC 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					ZSww8bhK4hpYzSALyycO7CfTYSq0SAFPxHl7
-					0Nue9vbhXzBGNzc4puXylv3HLJMaTygTrcb2
-					NURP6XBimEww2w== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					V3F0q9mUf21NpWBWwx7qqVM/sRH9A4LoFElA
+					82CzFGcQvRml4N67bgRKTB/QkLZnnHwQ/sYa
+					NPiIhYeE40dhXA== )
 ns1.ecdsa.dnssec.test.	3600	IN A	192.0.2.54
 			3600	RRSIG	A 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					Y74mbtk4x1UT3v/yTm/0/q/QhcpKePE4TDCP
-					MUoBVLWN1VMAxrwSTp3N8LsvoXnaflEAKkZ3
-					UlCWMQVB/4eGOQ== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					htPWBijppq4l1WsENXOsS4uM7liueeJE49jY
+					K6Hv/MVrYbptNT4nxgEURhbV4+PFtDdHLD+T
+					GNa6n938LJAkAg== )
 			3600	NSEC	txt.ecdsa.dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					+Am7mIXIgE7wGW2jQhX+QVyixj+aZmGlq6fj
-					txTLptrFu2LyDDB1AG4ecxfNVZrkfNTzu6Qi
-					h+rOSgxTRhgDRQ== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					URVuOx6DfM+PGhjv4F7TqXuVfUnG2eYr7PAi
+					4e0veOyWTojp1hp2S1XnA+61HylG9JWbM3yM
+					x+YNqb8J7LAI9g== )
 txt.ecdsa.dnssec.test.	3600	IN TXT	"signed by BIND with ECDSA P-256"
 			3600	RRSIG	TXT 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					WZ/vTGI3IBG1554qy2Q9/TP0LfYU8EfeQYFW
-					xYO/REDaUMev1s7RUsonJ29mFB7V04M8dHsS
-					lMosFYPL8Lb5dg== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					o9wE8nFDkKZzXTxTpwUwHvZo7Qc40Dl9j44O
+					vMDp4sSkXBYW1iwRswZPYjawVxu4h5fQXuJl
+					tVJQidEW5I1qpg== )
 			3600	NSEC	*.wild.ecdsa.dnssec.test. TXT RRSIG NSEC
 			3600	RRSIG	NSEC 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					qsksTr15wIdKUHPI9tEZWbQMTJFAxp1rTHOC
-					9VI80C0z8zZ+wlwuTuoG7ps+uwk3/+VzYtX0
-					Fzxcwwo3ij80hA== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					nxcj8+IGeTo51G/TDQVG6fQYpkgZ2Hn9SAy/
+					KgVTbEgX9BvZnZsWa0nQxh+Awys+cY777mHh
+					aW8fFj3hTRZ7nQ== )
 *.wild.ecdsa.dnssec.test. 3600	IN A	192.0.2.77
 			3600	RRSIG	A 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					4BERGSvcmf98aHWMVmNvFwzmThu+TBYO2xVv
-					r8WOYH1StufkG9fzbQg9AqML60Fa+8ORX1t/
-					j9CythL+JH+n1w== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					MkjhyIawviGOlG+zYp0NWLdJ/JLkvPv4PwNP
+					QrhZorUGGry7/d5XCsGR6Vhr2kkJTCp5yes+
+					VOsYffS6qK54Aw== )
 			3600	NSEC	ecdsa.dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 13 4 3600 (
-					20260911045649 20260812045649 2934 ecdsa.dnssec.test.
-					2+MOCCfQFsvLWulEX6hW1WmM6an1sKddPCn+
-					74xd1EFyFqjq4o6o+p9uEqSJlGy0YUkixNhG
-					WcPDF0xmxwjGWg== )
+					20260912083119 20260813083119 40271 ecdsa.dnssec.test.
+					Tw/b056JMYUM/9CCfdRpzN3p95TIZ1tW5mDx
+					+F4NXR7qpUFQRxSuUvPyhkGZFSf7PUT4T2Ie
+					40R7f7NdZ3T6gA== )
