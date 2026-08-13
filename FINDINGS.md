@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Twenty RFC deviations in the Hermod DNS stack, each
+What this suite caught. Twenty-three RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -36,15 +36,19 @@ what is queued, what is out of scope — are not here at all; they live in
 | 18 | Negative answers carried no SOA, so none of them could be cached | **High** | 2308 §3 | ✅ fixed |
 | 19 | The TCP fallback dropped the query's transaction signature | **High** | 8945 §5.3, 2931 §3.1 | ✅ fixed |
 | 20 | A DS query at a zone cut was answered with a referral | Medium | 4035 §3.1.4.1 | ✅ fixed |
+| 21 | An unknown RR type in a response cost every record behind it | **High** | 3597 §2 | ✅ fixed |
+| 22 | Names in the RDATA of post-1035 types were compressed | Medium | 3597 §4 | ✅ fixed |
+| 23 | A bare decimal in a zone-file line was read as a class, not a TTL | Medium | 3597 §5 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last seven were found *after* the first eight were already fixed, by tests
+The last ten were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
 the queued list in the README: untested working code is where the next one will
-be.
+be. Findings 21 and 23 make a sharper version of the same point — both sit in
+code that an *earlier* finding had already visited and fixed.
 
 ---
 
@@ -505,15 +509,19 @@ additional section, and the only additional record Hermod had ever been sent
 was OPT. Wiring up TSIG is what produced the first request with something else
 in it.
 
-**Fix.** Unknown types are skipped rather than parsed: CLASS and TTL are stepped
-over, RDLENGTH is read, and the stream advances past the RDATA, which keeps it
-aligned for whatever follows. The two known types keep their existing
-constructors.
+**Fix.** Unknown types are read by their outer shape rather than parsed: CLASS
+and TTL are stepped over, RDLENGTH is read, and the stream advances past the
+RDATA, which keeps it aligned for whatever follows. The two known types keep
+their existing constructors.
 
 Verified by `A_Server_Without_Keys_Ignores_Tsig_Entirely`, which sends a
 TSIG-signed query to a server that has no TSIG keys configured and asserts it is
 answered normally — the record is unknown to that server, and unknown is not
 malformed.
+
+*Superseded in part.* This fix stepped over the record and discarded it, which
+finding 21 later showed to be only half of §2: "opaque" describes the RDATA, not
+a licence to drop the record. The request parser now keeps what it steps over.
 
 ## 17 — Aggressive NSEC caching: unreachable, unvalidated, and mis-ordered
 
@@ -705,6 +713,141 @@ in the child's half of the tree.
 Verified by `A_Ds_Query_At_A_Zone_Cut_Is_Answered_By_The_Parent`, and — since
 the opt-out fixture makes it possible — by `delv`, which now validates the
 insecure delegation's proof end to end.
+
+## 21 — An unknown RR type in a response cost every record behind it
+
+*RFC 3597 §2:* a record of a type the implementation does not recognise is
+handled as opaque data.
+
+Finding 16 fixed this on the request path. The response path had the same shape
+and a worse ending. `DNSInfo.ReadResourceRecord` consumed the owner name and the
+TYPE, looked the type up in the reflection registry, and on a miss logged a
+debug line and returned `null` — *without reading CLASS, TTL, RDLENGTH or the
+RDATA*.
+
+The record was therefore not merely dropped. The reader was left standing inside
+it, four fields from where the caller believed it was. `ReadResponse` then called
+it again for the next record, which began reading an owner name out of this
+record's CLASS field and a type out of its TTL. What happened after that depended
+on the RDATA: usually an exception out of a name or a record constructor, which
+propagated out of response parsing and lost the whole message; occasionally
+something worse, a plausible-looking record assembled from another record's
+bytes.
+
+So the cost of one unrecognised type was not that type. It was every answer
+behind it, including the ones the build understood perfectly well. Which types
+those are is not exotic — IPSECKEY, DHCID, HIP and APL are all deployed, all
+older than this code, and none of them has a parser here.
+
+It survived because the suite had only ever put unknown types *last*: finding
+16's regression test sends a TSIG-signed query, and a TSIG is the final record
+in a message by definition. Nothing had asked what happens to the record after
+one.
+
+**Fix.** `UnknownRecord` — an ordinary `ADNSResourceRecord` holding the type code
+and the RDATA octets, and nothing else. `ReadResourceRecord` builds one instead
+of returning `null`, so the reader always ends where the next record begins, and
+`DNSPacket.ParseResourceRecords` now keeps the records it steps over rather than
+discarding them. The RDATA is never interpreted on the way in or out — including
+when it *reads* as something, which the fixture zone tests with RDATA that is a
+valid compression pointer to offset 12.
+
+`UnknownRecord` is deliberately outside the reflection registry: the registry
+maps one type code to one class, and this class answers for every code that has
+none. `RecordTypeRegistryTests.The_Fallback_Is_Not_In_The_Index` measures that
+exclusion rather than assuming it.
+
+Two things fell out of the fix for free. Wildcard synthesis works for unknown
+types, because `CloneWithOwner` goes through the wire and back through
+`ReadResourceRecord` — it used to throw. And RFC 3597 §5's presentation format
+became implementable: `\# <length> <hex>`, `TYPEnnn`, `CLASSnn`, both read and
+written, including §5's last paragraph — a *known* type written generically is
+re-read as that known type, not left opaque.
+
+Verified by `An_Unknown_Type_Does_Not_Cost_The_Records_Behind_It`, which puts the
+unknown record between two A records and asserts the second one is read from its
+own bytes, by the `ServerUnknownTypeTests` fixture, and by
+`Message_Parser_Keeps_A_Record_It_Cannot_Read` on the request path.
+
+## 22 — Names in the RDATA of post-1035 types were compressed
+
+*RFC 3597 §4*, which settles a term RFC 1123 left open:
+
+> it is hereby specified that only the RR types defined in [RFC1035] are to be
+> considered "well-known".
+
+Only those types may carry a compression pointer inside their RDATA. Eleven of
+Hermod's record types passed the caller's `UseCompression` flag straight through
+to the name in their RDATA, and only five of them were entitled to: SRV, NSEC,
+RRSIG, DNAME, NAPTR, AFSDB, RP, SVCB, HTTPS, TKEY and TSIG all postdate RFC 1035,
+and four of them are told so by their own specifications — RFC 2782 for SRV,
+RFC 4034 §3.1.7 for the RRSIG signer's name, §4.1.1 for NSEC's next domain name,
+RFC 9460 §2.2 for SVCB and HTTPS.
+
+The failure is the other half of finding 21. A receiver with no parser for a type
+handles its RDATA as octets, which leaves it no way to find a pointer inside, let
+alone expand one — and if it stores those octets and passes them on, the pointer
+now indexes into a message that no longer exists. Nothing errors; the record
+simply becomes wrong.
+
+RRSIG is the case that would have fired in practice. The signer's name is the
+zone apex, and the apex is already on the wire as the question name of nearly
+every signed answer — so the pointer was always available and always taken.
+
+**Severity is Medium and it is worth saying why.** Compression is off by default
+(`DNSServerOptions.UseCompression = false`, and `DNSPacket.ToByteArray` passes
+false), so no shipped configuration emitted these pointers. It is a MUST
+violation waiting on one option, not a live one.
+
+**Fix.** Those eleven serialize their embedded names uncompressed regardless of
+the flag, each with its governing citation at the call site. The owner name is
+untouched — RFC 3597 §4 keeps it "always eligible for compression".
+
+Verified by `RdataCompressionTests`, which hand-builds RDATA for sixteen types,
+checks the hand-built layout survives an uncompressed round trip *before*
+judging compression — so a wrong layout fails as a wrong layout rather than as a
+false pass — and asserts the five RFC 1035 types still compress, which is what
+proves the other eleven assertions are measuring anything.
+
+## 23 — A bare decimal in a zone-file line was read as a class, not a TTL
+
+*RFC 3597 §5*, which gives the reason for the `TYPEnnn`/`CLASSnn` convention
+rather than just the syntax:
+
+> This convention allows types and classes to be distinguished from each other
+> and from TTL values, allowing the "[\<TTL\>] [\<class\>] \<type\> \<RDATA\>" and
+> "[\<class\>] [\<TTL\>] \<type\> \<RDATA\>" forms of RR to both be unambiguously
+> parsed.
+
+`TryParseDNSQueryClass` tried the mnemonics, and then fell back to accepting any
+bare decimal as a numeric class. That is precisely the ambiguity the convention
+exists to remove. `TryParseZoneFileString` tries class before TTL, so in
+
+```
+a.example. 3600 IN A 192.0.2.1
+```
+
+`3600` was taken as class 3600, `IN` then overwrote it, and the TTL field was
+never filled — the record came out with whatever `DefaultTimeToLive` the caller
+had passed, or zero. The record parsed, looked right, and had the wrong TTL. The
+other ordering, `a.example. IN 3600 A …`, failed outright.
+
+`TryParseDNSResourceRecordType` had had the `TYPEnnn` half of the convention all
+along and no bare-decimal fallback, so the two halves disagreed with each other.
+
+It had gone unnoticed because the suite's zone fixtures do not use this parser.
+`SignedZoneFixture` reads BIND's output with a hand-written reader — "never test
+Hermod with Hermod" — and the in-memory zones are built from constructors. The
+only caller is `InMemoryDNSZone.Add(String)`.
+
+**Fix.** The bare-decimal fallback is gone and `CLASSnn` replaces it, so a bare
+decimal in the header is a TTL and nothing else. `ToZoneFileString` writes
+`TYPEnnn` and `CLASSnn` for values with no mnemonic, which it previously rendered
+as bare numbers that nothing could read back.
+
+Verified by `A_Bare_Decimal_Is_A_Ttl_And_Not_A_Class`, which asserts both
+orderings against a deliberately different `DefaultTimeToLive` so that a lost TTL
+cannot coincide with the expected one.
 
 
 ---

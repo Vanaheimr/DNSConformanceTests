@@ -111,10 +111,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **474 tests, 474 ✅, 0 ❌** — 406 offline and
-23 online and 34 interop verified on that run; the 13 tests needing BIND as a
-peer skip without it. All
-twenty deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+Counts as of the 2026-08-13 run: **530 tests, 517 ✅, 0 ❌, 13 skipped** — 460
+offline, 23 online and 34 interop verified on that run; the 13 tests needing
+BIND as a peer skip without it. All twenty-three deviations the suite found are
+fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -128,7 +128,10 @@ twenty deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 | 4343 | Case-insensitive identity | names differing only in case are equal, hash alike and order alike | ✅ |
 | 1035 §4.1.4 | Compression (encode) | shared suffixes actually emit pointers; repeated labels resolve correctly; mixed case compresses against its lowercase twin | ✅ |
 | 2181 §8 | TTLs | TTL is 31-bit ✅; MSB-set TTL handling | 📋 |
-| 3597 §2 | Unknown RR types | an unknown type in a *request* is skipped rather than answered FORMERR ✅ (finding 16); no compression emitted in new-type RDATA | 🟡 |
+| 3597 §2 | Unknown RR types | an unknown type is kept as opaque data in requests ✅ (findings 16, 21) and in responses, without costing the records behind it ✅ (finding 21) | ✅ |
+| 3597 §4 | RDATA compression | the eleven post-1035 types no longer compress the names in their RDATA ✅ (finding 22); the five RFC 1035 types still do | ✅ |
+| 3597 §5 | Presentation format | `\#` generic RDATA both ways, `TYPEnnn`/`CLASSnn`, a bare decimal is a TTL ✅ (finding 23), a known type written generically re-reads as that type | ✅ |
+| 3597 §6 | Equality | unknown RDATA compared as octets, case sensitively | ✅ |
 | 6895 | IANA registries | code points exercised throughout the RR tests; no dedicated assertion, so [README](README.md#rfc-coverage) does not list it as covered | 📋 |
 | — | Robustness | empty/short/garbage messages, absurd section counts: typed failure, never a hang | ✅ |
 
@@ -218,7 +221,7 @@ round-trip where supported.
 | 2308 §2.2 | known name + missing type → NODATA (NOERROR, empty answer) | ✅ |
 | 1035 §3.3.9/2782 | multi-record answers, MX and SRV RDATA well-formed on the wire | ✅ |
 | 7766 §6.2.1 | several queries on one TCP connection; partial message survived | ✅ |
-| 3597 | query for an unassigned TYPE does not break the server | ✅ |
+| 3597 §2/§3 | an unassigned TYPE is stored, answered, told apart from the other types at the same name, synthesized from a wildcard, and served with its RDATA untouched — including RDATA that reads as a compression pointer | ✅ |
 | robustness | garbage, absurd counts, pointer loops: server stays healthy | ✅ |
 | 7858 | DoT server: TLS 1.2/1.3, framing, multiple queries per session | ✅ |
 | 1035 §4.2.1 | >512 B UDP answer without EDNS → TC=1 + truncation | ✅ |
@@ -425,7 +428,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — LOC edge cases, CDS delete-sentinel, the rest of RFC 3597 opacity and `delv` interop remain |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — LOC edge cases and the CDS delete-sentinel remain |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 

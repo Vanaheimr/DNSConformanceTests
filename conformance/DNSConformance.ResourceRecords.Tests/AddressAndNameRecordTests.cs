@@ -220,7 +220,13 @@ public class AddressAndNameRecordTests
             Assert.That(encoded.Name.Presentation, Is.EqualTo("_sip._tcp.example"),
                         "underscored service owner names must survive");
 
-            // RFC 2782: "the target ... name compression is NOT to be used"
+            // The RDATA layout: two 16-bit fields, a port, and the target as an
+            // ordinary name. This says nothing about RFC 2782's "name compression
+            // is NOT to be used for this field" — RRWire.Encode serializes with
+            // compression off, so a target that ignored the rule would encode
+            // identically here. That claim is measured in
+            // WireFormat.Tests/RdataCompressionTests, where the name is on offer
+            // at offset 12 and declining it is a decision.
             Assert.That(encoded.Rdata, Is.EqualTo(golden), Bytes.Diff(golden, encoded.Rdata));
 
         });
