@@ -31,8 +31,10 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            leg: windows
           - os: ubuntu-latest
             container: debian:13
+            leg: debian-13
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
@@ -88,6 +90,8 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFileName=offline-${{ matrix.leg }}.trx"
+          --results-directory artifacts
 
       # Fatal on Linux, where the tools are present and reachable: a red here is
       # a real interoperability regression — dig, kdig or drill disagreeing with
@@ -99,6 +103,8 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory=WSL"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFileName=interop-${{ matrix.leg }}.trx"
+          --results-directory artifacts
 
       # Informational, and it has to be. These query Cloudflare, Google and
       # Quad9 for real, and a hosted runner is not a normal client: datacentre
@@ -114,7 +120,9 @@ jobs:
         run: |
           set +e
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
-            --filter "TestCategory=Online" --logger "console;verbosity=normal" 2>&1 | tee online.txt
+            --filter "TestCategory=Online" --logger "console;verbosity=normal" \
+            --logger "trx;LogFileName=online-${{ matrix.leg }}.trx" \
+            --results-directory artifacts 2>&1 | tee online.txt
           {
             echo '## Live resolvers (informational, ${{ runner.os }})'
             echo
@@ -125,6 +133,18 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
+
+      # All three lanes in one artifact per platform. TRX keeps the skip reason
+      # against each skipped test, which is what makes this lane readable at
+      # all: "38 skipped" says nothing, while "skipped: 'kdig' not found on the
+      # PATH" and "skipped: WSL cannot reach the server" are different findings
+      # with different fixes.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-nightly-${{ matrix.leg }}
+          path: artifacts/*.trx
 
   # ---------------------------------------------------------------------------
   # The referee job: the same suite against Hermod's current master.
@@ -176,3 +196,16 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFileName=against-hermod-master.trx"
+          --results-directory artifacts
+
+      # The most valuable artifact this repository produces. When the referee
+      # goes red, the useful answer is *which* assertion Hermod stopped
+      # satisfying — that is a conformance finding, and it should outlive the
+      # log retention window rather than being scrolled past.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-against-hermod-master
+          path: artifacts/*.trx

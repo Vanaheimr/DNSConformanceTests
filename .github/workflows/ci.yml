@@ -27,8 +27,10 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            leg: windows
           - os: ubuntu-latest
             container: debian:13
+            leg: debian-13
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
@@ -78,3 +80,20 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
+          --logger "trx;LogFileName=offline-${{ matrix.leg }}.trx"
+          --results-directory artifacts
+
+      # TRX rather than the console log, because this suite's output is a set of
+      # conformance verdicts and the interesting ones are per test. It keeps the
+      # skip *reason* against each skipped test, which the console flattens into
+      # a count — and "38 skipped because the tools are missing" and "38 skipped
+      # because a firewall blocked the probe" are entirely different findings.
+      #
+      # !cancelled() rather than always(): a failed run is exactly when these are
+      # worth reading, but a cancelled one has nothing to say.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.leg }}
+          path: artifacts/*.trx
