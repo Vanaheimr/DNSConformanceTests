@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 440 tests · 440 ✅ · 0 ❌.**
+**Current status: 457 tests · 457 ✅ · 0 ❌.**
 
-The suite has found 18 RFC deviations in Hermod. All are fixed;
+The suite has found 19 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -119,7 +119,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **2539** | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; a well-known-group index refused rather than read as a literal prime; truncated and over-long RDATA rejected |
 | **2782** | SRV | priority/weight/port/target, no RDATA compression on emit |
 | **2930** §4.1 | TKEY, Diffie-Hellman mode | keying material against the §4.1 formula applied by hand; nonce order not interchangeable; the derived secret actually signs and verifies as a TSIG key |
-| **2931** | SIG(0) | the record shape §3 asks for — root owner, class ANY, TTL 0, type covered 0 — and the signed data of §3.1 assembled by hand and checked with the platform's own RSA and ECDSA rather than with Hermod's verifier: `RDATA \| request` for a query, `RDATA \| query \| response` for a transaction, over the message *before* ARCOUNT counted the SIG(0). Tampering, a foreign key, the right key under the wrong name, and both ends of the validity window all rejected; RSA/SHA-1 refused for signing and still accepted for verifying (RFC 8624 §3.1) |
+| **2931** | SIG(0) | the record shape §3 asks for — root owner, class ANY, TTL 0, type covered 0 — and the signed data of §3.1 assembled by hand and checked with the platform's own RSA and ECDSA rather than with Hermod's verifier: `RDATA \| request` for a query, `RDATA \| query \| response` for a transaction, over the message *before* ARCOUNT counted the SIG(0). Tampering, a foreign key, the right key under the wrong name, and both ends of the validity window all rejected; RSA/SHA-1 refused for signing and still accepted for verifying (RFC 8624 §3.1). End to end: the client signs over UDP *and* over the TCP retry, the server verifies before serving and refuses what does not verify, an unsigned query is still served and a signed one is ignored without error when no key is configured (§3.2), and a message carrying both a TSIG and a SIG(0) is refused |
 | **3403** | NAPTR | flags/service/regexp character-strings |
 | **3596** | AAAA | full and compressed IPv6 forms |
 | **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent |
@@ -152,7 +152,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **8624** | Algorithm selection | every algorithm 8624 asks a *validator* to implement — 8, 10, 13, 14, 15, 16 — verifies a real BIND signature; deprecated RSA/SHA-1 (5, 7) still validates, as it must |
 | **8659** | CAA | critical-flag bit, length-prefixed tag, unprefixed value |
 | **8914** | Extended DNS Errors | info-code + extra-text |
-| **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, a response bound to its request's MAC. End to end: the server verifies signed queries and signs its replies, the client signs and checks the answer |
+| **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, a response bound to its request's MAC. End to end: the server verifies signed queries and signs its replies, the client signs and checks the answer — including on the TCP retry after a truncated datagram, which used to go out unsigned |
 | **8976** | ZONEMD | serial/scheme/hash |
 | **9460** | SVCB, HTTPS | alias and service mode, SvcParams parsed to RDLENGTH |
 
@@ -169,7 +169,6 @@ fixture zone in `RrsigValidationTests`.
 | **1876** LOC | size/precision/altitude edge cases; only the common shape is covered | — |
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
-| **2931** (server) | SIG(0) *wired into* `DNSServer` and `DNSClient`, the way TSIG is; today it signs and verifies messages but nothing calls it from the transports | — |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
 | **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
 | **5155** (opt-out) | an opted-out delegation served and read back; the referral path emits the covering NSEC3 for a missing DS, but no fixture zone has an unsigned delegation to point at | needs a delegation in `resign.sh` |
@@ -177,7 +176,7 @@ fixture zone in `RrsigValidationTests`.
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | **8080** (SIG(0)) | signing with Ed25519 and Ed448; verification covers both, and the private-key half is not wired up | needs BouncyCastle's signer, as the verifier already uses |
-| **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
+| **8945**, **2931** (transports) | signing over DoT and DoH | both mechanisms are wired for UDP and TCP, which is where they are deployed; the TLS and HTTPS clients each serialize separately and are untouched. Finding 19 is the argument for doing this properly rather than per transport |
 | interop | `delv` validating a Hermod-served signed zone | — `InMemoryDNSZone` serves one now, so this is work rather than a prerequisite |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |

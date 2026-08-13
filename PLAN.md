@@ -42,12 +42,12 @@ unbiased referee, and be run against any Hermod revision.
 | Server | `DNSServer`: UDP unicast + multicast, TCP, **TLS (DoT server)**; `AuthoritativeDNSRequestHandler` + `InMemoryDNSZone` (`Add/Set/Remove/AddZoneFileString`); opcode≠0 → NOTIMP, zero questions → FORMERR, NXDOMAIN vs NODATA |
 | Zone | `InMemoryDNSZone` is a zone once it holds an SOA: apex-aware, RFC 1034 §4.3.2 lookup with delegations as referrals, empty non-terminals, RFC 4592 wildcard synthesis, SOA cited on every negative answer (2308 §3). Given a pre-signed zone it also serves it — RRSIGs and NSEC/NSEC3 proofs selected per RFC 4035 §3.1 and RFC 5155 §7, gated on the DO bit. It does not *sign*: `ZoneDenialOfExistence` selects, never invents |
 | DNSSEC | `DNSSECValidator`: `ValidateRRSig` (RFC 4034 §3), `VerifyDS` (§5, SHA-1/256/384), `ComputeKeyTag` (App. B), chain-of-trust walk, IANA root trust anchor (KeyTag 20326), RFC 5011 rollover with hold-down. `DNSSECSigning` is the other direction — signatures and public-key encodings for algorithms 8, 10, 13 and 14 |
-| Transaction security | `TSIGSigner` (RFC 8945, shared secret) and `SIG0Signer` (RFC 2931, public key) over wire bytes; `TKEYExchange` for the Diffie-Hellman mode of RFC 2930 |
+| Transaction security | `TSIGSigner` (RFC 8945, shared secret) and `SIG0Signer` (RFC 2931, public key) over wire bytes, both wired into `DNSServer` (UDP and TCP listeners, `TSIGKeys` / `SIG0Keys` / `SIG0ResponseKey`) and `DNSUDPClient` (query *and* TCP retry); `TKEYExchange` for the Diffie-Hellman mode of RFC 2930 |
 | Not present | DoH **server** (client only), zone transfer (AXFR/IXFR), dynamic update (RFC 2136) |
 
 ### Deviations found, and their fate
 
-The suite has confirmed eighteen deviations so far, and all of them are now fixed
+The suite has confirmed nineteen deviations so far, and all of them are now fixed
 in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
 record, with chapter and verse, the mechanism, the change, and the test that
 pins each one. The summary table at the top of that file is the fastest way in.
@@ -111,10 +111,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **440 tests, 440 ✅, 0 ❌** — 379 offline and
+Counts as of the 2026-08-13 run: **457 tests, 457 ✅, 0 ❌** — 396 offline and
 23 online and 25 interop verified on that run; the 13 tests needing BIND as a
 peer skip without it. All
-eighteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+nineteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -168,6 +168,7 @@ round-trip where supported.
 | 2539 | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; well-known-group indices refused rather than read as a prime | ✅ |
 | 2930 §4.1 | TKEY, Diffie-Hellman mode | the §4.1 keying material, checked against the formula applied by hand; the derived secret used as a real TSIG key | ✅ |
 | 2930 §4.2 | TKEY, GSS-API mode | needs a Kerberos/SPNEGO stack | ⬜ |
+| 2535 §4, 2931 | SIG, SIG(0) | record shape ✅, signing and verification ✅, and both ends wired: the server verifies signed queries and refuses what does not verify, the client signs over UDP and TCP | ✅ |
 
 ### 4.3 EDNS0 (`DNSConformance.Edns.Tests`)
 
@@ -203,6 +204,8 @@ round-trip where supported.
 | 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
 | 2308 §4 | negative TTL is min(SOA MINIMUM, SOA TTL), and the entry actually expires | ✅ |
 | 6672 | CNAME/DNAME chase with loop protection (covered live in interop) | 🟡 |
+| 2931 §3.1 | the client signs its query, and signs the TCP retry too — finding 19 was that the retry went out unsigned and nothing reported it | ✅ |
+| 2931 §3.2 | a response signature that does not verify is discarded; one that cannot be checked is ignored without error | ✅ |
 
 ### 4.5 Server behavior (`DNSConformance.Server.Tests`) — raw sockets vs. `DNSServer`
 
@@ -228,6 +231,8 @@ round-trip where supported.
 | 4592 §2.2.2 | an empty non-terminal exists: NODATA rather than NXDOMAIN, and no wildcard applies to it | ✅ |
 | 1034 §4.3.2 | a zone cut ends the search: NS records in the authority section, in-subtree glue in the additional section, AA clear — while the apex's own NS records are not a delegation | ✅ |
 | 2308 §3 | every NXDOMAIN and NODATA cites the zone's SOA, so the answer can be cached | ✅ |
+| 2931 §3.1 | SIG(0): a signed query verified before it is served, a bad one refused NOTAUTH, an unsigned one still served, over UDP and TCP alike | ✅ |
+| 2931 §3.2 | a signed query ignored without error when no key is configured; a message carrying both a TSIG and a SIG(0) refused | ✅ |
 
 ### 4.6 Secure transports (`DNSConformance.SecureTransports.Tests`)
 

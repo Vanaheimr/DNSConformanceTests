@@ -27,6 +27,12 @@ public sealed class HermodServerFixtureOptions
     /// <summary>TSIG keys the server accepts (RFC 8945). Empty leaves TSIG inactive.</summary>
     public IEnumerable<TSIGKey>  TSIGKeys         { get; init; } = [];
 
+    /// <summary>KEY records whose SIG(0) signatures the server accepts (RFC 2931). Empty leaves SIG(0) inactive.</summary>
+    public IEnumerable<KEY>      SIG0Keys         { get; init; } = [];
+
+    /// <summary>The key the server signs replies to SIG(0)-signed requests with. Null leaves them unsigned.</summary>
+    public SIG0Key?              SIG0ResponseKey  { get; init; }
+
 }
 
 
@@ -93,7 +99,10 @@ public sealed class HermodServerFixture : IAsyncDisposable
 
                              UseCompression        = Options.UseCompression,
 
-                             TSIGKeys              = Options.TSIGKeys
+                             TSIGKeys              = Options.TSIGKeys,
+
+                             SIG0Keys              = Options.SIG0Keys,
+                             SIG0ResponseKey       = Options.SIG0ResponseKey
 
                          }
 

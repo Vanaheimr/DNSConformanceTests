@@ -45,13 +45,17 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
     private Int32                   connectionCount;
 
 
+    /// <param name="Responder">The scripted response logic.</param>
+    /// <param name="Options">Framing options.</param>
+    /// <param name="FixedPort">Bind this specific port instead of an ephemeral one (e.g. to pair with a UDP listener for RFC 7766 fallback tests).</param>
     public ScriptedTcpServer(Func<Byte[], IEnumerable<Byte[]>>  Responder,
-                             ScriptedTcpOptions?                Options   = null)
+                             ScriptedTcpOptions?                Options     = null,
+                             Int32                              FixedPort   = 0)
     {
 
         responder   = Responder;
         options     = Options ?? new ScriptedTcpOptions();
-        listener    = new TcpListener(IPAddress.Loopback, 0);
+        listener    = new TcpListener(IPAddress.Loopback, FixedPort);
         listener.Start();
         Port        = ((IPEndPoint) listener.LocalEndpoint).Port;
         acceptLoop  = Task.Run(AcceptLoop);
@@ -59,10 +63,12 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
     }
 
     public ScriptedTcpServer(Func<Byte[], Byte[]?>  Responder,
-                             ScriptedTcpOptions?    Options   = null)
+                             ScriptedTcpOptions?    Options     = null,
+                             Int32                  FixedPort   = 0)
 
         : this(request => Responder(request) is { } response ? [response] : Array.Empty<Byte[]>(),
-               Options)
+               Options,
+               FixedPort)
 
     { }
 

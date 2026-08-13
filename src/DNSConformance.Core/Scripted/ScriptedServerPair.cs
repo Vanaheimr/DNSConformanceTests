@@ -13,12 +13,19 @@ namespace DNSConformance.Core.Scripted;
 /// all — the retry would go somewhere else.
 /// </para>
 /// <para>
-/// Sharing a number is not free, because UDP and TCP have separate port spaces
-/// on every platform: the ephemeral port the TCP listener is handed may already
-/// belong to somebody else's UDP socket, and asking for it then throws. It is a
-/// rare collision when one test runs alone and a routine one when a whole
-/// solution's worth of loopback servers is starting in parallel — which is
-/// exactly when a flake is most expensive to diagnose. So: pick again.
+/// Sharing a number is not free, because UDP and TCP have separate port spaces:
+/// the ephemeral port one listener is handed may be unavailable to the other,
+/// and asking for it then throws. Rare when a test runs alone, routine when a
+/// whole solution's worth of loopback servers starts in parallel — which is
+/// exactly when a flake costs the most to diagnose. So: pick again.
+/// </para>
+/// <para>
+/// UDP goes first, and on Windows that matters rather than being a coin flip.
+/// Hyper-V and WSL reserve large blocks of the ephemeral range, and a UDP bind
+/// into one of them fails with <c>WSAEACCES</c> — not "in use", but "not yours",
+/// which no amount of retrying inside that block will fix. Letting the OS choose
+/// the UDP port means it chooses one it is willing to grant; TCP is then asked
+/// to follow, which it almost always can.
 /// </para>
 /// </remarks>
 public static class ScriptedServerPair
@@ -39,28 +46,54 @@ public static class ScriptedServerPair
         Int32                  Attempts   = 25)
     {
 
-        for (var attempt = 1; ; attempt++)
+        SocketException? lastFailure = null;
+
+        for (var attempt = 0; attempt < Attempts; attempt++)
         {
 
-            var tcp = new ScriptedTcpServer(TcpResponder, Options);
+            // The first attempt lets the OS choose, which is the right thing
+            // where nothing is reserved. After that the candidates are drawn at
+            // random from a wide span instead: consecutive ephemeral ports come
+            // from one narrow window, so if that window sits inside a reservation
+            // then every retry lands in the same one and twenty-five attempts
+            // fail as reliably as one.
+            var candidate = attempt == 0
+                                ? 0
+                                : Random.Shared.Next(20000, 60000);
+
+            ScriptedUdpServer udp;
 
             try
             {
-                return (new ScriptedUdpServer(UdpResponder, FixedPort: tcp.Port), tcp);
+                udp = new ScriptedUdpServer(UdpResponder, FixedPort: candidate);
             }
-            catch (SocketException) when (attempt < Attempts)
+            catch (SocketException e)
             {
-                // The TCP listener got a port whose UDP twin is taken. Drop it and
-                // let the OS hand out a different one.
-                await tcp.DisposeAsync();
+                lastFailure = e;
+                continue;
+            }
+
+            try
+            {
+                return (udp, new ScriptedTcpServer(TcpResponder, Options, FixedPort: udp.Port));
+            }
+            catch (SocketException e)
+            {
+                lastFailure = e;
+                await udp.DisposeAsync();
             }
             catch
             {
-                await tcp.DisposeAsync();
+                await udp.DisposeAsync();
                 throw;
             }
 
         }
+
+        throw new InvalidOperationException(
+                  $"No port number was free for both UDP and TCP after {Attempts} attempts.",
+                  lastFailure
+              );
 
     }
 
