@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 
 using org.GraphDefined.Vanaheimr.Hermod;
@@ -29,6 +30,18 @@ public sealed class HermodServerFixtureOptions
 
     /// <summary>KEY records whose SIG(0) signatures the server accepts (RFC 2931). Empty leaves SIG(0) inactive.</summary>
     public IEnumerable<KEY>      SIG0Keys         { get; init; } = [];
+
+    /// <summary>
+    /// Bind UDP and TCP to one port number instead of two ephemeral ones.
+    /// </summary>
+    /// <remarks>
+    /// What a real resolver assumes. A client that gets TC=1 retries the *same*
+    /// endpoint over TCP (RFC 7766 §5) — it has one server address and one port,
+    /// not a pair — so any tool driven from outside needs this the moment an
+    /// answer stops fitting in a datagram. Which, for a signed zone, is most of
+    /// them.
+    /// </remarks>
+    public Boolean               SharePortAcrossTransports { get; init; } = false;
 
     /// <summary>The key the server signs replies to SIG(0)-signed requests with. Null leaves them unsigned.</summary>
     public SIG0Key?              SIG0ResponseKey  { get; init; }
@@ -79,38 +92,61 @@ public sealed class HermodServerFixture : IAsyncDisposable
                                ? Options.Certificate ?? TestCertificate.CreateServerCertificate()
                                : null;
 
-        var server = new DNSServer(
+        // With a shared port the same number has to be free in two port spaces at
+        // once, so the first candidate may simply not be available — and on
+        // Windows a Hyper-V reservation refuses a whole block rather than one
+        // port, which is why the retries are spread rather than sequential.
+        const Int32 attempts = 25;
 
-                         new AuthoritativeDNSRequestHandler(zone),
+        for (var attempt = 0; ; attempt++)
+        {
 
-                         new DNSServerOptions {
+            var port = Options.SharePortAcrossTransports
+                           ? IPPort.Parse((UInt16) Random.Shared.Next(20000, 60000))
+                           : IPPort.Zero;
 
-                             EnableUDPUnicast      = Options.EnableUdp,
-                             UDPUnicastSocket      = new IPSocket(bindAddress, IPPort.Zero),
+            var server = new DNSServer(
 
-                             EnableUDPMulticast    = false,
+                             new AuthoritativeDNSRequestHandler(zone),
 
-                             EnableTCPUnicast      = Options.EnableTcp,
-                             TCPUnicastSocket      = new IPSocket(bindAddress, IPPort.Zero),
+                             new DNSServerOptions {
 
-                             EnableTLSUnicast      = Options.EnableTls,
-                             TLSUnicastSocket      = new IPSocket(bindAddress, IPPort.Zero),
-                             TLSServerCertificate  = certificate,
+                                 EnableUDPUnicast      = Options.EnableUdp,
+                                 UDPUnicastSocket      = new IPSocket(bindAddress, port),
 
-                             UseCompression        = Options.UseCompression,
+                                 EnableUDPMulticast    = false,
 
-                             TSIGKeys              = Options.TSIGKeys,
+                                 EnableTCPUnicast      = Options.EnableTcp,
+                                 TCPUnicastSocket      = new IPSocket(bindAddress, port),
 
-                             SIG0Keys              = Options.SIG0Keys,
-                             SIG0ResponseKey       = Options.SIG0ResponseKey
+                                 EnableTLSUnicast      = Options.EnableTls,
+                                 TLSUnicastSocket      = new IPSocket(bindAddress, IPPort.Zero),
+                                 TLSServerCertificate  = certificate,
 
-                         }
+                                 UseCompression        = Options.UseCompression,
 
-                     );
+                                 TSIGKeys              = Options.TSIGKeys,
 
-        await server.Start();
+                                 SIG0Keys              = Options.SIG0Keys,
+                                 SIG0ResponseKey       = Options.SIG0ResponseKey
 
-        return new HermodServerFixture(server, zone, certificate);
+                             }
+
+                         );
+
+            try
+            {
+                await server.Start();
+            }
+            catch (SocketException) when (Options.SharePortAcrossTransports && attempt < attempts - 1)
+            {
+                await server.Stop();
+                continue;
+            }
+
+            return new HermodServerFixture(server, zone, certificate);
+
+        }
 
     }
 
