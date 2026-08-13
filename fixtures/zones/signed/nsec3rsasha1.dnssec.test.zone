@@ -11,3 +11,4 @@ a       IN  A    192.0.2.13
 aaaa    IN  AAAA 2001:db8::13
 txt     IN  TXT  "signed by BIND with RSA/SHA-1 (NSEC3)"
 *.wild  IN  A    192.0.2.77
+

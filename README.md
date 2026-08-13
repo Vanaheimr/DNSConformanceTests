@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 465 tests · 465 ✅ · 0 ❌.**
+**Current status: 474 tests · 474 ✅ · 0 ❌.**
 
-The suite has found 19 RFC deviations in Hermod. All are fixed;
+The suite has found 20 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -122,13 +122,13 @@ names it in a `[Property("RFC", …)]` attribute.
 | **2931** | SIG(0) | the record shape §3 asks for — root owner, class ANY, TTL 0, type covered 0 — and the signed data of §3.1 assembled by hand and checked with the platform's own RSA and ECDSA rather than with Hermod's verifier: `RDATA \| request` for a query, `RDATA \| query \| response` for a transaction, over the message *before* ARCOUNT counted the SIG(0). Tampering, a foreign key, the right key under the wrong name, and both ends of the validity window all rejected; RSA/SHA-1 refused for signing and still accepted for verifying (RFC 8624 §3.1). End to end: the client signs over UDP *and* over the TCP retry, the server verifies before serving and refuses what does not verify, an unsigned query is still served and a signed one is ignored without error when no key is configured (§3.2), and a message carrying both a TSIG and a SIG(0) is refused |
 | **3403** | NAPTR | flags/service/regexp character-strings |
 | **3596** | AAAA | full and compressed IPv6 forms |
-| **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent |
+| **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent; and a DS query at a zone cut is answered by the parent rather than referred (§3.1.4.1) |
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
 | **4343** | Case-insensitivity | names differing only in case are equal, hash alike, order alike |
 | **4398** | CERT | type/keytag/algorithm |
 | **4592** | Wildcards | §2.1.1 the owner name: `*` accepted as leftmost label only, and never by the strict hostname parser. §3.3.1 the *matching*: synthesis at the closest encloser and nowhere above it, an exact match and an empty non-terminal each suppressing it, more than one label covered, no type of its own meaning NODATA — and the answer carrying the queried name, with the asterisk absent from the response entirely |
 | **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good |
-| **5155** | NSEC3 | hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material |
+| **5155** | NSEC3 | hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material. §6 opt-out, against a zone BIND signed with `-A`: the flag on every record, no NSEC3 for the insecure delegation, and the §7.2.7 referral proof whose covering record carries the flag |
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
 | **6605** | ECDSA | P-256 and P-384: fixed-width r‖s, 64/96-octet keys |
 | **6698**, **8162** | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names |
@@ -152,7 +152,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **8624** | Algorithm selection | every algorithm 8624 asks a *validator* to implement — 8, 10, 13, 14, 15, 16 — verifies a real BIND signature; deprecated RSA/SHA-1 (5, 7) still validates, as it must |
 | **8659** | CAA | critical-flag bit, length-prefixed tag, unprefixed value |
 | **8914** | Extended DNS Errors | info-code + extra-text |
-| **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, a response bound to its request's MAC. End to end: the server verifies signed queries and signs its replies, the client signs and checks the answer — including on the TCP retry after a truncated datagram, which used to go out unsigned |
+| **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, a response bound to its request's MAC. End to end: the server verifies signed queries and signs its replies, the client signs and checks the answer — including on the TCP retry after a truncated datagram, which used to go out unsigned. Both mechanisms ride every transport: UDP, TCP, DoT and DoH, the last two asserted by reading the message back out of the TLS framing and out of a `?dns=` parameter |
 | **8976** | ZONEMD | serial/scheme/hash |
 | **9460** | SVCB, HTTPS | alias and service mode, SvcParams parsed to RDLENGTH |
 
@@ -187,12 +187,10 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
 | **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
-| **5155** (opt-out) | an opted-out delegation served and read back; the referral path emits the covering NSEC3 for a missing DS, but no fixture zone has an unsigned delegation to point at | needs a delegation in `resign.sh` |
 | **6672** | DNAME subtree rewrite and the synthesized CNAME; only the record shape is covered | — |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | **8080** (SIG(0)) | signing with Ed25519 and Ed448; verification covers both, and the private-key half is not wired up | needs BouncyCastle's signer, as the verifier already uses |
-| **8945**, **2931** (transports) | signing over DoT and DoH | both mechanisms are wired for UDP and TCP, which is where they are deployed; the TLS and HTTPS clients each serialize separately and are untouched. Finding 19 is the argument for doing this properly rather than per transport |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
@@ -218,6 +216,13 @@ rather than an agreed set of numbers. The one place that reading is pinned
 harder is the ARCOUNT: a signature taken over the incremented count is asserted
 *not* to verify, which is the difference between interoperating and merely
 round-tripping against yourself.
+
+**Neither mechanism applies to DoH's JSON APIs, and that is not a gap.**
+RFC 8484 §4.1 carries a DNS message, so a signature over that message survives
+base64url encoding untouched — which is what the DoH tests read back out of the
+`?dns=` parameter. Google's and Cloudflare's `application/dns-json` carries a
+*rendering* of an answer instead: there are no octets to authenticate, and
+nothing to sign or check.
 
 **RFC 7129 is not in the covered list even though its subject is**, because it
 is informational and nothing normative can be asserted against it. What it

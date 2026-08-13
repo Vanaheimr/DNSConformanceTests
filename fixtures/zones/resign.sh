@@ -80,6 +80,7 @@ sign_algorithm_zone() {
     bits="$3"      # key size flags, empty for the curve algorithms
     label="$4"     # human-readable, goes into the zone's TXT record
     extra="$5"     # extra dnssec-signzone flags, e.g. "-3 aabbccdd" for NSEC3
+    records="$6"   # extra zone records, appended verbatim
 
     cat > "$zone.zone" <<EOF
 \$TTL 3600
@@ -95,6 +96,7 @@ a       IN  A    192.0.2.13
 aaaa    IN  AAAA 2001:db8::13
 txt     IN  TXT  "signed by BIND with $label"
 *.wild  IN  A    192.0.2.77
+$records
 EOF
 
     # shellcheck disable=SC2086
@@ -155,6 +157,18 @@ sign_algorithm_zone "nsec3rsasha1.$ZONE" NSEC3RSASHA1  "-b 2048"   "RSA/SHA-1 (N
 # Salt and iterations match the RFC 5155 Appendix A example, so a hash computed
 # here can be checked against the published vectors as well as against BIND.
 sign_algorithm_zone "nsec3.$ZONE"     RSASHA256        "-b 2048"   "RSASHA256 (NSEC3)"  "-3 aabbccdd -H 12"
+
+# And one signed with NSEC3 opt-out (-A), holding an unsigned delegation.
+#
+# Opt-out is the part of RFC 5155 that cannot be tested with a zone alone: §6
+# lets a signer skip the NSEC3 records for insecure delegations, so what a
+# server has to send for one (§7.2.7) is a closest encloser proof whose covering
+# record carries the Opt-Out flag — and there has to *be* an insecure delegation
+# for any of that to exist. "insecure.optout.dnssec.test" is that delegation:
+# NS records and glue, no DS, and — because of -A — no NSEC3 of its own.
+sign_algorithm_zone "optout.$ZONE"    RSASHA256        "-b 2048"   "RSASHA256 (NSEC3 opt-out)"  "-3 aabbccdd -H 12 -A"  \
+"insecure      IN  NS   ns1.insecure
+ns1.insecure  IN  A    192.0.2.90"
 
 echo
 echo "signed zones written to $OUT"

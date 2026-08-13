@@ -33,30 +33,39 @@ namespace DNSConformance.Dnssec.Tests;
 public class SignedZoneServingTests
 {
 
-    private const String NsecZone  = "dnssec.test";
-    private const String Nsec3Zone = "nsec3.dnssec.test";
+    private const String NsecZone   = "dnssec.test";
+    private const String Nsec3Zone  = "nsec3.dnssec.test";
+    private const String OptOutZone = "optout.dnssec.test";
 
-    private SignedZoneFixture     nsecFixture   = null!;
-    private SignedZoneFixture     nsec3Fixture  = null!;
-    private HermodServerFixture   nsecServer    = null!;
-    private HermodServerFixture   nsec3Server   = null!;
+    /// <summary>The unsigned delegation inside the opt-out zone — NS records and glue, no DS.</summary>
+    private const String DelegatedZone = "insecure.optout.dnssec.test";
+
+    private SignedZoneFixture     nsecFixture    = null!;
+    private SignedZoneFixture     nsec3Fixture   = null!;
+    private SignedZoneFixture     optOutFixture  = null!;
+    private HermodServerFixture   nsecServer     = null!;
+    private HermodServerFixture   nsec3Server    = null!;
+    private HermodServerFixture   optOutServer   = null!;
 
 
     [OneTimeSetUp]
     public async Task StartServers()
     {
 
-        if (!SignedZoneFixture.IsAvailableFor(NsecZone) ||
-            !SignedZoneFixture.IsAvailableFor(Nsec3Zone))
+        if (!SignedZoneFixture.IsAvailableFor(NsecZone)  ||
+            !SignedZoneFixture.IsAvailableFor(Nsec3Zone) ||
+            !SignedZoneFixture.IsAvailableFor(OptOutZone))
         {
             Assert.Ignore("The BIND-signed fixtures are missing — run fixtures/zones/resign.sh.");
         }
 
-        nsecFixture   = SignedZoneFixture.Load(NsecZone);
-        nsec3Fixture  = SignedZoneFixture.Load(Nsec3Zone);
+        nsecFixture    = SignedZoneFixture.Load(NsecZone);
+        nsec3Fixture   = SignedZoneFixture.Load(Nsec3Zone);
+        optOutFixture  = SignedZoneFixture.Load(OptOutZone);
 
-        nsecServer    = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = nsecFixture. ToZone() });
-        nsec3Server   = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = nsec3Fixture.ToZone() });
+        nsecServer     = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = nsecFixture.  ToZone() });
+        nsec3Server    = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = nsec3Fixture. ToZone() });
+        optOutServer   = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = optOutFixture.ToZone() });
 
     }
 
@@ -64,8 +73,9 @@ public class SignedZoneServingTests
     public async Task StopServers()
     {
 
-        if (nsecServer  is not null) await nsecServer. DisposeAsync();
-        if (nsec3Server is not null) await nsec3Server.DisposeAsync();
+        if (nsecServer   is not null) await nsecServer.  DisposeAsync();
+        if (nsec3Server  is not null) await nsec3Server. DisposeAsync();
+        if (optOutServer is not null) await optOutServer.DisposeAsync();
 
     }
 
@@ -600,6 +610,179 @@ public class SignedZoneServingTests
 
     #endregion
 
+
+    #region Optout_Zone_Sets_The_Flag_On_Every_Nsec3_And_Skips_The_Delegation()
+
+    [Test]
+    [Property("RFC", "5155 §6")]
+    public void Optout_Zone_Sets_The_Flag_On_Every_Nsec3_And_Skips_The_Delegation()
+    {
+
+        // A precondition rather than a claim about Hermod: the tests below are
+        // only meaningful if the fixture really is an opt-out zone. §6 lets a
+        // signer leave insecure delegations out of the NSEC3 chain, and BIND does
+        // so only when asked (`dnssec-signzone -A`).
+        var nsec3s = optOutFixture.Records.
+                         OfType<org.GraphDefined.Vanaheimr.Hermod.DNS.NSEC3>().
+                         ToArray();
+
+        var delegationHash = Nsec3Hash($"{DelegatedZone}.", 12, [0xAA, 0xBB, 0xCC, 0xDD]);
+
+        Assert.Multiple(() => {
+
+            Assert.That(nsec3s, Is.Not.Empty);
+
+            Assert.That(nsec3s.All(rr => (rr.Flags & 0x01) != 0), Is.True,
+                        "§3.1.2: the Opt-Out flag is bit 0 of the NSEC3 flags field");
+
+            Assert.That(
+                nsec3s.Any(rr => Base32HexDecode(rr.DomainName.FullName.Split('.')[0]).SequenceEqual(delegationHash)),
+                Is.False,
+                "§6: the insecure delegation has no NSEC3 of its own — that is what opt-out *is*"
+            );
+
+            // …while the delegation itself is in the zone, unsigned.
+            Assert.That(optOutFixture.Records.Any(rr => rr.Type == org.GraphDefined.Vanaheimr.Hermod.DNS.DNSResourceRecordTypes.NS &&
+                                                        rr.DomainName.FullName.TrimEnd('.').Equals(DelegatedZone, StringComparison.OrdinalIgnoreCase)),
+                        Is.True,
+                        "the delegation exists");
+
+            Assert.That(optOutFixture.Signatures.Any(sig => sig.DomainName.FullName.TrimEnd('.').Equals(DelegatedZone, StringComparison.OrdinalIgnoreCase)),
+                        Is.False,
+                        "and carries no signature — an unsigned delegation is the whole point");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Referral_To_An_Unsigned_Delegation_Proves_There_Is_No_Ds()
+
+    [Test]
+    [Property("RFC", "5155 §7.2.7")]
+    public async Task Referral_To_An_Unsigned_Delegation_Proves_There_Is_No_Ds()
+    {
+
+        var response = await Ask(optOutServer, $"host.{DelegatedZone}.", RawDnsType.A);
+        var nsec3s   = response.Authorities.Where(rr => rr.Type == RawDnsType.NSEC3).ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode,   Is.Zero,   "a referral is NOERROR");
+            Assert.That(response.Answers, Is.Empty);
+            Assert.That(response.AA,      Is.False,  "the name belongs to the child zone");
+
+            Assert.That(response.Authorities.Any(rr => rr.Type == RawDnsType.NS), Is.True,
+                        "the child's NS records");
+
+            Assert.That(response.Additionals.Any(rr => rr.Type == RawDnsType.A), Is.True,
+                        "and the glue, which nobody else can resolve");
+
+            // §7.2.7: "If there is no NSEC3 RR that matches the delegation name,
+            // then the closest provable encloser proof MUST be included in the
+            // response. The included NSEC3 RR that covers the 'next closer' name
+            // for the delegation MUST have the Opt-Out flag set to one."
+            //
+            // Without it a resolver cannot tell an unsigned child from a signed
+            // one whose DS was stripped in flight — which is the entire security
+            // property a referral has to carry.
+            Assert.That(nsec3s, Is.Not.Empty,
+                        "a DO querier gets the proof that this delegation is insecure");
+
+            Assert.That(nsec3s.Any(rr => Nsec3Matches(rr, $"{OptOutZone}.")), Is.True,
+                        "the closest provable encloser — the apex, since the delegation itself is unhashed");
+
+            Assert.That(nsec3s.Any(rr => Nsec3Covers(rr, $"{DelegatedZone}.")), Is.True,
+                        "and an NSEC3 covering the next closer name");
+
+            var covering = nsec3s.First(rr => Nsec3Covers(rr, $"{DelegatedZone}."));
+
+            Assert.That(covering.Rdata[1] & 0x01, Is.EqualTo(1),
+                        "…whose Opt-Out flag MUST be set — that flag is the licence for the missing NSEC3");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Ds_Query_At_A_Zone_Cut_Is_Answered_By_The_Parent()
+
+    [Test]
+    [Property("RFC", "4035 §3.1.4.1")]
+    public async Task A_Ds_Query_At_A_Zone_Cut_Is_Answered_By_The_Parent()
+    {
+
+        // §3.1.4.1: "The DS RRset and its associated RRSIG RRs are authoritative
+        // data in the parent zone" — so a DS query at a delegation name is the
+        // one query about that name the *parent* must answer itself, rather than
+        // referring it downwards.
+        //
+        // Referring it is not a cosmetic error. The DS is what tells a validator
+        // whether the child is signed; if the parent bounces the question to the
+        // child, the only party who can answer it is the one the answer is about,
+        // and a resolver walking the chain of trust gets stuck at every zone cut.
+        var response = await Ask(optOutServer, $"{DelegatedZone}.", RawDnsType.DS);
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode, Is.Zero);
+
+            Assert.That(response.AA, Is.True,
+                        "the parent owns the DS RRset, so this is authoritative data");
+
+            Assert.That(response.Authorities.Any(rr => rr.Type == RawDnsType.NS), Is.False,
+                        "a referral would push the question to the only party that must not answer it");
+
+            Assert.That(response.Authorities.Any(rr => rr.Type == RawDnsType.SOA), Is.True,
+                        "NODATA: there is no DS, and the parent says so with its own SOA");
+
+            Assert.That(response.Authorities.Any(rr => rr.Type == RawDnsType.NSEC3), Is.True,
+                        "…proven by the opt-out span that covers the delegation");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Name_Inside_An_Opted_Out_Span_Is_Covered_But_Not_Proven()
+
+    [Test]
+    [Property("RFC", "5155 §6, §8.4")]
+    public async Task A_Name_Inside_An_Opted_Out_Span_Is_Covered_But_Not_Proven()
+    {
+
+        // The uncomfortable half of opt-out, and the reason it is a trade rather
+        // than a free saving. A name whose hash lands in an opted-out span gets
+        // an NXDOMAIN with a covering NSEC3 — but that record makes no promise
+        // about the span's contents, so the answer is *unproven* rather than
+        // proven false. §8.4 has a validator treat it accordingly.
+        //
+        // The server's job is only to send the covering record and let the flag
+        // speak. Suppressing the answer, or sending it without the flag, would
+        // both be worse.
+        var qname    = $"zz.{OptOutZone}.";
+        var response = await Ask(optOutServer, qname, RawDnsType.A);
+        var nsec3s   = response.Authorities.Where(rr => rr.Type == RawDnsType.NSEC3).ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode, Is.EqualTo(3), "NXDOMAIN");
+
+            Assert.That(nsec3s.Any(rr => Nsec3Covers(rr, qname)), Is.True,
+                        "the name is covered");
+
+            Assert.That(nsec3s.All(rr => (rr.Rdata[1] & 0x01) != 0), Is.True,
+                        "and every record in the proof carries the Opt-Out flag, so a validator " +
+                        "knows the denial is weaker than it looks");
+
+        });
+
+    }
+
+    #endregion
 
     #region Oversized_Signed_Answer_Truncates_And_Survives_Over_Tcp()
 

@@ -1,43 +1,43 @@
 ecdsa.dnssec.test.			      3600 IN SOA	ns1.ecdsa.dnssec.test. hostmaster.ecdsa.dnssec.test. 2026072502 7200 3600 1209600 3600
-ecdsa.dnssec.test.			      3600 IN RRSIG	SOA 13 3 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. ZQIYo4WBwCirRuPjv7SHq6iZxWSBIEnxdjEykwiKjud9Ie9p9IL5SMta SG2DRlulw3RyqvSOUhSY5791y4F1oQ==
-; resign=20260911045649
+ecdsa.dnssec.test.			      3600 IN RRSIG	SOA 13 3 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. PBf8M7+vW3AlD87tjzNaUS+8s4spj6kOipVkdIZvccw3TeXOaHSk5bPH BW70surUnj1ngjzyo8kSblh+vy+AtQ==
+; resign=20260912083119
 ecdsa.dnssec.test.			      3600 IN NS	ns1.ecdsa.dnssec.test.
-ecdsa.dnssec.test.			      3600 IN RRSIG	NS 13 3 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. M0FwFhpyiEw3Ak3aNT3qO74nPRu1WKOfwiwwnNl5kpPazmgupmXKTLmh f3vIX4RaAK9FV52jYZhAioBlSIGRyw==
-; resign=20260911045649
+ecdsa.dnssec.test.			      3600 IN RRSIG	NS 13 3 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. 7aR2/0jlxD7F+qZ30jmP9BWgl73qQy560XYfHNfSXh/NYZXUPMJAAkAw Y4ncNrNekgNw2lhj53fuX0MpS9MFJQ==
+; resign=20260912083119
 ecdsa.dnssec.test.			      3600 IN NSEC	a.ecdsa.dnssec.test. NS SOA RRSIG NSEC DNSKEY
-ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 3 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. JfXssAyf8WzMxD/yyMyHGBVnXaFXSaGQ2Q4VN7l4Je4CfkdZrpWZ4ozI tljVfbfNXq7stnu4aVosOleIfjXTCw==
-; resign=20260911045649
-ecdsa.dnssec.test.			      3600 IN DNSKEY	256 3 13 OwEn/fqytzlaJ15lM4U62uIWhVPKZLQUYIi0DcQlK50QRo0v/pEXjaMS /yp/MGJWW8hiJXxQzRdP5O+danf4qw==
-ecdsa.dnssec.test.			      3600 IN DNSKEY	257 3 13 lTO47F4mOlPro55XsKnK3L8OMy/RGf9e/SOlVjVs2oWeiolvTpx4WF3l h6fxuKntMtcVHP4P+b4r/za3fuyG3Q==
-ecdsa.dnssec.test.			      3600 IN RRSIG	DNSKEY 13 3 3600 20260911045649 20260812045649 32178 ecdsa.dnssec.test. A/BFcKv4ejgUJgL0zn/NXvkVZ9N8tbJTPywenwJMxDQti+j+qfqQ/rt3 X1Kd9uY+fpW8oIcGhwkiiEaWpsd4Bw==
-; resign=20260911045649
+ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 3 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. mDGCryXSqopOdHjiWDJFR2tljmXtELQ4G3M0AoUimVYobTNeUow7xQmt JBzuRsEiYCcEANhIr3lquU5J3IAydA==
+; resign=20260912083119
+ecdsa.dnssec.test.			      3600 IN DNSKEY	256 3 13 amCmN1uixPy74EPYcg7Md0bHNR2KmBesEr4cM3QVgtB9KwvempsDzxNA 1TbQHIpR7fKZzjl6F6gVrtolo6gPEg==
+ecdsa.dnssec.test.			      3600 IN DNSKEY	257 3 13 TbA+7z/QZyFGR7MA2krbGNKJSdHzVEGUcM/Axqpga40+7bNjE9WjwcHN 6jzliy+e3JLO4NbMSpCD0sKIIPGalA==
+ecdsa.dnssec.test.			      3600 IN RRSIG	DNSKEY 13 3 3600 20260912083119 20260813083119 47329 ecdsa.dnssec.test. hpO5isetJuRDhTHNLonbqipnPZuEgXwt6Q1UhxP8xJjYvSyLpeN19TFC Yz03ETQvkDSQel7Vc4P9hrB3nga0Lw==
+; resign=20260912083119
 a.ecdsa.dnssec.test.			      3600 IN A		192.0.2.13
-a.ecdsa.dnssec.test.			      3600 IN RRSIG	A 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. KmZT/JrwySHndSLBvQJzW/dFF5U7FWb02ktBAlgbMq7qf910znIXQDot XtNPeys6oBsAd0uOTpQw5YxE+BzBhA==
-; resign=20260911045649
+a.ecdsa.dnssec.test.			      3600 IN RRSIG	A 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. 3UeIlK74Eph9vkaq0KKE0D5tSGdAP8LaqTe/GAqo5pUbLsok1ULU8nwF PxL86o7jigXCzp0hF7+WG3Xq081q7g==
+; resign=20260912083119
 a.ecdsa.dnssec.test.			      3600 IN NSEC	aaaa.ecdsa.dnssec.test. A RRSIG NSEC
-a.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. b6mkyX1d2J7HSILKegn9yYrL90Qk+FUAC0Q5c5hznvo2fzJQ0e33Gs/F HOBALhHeTS0ZlB+8MSL8QFxciB1ozA==
-; resign=20260911045649
+a.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. 2OwHbS91JnAvX/5RDvimN5HBV8sfJFwFCDX283zr1e+XOMw51eH9cCxV ZZRmQnUzu4hk1ndc6DR5DhCLiu45qQ==
+; resign=20260912083119
 aaaa.ecdsa.dnssec.test.			      3600 IN AAAA	2001:db8::13
-aaaa.ecdsa.dnssec.test.			      3600 IN RRSIG	AAAA 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. Ro+NxRx3KXQYJxvcdArvfQ9d/WypSEwHjxfVp6t9RJtXFboWf9D3nNsO ee6MKcUpkwyW8cTsMTl+FfWLQMlcnQ==
-; resign=20260911045649
+aaaa.ecdsa.dnssec.test.			      3600 IN RRSIG	AAAA 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. hrBrVhcuFrO+4M2Oxu6QCfNS50j6/cdDSL7qOPMYtyjJOXYw8ucviKXX T5HUUs+FVzeqar4lFOcjPLxC88a5Yw==
+; resign=20260912083119
 aaaa.ecdsa.dnssec.test.			      3600 IN NSEC	ns1.ecdsa.dnssec.test. AAAA RRSIG NSEC
-aaaa.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. ZSww8bhK4hpYzSALyycO7CfTYSq0SAFPxHl70Nue9vbhXzBGNzc4puXy lv3HLJMaTygTrcb2NURP6XBimEww2w==
-; resign=20260911045649
+aaaa.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. V3F0q9mUf21NpWBWwx7qqVM/sRH9A4LoFElA82CzFGcQvRml4N67bgRK TB/QkLZnnHwQ/sYaNPiIhYeE40dhXA==
+; resign=20260912083119
 ns1.ecdsa.dnssec.test.			      3600 IN A		192.0.2.54
-ns1.ecdsa.dnssec.test.			      3600 IN RRSIG	A 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. Y74mbtk4x1UT3v/yTm/0/q/QhcpKePE4TDCPMUoBVLWN1VMAxrwSTp3N 8LsvoXnaflEAKkZ3UlCWMQVB/4eGOQ==
-; resign=20260911045649
+ns1.ecdsa.dnssec.test.			      3600 IN RRSIG	A 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. htPWBijppq4l1WsENXOsS4uM7liueeJE49jYK6Hv/MVrYbptNT4nxgEU RhbV4+PFtDdHLD+TGNa6n938LJAkAg==
+; resign=20260912083119
 ns1.ecdsa.dnssec.test.			      3600 IN NSEC	txt.ecdsa.dnssec.test. A RRSIG NSEC
-ns1.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. +Am7mIXIgE7wGW2jQhX+QVyixj+aZmGlq6fjtxTLptrFu2LyDDB1AG4e cxfNVZrkfNTzu6Qih+rOSgxTRhgDRQ==
-; resign=20260911045649
+ns1.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. URVuOx6DfM+PGhjv4F7TqXuVfUnG2eYr7PAi4e0veOyWTojp1hp2S1Xn A+61HylG9JWbM3yMx+YNqb8J7LAI9g==
+; resign=20260912083119
 txt.ecdsa.dnssec.test.			      3600 IN TXT	"signed by BIND with ECDSA P-256"
-txt.ecdsa.dnssec.test.			      3600 IN RRSIG	TXT 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. WZ/vTGI3IBG1554qy2Q9/TP0LfYU8EfeQYFWxYO/REDaUMev1s7RUson J29mFB7V04M8dHsSlMosFYPL8Lb5dg==
-; resign=20260911045649
+txt.ecdsa.dnssec.test.			      3600 IN RRSIG	TXT 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. o9wE8nFDkKZzXTxTpwUwHvZo7Qc40Dl9j44OvMDp4sSkXBYW1iwRswZP YjawVxu4h5fQXuJltVJQidEW5I1qpg==
+; resign=20260912083119
 txt.ecdsa.dnssec.test.			      3600 IN NSEC	*.wild.ecdsa.dnssec.test. TXT RRSIG NSEC
-txt.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. qsksTr15wIdKUHPI9tEZWbQMTJFAxp1rTHOC9VI80C0z8zZ+wlwuTuoG 7ps+uwk3/+VzYtX0Fzxcwwo3ij80hA==
-; resign=20260911045649
+txt.ecdsa.dnssec.test.			      3600 IN RRSIG	NSEC 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. nxcj8+IGeTo51G/TDQVG6fQYpkgZ2Hn9SAy/KgVTbEgX9BvZnZsWa0nQ xh+Awys+cY777mHhaW8fFj3hTRZ7nQ==
+; resign=20260912083119
 *.wild.ecdsa.dnssec.test.		      3600 IN A		192.0.2.77
-*.wild.ecdsa.dnssec.test.		      3600 IN RRSIG	A 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. 4BERGSvcmf98aHWMVmNvFwzmThu+TBYO2xVvr8WOYH1StufkG9fzbQg9 AqML60Fa+8ORX1t/j9CythL+JH+n1w==
-; resign=20260911045649
+*.wild.ecdsa.dnssec.test.		      3600 IN RRSIG	A 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. MkjhyIawviGOlG+zYp0NWLdJ/JLkvPv4PwNPQrhZorUGGry7/d5XCsGR 6Vhr2kkJTCp5yes+VOsYffS6qK54Aw==
+; resign=20260912083119
 *.wild.ecdsa.dnssec.test.		      3600 IN NSEC	ecdsa.dnssec.test. A RRSIG NSEC
-*.wild.ecdsa.dnssec.test.		      3600 IN RRSIG	NSEC 13 4 3600 20260911045649 20260812045649 2934 ecdsa.dnssec.test. 2+MOCCfQFsvLWulEX6hW1WmM6an1sKddPCn+74xd1EFyFqjq4o6o+p9u EqSJlGy0YUkixNhGWcPDF0xmxwjGWg==
-; resign=20260911045649
+*.wild.ecdsa.dnssec.test.		      3600 IN RRSIG	NSEC 13 4 3600 20260912083119 20260813083119 40271 ecdsa.dnssec.test. Tw/b056JMYUM/9CCfdRpzN3p95TIZ1tW5mDx+F4NXR7qpUFQRxSuUvPy hkGZFSf7PUT4T2Ie40R7f7NdZ3T6gA==
+; resign=20260912083119
