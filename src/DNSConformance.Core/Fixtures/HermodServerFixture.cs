@@ -47,6 +47,12 @@ public sealed class HermodServerFixtureOptions
     /// <summary>The key the server signs replies to SIG(0)-signed requests with. Null leaves them unsigned.</summary>
     public SIG0Key?              SIG0ResponseKey  { get; init; }
 
+    /// <summary>The secret the server issues DNS Cookies with (RFC 7873). Null leaves cookies off.</summary>
+    public Byte[]?               DNSCookieSecret  { get; init; }
+
+    /// <summary>Whether a query must return a valid server cookie to be answered (RFC 7873 §5.2.3).</summary>
+    public Boolean               RequireDNSCookies { get; init; }
+
 }
 
 
@@ -115,7 +121,11 @@ public sealed class HermodServerFixture : IAsyncDisposable
 
             var server = new DNSServer(
 
-                             new AuthoritativeDNSRequestHandler(zone),
+                             new AuthoritativeDNSRequestHandler(
+                                 zone,
+                                 DNSCookieSecret:    Options.DNSCookieSecret,
+                                 RequireDNSCookies:  Options.RequireDNSCookies
+                             ),
 
                              new DNSServerOptions {
 

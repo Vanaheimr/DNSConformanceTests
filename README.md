@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 595 tests · 582 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 628 tests · 615 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 24 RFC deviations in Hermod. All are fixed;
+The suite has found 25 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -145,7 +145,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **7830**, **8467** | Padding | all-zero octets, 128-byte query and 468-byte response blocks |
 | **7858** | DoT | client and server; framing over TLS, session reuse (3 queries → 1 handshake) |
 | **7871** | Client Subnet | family, prefix length, address truncated to the prefix |
-| **7873** | Cookies | 8-byte initial client cookie encoding |
+| **7873** | Cookies | the protocol, not only the encoding. Client (§5.3): a response echoing a client cookie that was never sent is discarded, and only the *server* half of a returned cookie is ever stored — the client cookie is the one unpredictable value in the mechanism, and a peer able to set it has neutralised it. BADCOOKIE is retried once with the cookie the response supplied. Server (§5.2): a server cookie bound to the client cookie, the client's address and a timestamp, BADCOOKIE with a fresh cookie when it is missing or wrong, FORMERR for the option lengths §5.2.2 rules out, and no change at all to a query that carries no cookie |
 | **7929** | OPENPGPKEY | binary blob |
 | **8080** | Ed25519, Ed448 | both directions. Verifying: raw 32/57-octet keys against BIND-signed fixtures. Signing: all four §6 examples reproduced as exact byte strings — which EdDSA's determinism (RFC 8032 §5.1.6) makes possible and which a sign-then-verify round trip could not do, since pre-hashing or a non-empty Ed448 context verifies against itself and nothing else. Public keys derived from the private half rather than carried beside it, and SIG(0) signed with all six algorithms RFC 8624 §3.1 permits, end to end over a socket |
 | **8198** | Aggressive NSEC caching | ranges judged in canonical order, not string order; the zone taken from the SOA rather than guessed; and an NSEC that was never DNSSEC-validated never reaches the cache |
@@ -189,7 +189,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
 | **7344** | the delete sentinel (algorithm 0) | — |
-| **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
