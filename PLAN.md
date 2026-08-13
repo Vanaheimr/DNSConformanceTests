@@ -111,7 +111,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **568 tests, 555 ✅, 0 ❌, 13 skipped** — 496
+Counts as of the 2026-08-13 run: **595 tests, 582 ✅, 0 ❌, 13 skipped** — 523
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
 BIND as a peer skip without it. All twenty-four deviations the suite found are
 fixed; see [FINDINGS.md](FINDINGS.md).
@@ -282,6 +282,8 @@ side of the connection.
 | 4034 §5.1 | **every algorithm the validator claims** — 5, 7, 10, 13, 14, 15, 16 — each against a zone BIND signed with it: key shape, A/AAAA/TXT/SOA/NS RRSIGs, DS digest, tampered RDATA and wrong-key rejection | ✅ |
 | 6605 | ECDSA P-256 (13) and P-384 (14): fixed-width r\|\|s, 64/96-octet keys | ✅ |
 | 8080 | Ed25519 (15) and Ed448 (16): raw 32/57-octet keys, verified via BouncyCastle | ✅ |
+| 8080 §6 | signing: all four published examples reproduced byte for byte, public keys derived from the private half, fixed lengths, wrong-length and wrong-shape keys refused | ✅ |
+| 8080 + 2931 | SIG(0) signed and verified with every algorithm RFC 8624 §3.1 allows a signer to choose — 8, 10, 13, 14, 15, 16 — over a socket, each with a wrong-key control | ✅ |
 | 8624 | RSA/SHA-1 (5, 7) still validates — deprecated for signing, not for verifying | ✅ |
 | 4035 §4.3 | Secure / Insecure / Bogus / Indeterminate classification via `ValidateAsync` | ✅ |
 | 4034 §3.1.5 | expired and not-yet-valid signatures are Bogus | ✅ |

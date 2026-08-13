@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 568 tests · 555 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 595 tests · 582 ✅ · 0 ❌ · 13 skipped.**
 
 The suite has found 24 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -147,7 +147,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **7871** | Client Subnet | family, prefix length, address truncated to the prefix |
 | **7873** | Cookies | 8-byte initial client cookie encoding |
 | **7929** | OPENPGPKEY | binary blob |
-| **8080** | Ed25519, Ed448 | raw 32/57-octet keys, cross-checked with BouncyCastle |
+| **8080** | Ed25519, Ed448 | both directions. Verifying: raw 32/57-octet keys against BIND-signed fixtures. Signing: all four §6 examples reproduced as exact byte strings — which EdDSA's determinism (RFC 8032 §5.1.6) makes possible and which a sign-then-verify round trip could not do, since pre-hashing or a non-empty Ed448 context verifies against itself and nothing else. Public keys derived from the private half rather than carried beside it, and SIG(0) signed with all six algorithms RFC 8624 §3.1 permits, end to end over a socket |
 | **8198** | Aggressive NSEC caching | ranges judged in canonical order, not string order; the zone taken from the SOA rather than guessed; and an NSEC that was never DNSSEC-validated never reaches the cache |
 | **8310** §8.1 | DoT auth profile | a rejecting certificate validator means no query leaves the host |
 | **8484** | DoH | GET `?dns=` base64url **unpadded**, POST content types, no trailing bytes, HTTP errors never reach the wire parser |
@@ -190,7 +190,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
-| **8080** (SIG(0)) | signing with Ed25519 and Ed448; verification covers both, and the private-key half is not wired up | needs BouncyCastle's signer, as the verifier already uses |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
