@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 709 tests · 696 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 718 tests · 705 ✅ · 0 ❌ · 13 skipped.**
 
 The suite has found 29 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -147,6 +147,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **7858** | DoT | client and server; framing over TLS, session reuse (3 queries → 1 handshake) |
 | **7871** | Client Subnet | family, prefix length, address truncated to the prefix |
 | **7873** | Cookies | the protocol, not only the encoding. Client (§5.3): a response echoing a client cookie that was never sent is discarded, and only the *server* half of a returned cookie is ever stored — the client cookie is the one unpredictable value in the mechanism, and a peer able to set it has neutralised it. BADCOOKIE is retried once with the cookie the response supplied. Server (§5.2): a server cookie bound to the client cookie, the client's address and a timestamp, BADCOOKIE with a fresh cookie when it is missing or wrong, FORMERR for the option lengths §5.2.2 rules out, and no change at all to a query that carries no cookie. §4.1: the client cookie is *derived* from the client address, the server address and a client secret rather than remembered — stable per server, different for any two servers (the MUST in that paragraph), and changing by itself when this host's address does, which is what the client address is in the input for |
+| **9018** | Interoperable server cookies | §4's structure and §4.4's `SipHash-2-4(Client Cookie \| Version \| Reserved \| Timestamp \| Client-IP, Server Secret)`, pinned to all four vectors of Appendix A — including the byte order §4.4 does not state and the vectors settle. §4.3's timestamp window compared with RFC 1982 serial arithmetic, so the 2106 wrap does not make every fresh cookie look 136 years old |
 | **7929** | OPENPGPKEY | binary blob |
 | **8080** | Ed25519, Ed448 | both directions. Verifying: raw 32/57-octet keys against BIND-signed fixtures. Signing: all four §6 examples reproduced as exact byte strings — which EdDSA's determinism (RFC 8032 §5.1.6) makes possible and which a sign-then-verify round trip could not do, since pre-hashing or a non-empty Ed448 context verifies against itself and nothing else. Public keys derived from the private half rather than carried beside it, and SIG(0) signed with all six algorithms RFC 8624 §3.1 permits, end to end over a socket |
 | **8198** | Aggressive NSEC caching | ranges judged in canonical order, not string order; the zone taken from the SOA rather than guessed; and an NSEC that was never DNSSEC-validated never reaches the cache |
