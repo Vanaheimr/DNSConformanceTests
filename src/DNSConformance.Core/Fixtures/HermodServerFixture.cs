@@ -144,16 +144,17 @@ public sealed class HermodServerFixture : IAsyncDisposable
                 continue;
             }
 
-            // Start() does not report a failed bind synchronously — the listeners
-            // come up on background tasks — so a port that could not be taken
-            // leaves the socket unset and the port reading as 0. Checking the
-            // ports rather than trusting the absence of an exception is the
-            // difference between retrying and handing back a server nothing can
-            // reach: an external tool then gets "-p 0", times out, and the test
-            // skips itself with a message about the firewall.
-            var bound = (!Options.EnableUdp || server.ActiveUDPUnicastSocket is not null) &&
-                        (!Options.EnableTcp || server.ActiveTCPUnicastSocket is not null) &&
-                        (!Options.EnableTls || server.ActiveTLSUnicastSocket is not null);
+            // Start() does not report a failed bind synchronously: it kicks off a
+            // listener task per transport, and each task binds its socket and
+            // publishes the endpoint from inside. So "no exception" means only
+            // that the tasks were started, and a port that could not be taken
+            // leaves the socket unset and the port reading as 0 — an external
+            // tool then gets "-p 0", times out, and the test blames the firewall.
+            //
+            // Waiting rather than checking once is what separates "not yet" from
+            // "never": the endpoints appear a moment after Start() returns, and a
+            // check without a deadline reports every server as broken.
+            var bound = await WaitForListeners(server, Options, TimeSpan.FromSeconds(5));
 
             if (!bound && attempt < attempts - 1)
             {
@@ -170,6 +171,37 @@ public sealed class HermodServerFixture : IAsyncDisposable
                       );
 
             return new HermodServerFixture(server, zone, certificate);
+
+        }
+
+    }
+
+
+    /// <summary>
+    /// Wait until every enabled listener has published its endpoint, or the
+    /// deadline passes.
+    /// </summary>
+    private static async Task<Boolean> WaitForListeners(DNSServer                   Server,
+                                                        HermodServerFixtureOptions  Options,
+                                                        TimeSpan                    Deadline)
+    {
+
+        var until = DateTimeOffset.UtcNow + Deadline;
+
+        while (true)
+        {
+
+            if ((!Options.EnableUdp || Server.ActiveUDPUnicastSocket is not null) &&
+                (!Options.EnableTcp || Server.ActiveTCPUnicastSocket is not null) &&
+                (!Options.EnableTls || Server.ActiveTLSUnicastSocket is not null))
+            {
+                return true;
+            }
+
+            if (DateTimeOffset.UtcNow >= until)
+                return false;
+
+            await Task.Delay(20);
 
         }
 
