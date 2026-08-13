@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Twenty-four RFC deviations in the Hermod DNS stack, each
+What this suite caught. Twenty-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -40,16 +40,17 @@ what is queued, what is out of scope — are not here at all; they live in
 | 22 | Names in the RDATA of post-1035 types were compressed | Medium | 3597 §4 | ✅ fixed |
 | 23 | A bare decimal in a zone-file line was read as a class, not a TTL | Medium | 3597 §5 | ✅ fixed |
 | 24 | The resolver's DNAME substitution matched characters, not labels | **High** | 6672 §2.2, §2.3 | ✅ fixed |
+| 25 | One spoofed response replaced the client's DNS Cookie for good | **High** | 7873 §5.3 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last eleven were found *after* the first eight were already fixed, by tests
+The last twelve were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
 the queued list in the README: untested working code is where the next one will
-be. Findings 21 and 23 make a sharper version of the same point — both sit in
-code that an *earlier* finding had already visited and fixed.
+be. Findings 21, 23 and 25 make a sharper version of the same point — all three
+sit in code that was already there and already believed to work.
 
 ---
 
@@ -923,6 +924,64 @@ answering.
 set of reserved codes it reads as. Nothing referenced it, so nothing was broken;
 it is noted because it stood exactly where YXDOMAIN (6) had to go. The RCODEs
 RFC 2136 §2.2 defines now have their own names.
+
+---
+
+## 25 — One spoofed response replaced the client's DNS Cookie for good
+
+*RFC 7873 §5.3*, one sentence:
+
+> A DNS client where DNS Cookies are implemented and enabled examines the
+> response for DNS Cookies and MUST discard the response if it contains an
+> illegal COOKIE option length or an incorrect Client Cookie value.
+
+`DNSClient` did no comparison at all. `ExtractAndStoreCookie` took the COOKIE
+option out of the response and kept it:
+
+```csharp
+if (responseCookie?.HasServerCookie == true)
+    cookieStore[ServerKey] = responseCookie;
+```
+
+Two things are wrong with that, and the second is much worse than the first.
+
+**The response was not discarded.** A cookie exists to make one claim: the client
+cookie is an unpredictable value that comes back only from someone who saw the
+query. A response echoing a different one is, by construction, from someone who
+did not — and it was accepted and served to the caller.
+
+**And the stored cookie included the client half.** The next query to that server
+therefore carried the client cookie *from the response*. So a single spoofed
+packet did not merely get through: it replaced the client's own unpredictable
+value with one the attacker had chosen, for as long as the entry lived. Every
+later query then advertised a cookie the attacker knew, every later spoof could
+echo it, and every one of those responses passed the check that was not being
+made anyway. The mechanism disabled itself, permanently, from one packet — and
+the more the client used it, the more thoroughly it was disabled.
+
+Measured before the fix: with a scripted peer answering with the client cookie
+`AA…` where `A9983FAE6841C902` had been sent, the response was accepted with
+NOERROR and one answer, and the next query went out carrying `AAAAAAAAAAAAAAAA`.
+
+**Fix.** The client cookie of a response is compared with the one that was sent,
+and the response is dropped when they differ. Only the *server* half of the
+returned cookie is stored, joined to the client cookie the client already had —
+which makes the stored value right independently of the comparison above it. And
+`EDNSCookieOption.Parse` now states RFC 7873 §5.2.2's rule in one place: 8 octets,
+or 16 to 40, and nothing in between.
+
+Verified by `A_Forged_Client_Cookie_Does_Not_Replace_The_Clients_Own`, which
+asserts on the *second* query rather than the first, and by
+`A_Response_Echoing_A_Foreign_Client_Cookie_Is_Discarded`.
+
+**What was missing rather than wrong.** The server had no cookie support and the
+client never acted on BADCOOKIE, so the protocol of RFC 7873 §5.2 existed
+nowhere: Hermod could encode a cookie and remember one, which is the part that
+costs nothing and buys nothing. A server that issues no cookie can never be
+returned one, and a client that treats BADCOOKIE as an error can never talk to a
+server that requires them. Both halves are implemented now, with the server
+cookie bound to the client cookie, the client's address and a timestamp — the
+three things that separate a proof of return-routability from a bearer token.
 
 
 ---

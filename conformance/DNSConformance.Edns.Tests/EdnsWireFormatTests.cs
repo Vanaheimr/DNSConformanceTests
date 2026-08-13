@@ -100,6 +100,43 @@ public class EdnsWireFormatTests
     #endregion
 
 
+    #region Cookie_Option_Lengths_Are_Eight_Or_Sixteen_To_Forty()
+
+    [TestCase(0,  false, TestName = "Cookie_length__empty")]
+    [TestCase(7,  false, TestName = "Cookie_length__one_short_of_a_client_cookie")]
+    [TestCase(8,  true,  TestName = "Cookie_length__a_bare_client_cookie")]
+    [TestCase(9,  false, TestName = "Cookie_length__inside_the_gap")]
+    [TestCase(15, false, TestName = "Cookie_length__the_top_of_the_gap")]
+    [TestCase(16, true,  TestName = "Cookie_length__the_smallest_server_cookie")]
+    [TestCase(24, true,  TestName = "Cookie_length__in_between")]
+    [TestCase(40, true,  TestName = "Cookie_length__the_largest_server_cookie")]
+    [TestCase(41, false, TestName = "Cookie_length__one_past_the_maximum")]
+    [Property("RFC", "7873 §5.2.2")]
+    public void Cookie_Option_Lengths_Are_Eight_Or_Sixteen_To_Forty(Int32 Length, Boolean Legal)
+    {
+
+        // §5.2.2 states the rule as a list — "valid cookie lengths are 8 and 16
+        // to 40 inclusive" — and the gap between 8 and 16 is the part that needs
+        // saying. Nine to fifteen octets looks like a client cookie followed by a
+        // short server cookie, and is not: §4.2 gives the server cookie a minimum
+        // of 8, so those lengths are malformed rather than merely unusual.
+        //
+        // The rule is asserted here on its own rather than only through the
+        // FORMERR the server answers, because the server's parse is guarded twice
+        // — once by this rule and once by the constructor's own bounds on the
+        // server cookie — and a redundant guard is exactly what hides a broken
+        // one.
+        Assert.That(EDNSCookieOption.IsValidLength(Length), Is.EqualTo(Legal));
+
+        Assert.That(
+            () => EDNSCookieOption.Parse(new Byte[Length]),
+            Legal ? Throws.Nothing : Throws.InstanceOf<ArgumentException>()
+        );
+
+    }
+
+    #endregion
+
     #region CookieOption_Wire_Format()
 
     [Test]
