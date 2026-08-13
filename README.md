@@ -189,6 +189,7 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
+| **7830**/**8467** | the padding *policies*. The option itself is parsed, and `EDNSPaddingOption.Create` computes a block-aligned length — but nothing calls it, so no query and no response Hermod sends is ever padded | nothing; not done yet |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 

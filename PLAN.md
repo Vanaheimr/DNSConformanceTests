@@ -445,7 +445,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — LOC edge cases and the CDS delete-sentinel remain |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — the DoT padding policies (RFC 7830/8467) remain |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
