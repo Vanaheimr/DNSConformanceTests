@@ -22,18 +22,29 @@ jobs:
     # fail-fast is off on purpose — "red on exactly one platform" is the most
     # informative thing this matrix can produce, so one leg must not cancel the
     # other.
+    #
+    # `leg` exists so the two runs can be told apart by name rather than by
+    # runner image: the Linux leg runs on ubuntu-latest but IS Debian 13, and
+    # an artifact called "test-results-ubuntu-latest" would say the opposite of
+    # what it contains.
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            leg: windows
+            leg: windows-latest
           - os: ubuntu-latest
             container: debian:13
-            leg: debian-13
+            leg: debian-13-container
+    name: ${{ matrix.leg }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
+      # Unlike Hermod, this repository consumes its dependencies as submodules,
+      # so one recursive checkout gets Hermod and Styx at the revisions the
+      # gitlinks name. That is the point: the gate tests the pinned pair, which
+      # is what a fresh clone would build. Testing against Hermod master is the
+      # nightly's job, and deliberately a different question.
       # Before the checkout, and this order is load-bearing. The bare debian:13
       # image ships no git, and without it actions/checkout does not clone — it
       # downloads a tarball through the REST API, which cannot carry submodules
@@ -43,11 +54,6 @@ jobs:
         if: runner.os == 'Linux'
         run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
 
-      # Unlike Hermod, this repository consumes its dependencies as submodules,
-      # so one recursive checkout gets Hermod and Styx at the revisions the
-      # gitlinks name. That is the point: the gate tests the pinned pair, which
-      # is what a fresh clone would build. Testing against Hermod master is the
-      # nightly's job, and deliberately a different question.
       - uses: actions/checkout@v7
         with:
           submodules: recursive
@@ -58,7 +64,7 @@ jobs:
       # Package names are Debian 13 (trixie).
       - name: Install .NET prerequisites (Debian container)
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libicu76 libssl3t64 libstdc++6 tzdata
+        run: apt-get install -y --no-install-recommends curl libicu76 libssl3t64 libstdc++6 tzdata
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -80,17 +86,21 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
-          --logger "trx;LogFileName=offline-${{ matrix.leg }}.trx"
+          --logger "trx;LogFilePrefix=offline"
           --results-directory artifacts
 
-      # TRX rather than the console log, because this suite's output is a set of
-      # conformance verdicts and the interesting ones are per test. It keeps the
-      # skip *reason* against each skipped test, which the console flattens into
-      # a count — and "38 skipped because the tools are missing" and "38 skipped
-      # because a firewall blocked the probe" are entirely different findings.
+      # Which tests ran, which skipped and with what reason is the most useful
+      # thing this workflow knows, and exactly what the console log does not
+      # preserve once a run ages out. TRX keeps it per test, including the skip
+      # reason — one file per test project, which is why this is LogFilePrefix
+      # rather than LogFileName: ten projects writing the same name would
+      # overwrite each other.
       #
-      # !cancelled() rather than always(): a failed run is exactly when these are
-      # worth reading, but a cancelled one has nothing to say.
+      # !cancelled() rather than success(): a red run is when these files
+      # matter most, and uploading only on green would throw away the evidence
+      # in exactly that case. A build that fails before the test step leaves no
+      # .trx at all, which upload-artifact reports as a warning rather than a
+      # second failure — the build error is the finding there.
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

@@ -45,7 +45,7 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed sixteen deviations so far, and all of them are now fixed
+The suite has confirmed seventeen deviations so far, and all of them are now fixed
 in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
 record, with chapter and verse, the mechanism, the change, and the test that
 pins each one. The summary table at the top of that file is the fastest way in.
@@ -109,9 +109,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **390 tests, 390 ✅, 0 ❌** — 329 offline and
-23 online verified on that run, 38 `WSL` skipped behind a firewall rule. All
-sixteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+Counts as of the 2026-08-13 run: **392 tests, 392 ✅, 0 ❌** — 331 offline and
+23 online and 25 interop verified on that run; the 13 tests needing BIND as a
+peer skip without it. All
+seventeen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 

@@ -26,15 +26,18 @@ jobs:
   # The full suite against the pinned submodules, on both platforms.
   # ---------------------------------------------------------------------------
   full-suite:
+    # `leg` names the runs and their artifacts: the Linux leg runs on
+    # ubuntu-latest but IS Debian 13 — see ci.yml.
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            leg: windows
+            leg: windows-latest
           - os: ubuntu-latest
             container: debian:13
-            leg: debian-13
+            leg: debian-13-container
+    name: ${{ matrix.leg }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     steps:
@@ -90,7 +93,7 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
-          --logger "trx;LogFileName=offline-${{ matrix.leg }}.trx"
+          --logger "trx;LogFilePrefix=offline"
           --results-directory artifacts
 
       # Fatal on Linux, where the tools are present and reachable: a red here is
@@ -103,7 +106,7 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory=WSL"
           --logger "console;verbosity=normal"
-          --logger "trx;LogFileName=interop-${{ matrix.leg }}.trx"
+          --logger "trx;LogFilePrefix=interop"
           --results-directory artifacts
 
       # Informational, and it has to be. These query Cloudflare, Google and
@@ -121,8 +124,7 @@ jobs:
           set +e
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
             --filter "TestCategory=Online" --logger "console;verbosity=normal" \
-            --logger "trx;LogFileName=online-${{ matrix.leg }}.trx" \
-            --results-directory artifacts 2>&1 | tee online.txt
+            --logger "trx;LogFilePrefix=online" --results-directory artifacts 2>&1 | tee online.txt
           {
             echo '## Live resolvers (informational, ${{ runner.os }})'
             echo
@@ -134,16 +136,19 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit 0
 
-      # All three lanes in one artifact per platform. TRX keeps the skip reason
-      # against each skipped test, which is what makes this lane readable at
-      # all: "38 skipped" says nothing, while "skipped: 'kdig' not found on the
-      # PATH" and "skipped: WSL cannot reach the server" are different findings
-      # with different fixes.
+      # One artifact per leg, holding every lane's TRX files. The interop and
+      # live lanes run only in this workflow, so their per-test outcomes —
+      # including every skip reason — exist nowhere else once the console log
+      # ages out.
+      #
+      # !cancelled() rather than success(): a red night is when these files
+      # matter most, and uploading only on green would throw away the evidence
+      # in exactly that case.
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-nightly-${{ matrix.leg }}
+          name: test-results-${{ matrix.leg }}
           path: artifacts/*.trx
 
   # ---------------------------------------------------------------------------
@@ -196,13 +201,10 @@ jobs:
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
           --logger "console;verbosity=normal"
-          --logger "trx;LogFileName=against-hermod-master.trx"
+          --logger "trx;LogFilePrefix=offline"
           --results-directory artifacts
 
-      # The most valuable artifact this repository produces. When the referee
-      # goes red, the useful answer is *which* assertion Hermod stopped
-      # satisfying — that is a conformance finding, and it should outlive the
-      # log retention window rather than being scrolled past.
+      # Same reasoning as the full suite: red is when the evidence matters.
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
