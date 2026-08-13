@@ -40,12 +40,14 @@ unbiased referee, and be run against any Hermod revision.
 | Client transports | `DNSUDPClient` (with TCP fallback on TC), `DNSTCPClient`, `DNSTLSClient` (DoT, custom cert validation), `DNSHTTPSClient` (DoH: GET base64url, POST binary, Google/Cloudflare JSON; plain-HTTP test modes) |
 | Client orchestration | `DNSClient`: multi-server race, SERVFAIL retry, pooling, positive cache, NODATA negative cache (2308), aggressive NSEC cache (8198), CNAME/DNAME chasing with loop detection (6672), auto DNS Cookies, auto Client Subnet, DNSSEC validation hook |
 | Server | `DNSServer`: UDP unicast + multicast, TCP, **TLS (DoT server)**; `AuthoritativeDNSRequestHandler` + `InMemoryDNSZone` (`Add/Set/Remove/AddZoneFileString`); opcode≠0 → NOTIMP, zero questions → FORMERR, NXDOMAIN vs NODATA |
-| DNSSEC | `DNSSECValidator`: `ValidateRRSig` (RFC 4034 §3), `VerifyDS` (§5, SHA-1/256/384), `ComputeKeyTag` (App. B), chain-of-trust walk, IANA root trust anchor (KeyTag 20326), RFC 5011 rollover with hold-down |
+| Zone | `InMemoryDNSZone` is a zone once it holds an SOA: apex-aware, RFC 1034 §4.3.2 lookup with delegations as referrals, empty non-terminals, RFC 4592 wildcard synthesis, SOA cited on every negative answer (2308 §3). Given a pre-signed zone it also serves it — RRSIGs and NSEC/NSEC3 proofs selected per RFC 4035 §3.1 and RFC 5155 §7, gated on the DO bit. It does not *sign*: `ZoneDenialOfExistence` selects, never invents |
+| DNSSEC | `DNSSECValidator`: `ValidateRRSig` (RFC 4034 §3), `VerifyDS` (§5, SHA-1/256/384), `ComputeKeyTag` (App. B), chain-of-trust walk, IANA root trust anchor (KeyTag 20326), RFC 5011 rollover with hold-down. `DNSSECSigning` is the other direction — signatures and public-key encodings for algorithms 8, 10, 13 and 14 |
+| Transaction security | `TSIGSigner` (RFC 8945, shared secret) and `SIG0Signer` (RFC 2931, public key) over wire bytes; `TKEYExchange` for the Diffie-Hellman mode of RFC 2930 |
 | Not present | DoH **server** (client only), zone transfer (AXFR/IXFR), dynamic update (RFC 2136) |
 
 ### Deviations found, and their fate
 
-The suite has confirmed seventeen deviations so far, and all of them are now fixed
+The suite has confirmed eighteen deviations so far, and all of them are now fixed
 in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
 record, with chapter and verse, the mechanism, the change, and the test that
 pins each one. The summary table at the top of that file is the fastest way in.
@@ -109,10 +111,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **392 tests, 392 ✅, 0 ❌** — 331 offline and
+Counts as of the 2026-08-13 run: **440 tests, 440 ✅, 0 ❌** — 379 offline and
 23 online and 25 interop verified on that run; the 13 tests needing BIND as a
 peer skip without it. All
-seventeen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
+eighteen deviations the suite found are fixed; see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -222,7 +224,10 @@ round-trip where supported.
 | 1035 §4.1.1 | unparseable request → FORMERR rather than silence | ✅ |
 | 2181 §10.1 | no non-CNAME data is owned by an alias | ✅ |
 | 1034 §4.3.2 | a CNAME answers queries of every type at that name; chains are followed within the zone and cycles terminate | ✅ |
-| 4592 | wildcard matching (needs zone-store support) | ⬜ |
+| 4592 §3.3.1 | wildcard matching: synthesis at the closest encloser only, beaten by an exact match, blocked by an empty non-terminal, covering more than one label, NODATA for a type the wildcard lacks — and the answer carrying the queried name | ✅ |
+| 4592 §2.2.2 | an empty non-terminal exists: NODATA rather than NXDOMAIN, and no wildcard applies to it | ✅ |
+| 1034 §4.3.2 | a zone cut ends the search: NS records in the authority section, in-subtree glue in the additional section, AA clear — while the apex's own NS records are not a delegation | ✅ |
+| 2308 §3 | every NXDOMAIN and NODATA cites the zone's SOA, so the answer can be cached | ✅ |
 
 ### 4.6 Secure transports (`DNSConformance.SecureTransports.Tests`)
 
@@ -273,7 +278,10 @@ side of the connection.
 | 4592 §2.1.1 | wildcard owner names round-trip; the `*` label is accepted leftmost only, and never by the strict hostname parser | ✅ |
 | 5155 App. A | NSEC3 hash vectors: all twelve hashed owner names, salt per iteration, canonical-wire input, Base32hex | ✅ |
 | 5155 §8, 4035 §5.4 | authenticated denial of existence: match/cover, closest encloser, opt-out, wildcard NODATA, and canonical ordering against the §6.1 list | ✅ |
+| 4035 §3.1, 5155 §7 | the *serving* side, against the BIND-signed fixture zones: RRSIGs with the answer and denial records with the "no", both gated on the DO bit; NSEC and NSEC3 NXDOMAIN and NODATA proofs; a wildcard answer keeping its RRSIG's `labels` field and carrying the proof the queried name was absent; no spare NSEC3s | ✅ |
 | 8945 | TSIG: MAC over the §4.3.3 variables, CLASS/TTL/placement, BADSIG vs BADKEY vs BADTIME, fudge window, rewritten ID, request-bound responses | ✅ |
+| 2931 | SIG(0): the §3 record shape, the §3.1 signed data for both the request and the transaction form, ARCOUNT taken before the record was appended, tampering and foreign keys and the validity window all rejected | ✅ |
+| 3110 §2, 6605 §4 | public key encodings: RSA's length-prefixed exponent then modulus, ECDSA's bare curve point with no 0x04 marker | ✅ |
 
 ### 4.8 Interop projects
 

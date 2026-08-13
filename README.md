@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 392 tests · 392 ✅ · 0 ❌.**
+**Current status: 440 tests · 440 ✅ · 0 ❌.**
 
-The suite has found 17 RFC deviations in Hermod. All are fixed;
+The suite has found 18 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -110,24 +110,25 @@ names it in a `[Property("RFC", …)]` attribute.
 
 | RFC | Topic | What the suite pins down |
 |-----|-------|--------------------------|
-| **1034** | Domain concepts | the CNAME rule (§4.3.2) — an alias answers *every* QTYPE; chains followed in-zone, cycles terminate |
+| **1034** | Domain concepts | the CNAME rule (§4.3.2) — an alias answers *every* QTYPE; chains followed in-zone, cycles terminate. Zone cuts end the search: a name below a delegation is answered with the child's NS records and glue, AA clear, while the apex's own NS records are not a delegation to itself |
 | **1035** | Message format | header bit positions, question encoding, name limits (63/255), compression pointers both directions, case preserved byte-exactly, UDP truncation, FORMERR |
 | **1183** | RP, AFSDB | two-name RDATA |
 | **2181** §10.1 | Clarifications | an alias owns no other data |
-| **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA |
+| **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA — and on the serving side (§3) every negative answer cites the zone's SOA, without which none of the above has anything to work from |
 | **2535** §3, **3445** | KEY | wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
 | **2539** | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; a well-known-group index refused rather than read as a literal prime; truncated and over-long RDATA rejected |
 | **2782** | SRV | priority/weight/port/target, no RDATA compression on emit |
 | **2930** §4.1 | TKEY, Diffie-Hellman mode | keying material against the §4.1 formula applied by hand; nonce order not interchangeable; the derived secret actually signs and verifies as a TSIG key |
+| **2931** | SIG(0) | the record shape §3 asks for — root owner, class ANY, TTL 0, type covered 0 — and the signed data of §3.1 assembled by hand and checked with the platform's own RSA and ECDSA rather than with Hermod's verifier: `RDATA \| request` for a query, `RDATA \| query \| response` for a transaction, over the message *before* ARCOUNT counted the SIG(0). Tampering, a foreign key, the right key under the wrong name, and both ends of the validity window all rejected; RSA/SHA-1 refused for signing and still accepted for verifying (RFC 8624 §3.1) |
 | **3403** | NAPTR | flags/service/regexp character-strings |
 | **3596** | AAAA | full and compressed IPv6 forms |
-| **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2) |
+| **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent |
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
 | **4343** | Case-insensitivity | names differing only in case are equal, hash alike, order alike |
 | **4398** | CERT | type/keytag/algorithm |
-| **4592** §2.1.1 | Wildcards | `*` accepted as leftmost label only, and never by the strict hostname parser |
+| **4592** | Wildcards | §2.1.1 the owner name: `*` accepted as leftmost label only, and never by the strict hostname parser. §3.3.1 the *matching*: synthesis at the closest encloser and nowhere above it, an exact match and an empty non-terminal each suppressing it, more than one label covered, no type of its own meaning NODATA — and the answer carrying the queried name, with the asterisk absent from the response entirely |
 | **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good |
-| **5155** | NSEC3 | hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs: match, cover, closest encloser, opt-out |
+| **5155** | NSEC3 | hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material |
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
 | **6605** | ECDSA | P-256 and P-384: fixed-width r‖s, 64/96-octet keys |
 | **6698**, **8162** | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names |
@@ -168,17 +169,16 @@ fixture zone in `RrsigValidationTests`.
 | **1876** LOC | size/precision/altitude edge cases; only the common shape is covered | — |
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
-| **2931** | SIG(0): per-message signatures under a public key, the asymmetric alternative to TSIG | the KEY record exists now; SIG (type 24) and the signing path do not |
-| **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form | needs a hand-built key |
+| **2931** (server) | SIG(0) *wired into* `DNSServer` and `DNSClient`, the way TSIG is; today it signs and verifies messages but nothing calls it from the transports | — |
+| **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
 | **3597** | unknown-type opacity: no compression inside unknown RDATA, `\#` presentation round-trip. The server already survives an unassigned TYPE | — |
-| **4592** (server side) | wildcard *matching* at query time; only the owner-name representation is covered | `InMemoryDNSZone` has no wildcard lookup |
-| **5155** (zone side) | walking an NSEC3 chain to answer from a signed zone; opt-out | the hash exists; `InMemoryDNSZone` has no NSEC3 chain to walk |
+| **5155** (opt-out) | an opted-out delegation served and read back; the referral path emits the covering NSEC3 for a missing DS, but no fixture zone has an unsigned delegation to point at | needs a delegation in `resign.sh` |
 | **6672** | DNAME subtree rewrite and the synthesized CNAME; only the record shape is covered | — |
-| **7129** | the *server* producing denial records for a signed zone it serves | `InMemoryDNSZone` holds no NSEC or NSEC3 chain to serve from |
 | **7344** | the delete sentinel (algorithm 0) | — |
 | **7873** | the cookie *protocol*: server-cookie reuse (Hermod does this) and BADCOOKIE retry, not just the encoding | — |
+| **8080** (SIG(0)) | signing with Ed25519 and Ed448; verification covers both, and the private-key half is not wired up | needs BouncyCastle's signer, as the verifier already uses |
 | **8945** (transports) | signing over DoT and DoH | wired for UDP and TCP, which is where TSIG is deployed; the TLS and HTTPS clients each serialize separately and are untouched |
-| interop | `delv` validating a Hermod-served signed zone | — the interop lane runs on CI now, so this is work rather than a prerequisite |
+| interop | `delv` validating a Hermod-served signed zone | — `InMemoryDNSZone` serves one now, so this is work rather than a prerequisite |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
@@ -195,6 +195,21 @@ There are also no published test vectors for the derivation — RFC 2930 gives t
 formula and no worked example — so the tests encode the specification text
 directly rather than reproducing someone else's numbers, which is weaker
 evidence than the RFC 5155 Appendix A vectors and is called out as such.
+
+**SIG(0) carries the same caveat**, for the same reason: RFC 2931 gives the
+formula and no worked example. The tests assemble the signed data from §3.1 by
+hand and check it with the platform's own RSA and ECDSA, so the oracle is at
+least not the code under test — but it is still one reading of the specification
+rather than an agreed set of numbers. The one place that reading is pinned
+harder is the ARCOUNT: a signature taken over the incremented count is asserted
+*not* to verify, which is the difference between interoperating and merely
+round-tripping against yourself.
+
+**RFC 7129 is not in the covered list even though its subject is**, because it
+is informational and nothing normative can be asserted against it. What it
+explains — which records a signed zone owes each kind of negative answer — is
+covered under RFC 4035 §3.1 and RFC 5155 §7, and 7129 remains the readable
+account of why those particular records.
 
 Nothing on this list is blocked; the rest is work that has not been done.
 

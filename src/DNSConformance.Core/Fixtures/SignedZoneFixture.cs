@@ -49,6 +49,20 @@ public sealed class SignedZoneFixture
     public DNSKEY? KeySigningKey   => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) != 0);
 
 
+    /// <summary>
+    /// The whole fixture as a zone a Hermod server can be pointed at.
+    /// </summary>
+    /// <remarks>
+    /// Every record goes in exactly as BIND wrote it, signatures and denial
+    /// records included. Nothing is re-signed and nothing is computed: what the
+    /// server then puts on the wire has to be a *selection* from these records,
+    /// which is what makes it checkable — a served RRSIG or NSEC3 that is not
+    /// byte-identical to one in this list was invented somewhere.
+    /// </remarks>
+    public InMemoryDNSZone ToZone()
+        => new InMemoryDNSZone().Add(Records);
+
+
     #region Directory / availability
 
     /// <summary>The fixtures/zones/signed directory, located relative to the test assembly.</summary>
