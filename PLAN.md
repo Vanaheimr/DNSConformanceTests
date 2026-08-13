@@ -111,7 +111,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **701 tests, 688 ✅, 0 ❌, 13 skipped** — 629
+Counts as of the 2026-08-13 run: **709 tests, 696 ✅, 0 ❌, 13 skipped** — 637
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
 BIND as a peer skip without it. All twenty-nine deviations the suite found are
 fixed; see [FINDINGS.md](FINDINGS.md).
@@ -189,6 +189,7 @@ round-trip where supported.
 | 6891 §6.1.2 | unknown option codes preserved as generic options; malformed option lengths survived | ✅ |
 | 7871 | Client Subnet: family, prefix lengths, address truncated to the prefix | ✅ |
 | 7873 §4 | Cookie option: 8-byte initial client cookie; the legal option lengths of §5.2.2 asserted on their own, not only through the FORMERR they cause | ✅ |
+| 7873 §4.1 | client cookie | derived from the client address, the server address and a client secret — stable per server, different per server, and not a value that survives a change of address | ✅ |
 | 7873 §5.3 | client: a response echoing a client cookie that was never sent is discarded, only the server half is stored ✅ (finding 25), BADCOOKIE retried once with the supplied cookie, a cookieless response still accepted | ✅ |
 | 7873 §5.2 | server: a server cookie bound to the client cookie, the client's address and a timestamp; BADCOOKIE with a fresh cookie when it is missing or wrong; FORMERR for illegal lengths; unchanged behaviour without a cookie or without a secret | ✅ |
 | 7830 | Padding option is all-zero | ✅ |

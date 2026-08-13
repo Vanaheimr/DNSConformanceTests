@@ -342,6 +342,46 @@ public class CookieProtocolTests
 
     #endregion
 
+    #region The_Client_Cookie_Is_Stable_Even_Without_A_Server_Cookie()
+
+    [Test]
+    [Property("RFC", "7873 §4.1")]
+    public async Task The_Client_Cookie_Is_Stable_Even_Without_A_Server_Cookie()
+    {
+
+        // The case that covers most of the deployed internet: a peer that answers
+        // perfectly well and says nothing about cookies. There is no server
+        // cookie to remember, so a client that only kept the pair had nothing to
+        // keep — and generated a fresh client cookie on every single query.
+        //
+        // §4.1 asks for a value derived from the client address, the server
+        // address and a secret, which is stable by construction whether or not
+        // anything came back. The RFC's own reason is efficiency — churning it
+        // means "undue inefficiency due to retries caused by that server not
+        // recognizing the Client Cookie" — and the day such a peer does answer
+        // with a cookie, the client already has a stable value to bind it to.
+        await using var peer   = new ScriptedUdpServer(request => AnswerWith(request));
+        using       var client = ClientFor(peer);
+
+        for (var i = 0; i < 4; i++)
+            await Ask(client, $"q{i}.example.");
+
+        var cookies = peer.Requests.Select(CookieOf).ToArray();
+
+        Assert.That(cookies, Has.Length.EqualTo(4));
+
+        Assert.Multiple(() => {
+
+            foreach (var cookie in cookies)
+                Assert.That(cookie![..8], Is.EqualTo(cookies[0]![..8]),
+                            "the client cookie must not change between queries to one server");
+
+        });
+
+    }
+
+    #endregion
+
     #region The_Client_Always_Offers_A_Cookie()
 
     [Test]
