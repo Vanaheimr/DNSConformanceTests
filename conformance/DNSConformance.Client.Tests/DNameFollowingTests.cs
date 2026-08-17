@@ -53,7 +53,9 @@ public class DNameFollowingTests
                               (Owner, RawDnsType.DNAME, 3600, RawDnsWriter.NameBytes(Target))
                           ));
 
-    /// <summary>The names the client went on to ask about, in order.</summary>
+    /// <summary>
+    /// The names the client went on to ask about, in order.
+    /// </summary>
     private static String[] NamesAsked(ScriptedUdpServer Server)
 
         => [.. Server.Requests.

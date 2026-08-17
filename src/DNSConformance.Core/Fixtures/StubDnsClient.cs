@@ -20,7 +20,9 @@ public sealed class StubDnsClient : IDNSClient
     private static readonly DNSServerConfig origin = new(IPv4Address.Localhost, IPPort.DNS);
 
 
-    /// <summary>Every query this client received, in order — for asserting what a validator asked for.</summary>
+    /// <summary>
+    /// Every query this client received, in order — for asserting what a validator asked for.
+    /// </summary>
     public List<(String Name, DNSResourceRecordTypes Type)> Queries { get; } = [];
 
     /// <summary>
@@ -30,7 +32,9 @@ public sealed class StubDnsClient : IDNSClient
     public Boolean Unreachable { get; init; }
 
 
-    /// <summary>Register the answer for one owner name and type. Returns this, for chaining.</summary>
+    /// <summary>
+    /// Register the answer for one owner name and type. Returns this, for chaining.
+    /// </summary>
     public StubDnsClient Answer(String                            Name,
                                 DNSResourceRecordTypes            Type,
                                 params IDNSResourceRecord[]       Records)

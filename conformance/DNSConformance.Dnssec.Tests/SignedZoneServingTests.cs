@@ -37,7 +37,9 @@ public class SignedZoneServingTests
     private const String Nsec3Zone  = "nsec3.dnssec.test";
     private const String OptOutZone = "optout.dnssec.test";
 
-    /// <summary>The unsigned delegation inside the opt-out zone — NS records and glue, no DS.</summary>
+    /// <summary>
+    /// The unsigned delegation inside the opt-out zone — NS records and glue, no DS.
+    /// </summary>
     private const String DelegatedZone = "insecure.optout.dnssec.test";
 
     private SignedZoneFixture     nsecFixture    = null!;
@@ -124,12 +126,16 @@ public class SignedZoneServingTests
     }
 
 
-    /// <summary>The RDATA of every record of one type in a section, as it came off the wire.</summary>
+    /// <summary>
+    /// The RDATA of every record of one type in a section, as it came off the wire.
+    /// </summary>
     private static Byte[][] RdataOf(IEnumerable<RawRecord> Records, UInt16 Type)
         => [.. Records.Where(rr => rr.Type == Type).Select(rr => rr.Rdata)];
 
 
-    /// <summary>The same record as the fixture holds it, serialized uncompressed.</summary>
+    /// <summary>
+    /// The same record as the fixture holds it, serialized uncompressed.
+    /// </summary>
     private static Byte[] FixtureRdata(org.GraphDefined.Vanaheimr.Hermod.DNS.IDNSResourceRecord Record)
     {
 
@@ -927,7 +933,9 @@ public class SignedZoneServingTests
     }
 
 
-    /// <summary>Base32hex (RFC 4648 §7) — the order-preserving alphabet NSEC3 owner names use.</summary>
+    /// <summary>
+    /// Base32hex (RFC 4648 §7) — the order-preserving alphabet NSEC3 owner names use.
+    /// </summary>
     private static Byte[] Base32HexDecode(String Text)
     {
 
@@ -977,7 +985,9 @@ public class SignedZoneServingTests
     }
 
 
-    /// <summary>Whether an NSEC3's owner name is the hash of the given name (RFC 5155 §8.3, "matches").</summary>
+    /// <summary>
+    /// Whether an NSEC3's owner name is the hash of the given name (RFC 5155 §8.3, "matches").
+    /// </summary>
     private Boolean Nsec3Matches(RawRecord Record, String Name)
     {
 
@@ -989,7 +999,9 @@ public class SignedZoneServingTests
     }
 
 
-    /// <summary>Whether an NSEC3's hash span strictly contains the hash of the given name ("covers").</summary>
+    /// <summary>
+    /// Whether an NSEC3's hash span strictly contains the hash of the given name ("covers").
+    /// </summary>
     private Boolean Nsec3Covers(RawRecord Record, String Name)
     {
 
@@ -1024,7 +1036,9 @@ public class SignedZoneServingTests
     #endregion
 
 
-    /// <summary>The length in octets of the uncompressed name at the start of some RDATA.</summary>
+    /// <summary>
+    /// The length in octets of the uncompressed name at the start of some RDATA.
+    /// </summary>
     private static Int32 NameLength(Byte[] Rdata)
     {
 
@@ -1038,7 +1052,9 @@ public class SignedZoneServingTests
     }
 
 
-    /// <summary>The next-domain-name field of an NSEC record, in presentation form.</summary>
+    /// <summary>
+    /// The next-domain-name field of an NSEC record, in presentation form.
+    /// </summary>
     private static String NextNameOf(Byte[] Rdata)
     {
 

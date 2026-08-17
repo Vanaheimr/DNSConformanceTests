@@ -63,7 +63,9 @@ public static class ZoneFixtures
     public static readonly TimeSpan DefaultTtl = TimeSpan.FromMinutes(5);
 
 
-    /// <summary>Build the standard zone in memory.</summary>
+    /// <summary>
+    /// Build the standard zone in memory.
+    /// </summary>
     public static InMemoryDNSZone CreateStandardZone()
     {
 
@@ -174,23 +176,33 @@ public static class ZoneFixtures
     public const String WildOrigin        = "wild.test.";
     public const String WildNameServer    = "ns1.wild.test.";
 
-    /// <summary>The wildcard at the apex: <c>*.wild.test.</c></summary>
+    /// <summary>
+    /// The wildcard at the apex: <c>*.wild.test.</c>
+    /// </summary>
     public const String WildcardAddress   = "192.0.2.100";
     public const String WildcardMailHost  = "mail.wild.test.";
 
-    /// <summary>A name that exists, so the wildcard must not answer for it.</summary>
+    /// <summary>
+    /// A name that exists, so the wildcard must not answer for it.
+    /// </summary>
     public const String WildExactName     = "sub.wild.test.";
     public const String WildExactAddress  = "192.0.2.1";
 
-    /// <summary>Below <c>sub</c>, which is the closest encloser — and holds no wildcard of its own.</summary>
+    /// <summary>
+    /// Below <c>sub</c>, which is the closest encloser — and holds no wildcard of its own.
+    /// </summary>
     public const String WildBelowExact    = "nothing.sub.wild.test.";
 
-    /// <summary>An empty non-terminal: no records, but a name below it has some.</summary>
+    /// <summary>
+    /// An empty non-terminal: no records, but a name below it has some.
+    /// </summary>
     public const String WildEmptyName     = "empty.wild.test.";
     public const String WildBelowEmpty    = "x.empty.wild.test.";
     public const String WildBelowEmptyTxt = "the name above me exists";
 
-    /// <summary>A delegation, with in-subtree glue.</summary>
+    /// <summary>
+    /// A delegation, with in-subtree glue.
+    /// </summary>
     public const String WildDelegation    = "child.wild.test.";
     public const String WildChildNS       = "ns1.child.wild.test.";
     public const String WildChildGlue     = "192.0.2.200";
@@ -251,19 +263,27 @@ public static class ZoneFixtures
     public const String DNameOrigin       = "dname.test.";
     public const String DNameNameServer   = "ns1.dname.test.";
 
-    /// <summary>A DNAME whose target is in the same zone, so a query can be followed to the end.</summary>
+    /// <summary>
+    /// A DNAME whose target is in the same zone, so a query can be followed to the end.
+    /// </summary>
     public const String DNameOwner        = "alias.dname.test.";
     public const String DNameTarget       = "target.dname.test.";
 
-    /// <summary>Data <i>at</i> the DNAME owner. RFC 6672 §2.3 leaves the owner name itself unredirected.</summary>
+    /// <summary>
+    /// Data <i>at</i> the DNAME owner. RFC 6672 §2.3 leaves the owner name itself unredirected.
+    /// </summary>
     public const String DNameOwnerMail    = "mail.dname.test.";
 
-    /// <summary>One label below the DNAME: <c>host.alias</c> → <c>host.target</c>.</summary>
+    /// <summary>
+    /// One label below the DNAME: <c>host.alias</c> → <c>host.target</c>.
+    /// </summary>
     public const String DNameQueried      = "host.alias.dname.test.";
     public const String DNameResolved     = "host.target.dname.test.";
     public const String DNameAddress      = "192.0.2.10";
 
-    /// <summary>Several labels below it — the whole prefix is carried over, not just one label.</summary>
+    /// <summary>
+    /// Several labels below it — the whole prefix is carried over, not just one label.
+    /// </summary>
     public const String DNameDeepQueried  = "a.b.c.alias.dname.test.";
     public const String DNameDeepResolved = "a.b.c.target.dname.test.";
     public const String DNameDeepAddress  = "192.0.2.11";
@@ -278,11 +298,15 @@ public static class ZoneFixtures
     public const String DNameOccluded     = "occluded.alias.dname.test.";
     public const String DNameOccludedAddr = "192.0.2.66";
 
-    /// <summary>A DNAME pointing out of the zone, which is the ordinary case.</summary>
+    /// <summary>
+    /// A DNAME pointing out of the zone, which is the ordinary case.
+    /// </summary>
     public const String DNameForeignOwner = "away.dname.test.";
     public const String DNameForeign      = "elsewhere.example.";
 
-    /// <summary>A name beside the DNAME, which nothing may redirect.</summary>
+    /// <summary>
+    /// A name beside the DNAME, which nothing may redirect.
+    /// </summary>
     public const String DNameSibling      = "other.dname.test.";
     public const String DNameSiblingAddr  = "192.0.2.12";
 
@@ -301,7 +325,9 @@ public static class ZoneFixtures
         new String('a', 60) + "." + new String('b', 60) + "." +
         new String('c', 60) + "." + new String('d', 60) + ".";
 
-    /// <summary>A DNAME pointing into its own subtree: every pass produces a longer name.</summary>
+    /// <summary>
+    /// A DNAME pointing into its own subtree: every pass produces a longer name.
+    /// </summary>
     public const String DNameLoopOwner    = "loop.dname.test.";
     public const String DNameLoopTarget   = "sub.loop.dname.test.";
 
@@ -378,12 +404,16 @@ public static class ZoneFixtures
     public const UInt16 OpaqueSecondType  = 65281;
     public const UInt16 OpaquePointerType = 65282;
 
-    /// <summary>A name holding two records of one unknown type, i.e. an RRset.</summary>
+    /// <summary>
+    /// A name holding two records of one unknown type, i.e. an RRset.
+    /// </summary>
     public const String OpaqueName        = "weird.opaque.test.";
     public static readonly Byte[] OpaqueRData1 = [ 0xDE, 0xAD, 0xBE, 0xEF ];
     public static readonly Byte[] OpaqueRData2 = [ 0x00, 0x01, 0x02, 0x03, 0x04 ];
 
-    /// <summary>A name holding both a known and an unknown type.</summary>
+    /// <summary>
+    /// A name holding both a known and an unknown type.
+    /// </summary>
     public const String OpaqueMixedName    = "mixed.opaque.test.";
     public const String OpaqueMixedAddress = "192.0.2.5";
     public static readonly Byte[] OpaqueMixedRData = [ 0xC0, 0xFF, 0xEE ];
@@ -403,7 +433,9 @@ public static class ZoneFixtures
     public const String OpaquePointerName  = "pointerish.opaque.test.";
     public static readonly Byte[] OpaquePointerRData = [ 0xC0, 0x0C ];
 
-    /// <summary>An unknown type behind a wildcard, so synthesis has to copy RDATA it cannot read.</summary>
+    /// <summary>
+    /// An unknown type behind a wildcard, so synthesis has to copy RDATA it cannot read.
+    /// </summary>
     public const String OpaqueWildcardName = "anything.wild.opaque.test.";
     public static readonly Byte[] OpaqueWildcardRData = [ 0x2A, 0x2A, 0x2A ];
 

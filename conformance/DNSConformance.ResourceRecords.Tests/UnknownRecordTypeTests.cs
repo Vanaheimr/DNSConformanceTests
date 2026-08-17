@@ -35,7 +35,9 @@ namespace DNSConformance.ResourceRecords.Tests;
 public class UnknownRecordTypeTests
 {
 
-    /// <summary>A code from the IANA private-use range, which will never be allocated.</summary>
+    /// <summary>
+    /// A code from the IANA private-use range, which will never be allocated.
+    /// </summary>
     private const UInt16 PrivateType = 65280;
 
     private static readonly Byte[] HeaderWithThreeAnswers =

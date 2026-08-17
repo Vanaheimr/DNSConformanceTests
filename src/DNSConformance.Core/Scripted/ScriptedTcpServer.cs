@@ -7,16 +7,24 @@ namespace DNSConformance.Core.Scripted;
 public sealed class ScriptedTcpOptions
 {
 
-    /// <summary>Write responses in chunks of this many bytes with flushes in between (0 = single write). Exercises RFC 7766 §8 stream reassembly.</summary>
+    /// <summary>
+    /// Write responses in chunks of this many bytes with flushes in between (0 = single write). Exercises RFC 7766 §8 stream reassembly.
+    /// </summary>
     public Int32     WriteChunkSize    { get; init; } = 0;
 
-    /// <summary>Delay between chunked writes.</summary>
+    /// <summary>
+    /// Delay between chunked writes.
+    /// </summary>
     public TimeSpan  WriteChunkDelay   { get; init; } = TimeSpan.FromMilliseconds(5);
 
-    /// <summary>Close the connection right after the first response.</summary>
+    /// <summary>
+    /// Close the connection right after the first response.
+    /// </summary>
     public Boolean   CloseAfterFirst   { get; init; } = false;
 
-    /// <summary>Send the 2-byte length prefix and the payload in separate writes.</summary>
+    /// <summary>
+    /// Send the 2-byte length prefix and the payload in separate writes.
+    /// </summary>
     public Boolean   SplitLengthPrefix { get; init; } = false;
 
 }

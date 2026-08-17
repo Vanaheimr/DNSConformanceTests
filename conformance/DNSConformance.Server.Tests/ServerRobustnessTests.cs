@@ -29,7 +29,9 @@ public class ServerRobustnessTests
     }
 
 
-    /// <summary>The server is still answering normal queries.</summary>
+    /// <summary>
+    /// The server is still answering normal queries.
+    /// </summary>
     private async Task AssertServerStillHealthy(String because)
     {
 

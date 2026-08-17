@@ -27,7 +27,9 @@ public static class RawTlsProbe
     }
 
 
-    /// <summary>Send several queries over ONE TLS session.</summary>
+    /// <summary>
+    /// Send several queries over ONE TLS session.
+    /// </summary>
     public static async Task<List<Byte[]?>> QueryManyAsync(Int32                port,
                                                            IEnumerable<Byte[]>  requests,
                                                            TimeSpan?            timeout   = null,

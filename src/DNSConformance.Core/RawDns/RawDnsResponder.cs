@@ -20,12 +20,16 @@ public static class RawDnsResponder
         => Build(request, DefaultFlags, answers);
 
 
-    /// <summary>An empty NOERROR response with TC=1 — provokes RFC 7766 TCP fallback.</summary>
+    /// <summary>
+    /// An empty NOERROR response with TC=1 — provokes RFC 7766 TCP fallback.
+    /// </summary>
     public static Byte[] Truncated(Byte[] request)
         => Build(request, DefaultFlags | RawDnsFlags.TC);
 
 
-    /// <summary>An empty response with the given RCODE.</summary>
+    /// <summary>
+    /// An empty response with the given RCODE.
+    /// </summary>
     public static Byte[] Rcode(Byte[] request, Int32 rcode)
         => Build(request, (UInt16) (DefaultFlags | RawDnsFlags.RCode(rcode)));
 
@@ -69,7 +73,9 @@ public static class RawDnsResponder
     }
 
 
-    /// <summary>Response builder with full flag control. The question section is echoed byte-identically.</summary>
+    /// <summary>
+    /// Response builder with full flag control. The question section is echoed byte-identically.
+    /// </summary>
     public static Byte[] Build(Byte[]                                                        request,
                                UInt16                                                        flags,
                                params (String Name, UInt16 Type, UInt32 Ttl, Byte[] Rdata)[]  answers)

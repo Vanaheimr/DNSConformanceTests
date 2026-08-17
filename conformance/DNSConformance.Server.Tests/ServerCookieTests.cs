@@ -39,7 +39,9 @@ public class ServerCookieTests
 
     private const UInt16 CookieOptionCode = 10;
 
-    /// <summary>A 128-bit secret, which is what SipHash-2-4 takes as its key (RFC 9018 §4.4).</summary>
+    /// <summary>
+    /// A 128-bit secret, which is what SipHash-2-4 takes as its key (RFC 9018 §4.4).
+    /// </summary>
     private static readonly Byte[] Secret = Convert.FromHexString("0123456789abcdef0123456789abcdef");
 
 
@@ -68,7 +70,9 @@ public class ServerCookieTests
 
     }
 
-    /// <summary>A query carrying a COOKIE option built from raw octets — including illegal ones.</summary>
+    /// <summary>
+    /// A query carrying a COOKIE option built from raw octets — including illegal ones.
+    /// </summary>
     private static Byte[] QueryWithRawCookie(Byte[] CookieData, UInt16 Id = 0x7873)
 
         => new RawDnsWriter().

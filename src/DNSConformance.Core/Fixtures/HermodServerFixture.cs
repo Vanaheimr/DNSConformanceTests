@@ -16,20 +16,28 @@ public sealed class HermodServerFixtureOptions
 
     public Boolean            EnableTls           { get; init; } = false;
 
-    /// <summary>Bind 0.0.0.0 instead of 127.0.0.1 (required for WSL-based tools to reach the server).</summary>
+    /// <summary>
+    /// Bind 0.0.0.0 instead of 127.0.0.1 (required for WSL-based tools to reach the server).
+    /// </summary>
     public Boolean            BindAllInterfaces   { get; init; } = false;
 
-    /// <summary>Enable RFC 1035 §4.1.4 name compression in server responses.</summary>
+    /// <summary>
+    /// Enable RFC 1035 §4.1.4 name compression in server responses.
+    /// </summary>
     public Boolean            UseCompression      { get; init; } = false;
 
     public IDNSZoneStore?     Zone                { get; init; }
 
     public X509Certificate2?  Certificate         { get; init; }
 
-    /// <summary>TSIG keys the server accepts (RFC 8945). Empty leaves TSIG inactive.</summary>
+    /// <summary>
+    /// TSIG keys the server accepts (RFC 8945). Empty leaves TSIG inactive.
+    /// </summary>
     public IEnumerable<TSIGKey>  TSIGKeys         { get; init; } = [];
 
-    /// <summary>KEY records whose SIG(0) signatures the server accepts (RFC 2931). Empty leaves SIG(0) inactive.</summary>
+    /// <summary>
+    /// KEY records whose SIG(0) signatures the server accepts (RFC 2931). Empty leaves SIG(0) inactive.
+    /// </summary>
     public IEnumerable<KEY>      SIG0Keys         { get; init; } = [];
 
     /// <summary>
@@ -44,13 +52,19 @@ public sealed class HermodServerFixtureOptions
     /// </remarks>
     public Boolean               SharePortAcrossTransports { get; init; } = false;
 
-    /// <summary>The key the server signs replies to SIG(0)-signed requests with. Null leaves them unsigned.</summary>
+    /// <summary>
+    /// The key the server signs replies to SIG(0)-signed requests with. Null leaves them unsigned.
+    /// </summary>
     public SIG0Key?              SIG0ResponseKey  { get; init; }
 
-    /// <summary>The secret the server issues DNS Cookies with (RFC 7873). Null leaves cookies off.</summary>
+    /// <summary>
+    /// The secret the server issues DNS Cookies with (RFC 7873). Null leaves cookies off.
+    /// </summary>
     public Byte[]?               DNSCookieSecret  { get; init; }
 
-    /// <summary>Whether a query must return a valid server cookie to be answered (RFC 7873 §5.2.3).</summary>
+    /// <summary>
+    /// Whether a query must return a valid server cookie to be answered (RFC 7873 §5.2.3).
+    /// </summary>
     public Boolean               RequireDNSCookies { get; init; }
 
 }

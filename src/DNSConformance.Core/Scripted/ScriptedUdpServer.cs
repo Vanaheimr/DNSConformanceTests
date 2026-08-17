@@ -25,7 +25,9 @@ public sealed class ScriptedUdpServer : IAsyncDisposable
     public IPEndPoint               EndPoint   => new(IPAddress.Loopback, Port);
 
 
-    /// <summary>Responder receives (request bytes, zero-based request index) and yields response datagrams in send order.</summary>
+    /// <summary>
+    /// Responder receives (request bytes, zero-based request index) and yields response datagrams in send order.
+    /// </summary>
     /// <param name="Responder">The scripted response logic.</param>
     /// <param name="FixedPort">Bind this specific port instead of an ephemeral one (e.g. to pair with a TCP listener for RFC 7766 fallback tests).</param>
     public ScriptedUdpServer(Func<Byte[], Int32, IEnumerable<Byte[]>>  Responder,
@@ -39,7 +41,9 @@ public sealed class ScriptedUdpServer : IAsyncDisposable
 
     }
 
-    /// <summary>Simple form: one response (or null for silence) per request.</summary>
+    /// <summary>
+    /// Simple form: one response (or null for silence) per request.
+    /// </summary>
     public ScriptedUdpServer(Func<Byte[], Byte[]?>  Responder,
                              Int32                  FixedPort   = 0)
 
@@ -48,11 +52,15 @@ public sealed class ScriptedUdpServer : IAsyncDisposable
 
     { }
 
-    /// <summary>Always answer with the same canned bytes.</summary>
+    /// <summary>
+    /// Always answer with the same canned bytes.
+    /// </summary>
     public static ScriptedUdpServer Static(Byte[] Response)
         => new((_, _) => [Response]);
 
-    /// <summary>Never answer (timeout behavior).</summary>
+    /// <summary>
+    /// Never answer (timeout behavior).
+    /// </summary>
     public static ScriptedUdpServer Silent()
         => new((_, _) => Array.Empty<Byte[]>());
 

@@ -155,7 +155,9 @@ public static class Wsl
     });
 
 
-    /// <summary>True when the given tool is on the WSL PATH.</summary>
+    /// <summary>
+    /// True when the given tool is on the WSL PATH.
+    /// </summary>
     public static Boolean HasTool(String tool)
     {
 

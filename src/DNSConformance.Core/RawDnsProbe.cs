@@ -13,7 +13,9 @@ namespace DNSConformance.Core;
 public static class RawDnsProbe
 {
 
-    /// <summary>Send raw bytes over UDP and return the raw response bytes (null on timeout).</summary>
+    /// <summary>
+    /// Send raw bytes over UDP and return the raw response bytes (null on timeout).
+    /// </summary>
     public static async Task<Byte[]?> UdpAsync(Int32      port,
                                                Byte[]     request,
                                                TimeSpan?  timeout   = null,
@@ -40,7 +42,9 @@ public static class RawDnsProbe
     }
 
 
-    /// <summary>Send a message over TCP with RFC 7766 framing and return the unframed response.</summary>
+    /// <summary>
+    /// Send a message over TCP with RFC 7766 framing and return the unframed response.
+    /// </summary>
     public static async Task<Byte[]?> TcpAsync(Int32      port,
                                                Byte[]     request,
                                                TimeSpan?  timeout   = null,
@@ -59,7 +63,9 @@ public static class RawDnsProbe
     }
 
 
-    /// <summary>Send several messages over ONE TCP connection (RFC 7766 §6.2.1 reuse).</summary>
+    /// <summary>
+    /// Send several messages over ONE TCP connection (RFC 7766 §6.2.1 reuse).
+    /// </summary>
     public static async Task<List<Byte[]?>> TcpPipelineAsync(Int32                 port,
                                                              IEnumerable<Byte[]>   requests,
                                                              TimeSpan?             timeout   = null,
@@ -82,7 +88,9 @@ public static class RawDnsProbe
     }
 
 
-    /// <summary>Send raw (unframed!) bytes over TCP — for framing-violation tests.</summary>
+    /// <summary>
+    /// Send raw (unframed!) bytes over TCP — for framing-violation tests.
+    /// </summary>
     public static async Task<Byte[]?> TcpRawAsync(Int32      port,
                                                   Byte[]     rawBytes,
                                                   TimeSpan?  timeout   = null,

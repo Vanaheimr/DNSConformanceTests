@@ -273,7 +273,9 @@ public class CdsDeleteSentinelTests
 
     }
 
-    /// <summary>The DS the parent would publish for this key — digest computed here, not taken from Hermod.</summary>
+    /// <summary>
+    /// The DS the parent would publish for this key — digest computed here, not taken from Hermod.
+    /// </summary>
     private static DS DelegationSignerFor(DNSKEY Key)
     {
 

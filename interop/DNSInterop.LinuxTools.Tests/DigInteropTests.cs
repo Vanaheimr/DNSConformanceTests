@@ -50,7 +50,9 @@ public class DigInteropTests
         => Wsl.Run($"dig @{hostAddr} -p {server.TcpPort} +tcp +time=3 +tries=1 {arguments}", TimeSpan.FromSeconds(20));
 
 
-    /// <summary>Skip rather than fail when the Windows firewall blocks the WSL→host path.</summary>
+    /// <summary>
+    /// Skip rather than fail when the Windows firewall blocks the WSL→host path.
+    /// </summary>
     private void RequireReachability(Wsl.Result probe)
     {
         if (probe.StdOut.Contains("no servers could be reached", StringComparison.OrdinalIgnoreCase) ||

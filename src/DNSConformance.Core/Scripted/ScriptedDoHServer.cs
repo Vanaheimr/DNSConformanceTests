@@ -3,7 +3,9 @@ using System.Net;
 
 namespace DNSConformance.Core.Scripted;
 
-/// <summary>One recorded DoH exchange, capturing everything RFC 8484 cares about.</summary>
+/// <summary>
+/// One recorded DoH exchange, capturing everything RFC 8484 cares about.
+/// </summary>
 public sealed record DoHExchange(
     String   Method,
     String   Path,
@@ -33,10 +35,14 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
 
     public Int32                         Port                   { get; }
 
-    /// <summary>Reject POSTs whose Content-Type is not application/dns-message with 415 (RFC 8484 §4.1).</summary>
+    /// <summary>
+    /// Reject POSTs whose Content-Type is not application/dns-message with 415 (RFC 8484 §4.1).
+    /// </summary>
     public Boolean                       StrictContentType      { get; init; } = true;
 
-    /// <summary>The RFC 8484 template URL of this server (path /dns-query).</summary>
+    /// <summary>
+    /// The RFC 8484 template URL of this server (path /dns-query).
+    /// </summary>
     public String                        Url                    => $"http://127.0.0.1:{Port}/dns-query";
 
 

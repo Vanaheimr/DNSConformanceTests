@@ -2,11 +2,15 @@ using System.Text;
 
 namespace DNSConformance.Core;
 
-/// <summary>Hex/byte utilities with readable failure output.</summary>
+/// <summary>
+/// Hex/byte utilities with readable failure output.
+/// </summary>
 public static class Bytes
 {
 
-    /// <summary>Parse hex, ignoring whitespace, line breaks and '0x' prefixes — friendly to RFC excerpt formatting.</summary>
+    /// <summary>
+    /// Parse hex, ignoring whitespace, line breaks and '0x' prefixes — friendly to RFC excerpt formatting.
+    /// </summary>
     public static Byte[] FromHex(String hex)
     {
 
@@ -38,7 +42,9 @@ public static class Bytes
         => Convert.ToHexStringLower(bytes);
 
 
-    /// <summary>Classic offset/hex/ASCII dump.</summary>
+    /// <summary>
+    /// Classic offset/hex/ASCII dump.
+    /// </summary>
     public static String Dump(ReadOnlySpan<Byte> data)
     {
 
@@ -78,7 +84,9 @@ public static class Bytes
     }
 
 
-    /// <summary>Human-readable first-difference report for byte comparisons.</summary>
+    /// <summary>
+    /// Human-readable first-difference report for byte comparisons.
+    /// </summary>
     public static String Diff(Byte[] expected, Byte[] actual)
     {
 

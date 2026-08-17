@@ -10,19 +10,27 @@ public sealed class RawName
 
     public required IReadOnlyList<Byte[]>  Labels          { get; init; }
 
-    /// <summary>True if at least one RFC 1035 §4.1.4 compression pointer was followed.</summary>
+    /// <summary>
+    /// True if at least one RFC 1035 §4.1.4 compression pointer was followed.
+    /// </summary>
     public required Boolean                Compressed      { get; init; }
 
-    /// <summary>Bytes this name occupied at its primary location (pointers count as 2).</summary>
+    /// <summary>
+    /// Bytes this name occupied at its primary location (pointers count as 2).
+    /// </summary>
     public required Int32                  WireLength      { get; init; }
 
-    /// <summary>Presentation form: labels joined by '.', special characters escaped per RFC 1035 §5.1, always ending in the root dot for non-root names omitted (root = ".").</summary>
+    /// <summary>
+    /// Presentation form: labels joined by '.', special characters escaped per RFC 1035 §5.1, always ending in the root dot for non-root names omitted (root = ".").
+    /// </summary>
     public String Presentation
         => Labels.Count == 0
                ? "."
                : String.Join('.', Labels.Select(EscapeLabel));
 
-    /// <summary>Lower-cased presentation form for case-insensitive comparisons (RFC 1035 §2.3.3).</summary>
+    /// <summary>
+    /// Lower-cased presentation form for case-insensitive comparisons (RFC 1035 §2.3.3).
+    /// </summary>
     public String Canonical
         => Presentation.ToLowerInvariant();
 
@@ -72,7 +80,9 @@ public sealed class RawRecord
     public required UInt32   Ttl           { get; init; }
     public required Byte[]   Rdata         { get; init; }
 
-    /// <summary>Absolute offset of the RDATA within the whole message (needed to decode compressed names inside RDATA).</summary>
+    /// <summary>
+    /// Absolute offset of the RDATA within the whole message (needed to decode compressed names inside RDATA).
+    /// </summary>
     public required Int32    RdataOffset   { get; init; }
 
     public Boolean IsOpt
@@ -81,7 +91,9 @@ public sealed class RawRecord
 }
 
 
-/// <summary>Decoded EDNS(0) view over an OPT record (RFC 6891 §6.1).</summary>
+/// <summary>
+/// Decoded EDNS(0) view over an OPT record (RFC 6891 §6.1).
+/// </summary>
 public sealed class RawEdns
 {
 
@@ -91,7 +103,9 @@ public sealed class RawEdns
     public required UInt16                                      Flags           { get; init; }
     public required IReadOnlyList<(UInt16 Code, Byte[] Data)>   Options         { get; init; }
 
-    /// <summary>DNSSEC OK bit (RFC 4035 §3.2.1 / RFC 6891 §6.1.4) = MSB of the flags.</summary>
+    /// <summary>
+    /// DNSSEC OK bit (RFC 4035 §3.2.1 / RFC 6891 §6.1.4) = MSB of the flags.
+    /// </summary>
     public Boolean Do
         => (Flags & 0x8000) != 0;
 
@@ -150,10 +164,14 @@ public sealed class RawDnsMessage
     public required IReadOnlyList<RawRecord>  Authorities     { get; init; }
     public required IReadOnlyList<RawRecord>  Additionals     { get; init; }
 
-    /// <summary>The full wire image this message was parsed from.</summary>
+    /// <summary>
+    /// The full wire image this message was parsed from.
+    /// </summary>
     public required Byte[]                    Wire            { get; init; }
 
-    /// <summary>How many bytes of <see cref="Wire"/> the parser consumed (trailing-garbage detection).</summary>
+    /// <summary>
+    /// How many bytes of <see cref="Wire"/> the parser consumed (trailing-garbage detection).
+    /// </summary>
     public required Int32                     ConsumedBytes   { get; init; }
 
     // Header flag decomposition (RFC 1035 §4.1.1, RFC 4035 §3 for AD/CD):
@@ -168,14 +186,18 @@ public sealed class RawDnsMessage
     public Boolean  CD      => (Flags & 0x0010) != 0;
     public Byte     RCode   => (Byte) (Flags & 0x0F);
 
-    /// <summary>The (single) OPT record, if any (RFC 6891 §6.1.1 allows at most one).</summary>
+    /// <summary>
+    /// The (single) OPT record, if any (RFC 6891 §6.1.1 allows at most one).
+    /// </summary>
     public RawRecord? Opt
         => Additionals.FirstOrDefault(rr => rr.IsOpt);
 
     public RawEdns? Edns
         => Opt is { } opt ? RawEdns.From(opt) : null;
 
-    /// <summary>Combined 12-bit RCODE: upper 8 bits from OPT TTL, lower 4 from the header (RFC 6891 §6.1.3).</summary>
+    /// <summary>
+    /// Combined 12-bit RCODE: upper 8 bits from OPT TTL, lower 4 from the header (RFC 6891 §6.1.3).
+    /// </summary>
     public Int32 CombinedRcode
         => Edns is { } edns
                ? (edns.ExtendedRcode << 4) | RCode
@@ -184,7 +206,9 @@ public sealed class RawDnsMessage
 }
 
 
-/// <summary>Well-known RR type code points (RFC 1035, 3596, 4034, 6891, ... / IANA registry).</summary>
+/// <summary>
+/// Well-known RR type code points (RFC 1035, 3596, 4034, 6891, ... / IANA registry).
+/// </summary>
 public static class RawDnsType
 {
     public const UInt16 A          = 1;
@@ -240,7 +264,9 @@ public static class RawDnsClass
 }
 
 
-/// <summary>Header flag masks / builders for crafting test messages.</summary>
+/// <summary>
+/// Header flag masks / builders for crafting test messages.
+/// </summary>
 public static class RawDnsFlags
 {
 

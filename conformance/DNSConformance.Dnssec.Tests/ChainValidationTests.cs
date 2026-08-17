@@ -42,7 +42,9 @@ public class ChainValidationTests
 
     private static readonly DNSServerConfig Origin = new(IPv4Address.Localhost, IPPort.DNS);
 
-    /// <summary>A response carrying the given records in its answer section.</summary>
+    /// <summary>
+    /// A response carrying the given records in its answer section.
+    /// </summary>
     private static DNSInfo ResponseWith(params IDNSResourceRecord[] Answers)
 
         => new(
@@ -60,7 +62,9 @@ public class ChainValidationTests
            );
 
 
-    /// <summary>The same RRSIG with a different validity window.</summary>
+    /// <summary>
+    /// The same RRSIG with a different validity window.
+    /// </summary>
     private static RRSIG Rewindow(RRSIG Signature, UInt32 Inception, UInt32 Expiration)
 
         => new(
@@ -83,7 +87,9 @@ public class ChainValidationTests
         => (UInt32) DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
 
-    /// <summary>The signed A RRset of the fixture zone, plus its signature.</summary>
+    /// <summary>
+    /// The signed A RRset of the fixture zone, plus its signature.
+    /// </summary>
     private (List<IDNSResourceRecord> RRset, RRSIG Signature) SignedA()
     {
 
@@ -98,7 +104,9 @@ public class ChainValidationTests
     }
 
 
-    /// <summary>A stub resolver that serves the fixture zone's DNSKEY RRset.</summary>
+    /// <summary>
+    /// A stub resolver that serves the fixture zone's DNSKEY RRset.
+    /// </summary>
     private StubDnsClient ResolverServingKeys()
         => new StubDnsClient().Answer(
                "dnssec.test",

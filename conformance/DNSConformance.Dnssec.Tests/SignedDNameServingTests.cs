@@ -81,7 +81,9 @@ public class SignedDNameServingTests
     }
 
 
-    /// <summary>Ask with the DO bit set, over TCP when the signed answer will not fit.</summary>
+    /// <summary>
+    /// Ask with the DO bit set, over TCP when the signed answer will not fit.
+    /// </summary>
     private async Task<RawDnsMessage> AskWithDnssec(String name, UInt16 type)
     {
 
@@ -226,11 +228,15 @@ public class SignedDNameServingTests
 
     #region (private static) RRWireBytes(...)
 
-    /// <summary>The RDATA of a record as it sits on the wire.</summary>
+    /// <summary>
+    /// The RDATA of a record as it sits on the wire.
+    /// </summary>
     private static Byte[] RRWireBytes(RawRecord Record)
         => Record.Rdata;
 
-    /// <summary>The RDATA a Hermod record serializes to, uncompressed.</summary>
+    /// <summary>
+    /// The RDATA a Hermod record serializes to, uncompressed.
+    /// </summary>
     private static Byte[] RRWireBytes(IDNSResourceRecord Record)
     {
 

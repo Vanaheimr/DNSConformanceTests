@@ -46,7 +46,9 @@ public static class TestEnvironment
 
     });
 
-    /// <summary>True when a public resolver answers a raw UDP DNS probe.</summary>
+    /// <summary>
+    /// True when a public resolver answers a raw UDP DNS probe.
+    /// </summary>
     public static Boolean HasNetwork
         => hasNetwork.Value;
 

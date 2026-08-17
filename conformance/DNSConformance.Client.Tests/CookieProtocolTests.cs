@@ -102,7 +102,9 @@ public class CookieProtocolTests
 
     }
 
-    /// <summary>The COOKIE option of a query the scripted peer received.</summary>
+    /// <summary>
+    /// The COOKIE option of a query the scripted peer received.
+    /// </summary>
     private static Byte[]? CookieOf(Byte[] Request)
 
         => RawDnsReader.Parse(Request, RawDnsReaderOptions.Lenient).

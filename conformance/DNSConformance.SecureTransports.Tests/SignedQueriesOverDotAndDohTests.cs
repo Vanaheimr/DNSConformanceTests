@@ -46,7 +46,9 @@ public class SignedQueriesOverDotAndDohTests
         => SIG0Key.Generate(DomainName.Parse("transport.conformance.test"));
 
 
-    /// <summary>Sign the scripted server's reply the way RFC 8945 §5.3 requires of a real one.</summary>
+    /// <summary>
+    /// Sign the scripted server's reply the way RFC 8945 §5.3 requires of a real one.
+    /// </summary>
     private static Byte[]? SignedAnswer(Byte[] Request, TSIGKey Key, String Name, String Address)
     {
 

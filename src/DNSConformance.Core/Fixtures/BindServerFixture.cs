@@ -33,7 +33,9 @@ public sealed class BindServerFixture : IAsyncDisposable
     }
 
 
-    /// <summary>True when WSL is available and named is installed.</summary>
+    /// <summary>
+    /// True when WSL is available and named is installed.
+    /// </summary>
     public static Boolean IsAvailable
         => Wsl.IsAvailable && Wsl.HasTool("named");
 

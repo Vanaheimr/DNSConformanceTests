@@ -22,7 +22,9 @@ public class KeyTagAndDsTests
     private const String RootKsk2017Base64 =
         "AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3+/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kvArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+eoZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfdRUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwNR1AkUTV74bU=";
 
-    /// <summary>The DS digest published for KSK-2017 (algorithm 8, digest type 2 = SHA-256).</summary>
+    /// <summary>
+    /// The DS digest published for KSK-2017 (algorithm 8, digest type 2 = SHA-256).
+    /// </summary>
     private const String RootKsk2017DsSha256 =
         "E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D";
 

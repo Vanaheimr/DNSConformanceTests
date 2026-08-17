@@ -22,29 +22,39 @@ public sealed class SignedZoneFixture
     public required IReadOnlyList<RRSIG>                Signatures  { get; init; }
     public required DS                                  DelegationSigner { get; init; }
 
-    /// <summary>The raw flattened zone file, for records the typed loader skips.</summary>
+    /// <summary>
+    /// The raw flattened zone file, for records the typed loader skips.
+    /// </summary>
     public required IReadOnlyList<String>               RawLines    { get; init; }
 
 
-    /// <summary>All records of one owner name and type — an RRset in the RFC 4034 §3.1 sense.</summary>
+    /// <summary>
+    /// All records of one owner name and type — an RRset in the RFC 4034 §3.1 sense.
+    /// </summary>
     public List<IDNSResourceRecord> RRset(String ownerName, DNSResourceRecordTypes type)
         => [.. Records.Where(rr => rr.Type == type &&
                                    String.Equals(rr.DomainName.FullName.TrimEnd('.'), ownerName.TrimEnd('.'), StringComparison.OrdinalIgnoreCase))];
 
 
-    /// <summary>The RRSIG covering the given owner/type, if present.</summary>
+    /// <summary>
+    /// The RRSIG covering the given owner/type, if present.
+    /// </summary>
     public RRSIG? SignatureFor(String ownerName, DNSResourceRecordTypes type)
         => Signatures.FirstOrDefault(sig => sig.TypeCovered == type &&
                                             String.Equals(sig.DomainName.FullName.TrimEnd('.'), ownerName.TrimEnd('.'), StringComparison.OrdinalIgnoreCase));
 
 
-    /// <summary>The DNSKEY matching an RRSIG's key tag and algorithm.</summary>
+    /// <summary>
+    /// The DNSKEY matching an RRSIG's key tag and algorithm.
+    /// </summary>
     public DNSKEY? KeyFor(RRSIG signature)
         => DnsKeys.FirstOrDefault(key => key.Algorithm == signature.Algorithm &&
                                          DNSSECValidator.ComputeKeyTag(key) == signature.KeyTag);
 
 
-    /// <summary>The zone signing key (SEP bit clear) / key signing key (SEP bit set).</summary>
+    /// <summary>
+    /// The zone signing key (SEP bit clear) / key signing key (SEP bit set).
+    /// </summary>
     public DNSKEY? ZoneSigningKey  => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) == 0);
     public DNSKEY? KeySigningKey   => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) != 0);
 
@@ -65,7 +75,9 @@ public sealed class SignedZoneFixture
 
     #region Directory / availability
 
-    /// <summary>The fixtures/zones/signed directory, located relative to the test assembly.</summary>
+    /// <summary>
+    /// The fixtures/zones/signed directory, located relative to the test assembly.
+    /// </summary>
     public static String? SignedZoneDirectory
         => signedZoneDirectory.Value;
 
@@ -380,7 +392,9 @@ public sealed class SignedZoneFixture
     }
 
 
-    /// <summary>RRSIG timestamps are YYYYMMDDHHmmSS in the presentation format (RFC 4034 §3.2).</summary>
+    /// <summary>
+    /// RRSIG timestamps are YYYYMMDDHHmmSS in the presentation format (RFC 4034 §3.2).
+    /// </summary>
     private static UInt32 ParseSigTime(String text)
         => (UInt32) DateTimeOffset.ParseExact(
                         text,

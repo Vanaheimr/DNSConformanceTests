@@ -15,7 +15,9 @@ internal static class RRWire
         [0, 0,  0, 0,  0, 0,  0, 1,  0, 0,  0, 0];
 
 
-    /// <summary>Serialize a Hermod record (uncompressed) and return the RawDns view of it.</summary>
+    /// <summary>
+    /// Serialize a Hermod record (uncompressed) and return the RawDns view of it.
+    /// </summary>
     public static RawRecord Encode(IDNSResourceRecord record)
     {
 
@@ -31,7 +33,9 @@ internal static class RRWire
     }
 
 
-    /// <summary>Full message bytes with this single record in the answer section.</summary>
+    /// <summary>
+    /// Full message bytes with this single record in the answer section.
+    /// </summary>
     public static Byte[] EncodeMessage(IDNSResourceRecord record)
     {
 

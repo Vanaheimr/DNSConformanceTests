@@ -3,7 +3,9 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace DNSConformance.Core.Fixtures;
 
-/// <summary>Self-signed server certificates for DoT test listeners.</summary>
+/// <summary>
+/// Self-signed server certificates for DoT test listeners.
+/// </summary>
 public static class TestCertificate
 {
 

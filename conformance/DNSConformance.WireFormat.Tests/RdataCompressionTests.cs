@@ -40,7 +40,9 @@ namespace DNSConformance.WireFormat.Tests;
 public class RdataCompressionTests
 {
 
-    /// <summary>The name that appears both as the question name and inside the RDATA.</summary>
+    /// <summary>
+    /// The name that appears both as the question name and inside the RDATA.
+    /// </summary>
     private const String EmbeddedName = "target.example.";
 
     private static Byte[] Name

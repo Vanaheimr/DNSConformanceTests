@@ -10,10 +10,14 @@ public sealed class RawDnsReaderOptions
     /// </summary>
     public Boolean  AllowForwardPointers    { get; init; } = false;
 
-    /// <summary>Upper bound on pointer hops per name (loop and stretch protection).</summary>
+    /// <summary>
+    /// Upper bound on pointer hops per name (loop and stretch protection).
+    /// </summary>
     public Int32    MaxPointerHops          { get; init; } = 32;
 
-    /// <summary>Reject messages with unparsed trailing bytes.</summary>
+    /// <summary>
+    /// Reject messages with unparsed trailing bytes.
+    /// </summary>
     public Boolean  RejectTrailingBytes     { get; init; } = false;
 
     public static readonly RawDnsReaderOptions Strict  = new();
@@ -90,7 +94,9 @@ public static class RawDnsReader
 
     #region ReadName(wire, ref offset) / ReadNameAt(wire, offset)
 
-    /// <summary>Decode a possibly compressed name starting at <paramref name="offset"/>, advancing it past the name's primary encoding.</summary>
+    /// <summary>
+    /// Decode a possibly compressed name starting at <paramref name="offset"/>, advancing it past the name's primary encoding.
+    /// </summary>
     public static RawName ReadName(Byte[] wire, ref Int32 offset, RawDnsReaderOptions? options = null)
     {
 
@@ -174,7 +180,9 @@ public static class RawDnsReader
 
     }
 
-    /// <summary>Decode a name at an absolute offset without a running cursor (e.g. inside RDATA). Returns the name and its primary wire length.</summary>
+    /// <summary>
+    /// Decode a name at an absolute offset without a running cursor (e.g. inside RDATA). Returns the name and its primary wire length.
+    /// </summary>
     public static (RawName Name, Int32 Length) ReadNameAt(Byte[] wire, Int32 offset, RawDnsReaderOptions? options = null)
     {
         var cursor = offset;

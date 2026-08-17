@@ -38,7 +38,9 @@ public class DelvValidatesHermodTests
     private const String OptOutZone = "optout.dnssec.test";
     private const String DNameZone  = "dname.dnssec.test";
 
-    /// <summary>The unsigned delegation inside the opt-out zone.</summary>
+    /// <summary>
+    /// The unsigned delegation inside the opt-out zone.
+    /// </summary>
     private const String DelegatedZone = "insecure.optout.dnssec.test";
 
     private HermodServerFixture  nsecServer   = null!;

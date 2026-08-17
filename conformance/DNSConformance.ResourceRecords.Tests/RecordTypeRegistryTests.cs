@@ -103,7 +103,9 @@ public class RecordTypeRegistryTests
 
     #region (private static) ReadOneRecord(Type, Rdata)
 
-    /// <summary>Read a single record of the given type off a crafted wire image.</summary>
+    /// <summary>
+    /// Read a single record of the given type off a crafted wire image.
+    /// </summary>
     private static IDNSResourceRecord? ReadOneRecord(UInt16 Type, Byte[] Rdata)
     {
 

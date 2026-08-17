@@ -87,7 +87,9 @@ public class Sig0SigningTests
     }
 
 
-    /// <summary>The SIG(0)'s RDATA fields, read straight off the wire.</summary>
+    /// <summary>
+    /// The SIG(0)'s RDATA fields, read straight off the wire.
+    /// </summary>
     private static (UInt16 TypeCovered, Byte Algorithm, Byte Labels, UInt32 OriginalTTL,
                     UInt32 Expiration, UInt32 Inception, UInt16 KeyTag, Byte[] Signature)
         FieldsOf(RawRecord Sig)

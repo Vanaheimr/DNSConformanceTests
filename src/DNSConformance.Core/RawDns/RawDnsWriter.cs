@@ -12,7 +12,9 @@ public sealed class RawDnsWriter
 
     private readonly MemoryStream ms = new();
 
-    /// <summary>Current absolute offset — equals the offset the *next* byte will occupy.</summary>
+    /// <summary>
+    /// Current absolute offset — equals the offset the *next* byte will occupy.
+    /// </summary>
     public Int32 Position
         => (Int32) ms.Position;
 
@@ -99,18 +101,24 @@ public sealed class RawDnsWriter
 
     }
 
-    /// <summary>Write a single raw label (length byte + payload) without any validation — for negative tests.</summary>
+    /// <summary>
+    /// Write a single raw label (length byte + payload) without any validation — for negative tests.
+    /// </summary>
     public RawDnsWriter RawLabel(Byte declaredLength, Byte[] payload)
         => U8(declaredLength).Bytes(payload);
 
     public RawDnsWriter RawLabel(String label)
         => RawLabel((Byte) label.Length, Encoding.ASCII.GetBytes(label));
 
-    /// <summary>Terminate a name built from raw labels.</summary>
+    /// <summary>
+    /// Terminate a name built from raw labels.
+    /// </summary>
     public RawDnsWriter EndName()
         => U8(0);
 
-    /// <summary>Write an RFC 1035 §4.1.4 compression pointer to the given absolute offset.</summary>
+    /// <summary>
+    /// Write an RFC 1035 §4.1.4 compression pointer to the given absolute offset.
+    /// </summary>
     public RawDnsWriter Pointer(Int32 offset)
     {
 
@@ -125,7 +133,9 @@ public sealed class RawDnsWriter
 
     #region Character strings
 
-    /// <summary>Write a &lt;character-string&gt; (RFC 1035 §3.3): one length octet + up to 255 bytes.</summary>
+    /// <summary>
+    /// Write a &lt;character-string&gt; (RFC 1035 §3.3): one length octet + up to 255 bytes.
+    /// </summary>
     public RawDnsWriter CharacterString(String text)
         => CharacterString(Encoding.ASCII.GetBytes(text));
 
@@ -143,7 +153,9 @@ public sealed class RawDnsWriter
 
     #region Message building blocks
 
-    /// <summary>Write the 12-byte header (RFC 1035 §4.1.1).</summary>
+    /// <summary>
+    /// Write the 12-byte header (RFC 1035 §4.1.1).
+    /// </summary>
     public RawDnsWriter Header(UInt16  id,
                                UInt16  flags,
                                UInt16  qdCount,
@@ -154,7 +166,9 @@ public sealed class RawDnsWriter
         => U16(id).U16(flags).U16(qdCount).U16(anCount).U16(nsCount).U16(arCount);
 
 
-    /// <summary>Write a question entry (RFC 1035 §4.1.2).</summary>
+    /// <summary>
+    /// Write a question entry (RFC 1035 §4.1.2).
+    /// </summary>
     public RawDnsWriter Question(String  name,
                                  UInt16  type,
                                  UInt16  cls = RawDnsClass.IN)
@@ -162,7 +176,9 @@ public sealed class RawDnsWriter
         => Name(name).U16(type).U16(cls);
 
 
-    /// <summary>Write a complete resource record with explicit RDATA (RFC 1035 §4.1.3). RDLENGTH is derived.</summary>
+    /// <summary>
+    /// Write a complete resource record with explicit RDATA (RFC 1035 §4.1.3). RDLENGTH is derived.
+    /// </summary>
     public RawDnsWriter RR(String  name,
                            UInt16  type,
                            UInt16  cls,
@@ -172,7 +188,9 @@ public sealed class RawDnsWriter
         => Name(name).U16(type).U16(cls).U32(ttl).U16((UInt16) rdata.Length).Bytes(rdata);
 
 
-    /// <summary>Write an OPT pseudo-RR (RFC 6891 §6.1.2): root name, TYPE=41, CLASS=payload size, TTL=extRCODE/version/flags.</summary>
+    /// <summary>
+    /// Write an OPT pseudo-RR (RFC 6891 §6.1.2): root name, TYPE=41, CLASS=payload size, TTL=extRCODE/version/flags.
+    /// </summary>
     public RawDnsWriter Opt(UInt16  payloadSize,
                             Byte    extendedRcode  = 0,
                             Byte    version        = 0,
@@ -200,7 +218,9 @@ public sealed class RawDnsWriter
 
     #region Static conveniences
 
-    /// <summary>Build a plain query for one question (optionally with EDNS0 OPT).</summary>
+    /// <summary>
+    /// Build a plain query for one question (optionally with EDNS0 OPT).
+    /// </summary>
     public static Byte[] Query(UInt16   id,
                                String   name,
                                UInt16   type,
@@ -233,7 +253,9 @@ public sealed class RawDnsWriter
 
     }
 
-    /// <summary>Build a minimal NOERROR response echoing the given question with the given answer RRs.</summary>
+    /// <summary>
+    /// Build a minimal NOERROR response echoing the given question with the given answer RRs.
+    /// </summary>
     public static Byte[] Response(UInt16                                                       id,
                                   String                                                       questionName,
                                   UInt16                                                       questionType,
@@ -252,11 +274,15 @@ public sealed class RawDnsWriter
 
     }
 
-    /// <summary>RDATA helper: uncompressed domain name as bytes (for NS/CNAME/PTR/MX targets etc.).</summary>
+    /// <summary>
+    /// RDATA helper: uncompressed domain name as bytes (for NS/CNAME/PTR/MX targets etc.).
+    /// </summary>
     public static Byte[] NameBytes(String name)
         => new RawDnsWriter().Name(name).ToArray();
 
-    /// <summary>RDATA helper: IPv4 address bytes.</summary>
+    /// <summary>
+    /// RDATA helper: IPv4 address bytes.
+    /// </summary>
     /// <summary>SOA RDATA (RFC 1035 §3.3.13), uncompressed. MINIMUM is the field
     /// RFC 2308 §4 repurposed as the negative-caching TTL.</summary>
     public static Byte[] Soa(String  MName,
@@ -290,7 +316,9 @@ public sealed class RawDnsWriter
 
     }
 
-    /// <summary>RDATA helper: IPv6 address bytes (16).</summary>
+    /// <summary>
+    /// RDATA helper: IPv6 address bytes (16).
+    /// </summary>
     public static Byte[] IPv6(String text)
         => System.Net.IPAddress.Parse(text).GetAddressBytes();
 
