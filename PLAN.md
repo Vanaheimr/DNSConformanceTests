@@ -193,10 +193,10 @@ round-trip where supported.
 | 7873 §5.3 | client: a response echoing a client cookie that was never sent is discarded, only the server half is stored ✅ (finding 25), BADCOOKIE retried once with the supplied cookie, a cookieless response still accepted | ✅ |
 | 9018 §4 | server cookie | SipHash-2-4 over §4.4's exact input, all four Appendix A vectors reproduced byte for byte in both directions, a 128-bit key required, and §4.3's window compared with RFC 1982 serial arithmetic | ✅ |
 | 7873 §5.2 | server: a server cookie bound to the client cookie, the client's address and a timestamp; BADCOOKIE with a fresh cookie when it is missing or wrong; FORMERR for illegal lengths; unchanged behaviour without a cookie or without a secret | ✅ |
-| 7830 | Padding option is all-zero | ✅ |
+| 7830 §3 | Padding option: code 12, OPTION-LENGTH is the octet count, all-zero outbound, any value accepted inbound, at most one per OPT meta-RR | ✅ |
 | 8914 | Extended DNS Error: info-code + extra-text | ✅ |
 | 7828 | TCP Keepalive: zero-length in queries, 2-byte 100 ms units in responses, malformed lengths rejected | ✅ |
-| 7830/8467 | Padding: all-zero octets, 128-byte query blocks, 468-byte response blocks | ✅ |
+| 8467 §4.1 | the block lengths themselves — 128 and 468 — and the arithmetic that reaches them; the *policies* that apply them are with the transport that carries them, in §4.6 | ✅ |
 
 ### 4.4 Client behavior (`DNSConformance.Client.Tests`) — vs. scripted servers
 
@@ -267,7 +267,9 @@ round-trip where supported.
 | 8484 §4.1 | the encoded payload is a valid DNS query with no trailing bytes | ✅ |
 | 8484 §4.2.1 | HTTP error status never reaches the wire parser | ✅ |
 | 8484 §4.1 | DoH ID SHOULD be 0 (cache friendliness) | 📋 |
-| 7830/8467 | padding policies on DoT | ⬜ |
+| 7830 §4 | responder MUST pad when the query carried the option, MUST NOT when it announced no EDNS(0), and the requestor's payload size caps the result | ✅ |
+| 8467 §4.1 | client pads queries to 128, responder pads to 468, each at the first boundary that holds the message | ✅ |
+| 7830/8467 | padding policies on DoH | ⬜ |
 | JSON APIs | Google/Cloudflare `application/dns-json` (covered live against Cloudflare) | 🟡 |
 
 DoH client tests run against a scripted in-process HTTP listener speaking
@@ -445,7 +447,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | 🟡 mostly done — the DoT padding policies (RFC 7830/8467) remain |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — the DoT padding policies closed it (findings 30, 31); the same gap over DoH is queued in the README |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 

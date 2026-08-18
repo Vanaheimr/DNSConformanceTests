@@ -45,6 +45,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 27 | Malformed key material threw out of validation | Medium | 4035 §5.3.3, 4033 §5 | ✅ fixed |
 | 28 | The LOC parser discarded the size and both precisions | Medium | 1876 §3 | ✅ fixed |
 | 29 | An unknown LOC version was rendered as if it were version 0 | Low | 1876 §2 | ✅ fixed |
+| 30 | A padded query was answered unpadded | Medium | 7830 §4 | ✅ fixed |
+| 31 | The DoT client announced no EDNS(0), so nothing could be padded | Medium | 8467 §4.1, 7830 §4 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1141,6 +1143,94 @@ pass reach them: reversing the latitude offset, dropping the altitude reference
 and ignoring the exponent are all caught, and none of the three would have
 changed a rendered string in a way a reader would notice.
 
+
+---
+
+## 30 and 31 — padding, absent from both ends of the same connection
+
+DoT encrypts the transport, which hides the name being asked for and leaves the
+length of the message behind. A query is short and its length says a great deal
+about it; that is the gap RFC 7830 exists to close, and RFC 8467 §4.1 names the
+block lengths — 128 octets for queries, 468 for responses.
+
+Hermod parsed the option and could compute a block-aligned length. Nothing
+called it. The two findings below are what that came to on each side, and they
+compound: the client's silence puts the server in the one case where padding is
+*forbidden*, so even a correct responder would have had nothing to do.
+
+### 30 — A padded query was answered unpadded
+
+*RFC 7830 §4:* "Responders MUST pad DNS responses when the respective DNS query
+included the 'Padding' option, unless doing so would violate the maximum UDP
+payload size."
+
+Measured over DoT, with the suite's own reader rather than Hermod's:
+
+| | |
+|---|---|
+| query | 128 octets, Padding option present, payload size 4096 |
+| response | 81 octets, OPT record present, **options: none** |
+
+The exception clause does not apply: 468 octets sit far below the 4096 the
+requestor advertised. The server saw the option, built an OPT record for the
+reply, and left the padding out of it.
+
+**Fix.** The response is padded at the point where it is serialized for a
+length-prefixed stream, which TCP and DoT share. Padding depends on the finished
+length, so it cannot be decided where the response OPT is built — that runs
+before the answer is assembled and the length is not yet known. The message is
+therefore serialized twice: a trial run carrying an empty Padding option, then
+the real one. Measuring the trial rather than adding four for the option header
+keeps the header inside the number the serializer produced.
+
+The measurement is taken *after* signing. What an observer counts is the
+finished message, TSIG or SIG(0) record included, so that is the length which
+has to land on the boundary; padding underneath a signature of some other length
+would leave the observable length as revealing as before. Both RFCs are silent
+on the combination.
+
+Severity is Medium: no answer was wrong and nothing failed to interoperate.
+What was missing is the defence the peer asked for by name.
+
+### 31 — The DoT client announced no EDNS(0), so nothing could be padded
+
+*RFC 8467 §4.1:* "Clients SHOULD pad queries to the closest multiple of 128
+octets", with the note that "the recommendation above only applies if the DNS
+transport is encrypted".
+
+The DoT client's queries were 29 octets and carried no OPT record at all — it
+passed a literal `0` as the payload size, which is `DNSPacket.Query`'s switch for
+leaving EDNS(0) out. Padding lives inside the OPT record, so there was nowhere
+to put it.
+
+That is the smaller half of the consequence. The larger one is on the other side
+of the connection: *RFC 7830 §4:* "Responders MUST NOT pad DNS responses when the
+respective DNS query did not indicate EDNS(0) support." Hermod's own client put
+Hermod's own server in exactly the case where padding is prohibited, so the two
+halves agreed with each other and neither was doing what the RFCs ask.
+
+**Fix.** The client advertises a payload size — which is also the ceiling RFC
+7830 §4 puts on the reply — and pads to 128 by default, through the same
+two-pass measurement as the server. Both are properties rather than constants:
+`UDPPayloadSize = 0` withdraws EDNS(0) and, necessarily, padding with it, and
+`PaddingBlockSize = 0` keeps EDNS(0) while sending no padding.
+
+Severity is Medium for the same reason as 30, with the addition that this one
+also disabled the other end.
+
+**The DoH client has the same shape and was left as it is.** It passes the same
+literal `0`, so it announces no EDNS(0) either. That is deliberate rather than
+overlooked: RFC 8467 §4.1's block lengths are stated for DoT, and what an HTTP
+transport should pad to — and what RFC 8484 asks of the HTTP layer around it —
+is a reading that has not been done yet. Fixing it by analogy would be guessing
+at numbers. It is on the todo list in the README, named as this finding on a
+second transport.
+
+**What the mutation pass added here.** Setting the client's default block length
+to 0 survived the first run: the test helper set the property on every client it
+built, so no test ever exercised the default — the one line carrying RFC 8467's
+SHOULD. The helper leaves it alone now unless a test is explicitly about
+overriding it.
 
 ---
 
