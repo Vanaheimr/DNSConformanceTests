@@ -269,7 +269,9 @@ round-trip where supported.
 | 8484 §4.1 | DoH ID SHOULD be 0 (cache friendliness) | 📋 |
 | 7830 §4 | responder MUST pad when the query carried the option, MUST NOT when it announced no EDNS(0), and the requestor's payload size caps the result | ✅ |
 | 8467 §4.1 | client pads queries to 128, responder pads to 468, each at the first boundary that holds the message | ✅ |
-| 7830/8467 | padding policies on DoH | ⬜ |
+| 8467 §1, 8484 §9 | padding on DoH: §1 scopes the document to encrypted transports rather than to named protocols, so the 128-octet query block applies; the client requests padding, which is the only half Hermod has | ✅ |
+| 8484 §6 | the payload-size ceiling does *not* apply on DoH — a responder MUST ignore the advertised size, so the field only forces the OPT record the option lives in | ✅ |
+| 8484 §4.1 + 8467 §4.1 | the two paddings do not collide: a message on a 128-octet block is ≡ 2 (mod 3), the one class where base64url would append `=`, and it still must not | ✅ |
 | JSON APIs | Google/Cloudflare `application/dns-json` (covered live against Cloudflare) | 🟡 |
 
 DoH client tests run against a scripted in-process HTTP listener speaking
@@ -447,7 +449,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — the DoT padding policies closed it (findings 30, 31); the same gap over DoH is queued in the README |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — the padding policies closed it on both encrypted transports (findings 30, 31, 32) |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
