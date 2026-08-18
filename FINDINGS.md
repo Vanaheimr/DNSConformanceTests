@@ -47,6 +47,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 29 | An unknown LOC version was rendered as if it were version 0 | Low | 1876 §2 | ✅ fixed |
 | 30 | A padded query was answered unpadded | Medium | 7830 §4 | ✅ fixed |
 | 31 | The DoT client announced no EDNS(0), so nothing could be padded | Medium | 8467 §4.1, 7830 §4 | ✅ fixed |
+| 32 | The DoH client did the same, on a transport RFC 8467 covers without naming | Medium | 8467 §1, §4.1, 8484 §9 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1218,19 +1219,72 @@ two-pass measurement as the server. Both are properties rather than constants:
 Severity is Medium for the same reason as 30, with the addition that this one
 also disabled the other end.
 
-**The DoH client has the same shape and was left as it is.** It passes the same
-literal `0`, so it announces no EDNS(0) either. That is deliberate rather than
-overlooked: RFC 8467 §4.1's block lengths are stated for DoT, and what an HTTP
-transport should pad to — and what RFC 8484 asks of the HTTP layer around it —
-is a reading that has not been done yet. Fixing it by analogy would be guessing
-at numbers. It is on the todo list in the README, named as this finding on a
-second transport.
+**The DoH client had the same shape** — the same literal `0`, the same silence
+about EDNS(0). It is finding 32 below, and it was fixed a round later.
 
 **What the mutation pass added here.** Setting the client's default block length
 to 0 survived the first run: the test helper set the property on every client it
 built, so no test ever exercised the default — the one line carrying RFC 8467's
 SHOULD. The helper leaves it alone now unless a test is explicitly about
 overriding it.
+
+---
+
+## 32 — The DoH client did the same, on a transport RFC 8467 covers without naming
+
+`DNSHTTPSClient` passed the same literal `0` payload size as the DoT client, so
+it announced no EDNS(0) and padded nothing. The defect is finding 31's; what is
+worth recording separately is the reasoning that deferred it, because that
+reasoning was wrong.
+
+**The correction.** The previous round left DoH alone and said why: that RFC
+8467 §4.1's block lengths are stated for DoT, so applying them to an HTTP
+transport would be guessing. Reading the RFC does not support that. §1 scopes
+the whole document, and it scopes it by property rather than by protocol:
+
+*RFC 8467 §1:* "Padding DNS messages is useful only when transport is encrypted
+using protocols such as DNS over Transport Layer Security [RFC7858], DNS over
+Datagram Transport Layer Security [RFC8094], or **other encrypted DNS transports
+specified in the future**."
+
+DoH is one of those — published the same month as RFC 8467, and named nowhere in
+it. The qualifier attached to §4.1's recommendation is the same property: "Note
+that the recommendation above only applies if the DNS transport is encrypted."
+So 128 octets is the block length here for exactly the reason it is on DoT, and
+there was never a number to guess at.
+
+RFC 8484 says so from its own side, in *§9:* "DoH servers can also add DNS
+padding [RFC7830] if the DoH client requests it in the DNS query." Requesting it
+is the client's part, and it is the only part Hermod has — there is no DoH
+server here for the responder's MUST to bind.
+
+**One rule genuinely does differ, and it is the ceiling.** *RFC 8484 §6:* "DoH
+servers using this media type MUST ignore the value given for the EDNS UDP
+payload size in DNS requests." On DoT that field caps how far the responder may
+pad; on DoH a responder is required to disregard it. What the field does here is
+force the OPT record into existence, which is where the Padding option lives —
+so the client still sets it, and its value is inert by design rather than by
+oversight.
+
+**Fix.** `UDPPayloadSize` and `PaddingBlockSize` on `DNSHTTPSClient`, and the
+same two-pass measurement as the other transports: serialize with an empty
+Padding option, measure, compute, rebuild. Measured after signing, for the same
+reason as before.
+
+**Two things called padding meet on this transport, and only one of them is
+this.** RFC 8467 pads the DNS message; RFC 4648 pads a base64 encoding out to a
+multiple of four characters, and *RFC 8484 §4.1* forbids the second: "Padding
+characters for base64url MUST NOT be included." The first makes the second
+harder to get right rather than easier. A message padded to a multiple of 128
+has length ≡ 2 (mod 3), which is precisely the class where base64 appends a
+single `=` — so following §4.1's recommended block puts **every** GET request
+into the encoding case that has to be trimmed, where before only some were.
+Measured: 128 octets encode to 171 characters, not 172. There is a test for the
+combination, because the two rounds meet here.
+
+HTTP/2's own padding is a third thing again, at a layer this does not touch —
+*RFC 8484 §4.1:* "DoH clients can use HTTP/2 padding and compression [RFC7540]
+in the same way that other HTTP/2 clients use (or don't use) them."
 
 ---
 
