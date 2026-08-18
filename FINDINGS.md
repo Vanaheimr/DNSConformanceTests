@@ -48,6 +48,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 30 | A padded query was answered unpadded | Medium | 7830 §4 | ✅ fixed |
 | 31 | The DoT client announced no EDNS(0), so nothing could be padded | Medium | 8467 §4.1, 7830 §4 | ✅ fixed |
 | 32 | The DoH client did the same, on a transport RFC 8467 covers without naming | Medium | 8467 §1, §4.1, 8484 §9 | ✅ fixed |
+| 33 | Every DoH query carried a random ID, so no two were the same request | Low | 8484 §4.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1285,6 +1286,55 @@ combination, because the two rounds meet here.
 HTTP/2's own padding is a third thing again, at a layer this does not touch —
 *RFC 8484 §4.1:* "DoH clients can use HTTP/2 padding and compression [RFC7540]
 in the same way that other HTTP/2 clients use (or don't use) them."
+
+---
+
+## 33 — Every DoH query carried a random ID, so no two were the same request
+
+*RFC 8484 §4.1:* "In order to maximize HTTP cache friendliness, DoH clients
+using media formats that include the ID field from the DNS message header, such
+as 'application/dns-message', SHOULD use a DNS ID of 0 in every DNS request.
+HTTP correlates the request and response, thus eliminating the need for the ID
+in a media type such as 'application/dns-message'. **The use of a varying DNS ID
+can cause semantically equivalent DNS queries to be cached separately.**"
+
+`DNSPacket.Query` picks its transaction ID at random, and the DoH client took it
+as given. Every request for the same name was therefore a different request —
+different two octets, different base64url, different URI. An HTTP cache matches
+on the request, so nothing ever hit.
+
+The suite had already noticed. `Doh_Transaction_Id_Is_Reported` measured the ID
+and ended in `Assert.Pass`, and PLAN.md carried the row as 📋 rather than ⬜ —
+a gap that had been looked at and left, which is a better state to be in than
+not knowing, and a worse one than fixed.
+
+**Fix.** `ZeroTransactionId` on `DNSHTTPSClient`, on by default, applied through
+a new `DNSPacket.WithTransactionId` — the same rebuild-rather-than-mutate shape
+as `DNSPadding.WithPadding`.
+
+**The ordering is the part that can go wrong quietly.** The ID is zeroed
+*before* the query is signed. A TSIG or SIG(0) covers the message including the
+header the ID sits in, so zeroing afterwards would put a query on the wire whose
+own signature does not verify. There is a test that signs, checks the ID is 0,
+and checks the MAC verifies, rather than leaving the order to a comment.
+
+**What it does not give up.** A random ID is what RFC 5452 §9.2 asks of a
+datagram transport, where it is one of the few things making an off-path spoof
+hard. §4.1 states the reason it can be dropped here: HTTP correlates the request
+and the response, so there is no second answer to tell apart from the first. The
+client's own check that a response carries the query's ID stays in place — it
+becomes "zero came back as zero", redundant rather than wrong, and it costs
+nothing to keep. The behaviour is a property rather than a constant, because
+§4.1 is a SHOULD and something upstream may want the randomness back.
+
+**The test that matters is not the one about the ID.** Asserting the ID is 0
+checks the mechanism. Asserting that two askings of the same question produce a
+character-identical URI checks the property the mechanism exists to produce, and
+it catches anything *else* that might vary between two equivalent queries —
+which a look at the ID alone would not.
+
+Severity is Low: nothing was incorrect, and no answer was wrong. What was lost
+was every cache hit.
 
 ---
 

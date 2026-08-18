@@ -156,29 +156,190 @@ public class DohClientTests
 
     #endregion
 
-    #region Doh_Transaction_Id_Is_Reported()
+    #region Doh_Uses_A_Dns_Id_Of_Zero(Mode)
 
-    [Test]
+    [TestCase(DNSHTTPSMode.POST, TestName = "Doh_Uses_A_Dns_Id_Of_Zero_Post")]
+    [TestCase(DNSHTTPSMode.GET,  TestName = "Doh_Uses_A_Dns_Id_Of_Zero_Get")]
     [Property("RFC", "8484 §4.1")]
-    public async Task Doh_Transaction_Id_Is_Reported()
+    public async Task Doh_Uses_A_Dns_Id_Of_Zero(DNSHTTPSMode Mode)
     {
 
         // "In order to maximize HTTP cache friendliness, DoH clients using media
         //  formats that include the ID field from the DNS message header, such
-        //  as application/dns-message, SHOULD use a DNS ID of 0 in every DNS
-        //  request." SHOULD-level — measured and reported, not enforced.
+        //  as 'application/dns-message', SHOULD use a DNS ID of 0 in every DNS
+        //  request."
+        await using var server   = NewServer();
+        await using var client   = NewClient(server, Mode);
+
+        var response = await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
+
+        Assert.That(server.Exchanges.TryDequeue(out var exchange), Is.True, "the DoH endpoint received a request");
+
+        Assert.Multiple(() => {
+
+            Assert.That(RawDnsReader.Parse(exchange!.DnsMessage).Id, Is.Zero,
+                        "the query goes out under a DNS ID of 0");
+
+            // The client checks that a response carries the ID its query did.
+            // With a zero ID that check becomes "zero came back as zero" — still
+            // performed, and the answer has to survive it.
+            Assert.That(response.FilteredAnswers.Single().IPv4Address,
+                        Is.EqualTo(IPv4Address.Parse("192.0.2.42")),
+                        "and the answer still reaches the caller");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Every_Doh_Request_Uses_The_Same_Id()
+
+    [Test]
+    [Property("RFC", "8484 §4.1")]
+    public async Task Every_Doh_Request_Uses_The_Same_Id()
+    {
+
+        // "...in every DNS request." A client that zeroed the first ID and then
+        // reverted to random ones would satisfy a single-shot test and none of
+        // the caching this is for.
         await using var server = NewServer();
         await using var client = NewClient(server, DNSHTTPSMode.POST);
 
-        _ = await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
+        for (var i = 0; i < 5; i++)
+            await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
 
-        Assert.That(server.Exchanges.TryDequeue(out var exchange), Is.True);
+        var ids = new List<UInt16>();
 
-        var id = RawDnsReader.Parse(exchange!.DnsMessage).Id;
+        while (server.Exchanges.TryDequeue(out var exchange))
+            ids.Add(RawDnsReader.Parse(exchange.DnsMessage).Id);
 
-        TestContext.Out.WriteLine($"DoH transaction ID = {id} (RFC 8484 §4.1 recommends 0 for cache friendliness)");
+        Assert.Multiple(() => {
+            Assert.That(ids, Has.Count.EqualTo(5), "five requests were made");
+            Assert.That(ids, Is.All.Zero,          "and every one of them carried a DNS ID of 0");
+        });
 
-        Assert.Pass($"observed DoH transaction ID {id}");
+    }
+
+    #endregion
+
+    #region Equivalent_Queries_Produce_Byte_Identical_Requests()
+
+    [Test]
+    [Property("RFC", "8484 §4.1")]
+    public async Task Equivalent_Queries_Produce_Byte_Identical_Requests()
+    {
+
+        // This is what the rule is actually for: "The use of a varying DNS ID can
+        //  cause semantically equivalent DNS queries to be cached separately."
+        //
+        // An HTTP cache matches on the request, so two askings of the same
+        // question have to *be* the same request. Asserting the ID is 0 checks
+        // the mechanism; asserting the two GETs are character-for-character equal
+        // checks the property the mechanism exists to produce — and would catch
+        // anything else varying between them, which a look at the ID alone would
+        // not.
+        await using var server = NewServer();
+        await using var client = NewClient(server, DNSHTTPSMode.GET);
+
+        await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
+        await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
+
+        Assert.That(server.Exchanges.TryDequeue(out var first),  Is.True);
+        Assert.That(server.Exchanges.TryDequeue(out var second), Is.True);
+
+        Assert.Multiple(() => {
+
+            Assert.That(second!.RawDnsParameter, Is.EqualTo(first!.RawDnsParameter),
+                        "the same question produces the same URI, which is what a cache can hit");
+
+            Assert.That(second.Path,             Is.EqualTo(first.Path));
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Varying_Id_Can_Be_Restored()
+
+    [Test]
+    [Property("RFC", "8484 §4.1, 5452 §9.2")]
+    public async Task A_Varying_Id_Can_Be_Restored()
+    {
+
+        // §4.1 is a SHOULD, and the reason it can be one is that HTTP correlates
+        // request and response by itself. A caller who wants RFC 5452 §9.2's
+        // random ID anyway — talking through something that does not, say — must
+        // be able to have it back.
+        await using var server = NewServer();
+        await using var client = NewClient(server, DNSHTTPSMode.POST);
+        client.ZeroTransactionId = false;
+
+        for (var i = 0; i < 5; i++)
+            await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
+
+        var ids = new List<UInt16>();
+
+        while (server.Exchanges.TryDequeue(out var exchange))
+            ids.Add(RawDnsReader.Parse(exchange.DnsMessage).Id);
+
+        TestContext.Out.WriteLine($"IDs with the recommendation switched off: {String.Join(", ", ids)}");
+
+        Assert.That(ids.Distinct().Count(), Is.GreaterThan(1),
+                    "the IDs vary again once the client is told to stop zeroing them");
+
+    }
+
+    #endregion
+
+    #region A_Zero_Id_Is_Covered_By_The_Signature()
+
+    [Test]
+    [Property("RFC", "8484 §4.1, 8945 §4.3.1")]
+    public async Task A_Zero_Id_Is_Covered_By_The_Signature()
+    {
+
+        // A TSIG covers the message including the header the ID sits in, so the
+        // ID has to be settled *before* the MAC is computed. Zeroing it
+        // afterwards would produce a query whose signature does not verify —
+        // which is why the ordering is asserted rather than assumed.
+        var key = new TSIGKey(
+                      DomainName.Parse("doh-id-key."),
+                      Convert.FromBase64String("ZG9oLXplcm8taWQtdHNpZy10ZXN0LXNlY3JldC0xMjM0NTY3OA==")
+                  );
+
+        await using var server = new ScriptedDoHServer(
+            request => {
+
+                var answer = RawDnsResponder.Answer(request, ("doh.example.", RawDnsType.A, 300, RawDnsWriter.IPv4("192.0.2.42")));
+
+                return answer is null
+                           ? null
+                           : TSIGSigner.Sign(answer, key, RequestMAC: TSIGSigner.Verify(request, key).MAC);
+
+            }
+        );
+
+        await using var client = NewClient(server, DNSHTTPSMode.POST);
+        client.TransactionSecurity = new DNSTransactionSecurity(TSIGKey: key);
+
+        var response = await client.Query<A>(DomainName.Parse("doh.example."), Timeout: TimeSpan.FromSeconds(10));
+
+        Assert.That(server.Exchanges.TryDequeue(out var exchange), Is.True, "the DoH endpoint received a signed request");
+
+        Assert.Multiple(() => {
+
+            Assert.That(RawDnsReader.Parse(exchange!.DnsMessage).Id,   Is.Zero,
+                        "the signed query still carries a DNS ID of 0");
+
+            Assert.That(TSIGSigner.Verify(exchange!.DnsMessage, key).IsValid, Is.True,
+                        "and the MAC verifies, so the zero was in place before the signature was computed");
+
+            Assert.That(response.FilteredAnswers.Single().IPv4Address,
+                        Is.EqualTo(IPv4Address.Parse("192.0.2.42")));
+
+        });
 
     }
 

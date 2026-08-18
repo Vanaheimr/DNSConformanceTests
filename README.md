@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 718 tests · 705 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 784 tests · 771 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 29 RFC deviations in Hermod. All are fixed;
+The suite has found 33 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

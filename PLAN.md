@@ -112,10 +112,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-13 run: **718 tests, 705 ✅, 0 ❌, 13 skipped** — 646
+Counts as of the 2026-08-18 run: **784 tests, 771 ✅, 0 ❌, 13 skipped** — 712
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
-BIND as a peer skip without it. All twenty-nine deviations the suite found are
-fixed; see [FINDINGS.md](FINDINGS.md).
+BIND as a peer skip without it. Every deviation the suite has found is fixed;
+see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -276,7 +276,7 @@ round-trip where supported.
 | 8484 §4.1 | DoH POST: `content-type: application/dns-message`, body = raw message | ✅ |
 | 8484 §4.1 | the encoded payload is a valid DNS query with no trailing bytes | ✅ |
 | 8484 §4.2.1 | HTTP error status never reaches the wire parser | ✅ |
-| 8484 §4.1 | DoH ID SHOULD be 0 (cache friendliness) | 📋 |
+| 8484 §4.1 | DoH ID is 0 in *every* request, and the property that is for: two askings of the same question produce a character-identical URI, which is what an HTTP cache can hit. Settled before signing, since a TSIG covers the header the ID sits in. Restorable, because §4.1 is a SHOULD and something upstream may still want RFC 5452 §9.2's randomness | ✅ |
 | 7830 §4 | responder MUST pad when the query carried the option, MUST NOT when it announced no EDNS(0), and the requestor's payload size caps the result | ✅ |
 | 8467 §4.1 | client pads queries to 128, responder pads to 468, each at the first boundary that holds the message | ✅ |
 | 8467 §1, 8484 §9 | padding on DoH: §1 scopes the document to encrypted transports rather than to named protocols, so the 128-octet query block applies; the client requests padding and, since `DNSOverHTTPSServer`, the other half answers it | ✅ |
