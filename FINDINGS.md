@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Thirty-seven RFC deviations in the Hermod DNS stack, each
+What this suite caught. Thirty-eight RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -53,6 +53,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 35 | A DoT connection the server asked the client to stop using stayed in use | Low (SHOULD) | 7828 §3.2.2 | ✅ fixed |
 | 36 | The same rule, on the transport it had just become reachable on | Low (SHOULD) | 7828 §3, §3.2.2 | ✅ fixed |
 | 37 | A session outlived every timeout a server advertised | Low (SHOULD) | 7828 §3.2.2, §3 | ✅ fixed |
+| 38 | A TTL with the sign bit set became a cache entry that never expired | Medium | 2181 §8 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1570,6 +1571,81 @@ connection after each response."
 
 ---
 
+## 38 — A TTL with the sign bit set became a cache entry that never expired
+
+*RFC 2181 §8:* "It is hereby specified that a TTL value is an unsigned number,
+with a minimum value of 0, and a maximum value of 2147483647. That is, a maximum
+of 2^31 - 1. When transmitted, this value shall be encoded in the less
+significant 31 bits of the 32 bit TTL field, with the most significant, or sign,
+bit set to zero. Implementations should treat TTL values received with the most
+significant bit set as if the entire value received was zero."
+
+Two rules in one paragraph, and Hermod missed both — in opposite directions.
+
+**Receiving**, `ADNSResourceRecord`'s stream constructor read the four octets
+straight into a `TimeSpan`. The line underneath it is the one that matters:
+`EndOfLife = Timestamp.Now + TimeToLive`. A TTL of `0x80000001` therefore dated
+the record's expiry 68 years out, and `0xFFFFFFFF` 136.
+
+That is not a cosmetic over-read, because `EndOfLife` is exactly what
+`DNSCache` expires on. The lookup path keeps `Where(rr => rr.EndOfLife > now)`,
+and the sweep that clears the cache removes only entries whose `EndOfLife` has
+already passed. A record admitted with the sign bit set is not merely long-lived;
+it is unreachable by the eviction path for as long as the process runs. One
+answer — from a misconfigured upstream, or from an attacker who won the race the
+ID and port randomness of *RFC 5452 §9.2* is there to make hard — became
+permanent.
+
+**Transmitting**, both serializers capped the TTL with
+`Math.Min(TimeToLive.TotalSeconds, UInt32.MaxValue)`. The intent is plainly
+overflow protection, and the bound is one bit too generous: it permits exactly
+the encoding §8 forbids. Anything above 2^31-1 seconds held in memory — from a
+zone file, or from a caller who set a `TimeSpan` directly — went onto the wire
+with the sign bit set.
+
+**The trap, checked rather than assumed.** *RFC 6891 §6.1.3* reuses the same four
+octets in an OPT record for something that is not a TTL at all: extended RCODE in
+the high byte, then version, then flags. The sign bit there is RCODE bit 11, and
+an extended RCODE of `0x80` — a combined RCODE of 2048, well inside the 12-bit
+space — has it set. A clamp applied in the wrong place would silently erase it.
+`OPT` turns out to read CLASS and TTL itself and to set `TimeToLive` to zero, so
+the base constructor is never involved; the fix could go where it belongs.
+
+**Fix.** `ReceivedTimeToLive` returns zero when the sign bit is set and the value
+untouched otherwise, and the two serializers now cap at `MaximumTimeToLive`
+(2147483647). The other freedom §8 grants in the next sentence — implementations
+are "free to place an upper bound on any TTL received" — is a separate question
+of policy and is deliberately not exercised.
+
+Severity is **Medium**. No answer is wrong at the moment it arrives, and the
+transmit half needs a TTL nobody authors by accident. What makes it more than
+cosmetic is durability: the receive half turns a single bad answer into one that
+outlives every mechanism meant to retire it.
+
+**Why it stayed open, and what changed.** [README](README.md#rfc-coverage)
+carried this as "receiver behavior is loosely specified — needs a defensible
+reading", and the test printed the observed value while accepting either
+outcome. The reading it was waiting for is that §8 says two different things and
+only one of them is loose. The upper bound is genuinely a matter of taste and no
+suite can judge it. The sign-bit sentence names exactly one value, zero, and the
+lowercase "should" makes it a SHOULD-level finding — the same standing as
+findings 35 through 37, which the suite already asserts.
+
+Pinned by five tests, and the second one is what stops the cheapest wrong fix.
+`Ttl_With_The_Sign_Bit_Set_Is_Read_As_Zero` walks four values from `0x80000000`
+to `0xFFFFFFFF`; `Ttl_Below_The_Sign_Bit_Is_Read_Literally` walks five from zero
+to `0x7FFFFFFF`, because "return zero always" satisfies the first table
+completely. `A_Sign_Bit_Ttl_Does_Not_Become_An_Entry_That_Never_Expires` asserts
+the consequence rather than the number, by looking at `EndOfLife`.
+`Ttl_Is_Never_Transmitted_With_The_Sign_Bit_Set` reads the emitted field back
+with RawDns and checks both that the bit is clear and that the value was capped
+rather than wrapped. And
+`An_Opt_Keeps_Its_Extended_Rcode_When_The_Ttl_Field_Has_The_Sign_Bit_Set` guards
+the trap, so a later refactor that routes OPT through the base constructor fails
+loudly instead of quietly losing an RCODE.
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
@@ -1582,13 +1658,6 @@ to "a prior occurrence of the same name". Hermod accepts forward pointers; the
 suite's strict reference reader rejects them. Leniency on receive is a
 defensible robustness choice and violates no MUST, so this is documented rather
 than failed (`Forward_Pointers_Are_Not_Prior_Locations`).
-
-**TTLs with the high bit set.** RFC 2181 §8 says such a TTL "should be treated as
-if the entire value received was zero". The test accepts either the clamp or the
-literal value and prints what happened.
-
-**DoH transaction IDs.** RFC 8484 §4.1 says clients SHOULD use ID 0 for cache
-friendliness. Hermod uses random IDs. Measured and reported only.
 
 **Compression is off by default.** `DNSServerOptions.UseCompression` defaults to
 false. Compression is optional (RFC 1035 §4.1.4), so this is a size/CPU trade-off

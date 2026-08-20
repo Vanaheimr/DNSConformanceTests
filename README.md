@@ -19,7 +19,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 
 **Current status: 829 tests · 816 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 37 RFC deviations in Hermod. All are fixed;
+The suite has found 38 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -114,6 +114,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **1035** | Message format | header bit positions, question encoding, name limits (63/255), compression pointers both directions, case preserved byte-exactly, UDP truncation, FORMERR |
 | **1183** | RP, AFSDB | two-name RDATA |
 | **1876** | LOC | the six fields that hold something other than what they mean. §2's scaled octet across all 256 values — 91 of them defined, the rest refused rather than rendered as a sphere wider than the solar system. The 2^31 offset on latitude and longitude and the 100 km offset on altitude, at both ends of the 32-bit range. §3's master-file defaults applied only to fields that are absent, not to fields that were written (finding 28). And the version field checked, with a record this build cannot read written in RFC 3597 §5's generic form — which is the example §5 itself gives |
+| **2181** §8 | TTL range | a received TTL with the sign bit set reads as zero rather than as an expiry 136 years out, and every value below the bit is taken literally — the half that stops "always zero" from passing. On the way out the value is capped at 2^31-1 instead of being allowed to spill into the sign bit. OPT is left alone, because RFC 6891 §6.1.3 spends the same four octets on an extended RCODE (finding 38) |
 | **2181** §10.1 | Clarifications | an alias owns no other data |
 | **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA — and on the serving side (§3) every negative answer cites the zone's SOA, without which none of the above has anything to work from |
 | **2535** §3, **3445** | KEY | wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
@@ -186,7 +187,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 
 | RFC / area | What is missing | Blocker |
 |------------|-----------------|---------|
-| **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |

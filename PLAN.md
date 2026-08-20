@@ -92,11 +92,13 @@ truncation, EDNS negotiation, robustness against malformed input.
 
 ### Layer 4 — External conformance suites (optional, documented)
 * ISC **DNS Compliance Testing** (`genreport`) against the Hermod server —
-  EDNS compliance battery (dnsflagday). Provided as a script; requires
-  network build of the tool.
-* **Zonemaster** in undelegated mode against a Hermod-served zone (Docker;
-  currently no Docker daemon on this machine — configs are committed, tests
-  skip).
+  EDNS compliance battery (dnsflagday). Not set up: the tool needs a network
+  build that has not been done here. The MUST-level ground it covers is
+  asserted in-process instead, by `ServerEdnsAndTruncationTests`.
+* **Zonemaster** in undelegated mode against a Hermod-served zone. Not set up
+  either: it needs a Docker daemon, and there is none on this machine. Nothing
+  is committed for it — no configuration, and no skipped tests standing in for
+  one.
 
 ---
 
@@ -129,7 +131,7 @@ see [FINDINGS.md](FINDINGS.md).
 | 1035 §2.3.3 | Case | original case preserved byte-exactly on the wire | ✅ |
 | 4343 | Case-insensitive identity | names differing only in case are equal, hash alike and order alike | ✅ |
 | 1035 §4.1.4 | Compression (encode) | shared suffixes actually emit pointers; repeated labels resolve correctly; mixed case compresses against its lowercase twin | ✅ |
-| 2181 §8 | TTLs | TTL is 31-bit ✅; MSB-set TTL handling | 📋 |
+| 2181 §8 | TTLs | TTL is 31-bit ✅; a received TTL with the sign bit set reads as zero, every value below it is taken literally, a TTL held in memory is capped rather than wrapped on the way out, and OPT keeps the extended RCODE that lives in the same four octets ✅ (finding 38) | ✅ |
 | 3597 §2 | Unknown RR types | an unknown type is kept as opaque data in requests ✅ (findings 16, 21) and in responses, without costing the records behind it ✅ (finding 21) | ✅ |
 | 3597 §4 | RDATA compression | the eleven post-1035 types no longer compress the names in their RDATA ✅ (finding 22); the five RFC 1035 types still do | ✅ |
 | 3597 §5 | Presentation format | `\#` generic RDATA both ways, `TYPEnnn`/`CLASSnn`, a bare decimal is a TTL ✅ (finding 23), a known type written generically re-reads as that type | ✅ |
