@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Twenty-nine RFC deviations in the Hermod DNS stack, each
+What this suite caught. Thirty-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -49,6 +49,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 31 | The DoT client announced no EDNS(0), so nothing could be padded | Medium | 8467 §4.1, 7830 §4 | ✅ fixed |
 | 32 | The DoH client did the same, on a transport RFC 8467 covers without naming | Medium | 8467 §1, §4.1, 8484 §9 | ✅ fixed |
 | 33 | Every DoH query carried a random ID, so no two were the same request | Low | 8484 §4.1 | ✅ fixed |
+| 34 | The same literal `0` a third time, on plain TCP, where it cost the DO bit | **High** | 3225 §3, 6891 §6.2.2 | ✅ fixed |
+| 35 | A DoT connection the server asked the client to stop using stayed in use | Low (SHOULD) | 7828 §3.2.2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -60,7 +62,10 @@ the queued list in the README: untested working code is where the next one will
 be. Findings 21, 23, 25 and 27 make a sharper version of the same point — all
 four sit in code that was already there and already believed to work. Findings
 26 and 27 add another: both were found while implementing something else, by
-a test written for a different purpose that happened to walk past them.
+a test written for a different purpose that happened to walk past them. So were
+34 and 35, noticed while 30 to 32 were being fixed — and 34 is the sharpest
+version of it yet, because two rounds had already edited the very line that
+causes it, on two other transports, without either one looking at the third.
 
 ---
 
@@ -1287,6 +1292,10 @@ HTTP/2's own padding is a third thing again, at a layer this does not touch —
 *RFC 8484 §4.1:* "DoH clients can use HTTP/2 padding and compression [RFC7540]
 in the same way that other HTTP/2 clients use (or don't use) them."
 
+**And the line had a third copy**, on plain TCP, which neither this round nor the
+one before it looked at — because neither was looking for an OPT record. That is
+[finding 34](#34--the-same-literal-0-a-third-time-on-plain-tcp-where-it-cost-the-do-bit).
+
 ---
 
 ## 33 — Every DoH query carried a random ID, so no two were the same request
@@ -1335,6 +1344,133 @@ which a look at the ID alone would not.
 
 Severity is Low: nothing was incorrect, and no answer was wrong. What was lost
 was every cache hit.
+
+---
+
+## 34 — The same literal `0` a third time, on plain TCP, where it cost the DO bit
+
+*RFC 3225 §3:* "The mechanism chosen for the explicit notification of the ability
+of the client to accept (if not understand) DNSSEC security RRs is using the most
+significant bit of the Z field on the EDNS0 OPT header in the query."
+
+*RFC 6891 §6.2.2:* "if DNSSEC or any future option using EDNS is required, no
+fallback should be performed, as these options are only signaled through EDNS."
+
+Findings 31 and 32 each removed a literal `0` payload size — from `DNSTLSClient`,
+then from `DNSHTTPSClient` — and each was written up as a padding finding.
+`DNSTCPClient` held the third copy of that line and neither round mentioned it,
+because neither round was looking for an OPT record. Both were looking for
+somewhere to put padding, and plain TCP is not encrypted, so RFC 8467 has nothing
+to say about it and the file never came up.
+
+Padding was never what the `0` withheld. `DNSPacket.Query` gates the *entire* OPT
+record on `UDPPayloadSize > 0`, so what it withheld was the record — and with it
+everything that can only travel inside one:
+
+| | `DnssecOK` | caller's `EDNSOptions` | `DNSClient`'s Cookie / Client Subnet |
+|---|---|---|---|
+| `DNSUDPClient` (incl. its TCP retry) | on the wire | on the wire | on the wire |
+| `DNSTLSClient` (since 31) | on the wire | on the wire | on the wire |
+| `DNSHTTPSClient` (since 32) | on the wire | on the wire | on the wire |
+| `DNSTCPClient` | **dropped** | **dropped** | **dropped** |
+
+Those properties are not decoration. `DNSClient` assigns its own `DnssecOK` to
+whichever transport client it selected, and pushes the DNS Cookie and the Client
+Subnet option it manages into that client's `EDNSOptions`, immediately after
+building its own query. A resolver configured for `DNSTransport.TCP` therefore
+lost all three by routing decision alone — no caller had to do anything unusual,
+and nothing anywhere reported it.
+
+The DO bit is the part that does more than go missing. A query with the bit clear
+is not a query that forgot to ask; it is a query that has said *do not send them*.
+*RFC 3225 §3:* "The DO bit cleared (set to zero) indicates the resolver is
+unprepared to handle DNSSEC security RRs and those RRs MUST NOT be returned in
+the response (unless DNSSEC security RRs are explicitly queried for)." So the
+failure was silent and correct-looking from both ends: the caller asked for
+DNSSEC, the server obeyed a request never to send it, and the answer came back
+unsigned with no error anywhere in it.
+
+This is also what made `ServerKeepaliveTimeout` on `DNSTCPClient` unreachable
+rather than merely unused. *RFC 7828 §3.3.2:* "A DNS server that receives a query
+sent using TCP transport that includes an OPT RR (with or without the
+edns-tcp-keepalive option) MAY include the edns-tcp-keepalive option in the
+response to signal the expected idle timeout on a connection." The OPT RR, not
+the option, is the server's licence — a client that asks for nothing can still be
+told, but a client that sends no OPT record at all cannot.
+
+**Fix.** The payload size `DNSTLSClient` and `DNSHTTPSClient` already carry — a
+property rather than a constant, so `0` remains the caller's way to withdraw
+EDNS(0) deliberately.
+
+Padding is *not* added here, and the reason is the one finding 32 arrived at
+rather than the one it discarded. RFC 8467 scopes itself by property, and this
+transport does not have the property. *RFC 8467 §4.1:* "Note that the
+recommendation above only applies if the DNS transport is encrypted." Plain TCP
+is not, so there is nothing here for padding to hide — which is also why the same
+correction that pulled DoH *into* RFC 8467's scope leaves plain TCP outside it.
+
+Severity is **High**, above 31 and 32 despite the shared line. Those two cost a
+defence the peer had asked for by name. This one silently converted "validate
+this for me" into "do not send me anything to validate", and did it to a resolver
+that had only chosen a transport.
+
+Pinned by `A_TCP_Query_Carries_An_Opt_Record`, which sets `DnssecOK` and an EDNS
+option on the transport client directly, and by
+`A_Resolver_Routing_Over_TCP_Still_Asks_For_DNSSEC`, which comes in through
+`DNSClient` instead so the finding cannot be answered with "no caller does that".
+Both were red before the change and green after, and the DoH test beside them was
+already green — finding 32 had reached that transport a round earlier.
+
+---
+
+## 35 — A DoT connection the server asked the client to stop using stayed in use
+
+*RFC 7828 §3.2.2:* "A DNS client that receives a response that includes the
+edns-tcp-keepalive option with a TIMEOUT value of 0 SHOULD send no more queries
+on that connection and initiate closing the connection as soon as it has received
+all outstanding responses."
+
+A timeout of 0 is the one value that is an instruction rather than a duration.
+*RFC 7828 §3.3.2:* "The DNS server SHOULD send an edns-tcp-keepalive option with
+a timeout of 0 if it deems its local resources are too low to service more TCP
+keepalive sessions or if it wants clients to close currently open connections."
+
+`DNSTLSClient` holds one TLS session and reuses it across queries. It read the
+option — finding 31 is why that is reachable at all — assigned
+`ServerKeepaliveTimeout`, and then nothing anywhere in Hermod read the property
+back. A zero arrived, was stored, and the next query went out on the same
+connection. Measured as the handshake count a scripted DoT listener sees: one
+handshake for two queries, where honouring the 0 costs a second.
+
+**Fix.** Two lines where the option is already parsed: when the stored timeout is
+zero, close the connection before returning the response. `CloseConnection()` is
+inherited from `ATCPClient` and does the whole job, and queries on this client are
+serialized by `tlsStreamLock`, so the response just read is the only outstanding
+one — which is exactly the moment §3.2.2 names. Nothing else changes: every query
+already begins by reconnecting when `IsConnected` is false, so the next one opens
+a fresh TLS session on its own.
+
+**The non-zero half of §3.2.2 is not this**, and is not fixed. The client
+"SHOULD honour the timeout received in that response (overriding any previous
+timeout) and initiate close of the connection before the timeout expires."
+That needs an idle timer, which `DNSTLSClient` does not have — the session lives
+until the client is disposed or the peer drops it. It is a coverage boundary
+rather than a finding, because no test asserts it yet; it is named in
+[README § Queued](README.md#queued--on-the-todo-list). The zero case is the crisp
+half: it needs no wall-clock wait to observe, and it is the half where the server
+has actually said something.
+
+Severity is **Low**, and the reason is not that it is a SHOULD. A caller could
+have implemented this before the fix: both `ServerKeepaliveTimeout` and
+`CloseConnection()` are public, so the capability was present and only the wiring
+was missing. What made it worth fixing is that the client behaved worst exactly
+when the server could least afford it — the 0 is sent under resource pressure,
+and every client that ignores it keeps alive a session the server was trying to
+shed.
+
+Pinned by `A_DoT_Client_Stops_Using_A_Connection_The_Server_Asked_It_To_Close`,
+which counts TLS handshakes rather than inspecting the client: two queries, and
+the second one may not travel on the connection the server asked it to drop.
 
 ---
 

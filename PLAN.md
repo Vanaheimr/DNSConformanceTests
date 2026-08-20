@@ -48,10 +48,10 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed twenty deviations so far, and all of them are now fixed
-in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the single
-record, with chapter and verse, the mechanism, the change, and the test that
-pins each one. The summary table at the top of that file is the fastest way in.
+The suite has confirmed thirty-five deviations so far, and all of them are now
+fixed in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the
+single record, with chapter and verse, the mechanism, the change, and the test
+that pins each one. The summary table at the top of that file is the fastest way in.
 
 One review suspicion did *not* survive contact with a test: the compression-offset
 bookkeeping produces messages that decode correctly under the suite's strict
@@ -112,9 +112,10 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-18 run: **817 tests, 804 ✅, 0 ❌, 13 skipped** — 745
-offline, 23 online and 36 interop verified on that run; the 13 tests needing
-BIND as a peer skip without it. Every deviation the suite has found is fixed;
+Counts as of the 2026-08-20 run: **824 tests, 811 ✅, 0 ❌, 13 skipped** — 752
+offline, measured on that date; the 23 online and 36 interop are carried from
+the 2026-08-18 run and were not re-run. The 13 tests needing BIND as a peer
+skip without it. Every deviation the suite has found is fixed;
 see [FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
@@ -196,7 +197,7 @@ round-trip where supported.
 | 7873 §5.2 | server: a server cookie bound to the client cookie, the client's address and a timestamp; BADCOOKIE with a fresh cookie when it is missing or wrong; FORMERR for illegal lengths; unchanged behaviour without a cookie or without a secret | ✅ |
 | 7830 §3 | Padding option: code 12, OPTION-LENGTH is the octet count, all-zero outbound, any value accepted inbound, at most one per OPT meta-RR | ✅ |
 | 8914 | Extended DNS Error: info-code + extra-text | ✅ |
-| 7828 | TCP Keepalive: zero-length in queries, 2-byte 100 ms units in responses, malformed lengths rejected | ✅ |
+| 7828 | TCP Keepalive: zero-length in queries, 2-byte 100 ms units in responses, malformed lengths rejected — the option's *encoding*. Whether one ever reaches the wire, and what a client does with it, is a transport question and lives in §4.6 | ✅ |
 | 8467 §4.1 | the block lengths themselves — 128 and 468 — and the arithmetic that reaches them; the *policies* that apply them are with the transport that carries them, in §4.6 | ✅ |
 
 ### 4.4 Client behavior (`DNSConformance.Client.Tests`) — vs. scripted servers
@@ -284,6 +285,9 @@ round-trip where supported.
 | 8467 §1, 8484 §9 | padding on DoH: §1 scopes the document to encrypted transports rather than to named protocols, so the 128-octet query block applies; the client requests padding and, since `DNSOverHTTPSServer`, the other half answers it | ✅ |
 | 8484 §6 | the payload-size ceiling does *not* apply on DoH — a responder MUST ignore the advertised size, so the field only forces the OPT record the option lives in | ✅ |
 | 8484 §4.1 + 8467 §4.1 | the two paddings do not collide: a message on a 128-octet block is ≡ 2 (mod 3), the one class where base64url would append `=`, and it still must not | ✅ |
+| 7828 §3.3.2 | keepalive on the wire: §3.3.2 makes an OPT RR in the query — not the keepalive option — the server's licence to volunteer a timeout, so the OPT record is measured per client transport. DoT sends one and reads an unsolicited timeout back; the UDP client's TCP retry sends one and ignores what comes back, which §3.2.2 permits; plain TCP sent none, so `ServerKeepaliveTimeout` could never be written there ✅ (finding 34) | ✅ |
+| 3225 §3, 6891 §6.2.2 | the DO bit is signalled only through the OPT record, so `DnssecOK` on the plain-TCP client — and on a `DNSClient` routed over it — asked for the opposite of what it means ✅ (finding 34) | ✅ |
+| 7828 §3.2.2 | a response with TIMEOUT 0 ends the DoT session rather than being stored and ignored, counted in TLS handshakes ✅ (finding 35); honouring a *non-zero* timeout needs an idle timer and is queued | ✅ |
 | JSON APIs | Google/Cloudflare `application/dns-json` (covered live against Cloudflare) | 🟡 |
 
 DoH client tests run against a scripted in-process HTTP listener speaking
