@@ -112,7 +112,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-18 run: **815 tests, 802 ✅, 0 ❌, 13 skipped** — 743
+Counts as of the 2026-08-18 run: **817 tests, 804 ✅, 0 ❌, 13 skipped** — 745
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
 BIND as a peer skip without it. Every deviation the suite has found is fixed;
 see [FINDINGS.md](FINDINGS.md).
@@ -272,6 +272,7 @@ round-trip where supported.
 | 8945 §5.3 | DoH server: a TSIG-signed query is verified and the reply signed and bound to it; an unsigned query is still served | ✅ |
 | 8484 §5 | DoH server over TLS, as a listener of a real `DNSServer` — the deployed shape | ✅ |
 | 8484 §5.2 | …and every row above asserted twice, once per HTTP version. §5.2 recommends HTTP/2 without touching a requirement of §4, so the question worth asking is not whether h2 works but whether it still obeys everything HTTP/1.1 obeys. The probe pins the version with `RequestVersionExact`, so a listener that fell back would fail rather than pass as its sibling | ✅ |
+| 9113 §3.2, 8484 §5.2 | one port serving both: the listener advertises `h2` and `http/1.1`, ALPN picks, and each client is served whichever it brought — with the answer byte-identical either way, since the negotiation chooses the framing and RFC 8484 §4 is about the message | ✅ |
 | 8484 §4.1 | DoH GET: `?dns=` base64url **without padding**, no `+`/`/`/`%` | ✅ |
 | 8484 §4.1 | DoH GET: `accept: application/dns-message` | ✅ |
 | 8484 §4.1 | DoH POST: `content-type: application/dns-message`, body = raw message | ✅ |

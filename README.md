@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 815 tests · 802 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 817 tests · 804 ✅ · 0 ❌ · 13 skipped.**
 
 The suite has found 33 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -152,7 +152,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **8080** | Ed25519, Ed448 | both directions. Verifying: raw 32/57-octet keys against BIND-signed fixtures. Signing: all four §6 examples reproduced as exact byte strings — which EdDSA's determinism (RFC 8032 §5.1.6) makes possible and which a sign-then-verify round trip could not do, since pre-hashing or a non-empty Ed448 context verifies against itself and nothing else. Public keys derived from the private half rather than carried beside it, and SIG(0) signed with all six algorithms RFC 8624 §3.1 permits, end to end over a socket |
 | **8198** | Aggressive NSEC caching | ranges judged in canonical order, not string order; the zone taken from the SOA rather than guessed; and an NSEC that was never DNSSEC-validated never reaches the cache |
 | **8310** §8.1 | DoT auth profile | a rejecting certificate validator means no query leaves the host |
-| **8484** | DoH | *Client:* GET `?dns=` base64url **unpadded**, POST content types, no trailing bytes, HTTP errors never reach the wire parser. *Server:* both methods, base64url decoded at every length mod 3, `application/dns-message` with no charset §7.1 never registered, NXDOMAIN and NODATA carried by 200 while a 4xx carries no reply at all, 415/406/405-with-Allow for the requests that never became a DNS question, §5.1 freshness from the smallest Answer TTL or the SOA MINIMUM rather than the SOA's own TTL, and §6's ignored payload size — which neither truncates the answer nor shortens its padding. Driven by `RawDoHProbe`: .NET's HTTP stack and the suite's own base64url, never Hermod's. Every server row asserted twice, once per HTTP version — §5.2 recommends HTTP/2 for performance and changes no requirement of §4, so both listeners answer to all of it |
+| **8484** | DoH | *Client:* GET `?dns=` base64url **unpadded**, POST content types, no trailing bytes, HTTP errors never reach the wire parser. *Server:* both methods, base64url decoded at every length mod 3, `application/dns-message` with no charset §7.1 never registered, NXDOMAIN and NODATA carried by 200 while a 4xx carries no reply at all, 415/406/405-with-Allow for the requests that never became a DNS question, §5.1 freshness from the smallest Answer TTL or the SOA MINIMUM rather than the SOA's own TTL, and §6's ignored payload size — which neither truncates the answer nor shortens its padding. Driven by `RawDoHProbe`: .NET's HTTP stack and the suite's own base64url, never Hermod's. Every server row asserted twice, once per HTTP version — §5.2 recommends HTTP/2 for performance and changes no requirement of §4, so both listeners answer to all of it, and one port serving both under ALPN answers byte-identically either way |
 | **8624** | Algorithm selection | every algorithm 8624 asks a *validator* to implement — 8, 10, 13, 14, 15, 16 — verifies a real BIND signature; deprecated RSA/SHA-1 (5, 7) still validates, as it must |
 | **8659** | CAA | critical-flag bit, length-prefixed tag, unprefixed value |
 | **8914** | Extended DNS Errors | info-code + extra-text |
