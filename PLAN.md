@@ -112,7 +112,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-20 run: **824 tests, 811 ✅, 0 ❌, 13 skipped** — 752
+Counts as of the 2026-08-20 run: **829 tests, 816 ✅, 0 ❌, 13 skipped** — 757
 offline, measured on that date; the 23 online and 36 interop are carried from
 the 2026-08-18 run and were not re-run. The 13 tests needing BIND as a peer
 skip without it. Every deviation the suite has found is fixed;
@@ -285,9 +285,10 @@ round-trip where supported.
 | 8467 §1, 8484 §9 | padding on DoH: §1 scopes the document to encrypted transports rather than to named protocols, so the 128-octet query block applies; the client requests padding and, since `DNSOverHTTPSServer`, the other half answers it | ✅ |
 | 8484 §6 | the payload-size ceiling does *not* apply on DoH — a responder MUST ignore the advertised size, so the field only forces the OPT record the option lives in | ✅ |
 | 8484 §4.1 + 8467 §4.1 | the two paddings do not collide: a message on a 128-octet block is ≡ 2 (mod 3), the one class where base64url would append `=`, and it still must not | ✅ |
-| 7828 §3.3.2 | keepalive on the wire: §3.3.2 makes an OPT RR in the query — not the keepalive option — the server's licence to volunteer a timeout, so the OPT record is measured per client transport. DoT sends one and reads an unsolicited timeout back; the UDP client's TCP retry sends one and ignores what comes back, which §3.2.2 permits; plain TCP sent none, so `ServerKeepaliveTimeout` could never be written there ✅ (finding 34) | ✅ |
+| 7828 §3.3.2 | keepalive on the wire: §3.3.2 makes an OPT RR in the query — not the keepalive option — the server's licence to volunteer a timeout, so the OPT record is measured per client transport. DoT and plain TCP send one and read an unsolicited timeout back; the UDP client's TCP retry sends one and ignores what comes back, which §3.2.2 permits; plain TCP sent none until finding 34, so `ServerKeepaliveTimeout` could never be written there ✅ | ✅ |
 | 3225 §3, 6891 §6.2.2 | the DO bit is signalled only through the OPT record, so `DnssecOK` on the plain-TCP client — and on a `DNSClient` routed over it — asked for the opposite of what it means ✅ (finding 34) | ✅ |
-| 7828 §3.2.2 | a response with TIMEOUT 0 ends the DoT session rather than being stored and ignored, counted in TLS handshakes ✅ (finding 35); honouring a *non-zero* timeout needs an idle timer and is queued | ✅ |
+| 7828 §3.2.2 | a response with TIMEOUT 0 ends the session rather than being stored and ignored — on DoT ✅ (finding 35) and on plain TCP ✅ (finding 36), counted in handshakes and accepted connections | ✅ |
+| 7828 §3.2.2, §3 | an advertised idle timeout is honoured: the session ends *before* it expires rather than eventually, the deadline is re-armed after every exchange, and a session well inside its timeout is still reused ✅ (finding 37) | ✅ |
 | JSON APIs | Google/Cloudflare `application/dns-json` (covered live against Cloudflare) | 🟡 |
 
 DoH client tests run against a scripted in-process HTTP listener speaking
@@ -386,7 +387,7 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 
 ```
 DNSConformanceTests/
-├── DNSConformanceTests.sln
+├── DNSConformanceTests.slnx
 ├── PLAN.md                  ← this file
 ├── FINDINGS.md              ← conformance deviations discovered by the suite
 ├── README.md                ← how to run
@@ -472,7 +473,7 @@ leak into the submodule builds. Shared settings live in
 | 3 | Secure transports + DNSSEC projects incl. BIND-signed fixtures | ✅ done |
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
-| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — the padding policies closed it on both encrypted transports (findings 30, 31, 32) |
+| 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
 | 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
@@ -480,7 +481,7 @@ leak into the submodule builds. Shared settings live in
 
 ```powershell
 # everything that runs without network/WSL:
-dotnet test DNSConformanceTests.sln --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
 
 # include live-network interop:
 dotnet test interop/DNSInterop.PublicResolvers.Tests

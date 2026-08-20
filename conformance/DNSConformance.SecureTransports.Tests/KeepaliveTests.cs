@@ -40,7 +40,23 @@ public class KeepaliveTests
     /// <summary>RFC 7828 §3.1: "OPTION-CODE: the EDNS0 option code assigned to edns-tcp-keepalive, 11".</summary>
     private const UInt16 KeepaliveOptionCode = 11;
 
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan Timeout      = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The idle timeout the scripted servers advertise where a test is about the
+    /// deadline: two of RFC 7828 §3.1's 100 ms units, the shortest span that is
+    /// still comfortably above a timer's resolution.
+    /// </summary>
+    private const           UInt16   IdleUnits    = 2;
+
+    private static readonly TimeSpan IdleTimeout  = TimeSpan.FromMilliseconds(IdleUnits * 100);
+
+    /// <summary>
+    /// How long those tests stay silent — five times the timeout they are
+    /// waiting out. The margin is wide because the behaviour being told apart is
+    /// "closed on time" against "never closes", not two closing times.
+    /// </summary>
+    private static readonly TimeSpan IdleGrace    = TimeSpan.FromSeconds(1);
 
     #endregion
 
@@ -229,12 +245,246 @@ public class KeepaliveTests
         Assert.That(client.ServerKeepaliveTimeout, Is.EqualTo(TimeSpan.Zero),
                     "the client read the 0 the server sent");
 
+        // "as soon as it has received all outstanding responses", so the session
+        // is gone by the time the query returns — no clock involved. Asserting
+        // only the handshake count below would also be satisfied by an idle timer
+        // scheduled for zero, which is a different rule arriving late.
+        Assert.That(client.IsConnected,            Is.False,
+                    "the session was closed as the response was processed, not on a later deadline");
+
         await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
 
         TestContext.Out.WriteLine($"{server.HandshakeCount} TLS handshake(s) for two queries");
 
         Assert.That(server.HandshakeCount, Is.EqualTo(2),
                     "the second query may not travel on the connection the server asked the client to close");
+
+    }
+
+    #endregion
+
+    #region A_TCP_Client_Stops_Using_A_Connection_The_Server_Asked_It_To_Close()
+
+    [Test]
+    [Property("RFC", "7828 §3.2.2")]
+    public async Task A_TCP_Client_Stops_Using_A_Connection_The_Server_Asked_It_To_Close()
+    {
+
+        // The same §3.2.2 instruction on the transport that only just became
+        // able to receive it. RFC 7828 does not distinguish: "This specification
+        //  does not distinguish between different types of DNS client and server
+        //  in the use of this option." Until the OPT record arrived on plain TCP
+        //  a server had no licence to send a keepalive option here at all, so
+        //  the question could not be asked; now it can.
+        //
+        // DNSTCPClient pools its connection the same way the DoT client pools
+        // its session, so the listener's accept count is the same measurement
+        // one layer down.
+        await using var server = new ScriptedTcpServer(
+            request => AnswerWithKeepalive(request, 0)
+        );
+
+        await using var client = new DNSTCPClient(
+                                     IPv4Address.Localhost,
+                                     IPPort.Parse((UInt16) server.Port),
+                                     QueryTimeout: Timeout
+                                 );
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        Assert.That(client.ServerKeepaliveTimeout, Is.EqualTo(TimeSpan.Zero),
+                    "the client read the 0 the server sent");
+
+        Assert.That(client.IsConnected,            Is.False,
+                    "the connection was closed as the response was processed, not on a later deadline");
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        TestContext.Out.WriteLine($"{server.ConnectionCount} TCP connection(s) for two queries");
+
+        Assert.That(server.ConnectionCount, Is.EqualTo(2),
+                    "the second query may not travel on the connection the server asked the client to close");
+
+    }
+
+    #endregion
+
+    #region A_DoT_Session_Does_Not_Outlive_The_Timeout_The_Server_Advertised()
+
+    [Test]
+    [Property("RFC", "7828 §3.2.2")]
+    public async Task A_DoT_Session_Does_Not_Outlive_The_Timeout_The_Server_Advertised()
+    {
+
+        // The other half of §3.2.2, and the one that needs a clock: "A DNS
+        //  client that receives a response using TCP transport that includes the
+        //  edns-tcp-keepalive option MAY keep the existing TCP session open when
+        //  it is idle. It SHOULD honour the timeout received in that response
+        //  (overriding any previous timeout) and initiate close of the
+        //  connection before the timeout expires."
+        //
+        // "Before the timeout expires" is the whole assertion. A client that
+        // keeps the session past the advertised idle timeout is using a session
+        // the server has already counted as reclaimable, which is the collision
+        // RFC 7828 exists to avoid.
+        //
+        // Two units — RFC 7828 §3.1's unit is 100 ms, so 200 ms — and then a
+        // second of silence. That is a wide margin over the deadline without
+        // being a test that waits: the failing behaviour is not "closed late",
+        // it is "never closed at all".
+        await using var server = new ScriptedTlsServer(
+            request => AnswerWithKeepalive(request, IdleUnits)
+        );
+
+        await using var client = NewDoTClient(server.Port);
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        Assert.That(client.ServerKeepaliveTimeout, Is.EqualTo(IdleTimeout),
+                    "the client read the timeout the server advertised");
+
+        await Task.Delay(IdleGrace);
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        TestContext.Out.WriteLine($"{server.HandshakeCount} TLS handshake(s) across a " +
+                                  $"{IdleGrace.TotalMilliseconds:F0} ms silence on a " +
+                                  $"{IdleTimeout.TotalMilliseconds:F0} ms timeout");
+
+        Assert.That(server.HandshakeCount, Is.EqualTo(2),
+                    "the idle session had to be gone before its timeout expired");
+
+    }
+
+    #endregion
+
+    #region A_TCP_Session_Does_Not_Outlive_The_Timeout_The_Server_Advertised()
+
+    [Test]
+    [Property("RFC", "7828 §3.2.2")]
+    public async Task A_TCP_Session_Does_Not_Outlive_The_Timeout_The_Server_Advertised()
+    {
+
+        // §3.2.2 again on plain TCP, for the same reason the TIMEOUT 0 test
+        // exists there: the RFC's subject is "a DNS client that receives a
+        // response using TCP transport", and a TLS record layer does not change
+        // who that is.
+        await using var server = new ScriptedTcpServer(
+            request => AnswerWithKeepalive(request, IdleUnits)
+        );
+
+        await using var client = new DNSTCPClient(
+                                     IPv4Address.Localhost,
+                                     IPPort.Parse((UInt16) server.Port),
+                                     QueryTimeout: Timeout
+                                 );
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        Assert.That(client.ServerKeepaliveTimeout, Is.EqualTo(IdleTimeout),
+                    "the client read the timeout the server advertised");
+
+        await Task.Delay(IdleGrace);
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        TestContext.Out.WriteLine($"{server.ConnectionCount} TCP connection(s) across a " +
+                                  $"{IdleGrace.TotalMilliseconds:F0} ms silence on a " +
+                                  $"{IdleTimeout.TotalMilliseconds:F0} ms timeout");
+
+        Assert.That(server.ConnectionCount, Is.EqualTo(2),
+                    "the idle session had to be gone before its timeout expired");
+
+    }
+
+    #endregion
+
+    #region A_Session_Is_Closed_Before_Its_Timeout_Expires()
+
+    [Test]
+    [Property("RFC", "7828 §3.2.2")]
+    public async Task A_Session_Is_Closed_Before_Its_Timeout_Expires()
+    {
+
+        // The two tests above prove the session ends. This one is about *when*,
+        // because §3.2.2 does not say "close eventually" — it says "initiate
+        // close of the connection **before** the timeout expires". A client that
+        // closes on the deadline, or a moment after it, has already spent time on
+        // a session the server was entitled to reclaim.
+        //
+        // Two seconds is the shortest timeout that leaves an honest margin: the
+        // deadline being asserted sits a fixed fraction below it, so the question
+        // is only whether a timer can be a couple of hundred milliseconds late on
+        // a loaded machine. Shorter, and this would be measuring the scheduler.
+        var advertised = TimeSpan.FromSeconds(2);
+
+        await using var server = new ScriptedTlsServer(
+            request => AnswerWithKeepalive(request, (UInt16) (advertised.TotalMilliseconds / 100))
+        );
+
+        await using var client = NewDoTClient(server.Port);
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        Assert.That(client.IsConnected, Is.True, "the session is up before the clock starts");
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        while (client.IsConnected && stopwatch.Elapsed < advertised + advertised)
+            await Task.Delay(10);
+
+        stopwatch.Stop();
+
+        TestContext.Out.WriteLine($"session closed after {stopwatch.ElapsedMilliseconds} ms " +
+                                  $"of a {advertised.TotalMilliseconds:F0} ms timeout");
+
+        Assert.Multiple(() => {
+
+            Assert.That(client.IsConnected, Is.False,
+                        "the idle session was closed");
+
+            Assert.That(stopwatch.Elapsed,  Is.LessThan(advertised),
+                        () => $"RFC 7828 §3.2.2 asks for the close *before* the timeout expires, " +
+                              $"and it came {stopwatch.ElapsedMilliseconds} ms into {advertised.TotalMilliseconds:F0} ms");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Session_Inside_Its_Timeout_Is_Reused()
+
+    [Test]
+    [Property("RFC", "7828 §3.2.2, 7858 §3.4")]
+    public async Task A_Session_Inside_Its_Timeout_Is_Reused()
+    {
+
+        // The control, and the reason the two tests above cannot be satisfied by
+        // closing after every exchange. §3.2.2 opens by *permitting* the reuse
+        // the close is an exception to: "A DNS client that receives a response
+        //  using TCP transport that includes the edns-tcp-keepalive option MAY
+        //  keep the existing TCP session open when it is idle."
+        //
+        // Reuse is the point of the option, and of the transport — RFC 7858
+        // §3.4: "In order to amortize TCP and TLS connection setup costs,
+        //  clients and servers SHOULD NOT immediately close a connection after
+        //  each response." A generous timeout and two queries back to back must
+        //  therefore cost exactly one handshake.
+        await using var server = new ScriptedTlsServer(
+            request => AnswerWithKeepalive(request, 6000)          // 600 s
+        );
+
+        await using var client = NewDoTClient(server.Port);
+
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+        await client.Query<A>(DomainName.Parse("keepalive.example."), Timeout: Timeout);
+
+        TestContext.Out.WriteLine($"{server.HandshakeCount} TLS handshake(s) for two queries " +
+                                  $"inside a 600 s timeout");
+
+        Assert.That(server.HandshakeCount, Is.EqualTo(1),
+                    "a session well inside its advertised timeout is the one the option asks to keep");
 
     }
 

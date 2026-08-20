@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Thirty-five RFC deviations in the Hermod DNS stack, each
+What this suite caught. Thirty-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -51,6 +51,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 33 | Every DoH query carried a random ID, so no two were the same request | Low | 8484 §4.1 | ✅ fixed |
 | 34 | The same literal `0` a third time, on plain TCP, where it cost the DO bit | **High** | 3225 §3, 6891 §6.2.2 | ✅ fixed |
 | 35 | A DoT connection the server asked the client to stop using stayed in use | Low (SHOULD) | 7828 §3.2.2 | ✅ fixed |
+| 36 | The same rule, on the transport it had just become reachable on | Low (SHOULD) | 7828 §3, §3.2.2 | ✅ fixed |
+| 37 | A session outlived every timeout a server advertised | Low (SHOULD) | 7828 §3.2.2, §3 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1453,12 +1455,13 @@ a fresh TLS session on its own.
 **The non-zero half of §3.2.2 is not this**, and is not fixed. The client
 "SHOULD honour the timeout received in that response (overriding any previous
 timeout) and initiate close of the connection before the timeout expires."
-That needs an idle timer, which `DNSTLSClient` does not have — the session lives
-until the client is disposed or the peer drops it. It is a coverage boundary
-rather than a finding, because no test asserts it yet; it is named in
-[README § Queued](README.md#queued--on-the-todo-list). The zero case is the crisp
-half: it needs no wall-clock wait to observe, and it is the half where the server
-has actually said something.
+That needs an idle timer, which `DNSTLSClient` did not have — the session lived
+until the client was disposed or the peer dropped it. It was parked as a coverage
+boundary on the grounds that no test asserted it yet, which turned out to be a
+description of the suite rather than of the code: once a test existed the
+behaviour was a deviation, and it became [finding 37](#37--a-session-outlived-every-timeout-a-server-advertised).
+The zero case was simply the crisp half — it needs no wall-clock wait to observe,
+and it is the half where the server has actually said something.
 
 Severity is **Low**, and the reason is not that it is a SHOULD. A caller could
 have implemented this before the fix: both `ServerKeepaliveTimeout` and
@@ -1471,6 +1474,99 @@ shed.
 Pinned by `A_DoT_Client_Stops_Using_A_Connection_The_Server_Asked_It_To_Close`,
 which counts TLS handshakes rather than inspecting the client: two queries, and
 the second one may not travel on the connection the server asked it to drop.
+
+---
+
+## 36 — The same rule, on the transport it had just become reachable on
+
+*RFC 7828 §3:* "This specification does not distinguish between different types
+of DNS client and server in the use of this option."
+
+Finding 35 fixed the TIMEOUT 0 rule in `DNSTLSClient`. `DNSTCPClient` holds its
+connection open the same way, parses the same option into the same property, and
+did not get the same two lines — a zero arrived, was stored, and the next query
+went out on the connection the server had asked to be rid of.
+
+What makes this its own finding rather than an oversight worth a footnote is the
+order the two rounds happened in. Plain TCP could not receive a keepalive option
+at all until finding 34 gave it an OPT record, and finding 34 landed *in the same
+sitting* as finding 35. So the transport became able to be told at the same
+moment the rule for what to do when told was written — and the rule was written
+on the other client. A test that had been impossible to write the day before was
+merely not written.
+
+**Fix.** Neither client carries the rule any more. Both hold a
+`DNSKeepalivePolicy`, constructed with the stream lock that serializes their
+queries and their own `CloseConnection`, and hand it every response. It is the
+same code twice becoming the same code once — which is worth saying out loud
+here, because findings 31, 32 and 34 are one literal `0` found three times in
+three rounds, on the three clients that each kept their own copy of it. This file
+has now watched the same shape play out twice in the same few hundred lines: the
+duplicate is not the bug, but it is what turns one bug into three.
+
+Severity is **Low**, for the reasons finding 35 gives, with the difference that
+the capability was not merely present but already written and shipped a few
+commits away.
+
+Pinned by `A_TCP_Client_Stops_Using_A_Connection_The_Server_Asked_It_To_Close`,
+the plain-TCP twin of finding 35's test, counting accepted connections where that
+one counts TLS handshakes.
+
+## 37 — A session outlived every timeout a server advertised
+
+*RFC 7828 §3.2.2:* "A DNS client that receives a response using TCP transport
+that includes the edns-tcp-keepalive option MAY keep the existing TCP session
+open when it is idle. It SHOULD honour the timeout received in that response
+(overriding any previous timeout) and initiate close of the connection before the
+timeout expires."
+
+This is the half of §3.2.2 that finding 35 named and left, and the reason it was
+left is honest: it needs a clock, and a test for it looks at first like a test
+that waits. Both connection-holding clients read the advertised timeout, stored
+it, and then held the connection until the client was disposed or the peer gave
+up on it. Every timeout a server ever sent was recorded and ignored.
+
+The failure is quiet, and it is quiet in the direction that costs the *server*.
+A resolver that advertises a 30-second idle timeout has told the client when it
+intends to stop reserving the session; a client still using it at second 45 is
+using something already counted as reclaimed, and finds out by having the
+connection closed underneath a query. `DNSTLSClient` even has the retry that
+hides it — an `IOException` reconnects and re-sends — so the cost shows up as an
+occasional doubled round trip and never as an error.
+
+**Fix.** `DNSKeepalivePolicy` restarts a timer at the end of every exchange, per
+*RFC 7828 §3:* the idle timeout "should be reset when that condition is lifted,
+i.e., when a client sends a message". A response that carries no option is not a
+withdrawal, so the deadline in force stays in force and is simply re-armed.
+
+The deadline is nine tenths of what the server advertised. §3.2.2 asks for the
+close "before the timeout expires" and names no margin, and the margin has to be
+a proportion rather than a span: TIMEOUT is a 16-bit count of 100 ms units, so a
+server may legally advertise anything from 100 ms to a little under two hours,
+and no fixed number of seconds is sensible at both ends.
+
+The timer takes the client's stream lock with a zero wait before closing. A
+deadline that lands mid-exchange finds the lock held, does nothing, and lets the
+exchange re-arm it on the way out — where blocking on the lock instead would cut
+off the query that proves the session is not idle.
+
+Severity is **Low**: no answer is wrong either way, and the client recovers from
+a connection the server reclaimed. What it cost is the cooperation the option
+exists to arrange.
+
+Pinned by four tests, and it takes all four.
+`A_DoT_Session_Does_Not_Outlive_The_Timeout_The_Server_Advertised` and its
+plain-TCP twin advertise 200 ms, stay silent for a second, and require a second
+handshake. Those two say the session ends; they cannot say *when*, and a mutation
+that closed at twice the advertised timeout left both of them green.
+`A_Session_Is_Closed_Before_Its_Timeout_Expires` is the one that reads §3.2.2's
+actual word: it advertises two seconds, watches `IsConnected`, and fails unless
+the close lands inside them — 1828 ms, measured. And
+`A_Session_Inside_Its_Timeout_Is_Reused` is what stops all of that from being
+satisfied by closing after every exchange, which is the cheapest wrong fix and
+the one *RFC 7858 §3.4* rules out by name: "In order to amortize TCP and TLS
+connection setup costs, clients and servers SHOULD NOT immediately close a
+connection after each response."
 
 ---
 

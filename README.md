@@ -17,9 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 824 tests · 811 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 829 tests · 816 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 35 RFC deviations in Hermod. All are fixed;
+The suite has found 37 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -142,7 +142,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **7477** | CSYNC | SOA-serial + flags + type bitmap |
 | **7553** | URI | target is raw remaining octets, **not** a domain name |
 | **7766** | DNS over TCP | 2-byte framing, TC→TCP fallback, split/dribbled reassembly, connection reuse, recovery on close |
-| **7828** | TCP Keepalive | the option — zero-length in queries, 2-byte 100 ms units in responses — and whether it ever reaches the wire. §3.3.2 makes an OPT RR in the query, not the keepalive option, what lets a server volunteer a timeout, so the OPT record is measured on each client transport in turn: DoT sends one and reads an unsolicited timeout back, the UDP client's TCP retry sends one and ignores what arrives (§3.2.2 permits that), and plain TCP sent none at all (finding 34). §3.2.2's TIMEOUT 0 — the server asking for its connection back — is honoured, counted in TLS handshakes rather than taken on trust (finding 35) |
+| **7828** | TCP Keepalive | the option — zero-length in queries, 2-byte 100 ms units in responses — and whether it ever reaches the wire. §3.3.2 makes an OPT RR in the query, not the keepalive option, what lets a server volunteer a timeout, so the OPT record is measured on each client transport in turn: DoT and plain TCP send one and read an unsolicited timeout back, the UDP client's TCP retry sends one and ignores what arrives (§3.2.2 permits that), and plain TCP used to send none at all (finding 34). Then both of §3.2.2's endings, on both connection-holding clients and counted in handshakes rather than taken on trust: TIMEOUT 0, the server asking for its connection back, ends the session at once (findings 35, 36), and an advertised idle timeout ends it before that timeout expires rather than after — asserted as a deadline, not merely as an eventual close (finding 37) |
 | **7830**, **8467** | Padding | the option and the *policies*. RFC 7830 §4's two rules that leave the responder no choice — pad when the query carried the option, never pad when the query indicated no EDNS(0) — and §4's ceiling, the requestor's payload size, which shortens the padding rather than dropping it when it disagrees with the block length. RFC 8467 §4.1's blocks, 128 for queries and 468 for responses, each reached at the first boundary that holds the message rather than any boundary above it. §3's wire rules: option code 12, at most one per OPT meta-RR, all-zero octets outbound and octets of any value accepted inbound. Both sides measure *after* signing, so a TSIG or SIG(0) record is inside the block the observer counts — the combination neither RFC addresses. On **DoH** as well: RFC 8467 §1 scopes itself by property rather than protocol — "other encrypted DNS transports specified in the future" — and RFC 8484 §9 asks for the same thing from its side, so the 128-octet query block applies there too. What differs on DoH is the ceiling, which §6 tells a responder to ignore, and the collision with base64url: a message padded to 128 has length ≡ 2 (mod 3), so §4.1's block puts *every* GET into the one encoding case where a `=` would appear and must not |
 | **7858** | DoT | client and server; framing over TLS, session reuse (3 queries → 1 handshake) |
 | **7871** | Client Subnet | family, prefix length, address truncated to the prefix |
@@ -189,7 +189,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | **2181** §8 | MSB-set TTL is *observed*, not asserted — receiver behavior is loosely specified | needs a defensible reading |
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
-| **7828** §3.2.2 | honouring a *non-zero* keepalive timeout: the DoT client records what the server advertised but has no idle timer, so the session lives until the client is disposed or the peer drops it. The TIMEOUT 0 instruction is honoured (finding 35); this is the half that needs a clock | needs an idle-timer design, and a test that does not spend wall-clock time waiting for it |
 | external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
