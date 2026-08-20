@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -15,6 +16,7 @@ namespace DNSConformance.Core;
 /// <param name="CacheControl">The Cache-Control field verbatim.</param>
 /// <param name="Allow">The methods named by an <c>Allow</c> field, which RFC 9110 §10.2.1 requires alongside a 405.</param>
 /// <param name="Body">The response body — a DNS message when the status is 200.</param>
+/// <param name="Version">The HTTP version the exchange actually used, so a test can tell a negotiated h2 from a silent fall back.</param>
 public sealed record DoHProbeResult(
     Int32                Status,
     String?              MediaType,
@@ -23,7 +25,8 @@ public sealed record DoHProbeResult(
     TimeSpan?            MaxAge,
     String?              CacheControl,
     IReadOnlyList<String> Allow,
-    Byte[]               Body
+    Byte[]               Body,
+    Version              Version
 );
 
 
@@ -96,7 +99,8 @@ public static class RawDoHProbe
                                                        Byte[]       Request,
                                                        String?      ContentType   = "application/dns-message",
                                                        String?      Accept        = null,
-                                                       HttpClient?  HTTPClient    = null)
+                                                       HttpClient?  HTTPClient    = null,
+                                                       Version?     Version       = null)
     {
 
         using var content = new ByteArrayContent(Request);
@@ -109,7 +113,7 @@ public static class RawDoHProbe
                                 Content = content
                             };
 
-        return await SendAsync(message, Accept, HTTPClient);
+        return await SendAsync(message, Accept, HTTPClient, Version);
 
     }
 
@@ -128,13 +132,15 @@ public static class RawDoHProbe
     public static Task<DoHProbeResult> GetAsync(String       Url,
                                                 Byte[]       Request,
                                                 String?      Accept       = null,
-                                                HttpClient?  HTTPClient   = null)
+                                                HttpClient?  HTTPClient   = null,
+                                                Version?     Version      = null)
 
         => SendRawAsync(
                HttpMethod.Get,
                $"{Url}?dns={Base64Url(Request)}",
                Accept,
-               HTTPClient
+               HTTPClient,
+               Version
            );
 
     #endregion
@@ -148,12 +154,13 @@ public static class RawDoHProbe
     public static async Task<DoHProbeResult> SendRawAsync(HttpMethod   Method,
                                                           String       Url,
                                                           String?      Accept       = null,
-                                                          HttpClient?  HTTPClient   = null)
+                                                          HttpClient?  HTTPClient   = null,
+                                                          Version?     Version      = null)
     {
 
         using var message = new HttpRequestMessage(Method, Url);
 
-        return await SendAsync(message, Accept, HTTPClient);
+        return await SendAsync(message, Accept, HTTPClient, Version);
 
     }
 
@@ -163,7 +170,8 @@ public static class RawDoHProbe
 
     private static async Task<DoHProbeResult> SendAsync(HttpRequestMessage  Message,
                                                         String?             Accept,
-                                                        HttpClient?         HTTPClient)
+                                                        HttpClient?         HTTPClient,
+                                                        Version?            Version)
     {
 
         // Added as a raw string rather than through the typed collection: some
@@ -173,6 +181,21 @@ public static class RawDoHProbe
             Message.Headers.TryAddWithoutValidation("Accept", Accept);
 
         var http = HTTPClient ?? NewHttpClient();
+
+        // An HttpRequestMessage is born at version 1.1 with RequestVersionOrLower,
+        // and HttpClient's DefaultRequestVersion does not overwrite what the
+        // message already says — so a client pinned to HTTP/2 still sends
+        // HTTP/1.1 unless the pin is copied onto the message here. That is how a
+        // test aimed at the h2 listener ends up talking to nothing, or worse,
+        // passing against the wrong one.
+        //
+        // RequestVersionExact where a version was named: without it .NET is free
+        // to fall back, and a fall back is exactly what these tests need to fail
+        // on rather than absorb.
+        Message.Version        = Version ?? http.DefaultRequestVersion;
+        Message.VersionPolicy  = Version is not null
+                                     ? HttpVersionPolicy.RequestVersionExact
+                                     : http.DefaultVersionPolicy;
 
         try
         {
@@ -189,7 +212,8 @@ public static class RawDoHProbe
                        MaxAge:        response.Headers.CacheControl?.MaxAge,
                        CacheControl:  response.Headers.CacheControl?.ToString(),
                        Allow:         [.. response.Content.Headers.Allow],
-                       Body:          body
+                       Body:          body,
+                       Version:       response.Version
                    );
 
         }
@@ -216,7 +240,7 @@ public static class RawDoHProbe
         text.Append($"HTTP {Result.Status}");
         text.Append($", content-type: {Result.ContentType   ?? "(none)"}");
         text.Append($", cache-control: {Result.CacheControl ?? "(none)"}");
-        text.Append($", {Result.Body.Length} body octets");
+        text.Append($", {Result.Body.Length} body octets, HTTP/{Result.Version}");
 
         return text.ToString();
 

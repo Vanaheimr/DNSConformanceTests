@@ -40,7 +40,7 @@ unbiased referee, and be run against any Hermod revision.
 | Client transports | `DNSUDPClient` (with TCP fallback on TC), `DNSTCPClient`, `DNSTLSClient` (DoT, custom cert validation), `DNSHTTPSClient` (DoH: GET base64url, POST binary, Google/Cloudflare JSON; plain-HTTP test modes) |
 | Client orchestration | `DNSClient`: multi-server race, SERVFAIL retry, pooling, positive cache, NODATA negative cache (2308), aggressive NSEC cache (8198), CNAME/DNAME chasing with loop detection (6672), auto DNS Cookies, auto Client Subnet, DNSSEC validation hook |
 | Server | `DNSServer`: UDP unicast + multicast, TCP, **TLS (DoT server)**, **HTTPS (DoH server, RFC 8484)**; `AuthoritativeDNSRequestHandler` + `InMemoryDNSZone` (`Add/Set/Remove/AddZoneFileString`); opcode≠0 → NOTIMP, zero questions → FORMERR, NXDOMAIN vs NODATA. Every transport shares one `DNSMessagePipeline` — signature verification, padding and serialization have a single implementation, so a transport decides how a message arrives and never what a valid signature is |
-| DoH server | `DNSOverHTTPSServer`, standalone or as a fifth `DNSServer` listener: GET `?dns=` base64url and POST `application/dns-message` on `/dns-query`; any valid DNS response (NXDOMAIN, SERVFAIL) carried by 200 (§4.2.1), 404/405/406/415/400 for requests that never became a DNS question, `cache-control: max-age` from the smallest Answer TTL or the SOA MINIMUM (§5.1), and the requestor's EDNS(0) payload size ignored as §6 requires — so it caps neither the answer nor its padding |
+| DoH server | `DNSOverHTTPSServer` (HTTP/1.1) and `DNSOverHTTP2Server` (HTTP/2, the version §5.2 recommends), standalone or as `DNSServer` listeners, both rendering one `DNSOverHTTPSResource`: GET `?dns=` base64url and POST `application/dns-message` on `/dns-query`; any valid DNS response (NXDOMAIN, SERVFAIL) carried by 200 (§4.2.1), 404/405/406/415/400 for requests that never became a DNS question, `cache-control: max-age` from the smallest Answer TTL or the SOA MINIMUM (§5.1), and the requestor's EDNS(0) payload size ignored as §6 requires — so it caps neither the answer nor its padding |
 | Zone | `InMemoryDNSZone` is a zone once it holds an SOA: apex-aware, RFC 1034 §4.3.2 lookup with delegations as referrals, empty non-terminals, RFC 4592 wildcard synthesis, SOA cited on every negative answer (2308 §3). Given a pre-signed zone it also serves it — RRSIGs and NSEC/NSEC3 proofs selected per RFC 4035 §3.1 and RFC 5155 §7, gated on the DO bit. It does not *sign*: `ZoneDenialOfExistence` selects, never invents |
 | DNSSEC | `DNSSECValidator`: `ValidateRRSig` (RFC 4034 §3), `VerifyDS` (§5, SHA-1/256/384), `ComputeKeyTag` (App. B), chain-of-trust walk, IANA root trust anchor (KeyTag 20326), RFC 5011 rollover with hold-down. `DNSSECSigning` is the other direction — signatures and public-key encodings for algorithms 8, 10, 13 and 14 |
 | Transaction security | `TSIGSigner` (RFC 8945, shared secret) and `SIG0Signer` (RFC 2931, public key) over wire bytes, both wired into `DNSServer` (UDP and TCP listeners, `TSIGKeys` / `SIG0Keys` / `SIG0ResponseKey`) and `DNSUDPClient` (query *and* TCP retry); `TKEYExchange` for the Diffie-Hellman mode of RFC 2930 |
@@ -112,7 +112,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-18 run: **784 tests, 771 ✅, 0 ❌, 13 skipped** — 712
+Counts as of the 2026-08-18 run: **815 tests, 802 ✅, 0 ❌, 13 skipped** — 743
 offline, 23 online and 36 interop verified on that run; the 13 tests needing
 BIND as a peer skip without it. Every deviation the suite has found is fixed;
 see [FINDINGS.md](FINDINGS.md).
@@ -271,6 +271,7 @@ round-trip where supported.
 | 7830 §4, 8467 §4.1 | DoH server: pads a padded query's response to the first 468-octet boundary that holds it, pads nothing when the query announced no EDNS(0) | ✅ |
 | 8945 §5.3 | DoH server: a TSIG-signed query is verified and the reply signed and bound to it; an unsigned query is still served | ✅ |
 | 8484 §5 | DoH server over TLS, as a listener of a real `DNSServer` — the deployed shape | ✅ |
+| 8484 §5.2 | …and every row above asserted twice, once per HTTP version. §5.2 recommends HTTP/2 without touching a requirement of §4, so the question worth asking is not whether h2 works but whether it still obeys everything HTTP/1.1 obeys. The probe pins the version with `RequestVersionExact`, so a listener that fell back would fail rather than pass as its sibling | ✅ |
 | 8484 §4.1 | DoH GET: `?dns=` base64url **without padding**, no `+`/`/`/`%` | ✅ |
 | 8484 §4.1 | DoH GET: `accept: application/dns-message` | ✅ |
 | 8484 §4.1 | DoH POST: `content-type: application/dns-message`, body = raw message | ✅ |
@@ -402,10 +403,10 @@ DNSConformanceTests/
 │       │   └── ScriptedDoHServer.cs     ← RFC 8484 HttpListener responder
 │       ├── Fixtures/
 │       │   ├── HermodServerFixture.cs   ← DNSServer on ephemeral ports
-│       │   ├── HermodDoHFixture.cs      ← RFC 8484 endpoint, cleartext or over TLS
+│       │   ├── HermodDoHFixture.cs      ← RFC 8484 endpoint: HTTP/1.1 or h2, cleartext or TLS
 │       │   ├── TestCertificate.cs       ← self-signed cert factory
 │       │   └── ZoneFixtures.cs          ← fixture zone loading
-│       ├── RawDoHProbe.cs               ← independent RFC 8484 client (own base64url)
+│       ├── RawDoHProbe.cs               ← independent RFC 8484 client (own base64url, pinned version)
 │       ├── Wsl.cs                       ← WSL bridge (run tool, host IP discovery)
 │       ├── TestEnvironment.cs           ← capability probing (network/WSL/docker)
 │       └── TestCategories.cs            ← Online / WSL / Docker / Slow / KnownIssue

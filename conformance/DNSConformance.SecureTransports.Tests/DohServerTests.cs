@@ -32,8 +32,19 @@ namespace DNSConformance.SecureTransports.Tests;
 /// nothing. <c>Server_Answers_Over_Tls_As_A_DnsServer_Listener</c> covers the
 /// deployed shape.
 /// </para>
+/// <para>
+/// Everything here runs twice, once per HTTP version, because §5.2 recommends
+/// HTTP/2 without changing a single requirement of §4 — "Earlier versions of
+/// HTTP are capable of conveying the semantic requirements of DoH but may result
+/// in very poor performance" is a statement about speed. Hermod renders the same
+/// resource two ways, so the useful question is not whether HTTP/2 works but
+/// whether it still obeys everything HTTP/1.1 obeys. The probe pins the version
+/// with <c>RequestVersionExact</c>, so a listener that fell back would fail
+/// rather than pass as its sibling.
+/// </para>
 /// </remarks>
-[TestFixture]
+[TestFixture("HTTP/1.1")]
+[TestFixture("HTTP/2")]
 [Property("RFC", "8484")]
 public class DohServerTests
 {
@@ -41,6 +52,40 @@ public class DohServerTests
     #region Data
 
     private const String DNSMessage = "application/dns-message";
+
+    private readonly Boolean  http2;
+    private readonly String   versionName;
+
+    #endregion
+
+    #region Constructor(s)
+
+    public DohServerTests(String HTTPVersionName)
+    {
+        this.versionName  = HTTPVersionName;
+        this.http2        = HTTPVersionName == "HTTP/2";
+    }
+
+    #endregion
+
+    #region (private) StartServerAsync(Zone = null, TSIGKeys = null, Secured = false)
+
+    /// <summary>
+    /// The RFC 8484 endpoint under test, on whichever HTTP version this run of
+    /// the fixture is about.
+    /// </summary>
+    private Task<HermodDoHFixture> StartServerAsync(IDNSZoneStore?         Zone       = null,
+                                                    IEnumerable<TSIGKey>?  TSIGKeys   = null,
+                                                    Boolean                Secured    = false)
+
+        => HermodDoHFixture.StartAsync(
+               new HermodDoHFixtureOptions {
+                   HTTP2     = http2,
+                   Secured   = Secured,
+                   Zone      = Zone,
+                   TSIGKeys  = TSIGKeys ?? []
+               }
+           );
 
     #endregion
 
@@ -169,6 +214,40 @@ public class DohServerTests
     #endregion
 
 
+    #region Server_Answers_On_The_Version_It_Was_Asked_For()
+
+    [Test]
+    [Property("RFC", "8484 §5.2")]
+    public async Task Server_Answers_On_The_Version_It_Was_Asked_For()
+    {
+
+        // "HTTP/2 […] is the minimum RECOMMENDED version of HTTP for use with
+        //  DoH."
+        //
+        // Every other test in this fixture would also pass against the wrong
+        // listener if the client were allowed to fall back, so this one states
+        // the premise the rest depend on: the exchange really happened on the
+        // version this run is about.
+        await using var server = await StartServerAsync();
+
+        var result = await RawDoHProbe.PostAsync(
+                               server.Url,
+                               RawDnsWriter.Query(0x0502, ZoneFixtures.AName, RawDnsType.A),
+                               HTTPClient: server.Http
+                           );
+
+        TestContext.Out.WriteLine($"{versionName}: {RawDoHProbe.Describe(result)}");
+
+        Assert.Multiple(() => {
+            Assert.That(result.Status,  Is.EqualTo(200));
+            Assert.That(result.Version, Is.EqualTo(server.HTTPVersion),
+                        () => $"asked for {versionName}, got HTTP/{result.Version}");
+        });
+
+    }
+
+    #endregion
+
     #region Server_Must_Implement_Both_Get_And_Post()
 
     [Test]
@@ -177,12 +256,12 @@ public class DohServerTests
     {
 
         // "DoH servers MUST implement both the POST and GET methods."
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var query = RawDnsWriter.Query(0x8484, ZoneFixtures.AName, RawDnsType.A);
 
-        var post  = await RawDoHProbe.PostAsync(server.Url, query);
-        var get   = await RawDoHProbe.GetAsync (server.Url, query);
+        var post  = await RawDoHProbe.PostAsync(server.Url, query, HTTPClient: server.Http);
+        var get   = await RawDoHProbe.GetAsync (server.Url, query, HTTPClient: server.Http);
 
         Assert.Multiple(() => {
 
@@ -227,7 +306,7 @@ public class DohServerTests
         //
         // The names below differ in length by one octet each, so the four
         // messages cover every residue at least once.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         // The awaits happen out here on purpose: an async lambda handed to
         // Assert.Multiple binds to the synchronous overload and becomes async
@@ -242,7 +321,7 @@ public class DohServerTests
             var id    = (UInt16) (0x4640 + extra);
             var query = RawDnsWriter.Query(id, name, RawDnsType.A);
 
-            exchanges.Add((name, id, query, await RawDoHProbe.GetAsync(server.Url, query)));
+            exchanges.Add((name, id, query, await RawDoHProbe.GetAsync(server.Url, query, HTTPClient: server.Http)));
 
         }
 
@@ -298,11 +377,12 @@ public class DohServerTests
         // parameters: N/A", and describes the content as "a binary format". A
         // charset on it would be a statement about the octets that is untrue of
         // every one of them.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
-                               RawDnsWriter.Query(0x4200, ZoneFixtures.AName, RawDnsType.A)
+                               RawDnsWriter.Query(0x4200, ZoneFixtures.AName, RawDnsType.A),
+                               HTTPClient: server.Http
                            );
 
         Assert.Multiple(() => {
@@ -333,11 +413,12 @@ public class DohServerTests
         //  a successful 2xx HTTP status code is used even with a DNS message
         //  whose DNS response code indicates failure, such as SERVFAIL or
         //  NXDOMAIN."
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
-                               RawDnsWriter.Query(0x4231, "nothing-here.conformance.test.", RawDnsType.A)
+                               RawDnsWriter.Query(0x4231, "nothing-here.conformance.test.", RawDnsType.A),
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(200),
@@ -364,11 +445,12 @@ public class DohServerTests
 
         // The quieter half of the same rule: NOERROR with an empty answer
         // section is a valid DNS response and travels the same way.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
-                               RawDnsWriter.Query(0x4232, ZoneFixtures.AName, RawDnsType.AAAA)
+                               RawDnsWriter.Query(0x4232, ZoneFixtures.AName, RawDnsType.AAAA),
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -400,12 +482,12 @@ public class DohServerTests
         // wrong: having built a DNS message for every other path, it is tempting
         // to attach one here too — and a client that reads the body before the
         // status would then treat a refusal as an answer.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var query  = RawDnsWriter.Query(0x4233, ZoneFixtures.AName, RawDnsType.A);
 
-        var wrongMediaType = await RawDoHProbe.PostAsync(server.Url, query, ContentType: "application/octet-stream");
-        var wrongPath      = await RawDoHProbe.PostAsync($"{server.Origin}/not-the-dns-endpoint", query);
+        var wrongMediaType = await RawDoHProbe.PostAsync(server.Url, query, ContentType: "application/octet-stream", HTTPClient: server.Http);
+        var wrongPath      = await RawDoHProbe.PostAsync($"{server.Origin}/not-the-dns-endpoint", query, HTTPClient: server.Http);
 
         Assert.Multiple(() => {
 
@@ -437,12 +519,13 @@ public class DohServerTests
         // §4.2.1 names what a client does with the refusal — it "retries with a
         // different DoH server, such as for unsupported media types (HTTP status
         // code 415)" — which only works if the refusal says 415 and not 400.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
                                RawDnsWriter.Query(0x4150, ZoneFixtures.AName, RawDnsType.A),
-                               ContentType: "application/json"
+                               ContentType: "application/json",
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(415), () => RawDoHProbe.Describe(result));
@@ -463,9 +546,9 @@ public class DohServerTests
         //
         // And what it names has to be what RFC 8484 §4.1 requires the server to
         // implement, or the field is worse than absent.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
-        var result = await RawDoHProbe.SendRawAsync(HttpMethod.Put, server.Url);
+        var result = await RawDoHProbe.SendRawAsync(HttpMethod.Put, server.Url, HTTPClient: server.Http);
 
         Assert.That(result.Status, Is.EqualTo(405), () => RawDoHProbe.Describe(result));
 
@@ -491,12 +574,13 @@ public class DohServerTests
         // §4.2.1 names 406 for "where the server cannot generate a
         //  representation suitable for the client", and a client that listed
         // media types without this one has described exactly that situation.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
                                RawDnsWriter.Query(0x4060, ZoneFixtures.AName, RawDnsType.A),
-                               Accept: "application/json"
+                               Accept: "application/json",
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(406), () => RawDoHProbe.Describe(result));
@@ -521,12 +605,13 @@ public class DohServerTests
         // so */* is the opposite of a refusal — and an absent Accept field has
         // refused nothing at all. Reading either as grounds for a 406 would turn
         // away curl and every browser, which is the failure mode this pins.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
                                RawDnsWriter.Query(0x4061, ZoneFixtures.AName, RawDnsType.A),
-                               Accept: Accept
+                               Accept: Accept,
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(200),
@@ -551,9 +636,9 @@ public class DohServerTests
         // Nothing here is one — the field is missing, empty, not base64url, or
         // decodes to four octets, which is shorter than the 12-octet header of
         // RFC 1035 §4.1.1. Each has to be refused rather than parsed.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
-        var result = await RawDoHProbe.SendRawAsync(HttpMethod.Get, server.Url + Query);
+        var result = await RawDoHProbe.SendRawAsync(HttpMethod.Get, server.Url + Query, HTTPClient: server.Http);
 
         Assert.That(result.Status, Is.GreaterThanOrEqualTo(400).And.LessThan(500),
                     () => $"'{Query}' — " + RawDoHProbe.Describe(result));
@@ -572,11 +657,12 @@ public class DohServerTests
         // §3 leaves the URI to "a URI Template" the server publishes, so a DoH
         // server is one resource rather than a site — and everything else on the
         // listener is simply not it.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                $"{server.Origin}/",
-                               RawDnsWriter.Query(0x4040, ZoneFixtures.AName, RawDnsType.A)
+                               RawDnsWriter.Query(0x4040, ZoneFixtures.AName, RawDnsType.A),
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(404), () => RawDoHProbe.Describe(result));
@@ -600,11 +686,12 @@ public class DohServerTests
         //
         // Sending nothing is therefore not neutral. It is the case the paragraph
         // exists to prevent.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.GetAsync(
                                server.Url,
-                               RawDnsWriter.Query(0x5100, ZoneFixtures.AName, RawDnsType.A)
+                               RawDnsWriter.Query(0x5100, ZoneFixtures.AName, RawDnsType.A),
+                               HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(200));
@@ -631,13 +718,12 @@ public class DohServerTests
         // The two records at this name carry 900 and 120 seconds, so a server
         // reading the first TTL rather than the smallest passes everything else
         // and fails here.
-        await using var server = await HermodDoHFixture.StartAsync(
-                                           new HermodDoHFixtureOptions { Zone = CacheZone() }
-                                       );
+        await using var server = await StartServerAsync(Zone: CacheZone());
 
         var result   = await RawDoHProbe.GetAsync(
                                  server.Url,
-                                 RawDnsWriter.Query(0x5101, "mixed.cache.test.", RawDnsType.A)
+                                 RawDnsWriter.Query(0x5101, "mixed.cache.test.", RawDnsType.A),
+                                 HTTPClient: server.Http
                              );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -685,13 +771,12 @@ public class DohServerTests
         // hour, so a server that reaches for the record's TTL — the obvious
         // mistake, since that is what every other record's lifetime is — is out
         // by a factor of sixty.
-        await using var server = await HermodDoHFixture.StartAsync(
-                                           new HermodDoHFixtureOptions { Zone = CacheZone() }
-                                       );
+        await using var server = await StartServerAsync(Zone: CacheZone());
 
         var result   = await RawDoHProbe.GetAsync(
                                  server.Url,
-                                 RawDnsWriter.Query(0x5102, "nothing-here.cache.test.", RawDnsType.A)
+                                 RawDnsWriter.Query(0x5102, "nothing-here.cache.test.", RawDnsType.A),
+                                 HTTPClient: server.Http
                              );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -739,12 +824,13 @@ public class DohServerTests
         // RFC 6891 §6.2.5; here there is no datagram to overflow, so the full
         // answer has to come back with TC clear. A server that shares its UDP
         // sizing code across transports fails exactly this.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
                                RawDnsWriter.Query(0x0600, ZoneFixtures.BigTxtName, RawDnsType.TXT,
-                                                  ednsPayloadSize: 512)
+                                                  ednsPayloadSize: 512),
+                                                  HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -783,13 +869,14 @@ public class DohServerTests
         // applies that cap over DoH stops at 200 octets instead of reaching the
         // 468-octet block of RFC 8467 §4.1. Both numbers look plausible in
         // isolation; only the query's advertised size tells them apart.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result = await RawDoHProbe.PostAsync(
                                server.Url,
                                RawDnsWriter.Query(0x0601, ZoneFixtures.AName, RawDnsType.A,
                                                   ednsPayloadSize:  200,
-                                                  ednsOptions:      PaddingOption(0))
+                                                  ednsOptions:      PaddingOption(0)),
+                                                  HTTPClient: server.Http
                            );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -817,19 +904,21 @@ public class DohServerTests
         // RFC 8467 §1 scopes its block lengths to encrypted transports "such as"
         // DoT and DoDTLS "or other encrypted DNS transports specified in the
         // future" — DoH, published the same month, is one of them.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var bare    = await RawDoHProbe.PostAsync(
                                 server.Url,
                                 RawDnsWriter.Query(0x7830, ZoneFixtures.AName, RawDnsType.A,
-                                                   ednsPayloadSize: 4096)
+                                                   ednsPayloadSize: 4096),
+                                                   HTTPClient: server.Http
                             );
 
         var padded  = await RawDoHProbe.PostAsync(
                                 server.Url,
                                 RawDnsWriter.Query(0x7831, ZoneFixtures.AName, RawDnsType.A,
                                                    ednsPayloadSize:  4096,
-                                                   ednsOptions:      PaddingOption(64))
+                                                   ednsOptions:      PaddingOption(64)),
+                                                   HTTPClient: server.Http
                             );
 
         Assert.That(bare.Status,   Is.EqualTo(200), () => RawDoHProbe.Describe(bare));
@@ -873,11 +962,12 @@ public class DohServerTests
         // Padding lives inside the OPT record, so a response to a query with no
         // OPT has nowhere to put it — and inventing one to make room would change
         // what the response says about its own EDNS(0) support.
-        await using var server = await HermodDoHFixture.StartAsync();
+        await using var server = await StartServerAsync();
 
         var result   = await RawDoHProbe.PostAsync(
                                  server.Url,
-                                 RawDnsWriter.Query(0x7832, ZoneFixtures.AName, RawDnsType.A)
+                                 RawDnsWriter.Query(0x7832, ZoneFixtures.AName, RawDnsType.A),
+                                 HTTPClient: server.Http
                              );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -916,15 +1006,13 @@ public class DohServerTests
         var key = new TSIGKey(DomainName.Parse("doh-server-key."),
                               Convert.FromBase64String("ZG9oLXNlcnZlci10c2lnLXRlc3Qtc2VjcmV0LTEyMzQ1Njc4"));
 
-        await using var server = await HermodDoHFixture.StartAsync(
-                                           new HermodDoHFixtureOptions { TSIGKeys = [ key ] }
-                                       );
+        await using var server = await StartServerAsync(TSIGKeys: [ key ]);
 
         var query       = RawDnsWriter.Query(0x8945, ZoneFixtures.AName, RawDnsType.A);
         var signed      = TSIGSigner.Sign(query, key);
         var requestMAC  = TSIGSigner.Verify(signed, key).MAC!;
 
-        var result      = await RawDoHProbe.PostAsync(server.Url, signed);
+        var result      = await RawDoHProbe.PostAsync(server.Url, signed, HTTPClient: server.Http);
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
 
@@ -961,13 +1049,12 @@ public class DohServerTests
         var key = new TSIGKey(DomainName.Parse("doh-server-key."),
                               Convert.FromBase64String("ZG9oLXNlcnZlci10c2lnLXRlc3Qtc2VjcmV0LTEyMzQ1Njc4"));
 
-        await using var server = await HermodDoHFixture.StartAsync(
-                                           new HermodDoHFixtureOptions { TSIGKeys = [ key ] }
-                                       );
+        await using var server = await StartServerAsync(TSIGKeys: [ key ]);
 
         var result   = await RawDoHProbe.PostAsync(
                                  server.Url,
-                                 RawDnsWriter.Query(0x8946, ZoneFixtures.AName, RawDnsType.A)
+                                 RawDnsWriter.Query(0x8946, ZoneFixtures.AName, RawDnsType.A),
+                                 HTTPClient: server.Http
                              );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
@@ -997,19 +1084,15 @@ public class DohServerTests
         // above runs in cleartext to keep the HTTP layer visible; this one is the
         // deployed shape — the DoH endpoint as a listener of a real DNSServer,
         // over TLS, answering the same zone as its UDP and TCP siblings would.
-        await using var server = await HermodDoHFixture.StartAsync(
-                                           new HermodDoHFixtureOptions { Secured = true }
-                                       );
+        await using var server = await StartServerAsync(Secured: true);
 
         Assert.That(server.Url, Does.StartWith("https://"));
 
-        using var http   = RawDoHProbe.NewHttpClient();
-
-        var result       = await RawDoHProbe.PostAsync(
-                                     server.Url,
-                                     RawDnsWriter.Query(0x0500, ZoneFixtures.AName, RawDnsType.A),
-                                     HTTPClient: http
-                                 );
+        var result = await RawDoHProbe.PostAsync(
+                               server.Url,
+                               RawDnsWriter.Query(0x0500, ZoneFixtures.AName, RawDnsType.A),
+                               HTTPClient: server.Http
+                           );
 
         Assert.That(result.Status, Is.EqualTo(200), () => RawDoHProbe.Describe(result));
 
