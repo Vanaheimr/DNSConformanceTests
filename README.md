@@ -17,12 +17,11 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 854 ✅ · 0 ❌ · 0 skipped**, everything outside the live-network lane — offline, WSL tools, BIND, and both external suites.
+**Current status: 859 ✅ · 0 ❌ · 0 skipped**, everything outside the live-network lane — offline, WSL tools, BIND, and both external suites.
 
-The suite has found 41 RFC deviations in Hermod. Forty are fixed; the
-forty-first is open, because it is a decision about wire behaviour rather than a
-correction. [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
-change, and the test that pins it.
+The suite has found 41 RFC deviations in Hermod. All are fixed;
+[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
+the test that pins it.
 
 ## Getting started
 

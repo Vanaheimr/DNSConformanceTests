@@ -296,6 +296,79 @@ public class ServerResponseTests
 
     #endregion
 
+    #region A_Name_Outside_Every_Served_Zone_Is_Refused(QName)
+
+    [Test]
+    [Property("RFC", "1034 §4.3.2, 1035 §4.1.1, 8020")]
+    [TestCase("example.com.")]
+    [TestCase("www.example.com.")]
+    [TestCase("com.")]
+    [TestCase(".")]
+    public async Task A_Name_Outside_Every_Served_Zone_Is_Refused(String QName)
+    {
+
+        // RFC 1034 §4.3.2 step 2 looks for a zone whose apex is an ancestor of
+        // QNAME, and without one there is no step 3 to run. Answering anyway is
+        // not a harmless over-reach: NXDOMAIN means, per RFC 8020, that nothing
+        // exists at the name *or beneath it*, and a resolver may cache that for
+        // the whole subtree. Carrying AA with it — §4.1.1 defines AA as denoting
+        // "that the responding name server is an authority for the domain name
+        // in question section" — turns it into an authoritative claim that
+        // somebody else's zone does not exist (finding 41).
+        var request   = RawDnsWriter.Query(0x7101, QName, RawDnsType.A);
+        var raw       = await RawDnsProbe.UdpAsync(server.UdpPort, request);
+
+        Assert.That(raw, Is.Not.Null, "a query outside the zone must be answered, not dropped");
+
+        var response  = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode,       Is.EqualTo(5), "REFUSED = 5");
+            Assert.That(response.AA,          Is.False,      "no authority is claimed over a name this server does not serve");
+            Assert.That(response.Answers,     Is.Empty,      "and nothing is answered");
+            Assert.That(response.Authorities, Is.Empty,      "nor cited: there is no SOA of ours to cite");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Name_Missing_Inside_A_Served_Zone_Is_Still_NXDOMAIN()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1, 2308 §2.1")]
+    public async Task A_Name_Missing_Inside_A_Served_Zone_Is_Still_NXDOMAIN()
+    {
+
+        // The other half, and the one that stops "refuse anything not found"
+        // from passing as the fix. Inside the zone this server *is* the
+        // authority, so an absent name is a genuine NXDOMAIN — authoritative,
+        // and carrying the SOA that RFC 2308 §2.1 requires so the denial can be
+        // cached for as long as the zone says and no longer.
+        var request   = RawDnsWriter.Query(0x7102, "nx.conformance.test.", RawDnsType.A);
+        var raw       = await RawDnsProbe.UdpAsync(server.UdpPort, request);
+
+        Assert.That(raw, Is.Not.Null);
+
+        var response  = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode,   Is.EqualTo(3), "NXDOMAIN = 3");
+            Assert.That(response.AA,      Is.True,       "this server is the authority for that zone");
+            Assert.That(response.Answers, Is.Empty);
+            Assert.That(response.Authorities.Any(rr => rr.Type == RawDnsType.SOA),
+                        Is.True,
+                        "a negative answer cites the zone's SOA");
+
+        });
+
+    }
+
+    #endregion
+
     #region Multiple_Answers_Are_All_Returned()
 
     [Test]

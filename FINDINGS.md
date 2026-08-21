@@ -3,10 +3,8 @@
 What this suite caught. Forty-one RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Forty of them are fixed and every one of those is defended by a test, so this
-reads as a record rather than a backlog. One is open: finding 41, which is a
-decision about wire behaviour rather than a correction, and is held by a test
-that will fail the day it is closed. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -58,7 +56,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 38 | A TTL with the sign bit set became a cache entry that never expired | Medium | 2181 §8 | ✅ fixed |
 | 39 | The reserved CLASS wore the name of a different one | Low | 6895 §3.2, 2136 §2.4 | ✅ fixed |
 | 40 | The one flag a refusal kept echoing | Low | 1035 §4.1.1, 6895 §2 | ✅ fixed |
-| 41 | An authoritative "does not exist" for names it serves no zone for | **High** | 1035 §4.1.1, 8020, 2308 §3 | 🔍 open |
+| 41 | An authoritative "does not exist" for names it serves no zone for | **High** | 1035 §4.1.1, 8020, 1034 §4.3.2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1802,8 +1800,8 @@ without being told what to look for.
 
 ## 41 — An authoritative "does not exist" for names it serves no zone for
 
-**Open.** The second finding from outside, and the second thing phase 7 caught
-that this suite had not thought to ask. Zonemaster's report on the fixture zone
+The second finding from outside, and the second thing phase 7 caught that this
+suite had not thought to ask. Zonemaster's report on the fixture zone
 carried ten errors that are properties of a laboratory and one that is not:
 
 ```
@@ -1842,24 +1840,53 @@ The answer everything else gives is REFUSED. It is what BIND returns, and what
 whose apex is an ancestor of the name: there is nothing to search, so there is
 nothing to report about.
 
-**Why it is open rather than fixed.** The cause is a missing distinction rather
-than a wrong branch. `DNSZoneLookupStatus` has `Found`, `NoData`, `NameError`,
-`Referral` and a DNAME redirect, and no way to say "no zone here", so
-`InMemoryDNSZone` returns `NameError` both for a name absent from its zone and
-for a name that was never its business. The handler then maps that one status to
-NXDOMAIN, correctly for the first case and not for the second.
+**Fix.** The cause was a missing distinction rather than a wrong branch.
+`DNSZoneLookupStatus` had `Found`, `NoData`, `NameError`, `Referral` and a DNAME
+redirect, and no way to say "no zone here", so `InMemoryDNSZone` returned
+`NameError` both for a name absent from its zone and for a name that was never
+its business — and the handler mapped that one status to NXDOMAIN, rightly for
+the first and not for the second. The zone already knew the difference: it tests
+whether QNAME sits at or below its apex and, when it does not, used to fall
+through to an exact-match search of its records. That branch now returns a new
+`NotAuthoritative` status, which the handler answers REFUSED with AA clear —
+but only when the store holds nothing for the name at all.
 
-Closing it means adding a member to a public enum, teaching the one store
-implementation to use it, and mapping it in the handler to REFUSED with AA
-clear. The blast radius is small — one implementation, and no test in the suite
-currently asserts anything about out-of-zone names — but it changes the response
-code for an entire class of queries, which is a decision rather than a
-correction.
+That last condition is not a nicety. `InMemoryDNSZone` is a record store with an
+apex rather than a zone in the strict sense, and it will happily hold names
+outside that apex; the fixtures depend on it, keeping a reverse-lookup PTR for
+`42.2.0.192.in-addr.arpa.` beside a forward `conformance.test.`. Refusing every
+out-of-apex name took that PTR away, and `dig` in WSL said so.
 
-Held meanwhile by `ZonemasterUndelegatedTests`, where `IS_A_RECURSOR` is one of
-the recorded tags with the reason spelled out. The set is asserted exactly, so
-the day it stops being reported the test fails and asks for the entry to be
-deleted.
+**And it very nearly broke DNAME.** The first attempt refused on the status
+alone. That is wrong for a reason worth keeping: a DNAME rewrites the query into
+another subtree, and the rewritten name is *supposed* to be out of bailiwick —
+*RFC 6672 §2.2* has the synthesized CNAME returned and the resolver chase the
+target from there. Refusing at that point turns a successful redirection into a
+refusal of the question it just answered.
+`A_Dname_Out_Of_The_Zone_Redirects_And_Stops` and
+`A_Substitution_Of_Exactly_255_Octets_Still_Fits` both went red immediately, from
+tests written for finding 24 and long before this one. REFUSED now applies only
+when nothing was found at all, and the mutation that removes that condition is
+killed by those same two tests.
+
+Severity is **High**, on consequence rather than on how easily it is reached: a
+resolver that ever asks this server about a name it does not serve is handed an
+authoritative denial it may cache for an entire subtree.
+
+Pinned by a pair. `A_Name_Outside_Every_Served_Zone_Is_Refused` walks
+`example.com.`, `www.example.com.`, `com.` and the root, and checks the RCODE,
+the AA bit, and that neither section carries anything.
+`A_Name_Missing_Inside_A_Served_Zone_Is_Still_NXDOMAIN` is what stops "refuse
+whatever was not found" from passing as the fix — inside the zone this server is
+the authority, so an absent name is still an authoritative NXDOMAIN carrying the
+SOA of *RFC 2308 §2.1*. Five mutants, all killed, and three of them by tests written for
+something else entirely: one that refuses even a name the store holds is caught
+by the `dig` PTR case, one that refuses on the status alone by the two DNAME
+tests, and one that keeps AA set on the refusal by the AA assertion alone.
+
+And the tag is gone from `ZonemasterUndelegatedTests`. Its recorded set is
+asserted exactly, so the fix made that test fail until the entry was deleted —
+which is the behaviour that list was built for.
 
 ---
 

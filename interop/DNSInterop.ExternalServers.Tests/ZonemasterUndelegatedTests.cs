@@ -45,10 +45,12 @@ public class ZonemasterUndelegatedTests
     /// loudly as a new one, because the first is the signal to delete its entry.
     /// </summary>
     /// <remarks>
-    /// All but the last are properties of a laboratory, not of the server. The
-    /// fixture zone deliberately uses TEST-NET-1 for its name server address and
-    /// has a single NS, and the bridge means the address handed over as glue is
-    /// not the one the zone publishes.
+    /// Every one of them is a property of a laboratory rather than of the
+    /// server: the fixture zone deliberately uses TEST-NET-1 for its name server
+    /// address and has a single NS where registries want two, and the bridge
+    /// means the address handed over as glue is not the one the zone publishes.
+    /// The one entry that was about Hermod, <c>IS_A_RECURSOR</c>, is gone —
+    /// finding 41 closed it, and this list is where that became visible.
     /// </remarks>
     private static readonly Dictionary<String, String> KnownErrors = new () {
 
@@ -63,10 +65,6 @@ public class ZonemasterUndelegatedTests
         ["NOT_ENOUGH_IPV4_NS_CHILD"]       = "lab: same",
         ["NOT_ENOUGH_IPV4_NS_DEL"]         = "lab: same",
 
-        ["IS_A_RECURSOR"]                  = "REAL — finding 41: queried for a name it serves no zone for, " +
-                                             "Hermod answers NXDOMAIN with AA set instead of REFUSED, which " +
-                                             "Zonemaster reads as the server having answered for someone else's " +
-                                             "name. Delete this entry when that is fixed."
 
     };
 

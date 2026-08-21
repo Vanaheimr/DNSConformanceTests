@@ -394,7 +394,7 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 | CNAME chase against BIND | ✅ |
 | NXDOMAIN from BIND; TCP transport | ✅ |
 | multi-character-string TXT served by BIND | ✅ |
-| **Zonemaster** undelegated against the fixture zone: its ERROR tags asserted as an exact set, so a tag that vanishes fails the test as loudly as a new one. Ten are properties of a laboratory — private and documentation addresses, one name server where registries want two, glue that is the bridge rather than what the zone publishes — and the eleventh is finding 41 ✅ |  ✅ |
+| **Zonemaster** undelegated against the fixture zone: its ERROR tags asserted as an exact set, so a tag that vanishes fails the test as loudly as a new one. Ten are properties of a laboratory — private and documentation addresses, one name server where registries want two, glue that is the bridge rather than what the zone publishes — and the eleventh was finding 41, whose fix emptied it out of the list ✅ |  ✅ |
 | Knot / Unbound / CoreDNS via Docker | ⬜ (written for none of them yet; the daemon itself now runs) |
 
 ---
@@ -490,7 +490,7 @@ leak into the submodule builds. Shared settings live in
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
-| 7 | External suites, both integrated and both of which found something. ISC `genreport` ✅ — its full grouping reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ✅ — run in a container against a socat bridge, since it speaks only to port 53; its ERROR tags are asserted as an exact set, ten of them properties of a laboratory and one a real defect (finding 41, open) | ✅ done |
+| 7 | External suites, both integrated and both of which found something. ISC `genreport` ✅ — its full grouping reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ✅ — run in a container against a socat bridge, since it speaks only to port 53; its ERROR tags are asserted as an exact set, now ten and all properties of a laboratory — the eleventh was finding 41 | ✅ done |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
 ## 8. Running the suite
