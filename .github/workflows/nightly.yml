@@ -225,9 +225,9 @@ jobs:
           path: artifacts/*.trx
 
   # ---------------------------------------------------------------------------
-  # Zonemaster, which needs a container of its own and cannot live in one.
+  # Everything that needs containers of its own and cannot live in one.
   # ---------------------------------------------------------------------------
-  zonemaster:
+  container-servers:
     # The two jobs above run *inside* debian:13, which is why this one does not:
     # Zonemaster ships as a container, and running one from inside another needs
     # a privileged daemon that a hosted runner does not hand out. So this leg
@@ -253,8 +253,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends socat bind9-dnsutils
 
-      - name: Pull the Zonemaster image
-        run: docker pull zonemaster/cli
+      # Pulled up front rather than on demand: a fixture that downloads a
+      # hundred megabytes mid-test fails as a timeout somewhere unrelated.
+      - name: Pull the server images
+        run: |
+          docker pull zonemaster/cli
+          docker pull cznic/knot
+          docker pull coredns/coredns
+          docker pull mvance/unbound
 
       # The harness skips when any of these is absent. Failing here instead
       # means the skip can only ever be about the runner, never about a
@@ -265,7 +271,9 @@ jobs:
           command -v socat
           command -v dig
           docker info --format '{{.ServerVersion}}'
-          docker image inspect zonemaster/cli > /dev/null
+          for image in zonemaster/cli cznic/knot coredns/coredns mvance/unbound; do
+            docker image inspect "$image" > /dev/null
+          done
           sudo -n true
           test -z "$(ss -lun 2>/dev/null | grep '127.0.0.1:53 ' || true)" \
             || { echo 'something already holds 127.0.0.1:53'; exit 1; }
@@ -277,24 +285,25 @@ jobs:
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
 
-      # Fatal. This is the one verdict in the suite that comes from outside it,
-      # and the recorded set of Zonemaster tags is asserted exactly — so red
-      # here is either a new complaint about Hermod or an old one that stopped
-      # being made. Both are worth a look; neither is a flake.
+      # Fatal, and two different questions in one filter. Zonemaster's recorded
+      # tag set is asserted exactly, so red there is either a new complaint about
+      # Hermod or an old one that stopped being made. The foreign servers ask
+      # whether what Hermod reads is a property of the protocol or of BIND —
+      # red there means three encoders disagree with the reading.
       #
       # Under sudo, and that is the contract rather than a shortcut: binding
       # port 53 is privileged, and Wsl.Run(asRoot) deliberately does not reach
       # for sudo on a native host — "a runner that needs one should say so".
       # This is the runner saying so. -E keeps the environment setup-dotnet
       # arranged, and PATH is passed explicitly because sudo resets it.
-      - name: Test (Zonemaster, undelegated)
+      - name: Test (Zonemaster, and Knot/CoreDNS/Unbound as peers)
         timeout-minutes: 30
         run: >
           sudo -E env "PATH=$PATH"
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
           --filter "TestCategory=Docker"
           --logger "console;verbosity=normal"
-          --logger "trx;LogFilePrefix=zonemaster"
+          --logger "trx;LogFilePrefix=containers"
           --results-directory artifacts
 
       # A skip here means the guards above passed and the harness bailed anyway,
@@ -308,15 +317,15 @@ jobs:
           echo "$counters"
           case "$counters" in
             *'notExecuted="0"'*) ;;
-            *) echo 'Zonemaster tests skipped although every prerequisite was present.' >&2; exit 1 ;;
+            *) echo 'Container tests skipped although every prerequisite was present.' >&2; exit 1 ;;
           esac
           case "$counters" in
-            *'passed="0"'*|'') echo 'No Zonemaster test passed — the report says nothing ran.' >&2; exit 1 ;;
+            *'passed="0"'*|'') echo 'No container test passed — the report says nothing ran.' >&2; exit 1 ;;
           esac
 
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-zonemaster
+          name: test-results-container-servers
           path: artifacts/*.trx

@@ -385,7 +385,7 @@ Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 | …and refuses the identical answer under a trust anchor with the right name and the wrong key: the control that makes "fully validated" mean something | ✅ |
 | ISC **`genreport`** — the dnsflagday EDNS battery, and the only verdict here the suite does not reach itself. Its EDNS grouping must report no failure at all, and its full grouping is asserted against an *exact* set of known divergences, so a probe that starts passing fails the test just as loudly as one that starts failing. UDP and TCP share a port for the run, or its `tcp` and `ednstcp` probes would time out and blame the server for the harness ✅ (finding 40) | ✅ |
 
-**`DNSInterop.ExternalServers.Tests`** (categories `WSL` and `Docker`) — 16 ✅
+**`DNSInterop.ExternalServers.Tests`** (categories `WSL` and `Docker`) — 46 ✅
 BIND `named` in WSL serving the fixture zone; Hermod is the client:
 
 | Focus | Status |
@@ -395,7 +395,7 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 | NXDOMAIN from BIND; TCP transport | ✅ |
 | multi-character-string TXT served by BIND | ✅ |
 | **Zonemaster** undelegated against the fixture zone: its ERROR tags asserted as an exact set, so a tag that vanishes fails the test as loudly as a new one. Ten are properties of a laboratory — private and documentation addresses, one name server where registries want two, glue that is the bridge rather than what the zone publishes — and the eleventh was finding 41, whose fix emptied it out of the list ✅ |  ✅ |
-| Knot / Unbound / CoreDNS via Docker | ⬜ (written for none of them yet; the daemon itself now runs) |
+| **Knot, CoreDNS and Unbound** serving BIND's own interop zone, byte for byte, with Hermod as the client against each: A, an RRset of three, AAAA, MX in preference order, TXT, SRV, SOA, CAA, NXDOMAIN, and the same record again over TCP. The point is not that Hermod can read Knot — it is that four encoders putting the same zone file on the wire agree, which is what separates a property of the protocol from a habit of BIND's ✅ | ✅ |
 
 ---
 
