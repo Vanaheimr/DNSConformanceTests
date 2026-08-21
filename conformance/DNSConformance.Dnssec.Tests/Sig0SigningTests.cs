@@ -629,6 +629,139 @@ public class Sig0SigningTests
 
     #endregion
 
+    #region Rsa_Public_Key_Uses_The_Long_Exponent_Form(ExponentOctets)
+
+    [Test]
+    [Property("RFC", "3110 §2")]
+    [TestCase(256)]     // one past the short form
+    [TestCase(300)]
+    [TestCase(512)]     // §2's interoperability ceiling for the exponent, in octets
+    public void Rsa_Public_Key_Uses_The_Long_Exponent_Form(Int32 ExponentOctets)
+    {
+
+        // §2: the exponent's "length in octets is represented as one octet if it
+        // is in the range of 1 to 255 and by a zero octet followed by a two octet
+        // unsigned length if it is longer than 255 bytes". Nothing real has an
+        // exponent that big, which is why the branch goes untravelled — the test
+        // above covers the short form with every key BIND ever signs with.
+        using var rsa = RsaWithExponentOfLength(ExponentOctets);
+
+        var parameters = rsa.ExportParameters(false);
+        var encoded    = DNSSECSigning.EncodePublicKey(AlgorithmRSASHA256, rsa);
+
+        Assert.Multiple(() => {
+
+            Assert.That(encoded[0], Is.Zero,
+                        "the zero octet is what announces the long form");
+
+            Assert.That((encoded[1] << 8) | encoded[2],
+                        Is.EqualTo(parameters.Exponent!.Length),
+                        "followed by the length as two octets, most significant first");
+
+            Assert.That(encoded[3..(3 + parameters.Exponent.Length)],
+                        Is.EqualTo(parameters.Exponent).AsCollection,
+                        "then the exponent itself");
+
+            Assert.That(encoded[(3 + parameters.Exponent.Length)..],
+                        Is.EqualTo(parameters.Modulus!).AsCollection,
+                        "and the modulus is still the remainder");
+
+            Assert.That(parameters.Exponent[0], Is.Not.Zero,
+                        "§2: leading zero octets are prohibited in the exponent");
+
+            Assert.That(parameters.Modulus![0], Is.Not.Zero,
+                        "§2: and in the modulus");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Rsa_Public_Key_Stays_Short_At_255_Octets()
+
+    [Test]
+    [Property("RFC", "3110 §2")]
+    public void Rsa_Public_Key_Stays_Short_At_255_Octets()
+    {
+
+        // The boundary, and the half that stops "always use the long form" from
+        // satisfying the test above: 255 is still "in the range of 1 to 255", so
+        // it takes one octet. A reader handed 0xFF here expects the exponent to
+        // start at offset 1, and one that emitted the long form instead would
+        // shift everything by two and hand back a modulus two octets short.
+        using var rsa = RsaWithExponentOfLength(255);
+
+        var parameters = rsa.ExportParameters(false);
+        var encoded    = DNSSECSigning.EncodePublicKey(AlgorithmRSASHA256, rsa);
+
+        Assert.Multiple(() => {
+
+            Assert.That(encoded[0], Is.EqualTo((Byte) 255), "one octet, holding 255");
+
+            Assert.That(encoded[1..(1 + 255)],
+                        Is.EqualTo(parameters.Exponent!).AsCollection);
+
+            Assert.That(encoded[(1 + 255)..],
+                        Is.EqualTo(parameters.Modulus!).AsCollection);
+
+        });
+
+    }
+
+    #endregion
+
+    #region (private static) RsaWithExponentOfLength(Octets)
+
+    /// <summary>
+    /// An RSA public key whose exponent is exactly the given number of octets.
+    /// </summary>
+    /// <remarks>
+    /// Hand-built, because no key generator will make one: a real exponent is
+    /// three octets, and RFC 3110's long form exists for a case the world never
+    /// produces. The key is not usable for anything — the exponent is not coprime
+    /// to anything in particular — but the encoder under test only reads the two
+    /// numbers out, and that is the whole point of testing it here rather than
+    /// through a signature.
+    ///
+    /// Whether such a key can even be held is a platform question, and the answer
+    /// differs: OpenSSL accepts it, Windows CNG refuses it outright with an
+    /// opaque 0xc1000001. So this skips rather than fails there, and the Linux
+    /// leg of CI is what actually exercises the long form.
+    /// </remarks>
+    private static RSA RsaWithExponentOfLength(Int32 Octets)
+    {
+
+        // No leading zero — §2 prohibits one — and odd, which every RSA exponent is.
+        var exponent   = new Byte[Octets];
+        exponent[0]    = 0x01;
+        exponent[^1]   = 0x01;
+
+        var modulus    = new Byte[256];
+        modulus[0]     = 0xC0;
+        modulus[^1]    = 0x01;
+
+        var rsa = RSA.Create();
+
+        try
+        {
+            rsa.ImportParameters(new RSAParameters { Exponent = exponent, Modulus = modulus });
+        }
+        catch (CryptographicException e)
+        {
+            rsa.Dispose();
+            Assert.Ignore($"This platform's RSA will not hold a {Octets}-octet public exponent " +
+                          $"({e.Message}). Windows CNG refuses it; OpenSSL accepts it, so the " +
+                          "Linux leg is what covers RFC 3110's long form.");
+            throw;   // Assert.Ignore has already thrown.
+        }
+
+        return rsa;
+
+    }
+
+    #endregion
+
     #region Ecdsa_Public_Key_Is_The_Bare_Curve_Point()
 
     [Test]

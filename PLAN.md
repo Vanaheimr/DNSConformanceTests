@@ -349,7 +349,7 @@ side of the connection.
 | 4035 §3.1, 5155 §7 | the *serving* side, against the BIND-signed fixture zones: RRSIGs with the answer and denial records with the "no", both gated on the DO bit; NSEC and NSEC3 NXDOMAIN and NODATA proofs; a wildcard answer keeping its RRSIG's `labels` field and carrying the proof the queried name was absent; no spare NSEC3s | ✅ |
 | 8945 | TSIG: MAC over the §4.3.3 variables, CLASS/TTL/placement, BADSIG vs BADKEY vs BADTIME, fudge window, rewritten ID, request-bound responses | ✅ |
 | 2931 | SIG(0): the §3 record shape, the §3.1 signed data for both the request and the transaction form, ARCOUNT taken before the record was appended, tampering and foreign keys and the validity window all rejected | ✅ |
-| 3110 §2, 6605 §4 | public key encodings: RSA's length-prefixed exponent then modulus, ECDSA's bare curve point with no 0x04 marker | ✅ |
+| 3110 §2, 6605 §4 | public key encodings: RSA's length-prefixed exponent then modulus — **both** forms, the one octet for 1..255 and the zero octet plus two-octet length beyond, with 255 itself pinned as the last short one; no leading zero octet in either field; ECDSA's bare curve point with no 0x04 marker | ✅ |
 
 ### 4.8 Interop projects
 
