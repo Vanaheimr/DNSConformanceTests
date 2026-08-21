@@ -17,11 +17,12 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 829 tests · 816 ✅ · 0 ❌ · 13 skipped.**
+**Current status: 854 ✅ · 0 ❌ · 0 skipped**, everything outside the live-network lane — offline, WSL tools, BIND, and both external suites.
 
-The suite has found 40 RFC deviations in Hermod. All are fixed;
-[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
-the test that pins it.
+The suite has found 41 RFC deviations in Hermod. Forty are fixed; the
+forty-first is open, because it is a decision about wire behaviour rather than a
+correction. [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
+change, and the test that pins it.
 
 ## Getting started
 
@@ -107,6 +108,24 @@ That clones ISC's repository, builds it, and installs the binary to
 but no BIND development package, despite appearances: the tool wants libresolv,
 which glibc provides. `GenreportComplianceTests` skips when the binary is
 missing.
+
+**Zonemaster** — the registry-grade zone checker, and the suite's other outside
+verdict — runs in a container and needs `socat` for the port-53 bridge:
+
+```bash
+wsl -u root -e sh -c 'apt-get install -y docker.io socat && docker pull zonemaster/cli'
+```
+
+This WSL distribution runs `init` rather than systemd, so nothing starts the
+Docker daemon by itself. Either start it for the session:
+
+```bash
+wsl -u root -e /usr/sbin/dockerd
+```
+
+or make it permanent by putting `[boot]` / `systemd=true` into `/etc/wsl.conf`
+and running `wsl --shutdown`. Without a daemon the Zonemaster tests skip with
+that instruction.
 
 If the WSL tools cannot reach the Hermod server, it is almost always a Windows
 Firewall rule blocking inbound traffic from the WSL subnet — the tests detect
@@ -205,7 +224,6 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 |------------|-----------------|---------|
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
-| external | Zonemaster undelegated | phase 7; needs a running Docker daemon |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
 **TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
@@ -278,7 +296,7 @@ conformance/                     RFC conformance, offline
 interop/                         interoperability
   …PublicResolvers.Tests         Cloudflare / Google / Quad9, all transports
   …LinuxTools.Tests              dig, kdig, drill and ISC genreport vs. the Hermod server
-  …ExternalServers.Tests         BIND as server, Hermod as client
+  …ExternalServers.Tests         BIND as server, Hermod as client; Zonemaster undelegated
 fixtures/                        test zones, BIND config, DNSSEC material
 ```
 

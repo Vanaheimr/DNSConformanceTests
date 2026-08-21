@@ -99,15 +99,18 @@ truncation, EDNS negotiation, robustness against malformed input.
   drives it and asserts its verdict; the tests skip when the binary is absent.
   No BIND development package is required — the README asks for libresolv, not
   for libdns/libisc.
-* **Zonemaster** in undelegated mode against a Hermod-served zone. It ships as
-  containers, and Docker does work here: the distribution runs `init` rather
-  than systemd, so nothing starts the daemon automatically, but
-  `wsl -u root -e /usr/sbin/dockerd` brings up engine 26.1.5 on overlay2 and
-  cgroup v2, and it pulls and runs images. Make it survive a restart with
-  `[boot] systemd=true` in `/etc/wsl.conf` plus `wsl --shutdown`. What is
-  missing is therefore not the daemon but the work: nothing is committed for
-  Zonemaster — no configuration, no harness, and no skipped tests standing in
-  for one. The `Docker` test category exists and has no members.
+* **Zonemaster** in undelegated mode against a Hermod-served zone. Set up, in
+  `ZonemasterUndelegatedTests`. Two pieces of plumbing carry it: the checker
+  speaks only to port 53 and offers no way to change that, so a socat pair
+  bridges the WSL VM's own address on 53 to the ephemeral port the fixture
+  bound on the Windows side — port 53 is free there, WSL's own resolver holding
+  it only on the gateway address — and the container runs with `--network host`
+  to reach that bridge. The relay has to be held by a process this side owns:
+  a socat backgrounded inside one `Wsl.Run` is reaped when that `wsl.exe`
+  returns, which looks exactly like a firewall problem one call later.
+  Start the daemon with `wsl -u root -e /usr/sbin/dockerd`, or make it survive
+  a restart with `[boot] systemd=true` in `/etc/wsl.conf` plus `wsl --shutdown`;
+  the tests skip with that instruction when it is not running.
 
 ---
 
@@ -382,7 +385,7 @@ Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 | …and refuses the identical answer under a trust anchor with the right name and the wrong key: the control that makes "fully validated" mean something | ✅ |
 | ISC **`genreport`** — the dnsflagday EDNS battery, and the only verdict here the suite does not reach itself. Its EDNS grouping must report no failure at all, and its full grouping is asserted against an *exact* set of known divergences, so a probe that starts passing fails the test just as loudly as one that starts failing. UDP and TCP share a port for the run, or its `tcp` and `ednstcp` probes would time out and blame the server for the harness ✅ (finding 40) | ✅ |
 
-**`DNSInterop.ExternalServers.Tests`** (category `WSL`) — 13 ✅
+**`DNSInterop.ExternalServers.Tests`** (categories `WSL` and `Docker`) — 16 ✅
 BIND `named` in WSL serving the fixture zone; Hermod is the client:
 
 | Focus | Status |
@@ -391,7 +394,8 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 | CNAME chase against BIND | ✅ |
 | NXDOMAIN from BIND; TCP transport | ✅ |
 | multi-character-string TXT served by BIND | ✅ |
-| Knot / Unbound / CoreDNS via Docker | ⬜ (no Docker daemon here) |
+| **Zonemaster** undelegated against the fixture zone: its ERROR tags asserted as an exact set, so a tag that vanishes fails the test as loudly as a new one. Ten are properties of a laboratory — private and documentation addresses, one name server where registries want two, glue that is the bridge rather than what the zone publishes — and the eleventh is finding 41 ✅ |  ✅ |
+| Knot / Unbound / CoreDNS via Docker | ⬜ (written for none of them yet; the daemon itself now runs) |
 
 ---
 
@@ -486,7 +490,7 @@ leak into the submodule builds. Shared settings live in
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
-| 7 | External suites. ISC `genreport` ✅ — built, installed and asserted from WSL by `GenreportComplianceTests`; its full grouping now reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ⬜ — not blocked on Docker, which runs here once started by hand; blocked on the harness, which is unwritten | 🟡 |
+| 7 | External suites, both integrated and both of which found something. ISC `genreport` ✅ — its full grouping reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ✅ — run in a container against a socat bridge, since it speaks only to port 53; its ERROR tags are asserted as an exact set, ten of them properties of a laboratory and one a real defect (finding 41, open) | ✅ done |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
 ## 8. Running the suite

@@ -1,10 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-one RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Forty of them are fixed and every one of those is defended by a test, so this
+reads as a record rather than a backlog. One is open: finding 41, which is a
+decision about wire behaviour rather than a correction, and is held by a test
+that will fail the day it is closed. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -56,6 +58,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 38 | A TTL with the sign bit set became a cache entry that never expired | Medium | 2181 §8 | ✅ fixed |
 | 39 | The reserved CLASS wore the name of a different one | Low | 6895 §3.2, 2136 §2.4 | ✅ fixed |
 | 40 | The one flag a refusal kept echoing | Low | 1035 §4.1.1, 6895 §2 | ✅ fixed |
+| 41 | An authoritative "does not exist" for names it serves no zone for | **High** | 1035 §4.1.1, 8020, 2308 §3 | 🔍 open |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1794,6 +1797,69 @@ die now.
 `The_Full_Battery_Diverges_Only_Where_It_Is_Known_To` kills the first mutant too,
 which is the useful part: the external tool notices the regression on its own,
 without being told what to look for.
+
+---
+
+## 41 — An authoritative "does not exist" for names it serves no zone for
+
+**Open.** The second finding from outside, and the second thing phase 7 caught
+that this suite had not thought to ask. Zonemaster's report on the fixture zone
+carried ten errors that are properties of a laboratory and one that is not:
+
+```
+ERROR   Nameserver ns1.conformance.test/… is a recursor.   [IS_A_RECURSOR]
+```
+
+The label is Zonemaster's inference rather than the defect. Measured directly,
+Hermod does not recurse and does not offer to — `RecursionAvailable` is false
+and RA stays clear. What it does is answer:
+
+| query | RCODE | AA | authority |
+|---|---|:--:|---|
+| `a.conformance.test.` (served) | NOERROR | 1 | — |
+| `nx.conformance.test.` (served, absent) | NXDOMAIN | 1 | SOA |
+| `example.com.` | **NXDOMAIN** | **1** | **none** |
+| `www.example.com.` | **NXDOMAIN** | **1** | **none** |
+| `.` (the root) | **NXDOMAIN** | **1** | **none** |
+
+For a name inside its zone the behaviour is exactly right, SOA and all. For a
+name it serves no zone for, it claims authority — *RFC 1035 §4.1.1* defines AA
+as denoting "that the responding name server is an authority for the domain name
+in question section" — and then says the name does not exist. Zonemaster asks an
+out-of-bailiwick name, sees an answer rather than a refusal, and concludes the
+server answers for other people's names, which it does.
+
+The consequence is worse than the label suggests. *RFC 8020* settles NXDOMAIN as
+meaning there is nothing at that name **or beneath it**, and permits a resolver
+to cache that for the whole subtree. An authoritative NXDOMAIN for
+`example.com.` is therefore an assertion that example.com and everything under it
+does not exist, offered with the authority bit set. The response also carries no
+SOA, so it violates *RFC 2308 §3* as a negative answer besides — but that is the
+lesser half.
+
+The answer everything else gives is REFUSED. It is what BIND returns, and what
+*RFC 1034 §4.3.2* leaves as the only honest outcome when step 2 finds no zone
+whose apex is an ancestor of the name: there is nothing to search, so there is
+nothing to report about.
+
+**Why it is open rather than fixed.** The cause is a missing distinction rather
+than a wrong branch. `DNSZoneLookupStatus` has `Found`, `NoData`, `NameError`,
+`Referral` and a DNAME redirect, and no way to say "no zone here", so
+`InMemoryDNSZone` returns `NameError` both for a name absent from its zone and
+for a name that was never its business. The handler then maps that one status to
+NXDOMAIN, correctly for the first case and not for the second.
+
+Closing it means adding a member to a public enum, teaching the one store
+implementation to use it, and mapping it in the handler to REFUSED with AA
+clear. The blast radius is small — one implementation, and no test in the suite
+currently asserts anything about out-of-zone names — but it changes the response
+code for an entire class of queries, which is a decision rather than a
+correction.
+
+Held meanwhile by `ZonemasterUndelegatedTests`, where `IS_A_RECURSOR` is one of
+the recorded tags with the reason spelled out. The set is asserted exactly, so
+the day it stops being reported the test fails and asks for the entry to be
+deleted.
 
 ---
 
