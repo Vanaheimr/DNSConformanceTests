@@ -99,12 +99,15 @@ truncation, EDNS negotiation, robustness against malformed input.
   drives it and asserts its verdict; the tests skip when the binary is absent.
   No BIND development package is required — the README asks for libresolv, not
   for libdns/libisc.
-* **Zonemaster** in undelegated mode against a Hermod-served zone. Not set up:
-  it ships as containers, and while the Docker engine *is* fully installed in
-  this WSL distribution — `dockerd`, `containerd`, `runc`, `iptables`, and the
-  user in the `docker` group — nothing starts it, because the distribution runs
-  `init` rather than systemd and has no `/etc/wsl.conf`. Nothing is committed
-  for it: no configuration, and no skipped tests standing in for one.
+* **Zonemaster** in undelegated mode against a Hermod-served zone. It ships as
+  containers, and Docker does work here: the distribution runs `init` rather
+  than systemd, so nothing starts the daemon automatically, but
+  `wsl -u root -e /usr/sbin/dockerd` brings up engine 26.1.5 on overlay2 and
+  cgroup v2, and it pulls and runs images. Make it survive a restart with
+  `[boot] systemd=true` in `/etc/wsl.conf` plus `wsl --shutdown`. What is
+  missing is therefore not the daemon but the work: nothing is committed for
+  Zonemaster — no configuration, no harness, and no skipped tests standing in
+  for one. The `Docker` test category exists and has no members.
 
 ---
 
@@ -483,7 +486,7 @@ leak into the submodule builds. Shared settings live in
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
-| 7 | External suites. ISC `genreport` ✅ — built, installed and asserted from WSL by `GenreportComplianceTests`; its full grouping now reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ⬜ — the Docker engine is installed in WSL but nothing starts it, because that distribution runs without systemd | 🟡 |
+| 7 | External suites. ISC `genreport` ✅ — built, installed and asserted from WSL by `GenreportComplianceTests`; its full grouping now reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ⬜ — not blocked on Docker, which runs here once started by hand; blocked on the harness, which is unwritten | 🟡 |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
 ## 8. Running the suite
