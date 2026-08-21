@@ -19,7 +19,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 
 **Current status: 829 tests · 816 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 38 RFC deviations in Hermod. All are fixed;
+The suite has found 39 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -137,6 +137,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **6672** | DNAME | the substitution of §2.2 on labels rather than characters — so a name that merely ends with the owner's spelling is not redirected, and neither is the owner itself (§2.3). Served: the DNAME in the answer, the synthesized CNAME beside it with the DNAME's TTL (§3.1, where RFC 2672 said zero), YXDOMAIN when the rewritten name passes 255 octets (§2.2), records below the owner occluded (§2.4), and a chain into its own subtree bounded. Followed: the same substitution in the resolver, shared rather than written twice. `delv` validates the redirection end to end, including the CNAME carrying no signature |
 | **6698**, **8162** | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names |
 | **6891** | EDNS0 | OPT wire form (golden bytes), extended-RCODE combining, exactly one OPT, BADVERS for version > 0, payload-size negotiation |
+| **6895** §3.1, §3.2 | IANA registries | the two registries that decide which number means what. On the wire: no response carries a QTYPE-only code point as a record TYPE or CLASS, TYPE 0 and the obsolete mail QTYPEs are answered NODATA with the zone SOA, and `*` is still served with data types — without which "answers nothing" would satisfy the rule. In presentation format: each mnemonic checked against the suite's own table, class 254 is NONE and class 0 is reserved with no name at all (finding 39) |
 | **7043** | EUI48, EUI64 | fixed-width RDATA |
 | **7208** | SPF | multi-character-string concatenation |
 | **7344**, **8078** | CDS, CDNSKEY | the records mirror DS and DNSKEY (7344 §3.1/§3.2), and the protocol around them. RFC 8078 §4's delete sentinel — `CDS 0 0 0 0`, `CDNSKEY 0 3 0 0` — recognised only in the mandated form and only as an RRset of exactly one record, since a sentinel beside a real CDS asks for a DS to be installed and for all of them removed at once. RFC 7344 §4.1's acceptance rules, which are what keeps the sentinel from being a way for anyone who can write in a child zone to switch its DNSSEC off: apex, signed by a key in **both** the current DNSKEY and DS RRsets, and not breaking the delegation |

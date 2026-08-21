@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Thirty-eight RFC deviations in the Hermod DNS stack, each
+What this suite caught. Thirty-nine RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -54,6 +54,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 36 | The same rule, on the transport it had just become reachable on | Low (SHOULD) | 7828 §3, §3.2.2 | ✅ fixed |
 | 37 | A session outlived every timeout a server advertised | Low (SHOULD) | 7828 §3.2.2, §3 | ✅ fixed |
 | 38 | A TTL with the sign bit set became a cache entry that never expired | Medium | 2181 §8 | ✅ fixed |
+| 39 | The reserved CLASS wore the name of a different one | Low | 6895 §3.2, 2136 §2.4 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1643,6 +1644,84 @@ rather than wrapped. And
 `An_Opt_Keeps_Its_Extended_Rcode_When_The_Ttl_Field_Has_The_Sign_Bit_Set` guards
 the trap, so a later refactor that routes OPT through the base constructor fails
 loudly instead of quietly losing an RCODE.
+
+---
+
+## 39 — The reserved CLASS wore the name of a different one
+
+*RFC 6895 §3.2* is the CLASS registry. It puts QCLASS NONE at **254**, QCLASS *
+at 255, and reserves **0**, which has no mnemonic at all.
+
+`DNSQueryClasses` named 0 `NONE`. The doc comment on that line gave the game
+away — "Pseudo class, used for DNS dynamic updates (RFC 2136)" describes QCLASS
+NONE exactly, and *RFC 2136 §2.4* is where it is used to mean "no records of
+this set". Only the number underneath it belonged to something else.
+
+One wrong constant, two symptoms in opposite directions, both in the write half
+of the presentation format:
+
+| wire CLASS | Hermod wrote | RFC 6895 §3.2 + RFC 3597 §5 |
+|---:|---|---|
+| 0 | `NONE` | `CLASS0` — reserved, no mnemonic |
+| 254 | `CLASS254` | `NONE` |
+
+`ADNSResourceRecord.ClassName` asks `Enum.IsDefined`, so it faithfully reported
+whatever the enum claimed: it invented a name for the reserved code point and
+hid the real one behind RFC 3597 §5's generic form.
+
+The second row is merely unidiomatic — `CLASS254` is a legal spelling of 254 and
+every reader resolves it correctly. The first row is the one that leaves the
+process: a zone file Hermod emitted for a class-0 record said `NONE`, and BIND,
+Knot and anything else reading it get **254**. The record changes class on the
+way across, silently, in the direction of a class that means something in a
+dynamic update.
+
+What kept it harmless so far is that nothing referred to it. The value had zero
+uses in Hermod, and the zone-file *reader* is separately narrow — the `A` parser
+accepts `IN` and rejects every other class with a typed exception, so the wrong
+mnemonic never came back in. It was a loaded foot-gun rather than a wound, which
+is also why it survived this long.
+
+**Fix.** One line: `NONE` moved to 254, leaving 0 unnamed. Both symptoms are
+downstream of the constant, so `Enum.IsDefined` now answers correctly in both
+directions without `ClassName` being touched.
+
+Severity is **Low**. No answer Hermod produces today is wrong, and reaching the
+bug needs a caller who names the constant or a record that arrives in one of two
+code points nothing sends.
+
+**The rest of RFC 6895 was already right, and is now pinned.** The registries
+are mostly a rule about what may *not* appear, so the round began by asking the
+server for every interesting code point in both spaces. It answered all of them
+correctly: TYPE 0, the meta-TYPEs, both obsolete mail QTYPEs and both transfer
+QTYPEs each came back NOERROR with an empty answer section and the zone's SOA,
+`*` was served with data records, and no response in the sweep ever carried a
+Q/Meta code point as a record TYPE or CLASS. Those tests lock in behavior rather
+than change it, which is worth saying plainly: only the CLASS constant moved.
+
+Pinned by ten tests across two projects, twenty-eight cases in all. On the registry itself,
+`Every_Mnemonic_Names_Its_Iana_Code_Point` checks each mnemonic against the
+suite's own table rather than against the enum under test, and
+`The_Class_Named_None_Is_254` and `Class_Zero_Is_Reserved_And_Carries_No_Mnemonic`
+take the two rows above from the wire through `ClassName`.
+`Registered_Classes_Render_As_Their_Mnemonics` and
+`Unregistered_Classes_Render_Generically` are a pair on purpose: either alone is
+satisfied by a `ClassName` that gives up and always answers one way, and the
+mutation run confirmed it — dropping the `Enum.IsDefined` test in either
+direction leaves exactly one of them green.
+
+On the wire, `A_Qtype_Only_Code_Point_Is_Never_A_Record_Type` sweeps 251 through
+255 and inspects every section,
+`A_Query_For_A_Qtype_Only_Code_Point_Is_Answered_Without_Data` requires the SOA
+that makes a NODATA answer meaningful, `An_Any_Query_Is_Answered_With_Data_Types`
+stops the first one from being satisfied by a server that answers nothing at
+all, `Type_Zero_Is_Never_Answered_With_Data` covers the code point §3.1 says must
+never be allocated, and `A_Qclass_Only_Code_Point_Is_Never_A_Record_Class` does
+the same for the class space.
+
+A test whose job is to find nothing can pass by looking nowhere, so that one was
+mutated too — putting SOA's code point into the forbidden list, which made
+`A_Qtype_Only_Code_Point_Is_Never_A_Record_Type` fail. It reads the records.
 
 ---
 

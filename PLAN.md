@@ -136,7 +136,7 @@ see [FINDINGS.md](FINDINGS.md).
 | 3597 §4 | RDATA compression | the eleven post-1035 types no longer compress the names in their RDATA ✅ (finding 22); the five RFC 1035 types still do | ✅ |
 | 3597 §5 | Presentation format | `\#` generic RDATA both ways, `TYPEnnn`/`CLASSnn`, a bare decimal is a TTL ✅ (finding 23), a known type written generically re-reads as that type | ✅ |
 | 3597 §6 | Equality | unknown RDATA compared as octets, case sensitively | ✅ |
-| 6895 | IANA registries | code points exercised throughout the RR tests; no dedicated assertion, so [README](README.md#rfc-coverage) does not list it as covered | 📋 |
+| 6895 §3.1, §3.2 | IANA registries | the TYPE and CLASS spaces are partitioned, not flat. Server side: no response carries a QTYPE-only code point as a record TYPE or CLASS, TYPE 0 and both obsolete mail QTYPEs are answered NODATA with the SOA, and `*` is still served with data types — the counterpart that stops "answer nothing" from passing. Registry side: every mnemonic checked against the suite's own table, and both halves of the mnemonic/generic split asserted ✅ (finding 39) | ✅ |
 | — | Robustness | empty/short/garbage messages, absurd section counts: typed failure, never a hang | ✅ |
 
 ### 4.2 Resource records (`DNSConformance.ResourceRecords.Tests`)
