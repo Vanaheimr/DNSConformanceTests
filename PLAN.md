@@ -92,13 +92,19 @@ truncation, EDNS negotiation, robustness against malformed input.
 
 ### Layer 4 — External conformance suites (optional, documented)
 * ISC **DNS Compliance Testing** (`genreport`) against the Hermod server —
-  EDNS compliance battery (dnsflagday). Not set up: the tool needs a network
-  build that has not been done here. The MUST-level ground it covers is
-  asserted in-process instead, by `ServerEdnsAndTruncationTests`.
-* **Zonemaster** in undelegated mode against a Hermod-served zone. Not set up
-  either: it needs a Docker daemon, and there is none on this machine. Nothing
-  is committed for it — no configuration, and no skipped tests standing in for
-  one.
+  the EDNS compliance battery behind dnsflagday. Set up: build it once with
+  `interop/genreport/build-genreport.sh`, which also carries the one workaround
+  it needs (its `configure` finds `<resolv.h>` but does not add `-lresolv`, so
+  the link fails on symbols glibc does export). `GenreportComplianceTests`
+  drives it and asserts its verdict; the tests skip when the binary is absent.
+  No BIND development package is required — the README asks for libresolv, not
+  for libdns/libisc.
+* **Zonemaster** in undelegated mode against a Hermod-served zone. Not set up:
+  it ships as containers, and while the Docker engine *is* fully installed in
+  this WSL distribution — `dockerd`, `containerd`, `runc`, `iptables`, and the
+  user in the `docker` group — nothing starts it, because the distribution runs
+  `init` rather than systemd and has no `/etc/wsl.conf`. Nothing is committed
+  for it: no configuration, and no skipped tests standing in for one.
 
 ---
 
@@ -357,7 +363,7 @@ side of the connection.
 | live root DNSKEY contains the IANA KSK; live RRSIG validates | ✅ |
 | deliberately bogus zone (dnssec-failed.org) does not resolve | ✅ |
 
-**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 34 ✅
+**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 39 ✅
 Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 
 | Focus | Status |
@@ -371,6 +377,7 @@ Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 | all of the above still pass after the case-preservation and compression changes | ✅ |
 | `delv` fully validates a Hermod-served signed answer, a wildcard answer, an NSEC NXDOMAIN, an NSEC NODATA, an NSEC3 closest-encloser proof, and the DNSKEY RRset — the last only reachable over the TCP retry | ✅ |
 | …and refuses the identical answer under a trust anchor with the right name and the wrong key: the control that makes "fully validated" mean something | ✅ |
+| ISC **`genreport`** — the dnsflagday EDNS battery, and the only verdict here the suite does not reach itself. Its EDNS grouping must report no failure at all, and its full grouping is asserted against an *exact* set of known divergences, so a probe that starts passing fails the test just as loudly as one that starts failing. UDP and TCP share a port for the run, or its `tcp` and `ednstcp` probes would time out and blame the server for the harness ✅ (finding 40) | ✅ |
 
 **`DNSInterop.ExternalServers.Tests`** (category `WSL`) — 13 ✅
 BIND `named` in WSL serving the fixture zone; Hermod is the client:
@@ -476,7 +483,7 @@ leak into the submodule builds. Shared settings live in
 | 4 | Interop projects (public resolvers, WSL tools, BIND) | ✅ done |
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
-| 7 | External suites: ISC `genreport` EDNS battery, Zonemaster undelegated (needs a Docker daemon) | ⬜ next |
+| 7 | External suites. ISC `genreport` ✅ — built, installed and asserted from WSL by `GenreportComplianceTests`; its full grouping now reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ⬜ — the Docker engine is installed in WSL but nothing starts it, because that distribution runs without systemd | 🟡 |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, and a second job that tests against Hermod **master** rather than the pinned gitlink | ✅ done |
 
 ## 8. Running the suite

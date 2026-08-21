@@ -19,7 +19,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 
 **Current status: 829 tests · 816 ✅ · 0 ❌ · 13 skipped.**
 
-The suite has found 39 RFC deviations in Hermod. All are fixed;
+The suite has found 40 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -92,6 +92,21 @@ wsl -u root -e sh -c 'apt-get update && apt-get install -y bind9-dnsutils knot-d
 ```
 
 That provides `dig`, `kdig`, `drill`, `delv`, `named` and `dnssec-signzone`.
+
+ISC's `genreport` — the EDNS compliance battery behind dnsflagday, and the only
+tool here that reaches its own verdict about Hermod — is not packaged, so it is
+built from source once:
+
+```bash
+wsl -u root -e sh interop/genreport/build-genreport.sh
+```
+
+That clones ISC's repository, builds it, and installs the binary to
+`/usr/local/bin`, which a non-login WSL shell has on its `PATH`. It needs
+`git`, `gcc`, `make`, `autoconf`, `automake`, `pkg-config` and `libssl-dev` —
+but no BIND development package, despite appearances: the tool wants libresolv,
+which glibc provides. `GenreportComplianceTests` skips when the binary is
+missing.
 
 If the WSL tools cannot reach the Hermod server, it is almost always a Windows
 Firewall rule blocking inbound traffic from the WSL subnet — the tests detect
@@ -190,7 +205,7 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 |------------|-----------------|---------|
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
 | **3110** | the 3-octet exponent-length form, for RSA keys with an exponent over 255 bytes; BIND's fixtures all use the 1-octet form, and the encoder emits only that form | needs a hand-built key |
-| external | ISC `genreport` EDNS battery; Zonemaster undelegated | phase 7 |
+| external | Zonemaster undelegated | phase 7; needs a running Docker daemon |
 | interop | Knot, Unbound, CoreDNS as peers | needs a Docker daemon; no runner leg for it yet |
 
 **TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
@@ -262,7 +277,7 @@ conformance/                     RFC conformance, offline
   …Dnssec.Tests                  key tags, DS digests, RRSIG validation
 interop/                         interoperability
   …PublicResolvers.Tests         Cloudflare / Google / Quad9, all transports
-  …LinuxTools.Tests              dig, kdig, drill vs. the Hermod server
+  …LinuxTools.Tests              dig, kdig, drill and ISC genreport vs. the Hermod server
   …ExternalServers.Tests         BIND as server, Hermod as client
 fixtures/                        test zones, BIND config, DNSSEC material
 ```

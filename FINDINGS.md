@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Thirty-nine RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -55,6 +55,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 37 | A session outlived every timeout a server advertised | Low (SHOULD) | 7828 §3.2.2, §3 | ✅ fixed |
 | 38 | A TTL with the sign bit set became a cache entry that never expired | Medium | 2181 §8 | ✅ fixed |
 | 39 | The reserved CLASS wore the name of a different one | Low | 6895 §3.2, 2136 §2.4 | ✅ fixed |
+| 40 | The one flag a refusal kept echoing | Low | 1035 §4.1.1, 6895 §2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1722,6 +1723,77 @@ the same for the class space.
 A test whose job is to find nothing can pass by looking nowhere, so that one was
 mutated too — putting SOA's code point into the forbidden list, which made
 `A_Qtype_Only_Code_Point_Is_Never_A_Record_Type` fail. It reads the records.
+
+---
+
+## 40 — The one flag a refusal kept echoing
+
+**The first finding this suite did not make.** It came from ISC's `genreport`,
+the EDNS compliance battery behind dnsflagday, fired at Hermod from WSL — which
+is the entire reason phase 7 exists. Every other entry here is Hermod measured
+against *this* suite's reading of the RFCs. This one is Hermod measured against
+somebody else's.
+
+Of the roughly thirty probes in genreport's full grouping, one came back unhappy:
+
+```
+conformance.test. @… (ns1.conformance.test.): … opcodeflg=rd …
+```
+
+`opcodeflg` sends opcode 15 — unassigned — as a header-only request with every
+flag bit set: AA, TC, RD, RA, AD, CD and Z. Measured directly, Hermod answered
+NOTIMP, echoed the opcode, and cleared **every** one of those bits except RD.
+The lone exception was deliberate: *RFC 1035 §4.1.1* says of RD that it "may be
+set in a query and is copied into the response", and the copy was unconditional.
+
+**The RFCs do not settle this, and it is worth being plain about that.** §4.1.1
+attaches no opcode condition to the copy. *RFC 6895 §2* — the document that owns
+the header — declines to help in either direction: the flags are "theoretically
+meaningful only in queries or only in responses, depending on the bit", a
+statement about direction and not about opcode, and it goes on to note that
+implementations may copy query headers straight into responses. Read literally,
+Hermod was right.
+
+What decided it was everyone else. genreport's own source states the rule in a
+comment — `/* RD is only defined for QUERY */` — and a survey with the same tool
+found the field unanimous: ISC's own `ns1`, `ns2`, `ns3.isc.org` and
+`ns.isc.afilias-nst.info` all pass the probe, so BIND clears the bit;
+`nsp.dnsnode.net` fails it differently (`reset`); and every Cloudflare
+nameserver tested simply drops the query. Not one echoed RD.
+
+That last point is reproducible here rather than only observed in the wild:
+BIND 9.20.26 serving the suite's own fixture zone in WSL, interrogated by the
+same binary, returns `opcodeflg=ok` and an empty list under `-B`. Hermod now
+matches it on every probe in the grouping.
+
+The argument behind that consensus is the better reading. RD is defined as the
+bit that "directs the name server to pursue the query recursively" — a property
+of a QUERY. A response carrying NOTIMP has just said it did not understand the
+request; echoing a bit whose meaning is owned by the opcode it refused claims
+knowledge it does not have. And Hermod already agreed in practice, having
+cleared the other six.
+
+**Fix.** One clause where a refusal is built: RD is copied only when the opcode
+is QUERY. All four refusal paths — BADVERS, NOTIMP, BADCOOKIE, FORMERR — share
+that builder, and the three that keep opcode 0 are unaffected.
+
+Severity is **Low**. Nothing is misanswered, and the bit reaches only a client
+that sent an opcode no authoritative server implements.
+
+**A guard that guarded nothing.** The pair here is
+`A_Notimp_Response_Echoes_No_Flag_Of_The_Opcode_It_Rejected`, which asserts all
+seven bits clear, and a counterpart that stops "never echo RD" from passing as
+the fix. The counterpart was wrong on the first attempt: it sent an ordinary
+query for a name that exists, which is answered on the success path and never
+travels through the refusal builder at all. The mutation run caught it —
+replacing the clause with a flat `false` left it green. It now asks for BADVERS
+instead, by sending EDNS version 1, which is refused by *RFC 6891 §6.1.3* while
+the opcode stays QUERY: the same builder, the same line, opcode 0. Both mutants
+die now.
+
+`The_Full_Battery_Diverges_Only_Where_It_Is_Known_To` kills the first mutant too,
+which is the useful part: the external tool notices the regression on its own,
+without being told what to look for.
 
 ---
 

@@ -185,6 +185,117 @@ public class ServerResponseTests
 
     #endregion
 
+    #region A_Notimp_Response_Echoes_No_Flag_Of_The_Opcode_It_Rejected()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1, 6895 §2")]
+    public async Task A_Notimp_Response_Echoes_No_Flag_Of_The_Opcode_It_Rejected()
+    {
+
+        // ISC's genreport calls this probe "opcodeflg": opcode 15 with every
+        // flag bit set. RFC 1035 §4.1.1 does say RD "is copied into the
+        // response", but the bit it defines is the one that "directs the name
+        // server to pursue the query recursively" — a property of a QUERY. A
+        // reply of NOTIMP has said it did not understand the request, so it
+        // cannot meaningfully echo a bit belonging to the opcode it rejected.
+        // RFC 6895 §2 leaves the combination open; BIND clears the bit, and
+        // Hermod cleared every flag here except this one (finding 40).
+        var allFlags  = (UInt16) (RawDnsFlags.Opcode(15) |
+                                  RawDnsFlags.AA | RawDnsFlags.TC | RawDnsFlags.RD |
+                                  RawDnsFlags.RA | RawDnsFlags.AD | RawDnsFlags.CD |
+                                  0x0040);                                 // the Z bit
+
+        var request   = new RawDnsWriter().Header(0x0F15, allFlags, 0, 0, 0, 0).ToArray();
+        var raw       = await RawDnsProbe.UdpAsync(server.UdpPort, request);
+
+        Assert.That(raw, Is.Not.Null, "an unknown opcode must be answered, not ignored");
+
+        var response  = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode,  Is.EqualTo(4),  "NOTIMP = 4");
+            Assert.That(response.Opcode, Is.EqualTo(15), "the opcode itself is echoed — it identifies what was refused");
+            Assert.That(response.QR,     Is.True,        "and QR marks this a response");
+
+            Assert.That(response.RD,     Is.False, "RD belongs to QUERY and must not be echoed here");
+            Assert.That(response.AA,     Is.False, "AA");
+            Assert.That(response.TC,     Is.False, "TC");
+            Assert.That(response.RA,     Is.False, "RA");
+            Assert.That(response.AD,     Is.False, "AD");
+            Assert.That(response.CD,     Is.False, "CD");
+            Assert.That(response.Z,      Is.Zero,  "Z MUST be zero");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Query_Still_Has_Its_Recursion_Desired_Bit_Echoed()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1, 6891 §6.1.3")]
+    public async Task A_Query_Still_Has_Its_Recursion_Desired_Bit_Echoed()
+    {
+
+        // The other half, and the one that stops "never echo RD" from passing as
+        // the fix. It has to travel the *error* path to be worth anything: the
+        // rule above lives where a refusal is built, and a query that simply
+        // succeeds never goes near it. An EDNS version of 1 is refused with
+        // BADVERS by RFC 6891 §6.1.3 while the opcode stays QUERY — so §4.1.1
+        // applies untouched and the bit must come back.
+        var request   = RawDnsWriter.Query(0x0F16,
+                                           ZoneFixtures.AName,
+                                           RawDnsType.A,
+                                           recursionDesired: true,
+                                           ednsPayloadSize:  4096,
+                                           ednsVersion:      1);
+
+        var raw       = await RawDnsProbe.UdpAsync(server.UdpPort, request);
+
+        Assert.That(raw, Is.Not.Null);
+
+        var response  = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+            Assert.That(response.Opcode,        Is.Zero,        "still QUERY");
+            Assert.That(response.CombinedRcode, Is.EqualTo(16), "BADVERS — so this really is the refusal path");
+            Assert.That(response.RD,            Is.True,        "RD is copied into the response of a QUERY, refused or not");
+        });
+
+    }
+
+    #endregion
+
+    #region A_Successful_Query_Echoes_Recursion_Desired()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public async Task A_Successful_Query_Echoes_Recursion_Desired()
+    {
+
+        // And the ordinary path, which a client reads to see what it asked for.
+        var request   = new RawDnsWriter().
+                            Header(0x0F17, RawDnsFlags.RD, 1, 0, 0, 0).
+                            Question(ZoneFixtures.AName, RawDnsType.A).
+                            ToArray();
+
+        var raw       = await RawDnsProbe.UdpAsync(server.UdpPort, request);
+
+        Assert.That(raw, Is.Not.Null);
+
+        var response  = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+            Assert.That(response.RCode, Is.Zero, "NOERROR");
+            Assert.That(response.RD,    Is.True, "RD echoed");
+        });
+
+    }
+
+    #endregion
+
     #region Multiple_Answers_Are_All_Returned()
 
     [Test]
