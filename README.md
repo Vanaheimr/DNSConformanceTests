@@ -66,9 +66,9 @@ conformance result that holds on only one platform is worth knowing about.
 | Workflow | Trigger | Runs |
 |----------|---------|------|
 | `ci.yml` | push, pull request | the offline suite, both platforms. Nothing but loopback sockets, so red means a conformance result changed |
-| `nightly.yml` | 03:41 UTC | the offline suite again, plus interop and the live resolvers, plus the suite against Hermod **master** |
+| `nightly.yml` | 03:41 UTC | the offline suite again, plus interop, the live resolvers, both external suites, and the suite against Hermod **master** |
 
-The nightly does three things the gate structurally cannot.
+The nightly does four things the gate structurally cannot.
 
 It **re-signs the DNSSEC fixtures** on the Linux leg before testing. Real BIND
 signatures expire a month after they are made, so a committed fixture is a
@@ -79,6 +79,15 @@ and `named` are ordinary programs on the same loopback as the server under
 test — no bridge, no firewall. The `WSL` category keeps its name because that is
 where the tools live on a developer machine, but nothing about those tests needs
 WSL.
+
+It **runs the two outside verdicts**, which is the point of having them: a
+judgment that only ever happens on one developer's machine is not a regression
+guard. `genreport` is built from source on the Linux leg, because it is packaged
+nowhere; Zonemaster gets a job of its own on a plain `ubuntu-latest`, since it
+ships as a container and cannot be run from inside the Debian container the
+other jobs use. That job fails rather than skips when a prerequisite is missing,
+and fails again if the tests report themselves as not executed — a green tick
+that asked nothing is the failure mode worth guarding against here.
 
 And it **tests against Hermod master**, not against the pinned submodule. The
 gate answers "would a fresh clone build"; nothing in it notices when Hermod

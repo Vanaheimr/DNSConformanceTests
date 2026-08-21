@@ -65,6 +65,18 @@ jobs:
         if: runner.os == 'Linux'
         run: apt-get install -y --no-install-recommends bind9-dnsutils knot-dnsutils ldnsutils bind9 bind9utils
 
+      # ISC's genreport is the one verdict in this suite that the suite does not
+      # reach itself, so a nightly where it silently skips is a nightly that
+      # stopped asking. It is not packaged anywhere, hence the build; the script
+      # carries the one workaround it needs. No BIND development package is
+      # involved despite appearances — the tool wants libresolv, which glibc
+      # provides.
+      - name: Build ISC genreport (Debian container)
+        if: runner.os == 'Linux'
+        run: |
+          apt-get install -y --no-install-recommends gcc make autoconf automake pkg-config libssl-dev socat
+          sh interop/genreport/build-genreport.sh
+
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
@@ -210,4 +222,101 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-results-against-hermod-master
+          path: artifacts/*.trx
+
+  # ---------------------------------------------------------------------------
+  # Zonemaster, which needs a container of its own and cannot live in one.
+  # ---------------------------------------------------------------------------
+  zonemaster:
+    # The two jobs above run *inside* debian:13, which is why this one does not:
+    # Zonemaster ships as a container, and running one from inside another needs
+    # a privileged daemon that a hosted runner does not hand out. So this leg
+    # takes the runner as it comes — ubuntu-latest has Docker already — and
+    # installs only what the harness needs on top.
+    #
+    # Everything here skips rather than fails when a piece is missing, which is
+    # the right behaviour on a developer machine and the wrong one here: a green
+    # nightly that asked nothing is worse than a red one. Hence the explicit
+    # guards below, which turn "not set up" into a failure in this job alone.
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      # socat bridges the ephemeral port the fixture binds to port 53, which is
+      # the only port Zonemaster speaks to. dig comes along for the harness's
+      # own check that the bridge carries anything.
+      - name: Install socat and dig
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends socat bind9-dnsutils
+
+      - name: Pull the Zonemaster image
+        run: docker pull zonemaster/cli
+
+      # The harness skips when any of these is absent. Failing here instead
+      # means the skip can only ever be about the runner, never about a
+      # prerequisite this workflow forgot to install.
+      - name: Check the prerequisites are really there
+        run: |
+          set -e
+          command -v socat
+          command -v dig
+          docker info --format '{{.ServerVersion}}'
+          docker image inspect zonemaster/cli > /dev/null
+          sudo -n true
+          test -z "$(ss -lun 2>/dev/null | grep '127.0.0.1:53 ' || true)" \
+            || { echo 'something already holds 127.0.0.1:53'; exit 1; }
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build DNSConformanceTests.slnx --configuration Release
+
+      # Fatal. This is the one verdict in the suite that comes from outside it,
+      # and the recorded set of Zonemaster tags is asserted exactly — so red
+      # here is either a new complaint about Hermod or an old one that stopped
+      # being made. Both are worth a look; neither is a flake.
+      #
+      # Under sudo, and that is the contract rather than a shortcut: binding
+      # port 53 is privileged, and Wsl.Run(asRoot) deliberately does not reach
+      # for sudo on a native host — "a runner that needs one should say so".
+      # This is the runner saying so. -E keeps the environment setup-dotnet
+      # arranged, and PATH is passed explicitly because sudo resets it.
+      - name: Test (Zonemaster, undelegated)
+        timeout-minutes: 30
+        run: >
+          sudo -E env "PATH=$PATH"
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
+          --filter "TestCategory=Docker"
+          --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=zonemaster"
+          --results-directory artifacts
+
+      # A skip here means the guards above passed and the harness bailed anyway,
+      # which is a harness bug rather than a missing tool. dotnet test reports
+      # success either way, so the tick would be green and empty. The TRX
+      # Counters element is what says which it was.
+      - name: Fail if nothing actually ran
+        if: ${{ !cancelled() }}
+        run: |
+          counters=$(grep -ohE '<Counters [^/]*/>' artifacts/*.trx | head -1)
+          echo "$counters"
+          case "$counters" in
+            *'notExecuted="0"'*) ;;
+            *) echo 'Zonemaster tests skipped although every prerequisite was present.' >&2; exit 1 ;;
+          esac
+          case "$counters" in
+            *'passed="0"'*|'') echo 'No Zonemaster test passed — the report says nothing ran.' >&2; exit 1 ;;
+          esac
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-zonemaster
           path: artifacts/*.trx
