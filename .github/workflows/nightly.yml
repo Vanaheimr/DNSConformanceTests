@@ -74,7 +74,10 @@ jobs:
       - name: Build ISC genreport (Debian container)
         if: runner.os == 'Linux'
         run: |
-          apt-get install -y --no-install-recommends gcc make autoconf automake pkg-config libssl-dev socat
+          # libc6-dev is only a *recommended* dependency of gcc, so
+          # --no-install-recommends leaves the compiler unable to link
+          # anything: "C compiler cannot create executables".
+          apt-get install -y --no-install-recommends gcc libc6-dev make autoconf automake pkg-config libssl-dev socat
           sh interop/genreport/build-genreport.sh
 
       - uses: actions/setup-dotnet@v6
@@ -313,15 +316,17 @@ jobs:
       - name: Fail if nothing actually ran
         if: ${{ !cancelled() }}
         run: |
-          counters=$(grep -ohE '<Counters [^/]*/>' artifacts/*.trx | head -1)
+          # One TRX per test project, and the projects with no test in this
+          # category produce an empty one — so the counters have to be summed
+          # rather than read off the first file that happens to sort first.
+          counters=$(grep -ohE '<Counters [^/]*/>' artifacts/*.trx)
           echo "$counters"
-          case "$counters" in
-            *'notExecuted="0"'*) ;;
-            *) echo 'Container tests skipped although every prerequisite was present.' >&2; exit 1 ;;
-          esac
-          case "$counters" in
-            *'passed="0"'*|'') echo 'No container test passed — the report says nothing ran.' >&2; exit 1 ;;
-          esac
+          total() { echo "$counters" | grep -oE "$1=\"[0-9]+\"" | grep -oE '[0-9]+' | awk '{s+=$1} END {print s+0}'; }
+          passed=$(total passed)
+          skipped=$(total notExecuted)
+          echo "passed=$passed notExecuted=$skipped"
+          test "$skipped" -eq 0 || { echo 'Container tests skipped although every prerequisite was present.' >&2; exit 1; }
+          test "$passed"  -gt 0 || { echo 'No container test passed — the report says nothing ran.' >&2; exit 1; }
 
       - name: Upload test results
         if: ${{ !cancelled() }}
