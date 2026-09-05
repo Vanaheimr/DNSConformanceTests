@@ -23,6 +23,12 @@ public static class TestCategories
     public const String Docker      = "Docker";
 
     /// <summary>
+    /// Needs a multicast-capable network interface and may use the host's
+    /// native DNS-SD implementation.
+    /// </summary>
+    public const String Multicast   = "Multicast";
+
+    /// <summary>
     /// Longer-running tests (&gt; ~5 s).
     /// </summary>
     public const String Slow        = "Slow";

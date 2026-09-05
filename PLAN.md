@@ -126,11 +126,12 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the 2026-08-20 run: **829 tests, 816 ✅, 0 ❌, 13 skipped** — 757
-offline, measured on that date; the 23 online and 36 interop are carried from
-the 2026-08-18 run and were not re-run. The 13 tests needing BIND as a peer
-skip without it. Every deviation the suite has found is fixed;
-see [FINDINGS.md](FINDINGS.md).
+Counts as of the full 2026-09-05 Windows run: **922 tests, 918 ✅, 0 ❌, 4
+skipped**. All twelve test projects and every category ran, including the public
+resolvers, WSL tools, Docker servers and native multicast DNS-SD. The four skips
+are RSA public-key exponent cases that Windows CNG cannot import; the Linux CI
+leg covers them. Every deviation the suite has found is fixed; see
+[FINDINGS.md](FINDINGS.md).
 
 ### 4.1 Core message & wire format (`DNSConformance.WireFormat.Tests`)
 
@@ -351,7 +352,16 @@ side of the connection.
 | 2931 | SIG(0): the §3 record shape, the §3.1 signed data for both the request and the transaction form, ARCOUNT taken before the record was appended, tampering and foreign keys and the validity window all rejected | ✅ |
 | 3110 §2, 6605 §4 | public key encodings: RSA's length-prefixed exponent then modulus — **both** forms, the one octet for 1..255 and the zero octet plus two-octet length beyond, with 255 itself pinned as the last short one; no leading zero octet in either field; ECDSA's bare curve point with no 0x04 marker | ✅ |
 
-### 4.8 Interop projects
+### 4.8 Multicast DNS (`DNSConformance.Multicast.Tests`) — 4 ✅
+
+| Focus | Status |
+|-------|:--:|
+| RFC 6762 probing and announcing: three probes, two announcements, ID/AA/RD/QU and authority-section shape | ✅ |
+| RFC 6762 unique cache-flush versus shared PTR semantics, including TTL-zero goodbyes and legacy unicast | ✅ |
+| RFC 6763 PTR browse answer with SRV, TXT and address additionals | ✅ |
+| Verdict comes from the independent RawDns decoder, not Hermod's mDNS parser | ✅ |
+
+### 4.9 Interop projects
 
 **`DNSInterop.PublicResolvers.Tests`** (category `Online`) — 23 ✅
 
@@ -397,6 +407,13 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 | **Zonemaster** undelegated against the fixture zone: its ERROR tags asserted as an exact set, so a tag that vanishes fails the test as loudly as a new one. Ten are properties of a laboratory — private and documentation addresses, one name server where registries want two, glue that is the bridge rather than what the zone publishes — and the eleventh was finding 41, whose fix emptied it out of the list ✅ |  ✅ |
 | **Knot, CoreDNS and Unbound** serving BIND's own interop zone, byte for byte, with Hermod as the client against each: A, an RRset of three, AAAA, MX in preference order, TXT, SRV, SOA, CAA, NXDOMAIN, and the same record again over TCP. The point is not that Hermod can read Knot — it is that four encoders putting the same zone file on the wire agree, which is what separates a property of the protocol from a habit of BIND's ✅ | ✅ |
 
+**`DNSInterop.Multicast.Tests`** (category `Multicast`) — 2 ✅
+
+| Focus | Status |
+|-------|:--:|
+| Native `dns-sd` browser discovers a Hermod service publication | ✅ |
+| Hermod's browser resolves a service registered by native `dns-sd`, including SRV and TXT | ✅ |
+
 ---
 
 ## 5. Solution layout
@@ -431,12 +448,13 @@ DNSConformanceTests/
 │       ├── RawDoHProbe.cs               ← independent RFC 8484 client (own base64url, pinned version)
 │       ├── Wsl.cs                       ← WSL bridge (run tool, host IP discovery)
 │       ├── TestEnvironment.cs           ← capability probing (network/WSL/docker)
-│       └── TestCategories.cs            ← Online / WSL / Docker / Slow / KnownIssue
+│       └── TestCategories.cs            ← Online / WSL / Docker / Multicast / Slow / KnownIssue
 ├── conformance/
 │   ├── Directory.Build.props            ← imports build/CommonTestSettings.props
 │   ├── DNSConformance.WireFormat.Tests/
 │   ├── DNSConformance.ResourceRecords.Tests/
 │   ├── DNSConformance.Edns.Tests/
+│   ├── DNSConformance.Multicast.Tests/
 │   ├── DNSConformance.Client.Tests/
 │   ├── DNSConformance.Server.Tests/
 │   ├── DNSConformance.SecureTransports.Tests/
@@ -445,6 +463,7 @@ DNSConformanceTests/
 │   ├── Directory.Build.props
 │   ├── DNSInterop.PublicResolvers.Tests/
 │   ├── DNSInterop.LinuxTools.Tests/
+│   ├── DNSInterop.Multicast.Tests/
 │   └── DNSInterop.ExternalServers.Tests/
 └── fixtures/
     ├── zones/
@@ -474,7 +493,7 @@ leak into the submodule builds. Shared settings live in
 * **WSL bridge** — `wsl.exe -e …` wrapper; discovers the Windows host IP as
   seen from WSL (default-route gateway, `/etc/resolv.conf`, or 127.0.0.1 under
   mirrored networking); probes tool availability once per run.
-* **Categories & skipping** — `[Category(TestCategories.Online/WSL/Docker/Slow)]`;
+* **Categories & skipping** — `[Category(TestCategories.Online/WSL/Docker/Multicast/Slow)]`;
   `TestEnvironment` probes once and `Assert.Ignore`s with instructions.
 * **Timeouts** — every socket test carries an explicit short timeout; suite
   target: offline projects < 60 s total.
@@ -497,13 +516,16 @@ leak into the submodule builds. Shared settings live in
 
 ```powershell
 # everything that runs without network/WSL:
-dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker&TestCategory!=Multicast"
 
 # include live-network interop:
 dotnet test interop/DNSInterop.PublicResolvers.Tests
 
 # GNU/Linux tool interop (needs WSL + bind9-dnsutils/knot-dnsutils/ldnsutils):
 dotnet test interop/DNSInterop.LinuxTools.Tests
+
+# native mDNS/DNS-SD interop (needs multicast and dns-sd):
+dotnet test DNSConformanceTests.slnx --filter "TestCategory=Multicast"
 
 # single area:
 dotnet test conformance/DNSConformance.Dnssec.Tests

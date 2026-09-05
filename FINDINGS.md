@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-one RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-two RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -57,12 +57,13 @@ what is queued, what is out of scope — are not here at all; they live in
 | 39 | The reserved CLASS wore the name of a different one | Low | 6895 §3.2, 2136 §2.4 | ✅ fixed |
 | 40 | The one flag a refusal kept echoing | Low | 1035 §4.1.1, 6895 §2 | ✅ fixed |
 | 41 | An authoritative "does not exist" for names it serves no zone for | **High** | 1035 §4.1.1, 8020, 1034 §4.3.2 | ✅ fixed |
+| 42 | Unique goodbye records lost the cache-flush bit | Low | 6762 §10.1, §10.2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last sixteen were found *after* the first eight were already fixed, by tests
+The last seventeen were found *after* the first eight were already fixed, by tests
 written to deepen areas the suite had reported green. That is the argument for
 the queued list in the README: untested working code is where the next one will
 be. Findings 21, 23, 25 and 27 make a sharper version of the same point — all
@@ -1887,6 +1888,40 @@ tests, and one that keeps AA set on the refusal by the AA assertion alone.
 And the tag is gone from `ZonemasterUndelegatedTests`. Its recorded set is
 asserted exactly, so the fix made that test fail until the entry was deleted —
 which is the behaviour that list was built for.
+
+---
+
+## 42 — Unique goodbye records lost the cache-flush bit
+
+The first independent mDNS wire test caught a disagreement with Hermod's own
+new test suite. A withdrawn DNS-SD publication correctly emitted one unsolicited
+response with TTL zero for its A, SRV, TXT and PTR records. It also deliberately
+cleared the cache-flush bit on all four.
+
+That is right only for the shared PTR. RFC 6762 §10.1 says a goodbye repeats the
+same owner name, type, class and RDATA with TTL zero. Section 10.2 then supplies
+the wire rule for unique RRsets: whenever a response contains members of a
+unique RRset it MUST contain the whole set and set cache-flush on every member.
+The section says those rules apply regardless of why the response was generated;
+the only explicit exceptions are legacy unicast, query Known-Answer lists and
+shared records.
+
+The bug was a literal `false` in `SendGoodbyeAsync`. Announcements and answers
+already called `MulticastDNS.IsUniqueRecordType`; goodbyes bypassed that shared
+decision. The fix applies the same classification when wrapping TTL-zero
+records. Consequently A, SRV and TXT goodbyes carry 0x8001 while PTR remains
+class IN without the high bit.
+
+Severity is **Low**. The TTL-zero record still identifies and expires the exact
+cached RDATA, so ordinary withdrawal worked. The missing MUST-level marker
+matters when a cache holds older inconsistent members of the unique RRset: the
+goodbye did not state that the transmitted set was the complete truth.
+
+Pinned independently by
+`Withdrawal_Sends_Ttl_Zero_Without_Changing_Shared_And_Unique_Bits`, which
+decodes Hermod's bytes with RawDns. Hermod's own
+`Withdraw_SendsGoodbyeForAllRecords_StopsAnswering_AndIsIdempotent` and
+`Update_RemovingAnRRSet_SendsGoodbyeForIt` now assert the corrected split too.
 
 ---
 

@@ -5,8 +5,8 @@
 
 An independent .NET 10 test solution that measures the DNS client and server of
 [Vanaheimr Hermod](https://github.com/Vanaheimr/Hermod) against the DNS RFCs,
-and against real implementations: ISC BIND, Knot DNS, NLnet Labs ldns and the
-public resolvers.
+and against real implementations: ISC BIND, Knot DNS, NLnet Labs ldns, native
+DNS-SD implementations and the public resolvers.
 
 Hermod and Styx are consumed as git submodules under `libs/`, so the suite can
 be pointed at any Hermod revision and acts as an unbiased referee.
@@ -17,9 +17,14 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current status: 889 ✅ · 0 ❌ · 4 skipped on Windows, 0 on Linux**, everything outside the live-network lane — offline, WSL tools, BIND, and both external suites.
+**Current verified status on Windows (2026-09-05): 918 ✅ · 0 ❌ · 4 platform-specific skips.**
 
-The suite has found 41 RFC deviations in Hermod. All are fixed;
+That full run exercised all twelve test projects and every category, including
+the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
+four skips are the RSA public-key exponent cases that Windows CNG cannot import;
+the Linux CI leg covers them.
+
+The suite has found 42 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -30,10 +35,10 @@ git submodule update --init --recursive
 dotnet build DNSConformanceTests.slnx
 ```
 
-Everything that needs no network, WSL or Docker:
+Everything that needs no external network, multicast, WSL or Docker:
 
 ```bash
-dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+dotnet test DNSConformanceTests.slnx --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker&TestCategory!=Multicast"
 ```
 
 If a future run turns up a new deviation, tag it `KnownIssue` and exclude the
@@ -54,6 +59,7 @@ than failing, so a bare checkout is always green-or-skipped.
 | `Online` | outbound DNS (UDP/53, TCP/853, HTTPS) | `--filter "TestCategory=Online"` |
 | `WSL` | the BIND/Knot/ldns tools — via WSL on Windows, natively on Linux | `--filter "TestCategory=WSL"` |
 | `Docker` | a reachable Docker daemon | `--filter "TestCategory=Docker"` |
+| `Multicast` | a multicast-capable interface and native `dns-sd` command | `--filter "TestCategory=Multicast"` |
 | `Slow` | > ~5 s runtime | exclude to keep the inner loop fast |
 | `KnownIssue` | — | marks a confirmed deviation ([FINDINGS.md](FINDINGS.md)) |
 
@@ -66,7 +72,7 @@ conformance result that holds on only one platform is worth knowing about.
 | Workflow | Trigger | Runs |
 |----------|---------|------|
 | `ci.yml` | push, pull request | the offline suite, both platforms. Nothing but loopback sockets, so red means a conformance result changed |
-| `nightly.yml` | 03:41 UTC | the offline suite again, plus interop, the live resolvers, both external suites, and the suite against Hermod **master** |
+| `nightly.yml` | 03:41 UTC | the offline suite again, plus unicast and multicast interop, the live resolvers, both external suites, and the suite against Hermod **master** |
 
 The nightly does four things the gate structurally cannot.
 
@@ -182,6 +188,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
 | **6605** | ECDSA | P-256 and P-384: fixed-width r‖s, 64/96-octet keys |
 | **6672** | DNAME | the substitution of §2.2 on labels rather than characters — so a name that merely ends with the owner's spelling is not redirected, and neither is the owner itself (§2.3). Served: the DNAME in the answer, the synthesized CNAME beside it with the DNAME's TTL (§3.1, where RFC 2672 said zero), YXDOMAIN when the rewritten name passes 255 octets (§2.2), records below the owner occluded (§2.4), and a chain into its own subtree bounded. Followed: the same substitution in the resolver, shared rather than written twice. `delv` validates the redirection end to end, including the CNAME carrying no signature |
+| **6762**, **6763** | mDNS and DNS-SD | independent wire assertions for three probes and two announcements, ID/AA/RD/QU semantics, unique cache-flush versus shared PTR records, DNS-SD PTR answers carrying SRV/TXT/A additionals, TTL-zero goodbyes, and legacy-unicast ID/question/TTL behavior. Bidirectional live interop: native `dns-sd` discovers Hermod and Hermod resolves a native `dns-sd` publication |
 | **6698**, **8162** | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names |
 | **6891** | EDNS0 | OPT wire form (golden bytes), extended-RCODE combining, exactly one OPT, BADVERS for version > 0, payload-size negotiation |
 | **6895** §3.1, §3.2 | IANA registries | the two registries that decide which number means what. On the wire: no response carries a QTYPE-only code point as a record TYPE or CLASS, TYPE 0 and the obsolete mail QTYPEs are answered NODATA with the zone SOA, and `*` is still served with data types — without which "answers nothing" would satisfy the rule. In presentation format: each mnemonic checked against the suite's own table, class 254 is NONE and class 0 is reserved with no name at all (finding 39) |
@@ -287,7 +294,6 @@ the feature, the entry moves up a list — none of these are refusals on princip
 | **2136** dynamic update | Likewise: the opcode exists in the enum, the protocol does not. |
 | **5890**/**5891** IDNA | No punycode anywhere in Hermod. At the DNS layer names are octets; A-label conversion belongs to the application. |
 | **6147** DNS64, RPZ, filtering | Not features Hermod has, and not ones it is trying to have. |
-| **6762** mDNS, **6763** DNS-SD | The server can bind a multicast UDP socket, but implements no mDNS semantics — no cache-flush bit, no probing/announcing, no `.local`. A multicast socket is not mDNS. |
 | **7626**, **9076** privacy considerations | Informational — no testable requirement to assert. |
 | **7671**/**7672**/**7673** DANE usage | The suite asserts the TLSA/SMIMEA *record*. What a mail or web client does with it is above the DNS layer. |
 | **9250** DoQ, DNS over HTTP/3 | No QUIC in Hermod at all. |
@@ -300,6 +306,7 @@ conformance/                     RFC conformance, offline
   …WireFormat.Tests              RFC 1035 header, names, compression, TTLs
   …ResourceRecords.Tests         ~25 RR types: wire format + round-trips
   …Edns.Tests                    RFC 6891 OPT + typed EDNS options
+  …Multicast.Tests               RFC 6762 mDNS + RFC 6763 DNS-SD wire behavior
   …Client.Tests                  client vs. scripted servers
   …Server.Tests                  Hermod server vs. raw sockets
   …SecureTransports.Tests        RFC 7858 DoT, RFC 8484 DoH
@@ -307,6 +314,7 @@ conformance/                     RFC conformance, offline
 interop/                         interoperability
   …PublicResolvers.Tests         Cloudflare / Google / Quad9, all transports
   …LinuxTools.Tests              dig, kdig, drill and ISC genreport vs. the Hermod server
+  …Multicast.Tests               native dns-sd ↔ Hermod live interop
   …ExternalServers.Tests         BIND, Knot, CoreDNS, Unbound as servers; Zonemaster
 fixtures/                        test zones, BIND config, DNSSEC material
 ```

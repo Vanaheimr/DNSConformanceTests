@@ -97,7 +97,7 @@ jobs:
         timeout-minutes: 30
         run: >
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
-          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker&TestCategory!=Multicast"
           --logger "console;verbosity=normal"
           --logger "trx;LogFilePrefix=offline"
           --results-directory artifacts
@@ -106,7 +106,7 @@ jobs:
       # thing this workflow knows, and exactly what the console log does not
       # preserve once a run ages out. TRX keeps it per test, including the skip
       # reason — one file per test project, which is why this is LogFilePrefix
-      # rather than LogFileName: ten projects writing the same name would
+      # rather than LogFileName: twelve projects writing the same name would
       # overwrite each other.
       #
       # !cancelled() rather than success(): a red run is when these files

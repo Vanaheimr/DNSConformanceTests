@@ -106,7 +106,7 @@ jobs:
         timeout-minutes: 45
         run: >
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
-          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker&TestCategory!=Multicast"
           --logger "console;verbosity=normal"
           --logger "trx;LogFilePrefix=offline"
           --results-directory artifacts
@@ -122,6 +122,18 @@ jobs:
           --filter "TestCategory=WSL"
           --logger "console;verbosity=normal"
           --logger "trx;LogFilePrefix=interop"
+          --results-directory artifacts
+
+      # Bidirectional live DNS-SD interop. Windows ships dns-sd.exe; the
+      # capability-gated tests skip on hosts without a native command or a
+      # multicast-capable interface.
+      - name: Test (native multicast DNS-SD)
+        timeout-minutes: 10
+        run: >
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
+          --filter "TestCategory=Multicast"
+          --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=multicast"
           --results-directory artifacts
 
       # Informational, and it has to be. These query Cloudflare, Google and
@@ -214,7 +226,7 @@ jobs:
         timeout-minutes: 45
         run: >
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build
-          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker"
+          --filter "TestCategory!=Online&TestCategory!=WSL&TestCategory!=Docker&TestCategory!=Multicast"
           --logger "console;verbosity=normal"
           --logger "trx;LogFilePrefix=offline"
           --results-directory artifacts
