@@ -11,3 +11,7 @@ fixtures/zones/signed/signing*.log
 # dnssec-signzone writes "dsset-<zone>." with a trailing dot, which Windows
 # cannot index. The DS record the tests read lives in <zone>.ds instead.
 fixtures/zones/signed/dsset-*
+
+# Visual Studio's per-solution state: window layout, the browse database,
+# and the file-watcher cache. Machine-local, and large.
+.vs/
