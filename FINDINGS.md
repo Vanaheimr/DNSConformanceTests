@@ -1328,10 +1328,14 @@ as given. Every request for the same name was therefore a different request —
 different two octets, different base64url, different URI. An HTTP cache matches
 on the request, so nothing ever hit.
 
-The suite had already noticed. `Doh_Transaction_Id_Is_Reported` measured the ID
-and ended in `Assert.Pass`, and PLAN.md carried the row as 📋 rather than ⬜ —
-a gap that had been looked at and left, which is a better state to be in than
-not knowing, and a worse one than fixed.
+The suite had already noticed. A test named `Doh_Transaction_Id_Is_Reported`
+measured the ID and ended in `Assert.Pass`, and PLAN.md carried the row as 📋
+rather than ⬜ — a gap that had been looked at and left, which is a better state
+to be in than not knowing, and a worse one than fixed. That test is gone: fixing
+this replaced it with four that assert rather than report —
+`Doh_Uses_A_Dns_Id_Of_Zero`, `Every_Doh_Request_Uses_The_Same_Id`,
+`Equivalent_Queries_Produce_Byte_Identical_Requests` and
+`A_Varying_Id_Can_Be_Restored`.
 
 **Fix.** `ZeroTransactionId` on `DNSHTTPSClient`, on by default, applied through
 a new `DNSPacket.WithTransactionId` — the same rebuild-rather-than-mutate shape
@@ -2622,7 +2626,10 @@ disappears.
 Current, not historical. Places where the RFC genuinely permits both readings,
 so there is nothing to fix and nothing to close — the suite asserts the dominant
 implementation behavior and records the choice here. Anything added to this list
-stays on it.
+stays on it, including an entry that turns out to be wrong: one is struck through
+below rather than deleted, because a withdrawn interpretation is evidence about
+how the reading was reached and deleting it would leave the same mistake
+available to be made again.
 
 **Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as referring
 to "a prior occurrence of the same name". Hermod accepts forward pointers; the
@@ -2630,18 +2637,32 @@ suite's strict reference reader rejects them. Leniency on receive is a
 defensible robustness choice and violates no MUST, so this is documented rather
 than failed (`Forward_Pointers_Are_Not_Prior_Locations`).
 
-**IPv6 addresses are written in the fully expanded form.** `IPv6Address.ToString()`
-renders `2001:db8::13` as `2001:0db8:0000:0000:0000:0000:0000:0013`, so a zone
-file Hermod writes does not compare textually with the same zone written by BIND.
-RFC 3596 §2.4 defines AAAA presentation by reference to the IPv6 text
-representation, which permits every form RFC 4291 §2.2 allows, so the record is
-correct; RFC 5952 §4 later named one canonical *output* form, which suppresses
-leading zeroes and uses "::". Hermod's choice is the older one, it is pinned by
-Hermod's own `IPv6AddressTests`, and it reaches every part of the stack that
-prints an address rather than only DNS — so the suite records it and compares
-addresses as addresses (`Hermod_Reads_Aaaa`) rather than overturning it.
-`Hermod_Renders_A_Record_The_Way_The_Reference_Signer_Did` holds AAAA as its one
-known divergence, so if this is ever changed that test says so.
+**~~IPv6 addresses are written in the fully expanded form.~~ Withdrawn — see
+finding 50.** This entry used to read:
+
+> `IPv6Address.ToString()` renders `2001:db8::13` as
+> `2001:0db8:0000:0000:0000:0000:0000:0013` … RFC 3596 §2.4 defines AAAA
+> presentation by reference to the IPv6 text representation, which permits every
+> form RFC 4291 §2.2 allows, **so the record is correct**; RFC 5952 §4 later
+> named one canonical *output* form … so the suite records it and compares
+> addresses as addresses rather than overturning it.
+
+Every sentence of that is true of the address it looked at, and the conclusion
+was still wrong, because the same code path also returned `[::1]` and `[::]` —
+bracketed, which is URI authority syntax and not an RFC 4291 form at all. BIND
+refuses to load a zone containing one. The entry was written from the fixtures,
+the fixtures have no `::1`, and so the half that made zones unloadable was never
+in view. It is kept here rather than deleted because how it was reasoned is worth
+more than what it concluded: an interpretation is only ever as wide as the cases
+that were in front of it.
+
+The prediction it ended on held exactly.
+`Hermod_Renders_A_Record_The_Way_The_Reference_Signer_Did` did say so — the
+moment AAAA stopped diverging, the exact-set assertion failed with *"the set of
+types Hermod renders differently from BIND has changed: Missing: AAAA"*. A
+divergence that disappears fails just as loudly as one that appears, which is the
+only reason a table of accepted divergences is safe to keep at all. That table is
+now empty.
 
 **Compression is off by default.** `DNSServerOptions.UseCompression` defaults to
 false. Compression is optional (RFC 1035 §4.1.4), so this is a size/CPU trade-off

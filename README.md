@@ -299,7 +299,12 @@ explains — which records a signed zone owes each kind of negative answer — i
 covered under RFC 4035 §3.1 and RFC 5155 §7, and 7129 remains the readable
 account of why those particular records.
 
-Nothing on this list is blocked; the rest is work that has not been done.
+One entry, and it is the blocked one — that column is not decoration.
+Everything else this list once held has been done; what is left needs a
+Kerberos/SPNEGO stack before a single assertion can be written. It sits here
+rather than under *Out of scope* because it is a gap and not a refusal: GSS-TSIG
+is what is actually deployed, and a suite that judged Hermod's transaction
+security without saying so would be quietly flattering it.
 
 ### Out of scope
 
@@ -323,16 +328,16 @@ the feature, the entry moves up a list — none of these are refusals on princip
 src/DNSConformance.Core          shared infrastructure (not tests)
 conformance/                     RFC conformance, offline
   …WireFormat.Tests              RFC 1035 header, names, compression, TTLs
-  …ResourceRecords.Tests         ~25 RR types: wire format + round-trips
+  …ResourceRecords.Tests         42 RR types: wire format, presentation format, round-trips
   …Edns.Tests                    RFC 6891 OPT + typed EDNS options
   …Multicast.Tests               RFC 6762 mDNS + RFC 6763 DNS-SD wire behavior
   …Client.Tests                  client vs. scripted servers
   …Server.Tests                  Hermod server vs. raw sockets
   …SecureTransports.Tests        RFC 7858 DoT, RFC 8484 DoH
-  …Dnssec.Tests                  key tags, DS digests, RRSIG validation
+  …Dnssec.Tests                  key tags, DS digests, RRSIG validation, zone signing
 interop/                         interoperability
   …PublicResolvers.Tests         Cloudflare / Google / Quad9, all transports
-  …LinuxTools.Tests              dig, kdig, drill and ISC genreport vs. the Hermod server
+  …LinuxTools.Tests              dig, kdig, drill, delv and ISC genreport vs. the Hermod server
   …Multicast.Tests               native dns-sd ↔ Hermod live interop
   …ExternalServers.Tests         BIND, Knot, CoreDNS, Unbound as servers; Zonemaster
 fixtures/                        test zones, BIND config, DNSSEC material
@@ -351,7 +356,13 @@ Every assertion is checked against an independent reference:
   RFC 4034 §4.3 NSEC type-bitmap example, IANA's root trust anchors.
 - **Other implementations** — BIND's `dnssec-signzone` produces the DNSSEC
   fixtures, BIND serves zones that Hermod's client reads, and dig/kdig/drill
-  read what Hermod's server writes.
+  read what Hermod's server writes. In the other direction, `dnssec-verify`
+  judges zone files Hermod's own signer wrote, `dnssec-dsfromkey` judges the
+  DS it derives, `named-checkzone` settles what the master file format
+  actually permits, and `delv` validates the answers a live Hermod gives from
+  a zone it signed itself — which is the only one of these that sees the
+  fields existing solely in a response, and therefore the only one that could
+  have caught the labels field or the opt-out flag.
 
 ### Scripted servers
 

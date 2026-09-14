@@ -42,15 +42,15 @@ unbiased referee, and be run against any Hermod revision.
 | Server | `DNSServer`: UDP unicast + multicast, TCP, **TLS (DoT server)**, **HTTPS (DoH server, RFC 8484)**; `AuthoritativeDNSRequestHandler` + `InMemoryDNSZone` (`Add/Set/Remove/AddZoneFileString`); opcode≠0 → NOTIMP, zero questions → FORMERR, NXDOMAIN vs NODATA. Every transport shares one `DNSMessagePipeline` — signature verification, padding and serialization have a single implementation, so a transport decides how a message arrives and never what a valid signature is |
 | DoH server | `DNSOverHTTPSServer` (HTTP/1.1) and `DNSOverHTTP2Server` (HTTP/2, the version §5.2 recommends), standalone or as `DNSServer` listeners, both rendering one `DNSOverHTTPSResource`: GET `?dns=` base64url and POST `application/dns-message` on `/dns-query`; any valid DNS response (NXDOMAIN, SERVFAIL) carried by 200 (§4.2.1), 404/405/406/415/400 for requests that never became a DNS question, `cache-control: max-age` from the smallest Answer TTL or the SOA MINIMUM (§5.1), and the requestor's EDNS(0) payload size ignored as §6 requires — so it caps neither the answer nor its padding |
 | Zone file | `DNSZoneFile` reads the RFC 1035 §5.1 master file format and `InMemoryDNSZone.AddZoneFile` loads one; a relative name is completed against the current origin, and refused when there is none rather than taken as complete |
-| Zone | `InMemoryDNSZone` is a zone once it holds an SOA: apex-aware, RFC 1034 §4.3.2 lookup with delegations as referrals, empty non-terminals, RFC 4592 wildcard synthesis, SOA cited on every negative answer (2308 §3). Given a pre-signed zone it also serves it — RRSIGs and NSEC/NSEC3 proofs selected per RFC 4035 §3.1 and RFC 5155 §7, gated on the DO bit. `ZoneDenialOfExistence` selects a proof, never invents one — inventing is `DNSSECZoneSigner`'s job |
+| Zone | `InMemoryDNSZone` is a zone once it holds an SOA: apex-aware, RFC 1034 §4.3.2 lookup with delegations as referrals, empty non-terminals, RFC 4592 wildcard synthesis, SOA cited on every negative answer (2308 §3). Given a pre-signed zone it also serves it — RRSIGs and NSEC/NSEC3 proofs selected per RFC 4035 §3.1 and RFC 5155 §7, gated on the DO bit. `ZoneDenialOfExistence` selects a proof, never invents one — inventing is `DNSSECZoneSigner`'s job. `Sign` is the other direction: the zone hands itself to that signer in process, and what comes back is indistinguishable from an offline signer's output, so everything downstream is unchanged. It also reports the two states an outside judge cannot see — `SignaturesAreStale` when records have moved on from the signatures covering them, and `SignaturesExpireAt` for the failure that arrives with nobody doing anything |
 | DNSSEC | `DNSSECValidator`: `ValidateRRSig` (RFC 4034 §3), `VerifyDS` (§5, SHA-1/256/384), `ComputeKeyTag` (App. B), chain-of-trust walk, IANA root trust anchor (KeyTag 20326), RFC 5011 rollover with hold-down. `DNSSECSigning` is the other direction — signatures and public-key encodings for algorithms 8, 10, 13, 14, 15 and 16 |
-| Signing | `DNSSECZoneSigner` signs a zone: RRSIGs over every authoritative RRset (RFC 4035 §2.2, so not a delegation's NS RRset nor its glue), an NSEC chain (§2.3) or an NSEC3 one (RFC 5155 §7.1) with empty non-terminals and opt-out, DNSKEYs signed by the key signing keys and the rest by the zone signing keys. `DNSSECSigningKey` holds both halves of a key and computes the DS a parent would publish. Judged by BIND's `dnssec-verify`, never used to make the suite's own fixtures |
+| Signing | `DNSSECZoneSigner` signs a zone: RRSIGs over every authoritative RRset (RFC 4035 §2.2, so not a delegation's NS RRset nor its glue), an NSEC chain (§2.3) or an NSEC3 one (RFC 5155 §7.1) with empty non-terminals and opt-out, DNSKEYs signed by the key signing keys and the rest by the zone signing keys. `DNSSECSigningKey` holds both halves of a key and computes the DS a parent would publish. Judged by BIND's `dnssec-verify` on the zone file and, since the zone can sign itself at runtime, by `delv` on the answers a live server gives from it — which is the harder of the two, because a zone file has no labels field and no opt-out flag to get wrong. Never used to make the suite's own fixtures |
 | Transaction security | `TSIGSigner` (RFC 8945, shared secret) and `SIG0Signer` (RFC 2931, public key) over wire bytes, both wired into `DNSServer` (UDP and TCP listeners, `TSIGKeys` / `SIG0Keys` / `SIG0ResponseKey`) and `DNSUDPClient` (query *and* TCP retry); `TKEYExchange` for the Diffie-Hellman mode of RFC 2930 |
 | Not present | zone transfer (AXFR/IXFR), dynamic update (RFC 2136) |
 
 ### Deviations found, and their fate
 
-The suite has confirmed thirty-five deviations so far, and all of them are now
+The suite has confirmed fifty-one deviations so far, and all of them are now
 fixed in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the
 single record, with chapter and verse, the mechanism, the change, and the test
 that pins each one. The summary table at the top of that file is the fastest way in.
@@ -128,7 +128,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the full 2026-09-05 Windows run: **922 tests, 918 ✅, 0 ❌, 4
+Counts as of the full 2026-09-14 Windows run: **1037 tests, 1033 ✅, 0 ❌, 4
 skipped**. All twelve test projects and every category ran, including the public
 resolvers, WSL tools, Docker servers and native multicast DNS-SD. The four skips
 are RSA public-key exponent cases that Windows CNG cannot import; the Linux CI
@@ -176,9 +176,9 @@ round-trip where supported.
 | 1183 | RP, AFSDB | two-name RDATA | ✅ |
 | 1876 §2 | LOC | the scaled octet over all 256 values, the lat/lon 2^31 offset, the altitude reference at both extremes | ✅ |
 | 1876 §2 | LOC version | an unrecognised version, or an undefined scaled octet, is written generically per RFC 3597 §5 ✅ (finding 29) | ✅ |
-| 1035 §5.1 | master file format: `$ORIGIN`, `$TTL`, `@`, omitted owner names, parenthesised records, comments; relative names completed against the origin in the owner and in the RDATA, and refused when there is no origin ✅ (finding 45); the reference interop zone loads whole and into a zone | ✅ |
-| 6891 §6.1.1 | `IDNSResourceRecord` writes both forms, wire and master file, so the zone-file reader's result needs no cast; OPT refuses with the section that says why | ✅ |
-| 1035 §3.2.4, §5.1 | the class is read from the line rather than assumed IN — `CH` and the `CLASS3` form — and a TTL may be written with BIND's units in a record, in `$TTL` and in the SOA intervals | ✅ |
+| 1035 §5.1 | Master file format | `$ORIGIN`, `$TTL`, `@`, omitted owner names, parenthesised records, comments; relative names completed against the origin in the owner and in the RDATA, and refused when there is no origin ✅ (finding 45); the reference interop zone loads whole and into a zone | ✅ |
+| 6891 §6.1.1 | Record interface | `IDNSResourceRecord` writes both forms, wire and master file, so the zone-file reader's result needs no cast; OPT refuses with the section that says why | ✅ |
+| 1035 §3.2.4, §5.1 | Class and TTL | the class is read from the line rather than assumed IN — `CH` and the `CLASS3` form — and a TTL may be written with BIND's units in a record, in `$TTL` and in the SOA intervals | ✅ |
 | 1876 §3 | LOC master file | size and both precisions survive a zone-file line ✅ (finding 28); the defaults apply only to omitted fields | ✅ |
 | 2782 | SRV | priority/weight/port/target; no RDATA compression on emit | ✅ |
 | 3403 | NAPTR | flags/service/regexp character-strings | ✅ |
@@ -204,7 +204,7 @@ round-trip where supported.
 | 6891 | OPT | see EDNS project | ✅ |
 | 8945 | TSIG | record shape ✅, signing and verification ✅, and both ends wired: the server verifies signed queries and signs replies, the client signs and checks (UDP/TCP) | ✅ |
 | 2535 §3, 3445 | KEY | wire round-trip, protocol fixed at 3, the use bits, "no key information" distinguished from a restricted key; presentation round-trip ✅ (finding 46) | ✅ |
-| 2535 §4.4, 4034 §3.2 | a signature time in both published presentation forms, for SIG as well as RRSIG ✅ (finding 46) | ✅ |
+| 2535 §4.4, 4034 §3.2 | Signature times | a signature time in both published presentation forms, for SIG as well as RRSIG ✅ (finding 46) | ✅ |
 | 2539 | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; well-known-group indices refused rather than read as a prime | ✅ |
 | 2930 §4.1 | TKEY, Diffie-Hellman mode | the §4.1 keying material, checked against the formula applied by hand; the derived secret used as a real TSIG key | ✅ |
 | 2930 §4.2 | TKEY, GSS-API mode | needs a Kerberos/SPNEGO stack | ⬜ |
@@ -220,9 +220,9 @@ round-trip where supported.
 | 6891 §6.1.2 | unknown option codes preserved as generic options; malformed option lengths survived | ✅ |
 | 7871 | Client Subnet: family, prefix lengths, address truncated to the prefix | ✅ |
 | 7873 §4 | Cookie option: 8-byte initial client cookie; the legal option lengths of §5.2.2 asserted on their own, not only through the FORMERR they cause | ✅ |
-| 7873 §4.1 | client cookie | derived from the client address, the server address and a client secret — stable per server, different per server, and not a value that survives a change of address | ✅ |
+| 7873 §4.1 | client cookie derived from the client address, the server address and a client secret — stable per server, different per server, and not a value that survives a change of address | ✅ |
 | 7873 §5.3 | client: a response echoing a client cookie that was never sent is discarded, only the server half is stored ✅ (finding 25), BADCOOKIE retried once with the supplied cookie, a cookieless response still accepted | ✅ |
-| 9018 §4 | server cookie | SipHash-2-4 over §4.4's exact input, all four Appendix A vectors reproduced byte for byte in both directions, a 128-bit key required, and §4.3's window compared with RFC 1982 serial arithmetic | ✅ |
+| 9018 §4 | server cookie: SipHash-2-4 over §4.4's exact input, all four Appendix A vectors reproduced byte for byte in both directions, a 128-bit key required, and §4.3's window compared with RFC 1982 serial arithmetic | ✅ |
 | 7873 §5.2 | server: a server cookie bound to the client cookie, the client's address and a timestamp; BADCOOKIE with a fresh cookie when it is missing or wrong; FORMERR for illegal lengths; unchanged behaviour without a cookie or without a secret | ✅ |
 | 7830 §3 | Padding option: code 12, OPTION-LENGTH is the octet count, all-zero outbound, any value accepted inbound, at most one per OPT meta-RR | ✅ |
 | 8914 | Extended DNS Error: info-code + extra-text | ✅ |
@@ -540,6 +540,7 @@ leak into the submodule builds. Shared settings live in
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
 | 7 | External suites, both integrated and both of which found something. ISC `genreport` ✅ — its full grouping reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ✅ — run in a container against a socat bridge, since it speaks only to port 53; its ERROR tags are asserted as an exact set, now ten and all properties of a laboratory — the eleventh was finding 41 | ✅ done |
 | 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13, after a `sign-fixtures` job hands both legs signatures valid at that moment, so the gate never reddens on a lapsed fixture; `nightly.yml` adds interop, live resolvers, fixture re-signing, both external suites, and a second job that tests against Hermod **master** rather than the pinned gitlink. genreport is built from source on the Linux leg; Zonemaster needs a job outside the Debian container, since it ships as a container itself | ✅ done |
+| 9 | Signing, the direction the stack never had: `DNSSECZoneSigner` plus `DNSSECSigningKey`, judged by BIND's `dnssec-verify` across every algorithm RFC 8624 §3.1 permits a signer to choose, and by `dnssec-dsfromkey` for the DS. Then the same signer at runtime — `InMemoryDNSZone.Sign`, with `delv` validating what a live server answers from a zone it signed itself, which is the only judge that sees the fields existing solely in a response | ✅ done |
 
 ## 8. Running the suite
 
