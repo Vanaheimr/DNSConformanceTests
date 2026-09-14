@@ -203,13 +203,119 @@ public class HeaderTests
 
     #endregion
 
+    #region The_Two_Dnssec_Header_Bits_Are_Written()
+
+    [Test]
+    [Property("RFC", "4035 §3.2")]
+    public void The_Two_Dnssec_Header_Bits_Are_Written()
+    {
+
+        // RFC 4035 §3.2 adds two bits to the header RFC 1035 §4.1.1 laid out:
+        // Authentic Data at 0x0020 and Checking Disabled at 0x0010, in the octet
+        // that already holds RA and the RCODE. Neither existed here — not as a
+        // property, not in the writer, not in either reader — so every message
+        // Hermod sent carried them clear and every message it read lost them.
+        var packet   = new DNSPacket(
+                           TransactionId:        0x0A0D,
+                           QueryOrResponse:      DNSQueryResponse.Response,
+                           Opcode:               0,
+                           AuthoritativeAnswer:  false,
+                           Truncation:           false,
+                           RecursionDesired:     true,
+                           RecursionAvailable:   true,
+                           ResponseCode:         DNSResponseCodes.NoError,
+                           Questions:            [ new DNSQuestion(DNSServiceName.Parse("ad.example."), DNSResourceRecordTypes.A, DNSQueryClasses.IN) ],
+                           AnswerRRs:            [],
+                           AuthorityRRs:         [],
+                           AdditionalRRs:        [],
+                           AuthenticData:        true,
+                           CheckingDisabled:     true
+                       );
+
+        var decoded  = RawDnsReader.Parse(packet.ToByteArray());
+
+        Assert.Multiple(() => {
+            Assert.That(decoded.AD,     Is.True,  "AD bit 0x0020");
+            Assert.That(decoded.CD,     Is.True,  "CD bit 0x0010");
+            Assert.That(decoded.RA,     Is.True,  "and the neighbours are untouched");
+            Assert.That(decoded.Z,      Is.Zero,  "Z stays zero (RFC 1035 §4.1.1)");
+            Assert.That(decoded.RCode,  Is.Zero);
+        });
+
+    }
+
+    #endregion
+
+    #region The_Two_Dnssec_Header_Bits_Are_Read()
+
+    [Test]
+    [Property("RFC", "4035 §3.2")]
+    public void The_Two_Dnssec_Header_Bits_Are_Read()
+    {
+
+        var wire    = new RawDnsWriter().
+                          Header(
+                              0x0A0D,
+                              (UInt16) (RawDnsFlags.QR | RawDnsFlags.RD | RawDnsFlags.RA |
+                                        RawDnsFlags.AD | RawDnsFlags.CD),
+                              1, 0, 0, 0
+                          ).
+                          Question("ad.example.", RawDnsType.A).
+                          ToArray();
+
+        var packet  = DNSPacket.Parse(IPSocket.Zero, IPSocket.Zero, new MemoryStream(wire));
+
+        Assert.Multiple(() => {
+            Assert.That(packet.AuthenticData,       Is.True);
+            Assert.That(packet.CheckingDisabled,    Is.True);
+            Assert.That(packet.RecursionAvailable,  Is.True);
+            Assert.That(packet.ResponseCode,        Is.EqualTo(DNSResponseCodes.NoError));
+        });
+
+    }
+
+    #endregion
+
+    #region The_Reserved_Z_Bit_Does_Not_Reach_The_Response_Code()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1, 6895 §2")]
+    public void The_Reserved_Z_Bit_Does_Not_Reach_The_Response_Code()
+    {
+
+        // Z is 0x0040 and RFC 1035 §4.1.1 reserves it; RFC 6895 §2 keeps it
+        // reserved. A receiver ignores it — but it has to ignore the right bit.
+        // The older reader took "Byte3 & 1" for Z, which is the low bit of the
+        // RCODE, and called it "reserved, not used"; the comment was reassuring
+        // about a line that read something else entirely.
+        var wire    = new RawDnsWriter().
+                          Header(
+                              0x0A0D,
+                              (UInt16) (RawDnsFlags.QR | 0x0040 | RawDnsFlags.RCode(3)),
+                              1, 0, 0, 0
+                          ).
+                          Question("z.example.", RawDnsType.A).
+                          ToArray();
+
+        var packet  = DNSPacket.Parse(IPSocket.Zero, IPSocket.Zero, new MemoryStream(wire));
+
+        Assert.Multiple(() => {
+            Assert.That(packet.ResponseCode,      Is.EqualTo(DNSResponseCodes.NameError), "NXDOMAIN survives a set Z");
+            Assert.That(packet.AuthenticData,     Is.False, "and Z is not mistaken for AD");
+            Assert.That(packet.CheckingDisabled,  Is.False, "nor for CD");
+        });
+
+    }
+
+    #endregion
+
     #region Hermod_Parses_RawDns_Crafted_Header()
 
     [Test]
     public void Hermod_Parses_RawDns_Crafted_Header()
     {
 
-        // Craft a response-shaped message with every flag set that Hermod models.
+        // Craft a response-shaped message with every flag set.
         var wire    = new RawDnsWriter()
                           .Header(
                                0xBEEF,

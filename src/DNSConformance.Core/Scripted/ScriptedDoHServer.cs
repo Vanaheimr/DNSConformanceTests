@@ -45,6 +45,18 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
     /// </summary>
     public String                        Url                    => $"http://127.0.0.1:{Port}/dns-query";
 
+    /// <summary>
+    /// When set, the server answers with this JSON body and the
+    /// <c>application/dns-json</c> content type instead of a wire-format message.
+    /// </summary>
+    /// <remarks>
+    /// The JSON API of Google and Cloudflare is not an IETF standard and has no
+    /// header to put flags in, so everything a client can learn about a JSON
+    /// answer it learns from named fields. Serving a fixed body is enough to ask
+    /// whether the client reads them.
+    /// </remarks>
+    public String?                       JSONResponse           { get; init; }
+
 
     public ScriptedDoHServer(Func<Byte[], Byte[]?> Responder)
     {
@@ -112,6 +124,34 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
 
             Byte[]?  dnsMessage    = null;
             String?  rawDnsParam   = null;
+
+            // Before anything that assumes RFC 8484: the JSON API is a different
+            // protocol wearing the same URL. Its query carries ?name= and ?type=
+            // and no ?dns= at all, so the wire-format path below would answer it
+            // with a 400 long before the body mattered.
+            if (JSONResponse is not null)
+            {
+
+                Exchanges.Enqueue(new DoHExchange(
+                    request.HttpMethod,
+                    request.Url?.AbsolutePath ?? "",
+                    request.Url?.Query,
+                    request.ContentType,
+                    request.Headers["Accept"],
+                    null
+                ));
+
+                var json = System.Text.Encoding.UTF8.GetBytes(JSONResponse);
+
+                response.StatusCode       = 200;
+                response.ContentType      = "application/dns-json";
+                response.ContentLength64  = json.Length;
+
+                await response.OutputStream.WriteAsync(json, cts.Token);
+                response.Close();
+                return;
+
+            }
 
             if (request.HttpMethod == "GET")
             {

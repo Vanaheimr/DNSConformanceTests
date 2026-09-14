@@ -17,14 +17,14 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-14): 951 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-14): 960 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 46 RFC deviations in Hermod. All are fixed;
+The suite has found 47 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -173,6 +173,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | RFC | Topic | What the suite pins down |
 |-----|-------|--------------------------|
 | **1034** | Domain concepts | the CNAME rule (§4.3.2) — an alias answers *every* QTYPE; chains followed in-zone, cycles terminate. Zone cuts end the search: a name below a delegation is answered with the child's NS records and glue, AA clear, while the apex's own NS records are not a delegation to itself |
+| **4035** §3.2, **6840** §5.7 | AD and CD | the two header bits DNSSEC added, read and written on every transport and carried through `Query<T>`'s typed wrapper ✅ (finding 47) — including the JSON API, where they arrive as named fields because there is no header. Reading is the fix; setting them is left to the caller, since §3.1.6 and §3.2.2 make that a policy question. The reserved Z beside them is read past rather than mistaken for a quarter of the RCODE |
 | **1035** | Message format | header bit positions, question encoding, name limits (63/255), compression pointers both directions, case preserved byte-exactly, UDP truncation, FORMERR |
 | **1035** §5.1 | Master file | the *file*, not the line: `$ORIGIN`, `$TTL` (2308 §4), `@`, an owner name omitted by starting the line with a blank, parentheses across lines, comments outside quoted strings. The class comes from the line — `CH` and `CLASS3` alike, per §3.2.4 — rather than being assumed IN, so `version.bind. CH TXT` is a record the zone can hold and the server already knew how to match. A TTL may carry BIND's units (`1h`, `2w`, `1d12h`), in a record, in `$TTL` and in the four SOA intervals; a number with no unit after it is not one, which is what keeps the header reader from eating a record type. A relative name is completed against the current origin — in the owner and in the RDATA of all fifteen types that hold a name — and refused outright when there is no origin to complete it against ✅ (finding 45). `$INCLUDE` and `$GENERATE` are refused by name rather than skipped. Measured against the same `interop.test.zone` that BIND, Knot, CoreDNS and Unbound are handed |
 | **1183** | RP, AFSDB | two-name RDATA |

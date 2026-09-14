@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-six RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -62,6 +62,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 44 | Zone file: wildcard and underscore names judged by hostname rules | **High** | 2181 §11, 4592 §2.1.1, 8552 | ✅ fixed |
 | 45 | Zone file: a relative name taken as complete, silently | **High** | 1035 §5.1 | ✅ fixed |
 | 46 | KEY and SIG could be written but not read back | Low | 2535 §4.4, 3597 §5 | ✅ fixed |
+| 47 | The AD and CD header bits were neither read nor written | **High** | 4035 §3.2, 6840 §5.7 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2185,6 +2186,74 @@ the sweep; narrowing SIG back to the integer form kills the sweep and the
 signature-time test; narrowing RRSIG kills those two *and*
 `Every_Line_The_Reference_Signer_Wrote_Is_Readable`, since every RRSIG in the
 signed fixtures is written in the fourteen-digit form.
+
+---
+
+## 47 — The two bits DNSSEC added to the header, in a stack that has a validator
+
+Found while asking whether the DoH JSON client reads the AD field. It does not,
+and neither does anything else: RFC 4035 §3.2 put Authentic Data at 0x0020 and
+Checking Disabled at 0x0010, and Hermod had no property for either, in
+`DNSPacket` or in `DNSInfo`, and touched neither bit in any of the three places
+that read or write the flag octet.
+
+**AD is the whole of the validating-stub model.** A resolver that checked the
+signatures says so with that bit, and RFC 6840 §5.7 says a stub may believe it
+exactly when the path to the resolver is trusted — which is the case Hermod
+builds for, with a DoT client, a DoH client and a padding implementation for
+both. The verdict arrived on every one of them and was discarded in the header
+reader. **CD** is the other direction: a resolver that validates for itself asks
+its upstream not to bother, and Hermod, which carries a full validator, could not
+say it.
+
+The reading half also had a wrong line to go with the missing ones:
+
+```csharp
+var RA  = (Byte3 & 128) == 128;
+var Z   = (Byte3 & 1);    //reserved, not used
+```
+
+The octet is `RA | Z | AD | CD | RCODE(4)`. Z is 0x40; `Byte3 & 1` is the low bit
+of the RCODE. The comment was reassuring about a line that read something else
+entirely, and it sat directly above the two bits nobody had noticed were absent.
+
+**Two things in the repository already knew.** The suite's own reference reader
+has modelled AD, CD and Z correctly from the beginning — and never once asserted
+them against Hermod. And `HeaderTests` carried the sentence "every flag set *that
+Hermod models*": an earlier round saw the gap and wrote around it rather than
+through it. Nine hundred and fifty-one tests passed over both.
+
+**The fix, and the second defect it turned up.** `DNSPacket` and `DNSInfo` each
+gain the two properties; the parser, the serializer and `DNSInfo.ReadResponse`
+handle them, the padding path carries them across the rewrite it does, and the
+JSON client reads the `AD` and `CD` fields Google and Cloudflare publish, since a
+JSON answer has no header to take them from.
+
+Then the JSON test failed on a bit the wire tests were happy with. `Query<T>`
+does not return what the transport parsed: it wraps it in a `DNSInfo<T>` that
+copies the fields across one by one, and that copy dropped both bits. Every test
+that used the untyped `Query` was blind to it. `A_Typed_Query_Keeps_Them_Too`
+exists for that, and the mutation which makes the wrapper forget again kills only
+it and the JSON test — the other four stay green, which is the measurement of how
+much the guard was needed.
+
+Severity is **High** for what is unavailable rather than what is wrong: no answer
+was corrupted, but a client could not tell a validated answer from an
+unvalidated one over any transport, which is the one question DNSSEC exists to
+answer.
+
+Reading is the conformance fix and it is complete. Writing is capability: nothing
+now sets AD or CD by itself, because who should is policy — RFC 4035 §3.1.6 is
+narrow about when an authoritative server may set AD, and §3.2.2's "SHOULD set
+CD" belongs to a resolver deciding to validate for itself. The bits can be set;
+choosing to is left to the caller.
+
+Pinned by six tests: four over a scripted UDP peer that carry each bit alone and
+both together, one over a scripted JSON endpoint, and one through `Query<T>`.
+Three mutations are caught — swapping the two masks kills four of the six, the
+wrapper forgetting them kills the two typed ones, and a serializer that stops
+writing AD kills the write test in `HeaderTests`, which also gained the read and a
+check that a set Z never reaches the RCODE.
 
 ---
 
