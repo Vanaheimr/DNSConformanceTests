@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-14): 1047 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-15): 1049 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
@@ -342,6 +342,7 @@ interop/                         interoperability
   …Multicast.Tests               native dns-sd ↔ Hermod live interop
   …ExternalServers.Tests         BIND, Knot, CoreDNS, Unbound as servers; Zonemaster
 fixtures/                        test zones, BIND config, DNSSEC material
+  bind/format.test.zone          hand-written: the format cases a generated zone cannot hold
 ```
 
 ### How the suite avoids grading Hermod with Hermod
@@ -364,6 +365,15 @@ Every assertion is checked against an independent reference:
   a zone it signed itself — which is the only one of these that sees the
   fields existing solely in a response, and therefore the only one that could
   have caught the labels field or the opt-out flag.
+- **A second, hand-written corpus** — `fixtures/bind/format.test.zone`
+  exists because the first one could not contain the cases that matter.
+  The DNSSEC fixtures are `named-compilezone` output: every name written
+  out in full, every TTL a bare number, so a relative wildcard and a
+  bracketed `::1` could not appear in them and therefore could not be
+  refuted by them — which is how findings 50 and 51 survived fifty
+  findings of zone-file work. `named-checkzone -D` flattens the new file
+  and Hermod's reading of it is compared record for record, as an exact
+  set in both directions.
 
 ### Scripted servers
 

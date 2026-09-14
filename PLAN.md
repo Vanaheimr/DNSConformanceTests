@@ -128,7 +128,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the full 2026-09-14 Windows run: **1051 tests, 1047 ✅, 0 ❌, 4
+Counts as of the full 2026-09-15 Windows run: **1053 tests, 1049 ✅, 0 ❌, 4
 skipped**. All twelve test projects and every category ran, including the public
 resolvers, WSL tools, Docker servers and native multicast DNS-SD. The four skips
 are RSA public-key exponent cases that Windows CNG cannot import; the Linux CI
@@ -157,6 +157,7 @@ leg covers them. Every deviation the suite has found is fixed; see
 | 4701 §3.1, §3.5 | DHCID | the identifier type code, digest type code and digest; the presentation form as base-64 of the whole block rather than of the digest alone, against all three of the RFC's own examples | ✅ |
 | 3596 §2.4, 5952 §4 | AAAA presentation | IPv6 address text, not URI authority text — no brackets ✅ (finding 50) — and the canonical form of each §4 subsection, every expectation taken from `named-checkzone -D` | ✅ |
 | 1035 §5.1, 4592 §2.1.1 | Relative wildcard | `*` as a relative owner name is completed against the origin like any other — the completed name is what has to be valid, not the fragment on the line ✅ (finding 51) |  ✅ |
+| 1035 §5.1 | Two readers, one file | `named-checkzone -D` flattens a hand-written zone and Hermod's reading is compared to it record for record, as an exact set both ways — the corpus holds the directives, relative names, unit TTLs, wildcards and IPv6 forms a generated zone cannot, which is where findings 50 and 51 hid | ✅ |
 | 4035 §2 | Runtime signing | `InMemoryDNSZone.Sign` signs the zone in process; `delv` validates what a live Hermod then serves, in NSEC and NSEC3 — answer, wildcard, NODATA and DNSKEY | ✅ |
 | 4035 §2 | Re-signing | signing twice replaces the previous signer output rather than accumulating it, so the zone does not grow and no key is published twice | ✅ |
 | 4035 §2 | Staleness and expiry | a record added after signing is reported stale rather than served as a silently broken chain, and the expiration the zone reports is the one in its RRSIGs | ✅ |

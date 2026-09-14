@@ -1,0 +1,68 @@
+; A hand-written zone whose only job is to contain what a machine-generated one
+; cannot. The DNSSEC fixtures are named-compilezone output: one record per line,
+; every name written out in full, every TTL a bare number. Three findings in a
+; row hid behind that shape rather than behind the code — a relative wildcard
+; (51) and a bracketed ::1 (50) could not appear in the corpus at all, and so
+; could not be refuted by it.
+;
+; Nothing serves this file. fixtures/bind/interop.test.zone is the one four
+; foreign servers are handed, and it has to stay as it is: two interop tests ask
+; it for nothing-here.interop.test and require NXDOMAIN, which a wildcard would
+; quietly answer instead.
+;
+; named-checkzone is the judge. Its flattened output is what Hermod's reading is
+; compared against, record for record.
+
+$ORIGIN format.test.
+$TTL 1h
+
+@           IN  SOA ns1 hostmaster (
+                    2026091501  ; serial
+                    2h          ; refresh, in units
+                    900         ; retry, bare
+                    1209600     ; expire
+                    1h )        ; minimum
+
+@           IN  NS    ns1
+
+; Relative names, including the one that reaches the origin through @ above.
+ns1         IN  A     192.0.2.53
+a           IN  A     192.0.2.1
+
+; A bare wildcard: the way every hand-written zone spells one, and the exact
+; shape of finding 51.
+*           IN  A     192.0.2.98
+
+; And a wildcard one label down, which parses differently because the fragment
+; is a valid name on its own.
+*.sub       IN  A     192.0.2.97
+
+; The two addresses whose text form IPv6Address.ToString() bracketed — finding
+; 50 — plus the fully expanded form that has to come back canonical.
+loopback    IN  AAAA  ::1
+unspec      IN  AAAA  ::
+expanded    IN  AAAA  2001:0db8:0000:0000:0000:0000:0000:0001
+single      IN  AAAA  2001:db8:0:1:1:1:1:1
+
+; TTLs written with BIND's units rather than as a count of seconds.
+hour        1h  IN  A 192.0.2.61
+day         2d  IN  A 192.0.2.62
+week        1w  IN  A 192.0.2.63
+mixed       90m IN  A 192.0.2.64
+
+; A name whose case is not the zone's, which RFC 4343 makes the same name.
+MiXeDcAsE   IN  A     192.0.2.65
+
+; Underscore names (RFC 8552), which hostname syntax refuses.
+_svc._tcp   IN  TXT   "an underscore name"
+_dmarc      IN  TXT   "v=DMARC1; p=none"
+
+; A type with no mnemonic, in the RFC 3597 §5 generic form.
+generic     IN  TYPE65280 \# 4 deadbeef
+
+; An absolute name in a file that is otherwise relative.
+outside     IN  CNAME a.format.test.
+
+; Parenthesised continuation outside the SOA, and a comment inside it.
+multiline   IN  TXT   ( "first"      ; a comment mid-record
+                        "second" )

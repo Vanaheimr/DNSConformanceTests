@@ -2694,6 +2694,27 @@ context, the right canonical form underneath — and for that purpose the field
 values only have to match whatever produced the signature. A test that "corrected"
 the labels to 2 would be a different test, and a failing one.
 
+**The case of the hexadecimal digits in a generic RDATA.** RFC 3597 §5 asks for
+"words of hexadecimal data encoding the actual RDATA field" and says nothing
+about case. Its own examples use both: `abcd ef 01 23 45` in one, `0A000001` in
+another. BIND writes upper, Hermod writes lower, and there is no reading under
+which either is wrong.
+
+It is recorded here rather than folded away because of what finding 50 was. That
+divergence was also written down as harmless, and was harmless in exactly the
+half the corpus could show. So the exception made for this one is deliberately
+narrow: `Bind_And_Hermod_Read_The_Same_Records` folds case only for RDATA that
+actually begins with the `\#` token, and compares every other field exactly —
+base-64 key material included, where case is content rather than spelling. A
+change that made Hermod write something other than a case variant of the same
+octets still fails.
+
+The reason to be confident this one really is cosmetic, where finding 50's was
+not: the generic *text* form never enters a signature. DNSSEC signs wire octets
+(RFC 4034 §3.1.8.1), so no canonical form depends on how the hex was spelled,
+and every reader of a zone file accepts both. There is no second half hiding
+behind this one.
+
 **A message carrying both a TSIG and a SIG(0).** RFC 2931 §3.2 forbids the
 combination — "either a single TSIG or one SIG(0) but not both" — and again
 names no RCODE. Hermod answers FORMERR (1), reading it as a malformed message
