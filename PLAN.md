@@ -128,7 +128,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the full 2026-09-15 Windows run: **1059 tests, 1055 ✅, 0 ❌, 4
+Counts as of the full 2026-09-15 Windows run: **1066 tests, 1062 ✅, 0 ❌, 4
 skipped**. All twelve test projects and every category ran, including the public
 resolvers, WSL tools, Docker servers and native multicast DNS-SD. The four skips
 are RSA public-key exponent cases that Windows CNG cannot import; the Linux CI
