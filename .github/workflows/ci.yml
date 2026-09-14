@@ -26,6 +26,45 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Fresh signatures for both legs, because a committed fixture is a deadline.
+  # ---------------------------------------------------------------------------
+  sign-fixtures:
+    # dnssec-signzone gives a signature thirty days. Committed ones therefore
+    # lapse a month after each refresh, and from that day the gate fails on every
+    # push for a reason that has nothing to do with the change being pushed —
+    # every DNSSEC verdict turns Bogus, correctly, because the signatures really
+    # have expired. Signing here means the gate always measures Hermod against
+    # signatures valid at the moment it asks, which is the question it is for.
+    #
+    # A job rather than a step because the Windows leg cannot do this: BIND is
+    # not installable there. So one runner signs and both legs consume the
+    # result. No submodules — resign.sh writes the zones itself and needs
+    # nothing but BIND.
+    #
+    # What this gives up is worth naming: nothing in CI now reads the committed
+    # fixtures, so their expiry is invisible here. FixtureFreshnessTests still
+    # sees it on a developer checkout, which is where it actually gets in the way.
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v7
+
+      - name: Install BIND's signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bind9 bind9-dnsutils
+
+      - name: Re-sign the DNSSEC fixtures
+        run: sh fixtures/zones/resign.sh
+
+      - name: Hand them to the test legs
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-fixtures
+          path: fixtures/zones/signed
+          retention-days: 1
+
   offline-suite:
     # The same two legs as Hermod's own CI, for the same reason: the code under
     # test is Hermod, and a conformance result that only holds on one platform
@@ -49,6 +88,7 @@ jobs:
           - os: ubuntu-latest
             container: debian:13
             leg: debian-13-container
+    needs: sign-fixtures
     name: ${{ matrix.leg }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -70,6 +110,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+
+      # The committed fixtures are removed rather than written over: resign.sh
+      # regenerates the keys too, so every key tag changes, and a stale key left
+      # lying beside a fresh one would be found by anything that enumerates the
+      # directory. bash is present on both legs — Git Bash on the Windows runner,
+      # and debian:13 ships it.
+      - name: Drop the committed DNSSEC fixtures
+        shell: bash
+        run: rm -rf fixtures/zones/signed
+
+      - name: Take the freshly signed ones instead
+        uses: actions/download-artifact@v7
+        with:
+          name: signed-fixtures
+          path: fixtures/zones/signed
 
       # The bare debian:13 container has none of the .NET prerequisites: curl
       # for the dotnet-install script setup-dotnet runs, ICU and tzdata for

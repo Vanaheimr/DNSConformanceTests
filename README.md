@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-05): 918 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-14): 921 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
@@ -71,14 +71,24 @@ conformance result that holds on only one platform is worth knowing about.
 
 | Workflow | Trigger | Runs |
 |----------|---------|------|
-| `ci.yml` | push, pull request | the offline suite, both platforms. Nothing but loopback sockets, so red means a conformance result changed |
+| `ci.yml` | push, pull request | fresh DNSSEC signatures, then the offline suite on both platforms. Nothing but loopback sockets, so red means a conformance result changed |
 | `nightly.yml` | 03:41 UTC | the offline suite again, plus unicast and multicast interop, the live resolvers, both external suites, and the suite against Hermod **master** |
 
-The nightly does four things the gate structurally cannot.
+**Both workflows sign the DNSSEC fixtures before testing**, which is not a
+nicety: `dnssec-signzone` gives a signature thirty days, so a committed fixture
+is a deadline. Left alone it arrives as twenty red tests about Bogus verdicts on
+some unrelated push, and the validator is right every time — the signatures
+really have expired. The nightly signs on its Linux leg; the gate signs in a job
+of its own, because its Windows leg cannot (BIND is not installable there) and
+both legs take the result. Running `resign.sh` this often also keeps it working,
+which a script used twice a year does not stay.
 
-It **re-signs the DNSSEC fixtures** on the Linux leg before testing. Real BIND
-signatures expire a month after they are made, so a committed fixture is a
-deadline; regenerating removes it, and exercises `resign.sh` while it is at it.
+That leaves the committed fixtures unread by CI, so their expiry is invisible
+there. `FixtureFreshnessTests` is what notices on a developer checkout, which is
+where a lapsed fixture actually gets in the way: it names the date and the script
+instead of letting the DNSSEC tests blame the validator.
+
+The nightly does three further things the gate structurally cannot.
 
 It **runs the interop lane natively**. On a Linux runner `dig`, `kdig`, `drill`
 and `named` are ordinary programs on the same loopback as the server under

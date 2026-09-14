@@ -469,10 +469,19 @@ DNSConformanceTests/
     ├── zones/
     │   ├── conformance.test.zone        ← every supported RR type
     │   ├── signed/                      ← BIND-signed zone + keys + DS (committed)
-    │   └── resign.sh                    ← regenerate via WSL dnssec-signzone
+    │   └── resign.sh                    ← regenerate via WSL dnssec-signzone (30-day signatures)
     ├── bind/                            ← named.conf for the WSL BIND instance
     └── docker/                          ← compose for Knot/Unbound/CoreDNS (optional)
 ```
+
+**The signed fixtures are a deadline, not an asset.** `dnssec-signzone` gives
+them thirty days, after which every DNSSEC chain verdict turns Bogus at once —
+correctly, which is what makes it confusing. Both CI workflows sign before
+testing, so neither ever reads the committed set; `FixtureFreshnessTests` is
+what catches it on a developer checkout, naming the expiry date and the script
+rather than letting twenty tests blame the validator. It also watches the other
+bound of RFC 4034 §3.1.5, since a signature made on a clock that ran ahead fails
+the same way from the other side.
 
 No `Directory.Build.props` at the repository root — a root-level file would
 leak into the submodule builds. Shared settings live in
@@ -510,7 +519,7 @@ leak into the submodule builds. Shared settings live in
 | 5 | Run everything runnable here; triage red tests → [FINDINGS.md](FINDINGS.md) | ✅ done |
 | 6 | Deepen 🟡/⬜ areas: wildcard signatures, chain classification, RFC 5011, ECDSA, keepalive/padding, negative caching, CNAME semantics, NSEC3 hashing and proofs, TSIG end to end | ✅ done — padding closed on both encrypted transports (findings 30, 31, 32), and keepalive closed as a transport question rather than an encoding one (findings 34–37) |
 | 7 | External suites, both integrated and both of which found something. ISC `genreport` ✅ — its full grouping reports no failure, after finding 40 closed the one it did. Zonemaster undelegated ✅ — run in a container against a socat bridge, since it speaks only to port 53; its ERROR tags are asserted as an exact set, now ten and all properties of a laboratory — the eleventh was finding 41 | ✅ done |
-| 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13; `nightly.yml` adds interop, live resolvers, fixture re-signing, both external suites, and a second job that tests against Hermod **master** rather than the pinned gitlink. genreport is built from source on the Linux leg; Zonemaster needs a job outside the Debian container, since it ships as a container itself | ✅ done |
+| 8 | CI: GitHub Actions — `ci.yml` gates every push on the offline suite, Windows and Debian 13, after a `sign-fixtures` job hands both legs signatures valid at that moment, so the gate never reddens on a lapsed fixture; `nightly.yml` adds interop, live resolvers, fixture re-signing, both external suites, and a second job that tests against Hermod **master** rather than the pinned gitlink. genreport is built from source on the Linux leg; Zonemaster needs a job outside the Debian container, since it ships as a container itself | ✅ done |
 
 ## 8. Running the suite
 
