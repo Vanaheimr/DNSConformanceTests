@@ -340,6 +340,7 @@ side of the connection.
 | 8080 §6 | signing: all four published examples reproduced byte for byte, public keys derived from the private half, fixed lengths, wrong-length and wrong-shape keys refused | ✅ |
 | 8080 + 2931 | SIG(0) signed and verified with every algorithm RFC 8624 §3.1 allows a signer to choose — 8, 10, 13, 14, 15, 16 — over a socket, each with a wrong-key control | ✅ |
 | 8624 | RSA/SHA-1 (5, 7) still validates — deprecated for signing, not for verifying | ✅ |
+| dns-json (Google/Cloudflare) | the JSON answer is read by the zone-file reader, since its `data` field is the presentation form of the RDATA: underscore and wildcard names, unknown types as RFC 3597 §5 opaque data, and all four sections ✅ (finding 48); ten types compared against the zone-file reader octet for octet | ✅ |
 | 4035 §3.2, 6840 §5.7 | the AD and CD header bits: read and written on every transport, carried through the typed `DNSInfo<T>` wrapper, and taken from the JSON API's named fields where there is no header ✅ (finding 47) | ✅ |
 | 4035 §4.3 | Secure / Insecure / Bogus / Indeterminate classification via `ValidateAsync` | ✅ |
 | 4034 §3.1.5 | expired and not-yet-valid signatures are Bogus | ✅ |

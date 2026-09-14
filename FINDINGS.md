@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-seven RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-eight RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -63,6 +63,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 45 | Zone file: a relative name taken as complete, silently | **High** | 1035 §5.1 | ✅ fixed |
 | 46 | KEY and SIG could be written but not read back | Low | 2535 §4.4, 3597 §5 | ✅ fixed |
 | 47 | The AD and CD header bits were neither read nor written | **High** | 4035 §3.2, 6840 §5.7 | ✅ fixed |
+| 48 | The JSON reader dropped records without a word | **High** | 2181 §11, 3597 §2 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2254,6 +2255,66 @@ Three mutations are caught — swapping the two masks kills four of the six, the
 wrapper forgetting them kills the two typed ones, and a serializer that stops
 writing AD kills the write test in `HeaderTests`, which also gained the read and a
 check that a set Z never reaches the RCODE.
+
+---
+
+## 48 — An answer short of a record, which reads as no answer at all
+
+The last of the hunt, and the one with the worst failure shape. The DoH JSON
+reader had a dispatch table of its own, forty entries long, reached only after a
+strict `DomainName` parse. Everything outside it was dropped — not refused, not
+logged, simply not added to the answer — and an answer short of a record is
+indistinguishable from NODATA.
+
+What that cost, measured against a scripted endpoint serving exactly what Google
+and Cloudflare publish:
+
+```
+_dmarc.probe.example.          TXT    →  0 records
+sel._domainkey.probe.example.  TXT    →  0 records
+_443._tcp.probe.example.       TLSA   →  0 records
+*.probe.example.               TXT    →  0 records
+probe.example.  TYPE1234  \# 3 616263 →  0 records
+```
+
+DMARC, DKIM and DANE are most of what anyone asks this API for, and all of them
+answered "no such data". `SRV` survived, because SRV is keyed on a
+`DNSServiceName` and reached the second branch — the same tell as finding 44,
+where the record type decided whether a name was acceptable.
+
+The unknown type is finding 21 again, one transport out: RFC 3597 §2 makes an
+unknown type opaque data rather than an error, and §5 gives it the `\#` form
+this API returns. Hermod's zone-file reader has handled that form for a long
+time; the JSON dispatch simply could not reach it.
+
+A fourth loss sat a level up. `AdditionalRecords: []` was a literal: the reader
+carried two of the four sections and handed back an empty list for the third,
+which is where glue lives.
+
+**The fix deletes the table.** The `data` field of this API *is* the presentation
+form of the RDATA — a JSON record is a zone-file line with its fields handed over
+separately — so the whole of `TryParseJSONResourceRecord` is now one call into
+the zone-file reader:
+
+```csharp
+$"{name} {ttl} IN {ADNSResourceRecord.TypeName((DNSResourceRecordTypes) type)} {data}"
+```
+
+Which is why this finding costs 88 deleted lines against 54 added, most of the
+54 being the comment explaining why the table is gone. Every type the zone-file
+reader knows is now readable from JSON, the RFC 3597 generic form included,
+names are read by the rule RFC 2181 §11 states rather than by hostname syntax,
+and the two readers cannot drift apart again because there is only one.
+
+Severity is **High**, for silence over an answer rather than a wrong answer.
+
+Pinned by five tests over a scripted JSON endpoint, of which the one that keeps
+the collapse honest is
+`The_Json_Reader_Reads_What_The_Zone_File_Reader_Reads`: it sends ten types
+through both readers and compares the RDATA octets, so the two staying
+equivalent is asserted rather than assumed. Three mutations are caught, one per
+mechanism, each by only the test aimed at it — a strict name gate, a guard that
+drops unknown types, and the empty additional list.
 
 ---
 
