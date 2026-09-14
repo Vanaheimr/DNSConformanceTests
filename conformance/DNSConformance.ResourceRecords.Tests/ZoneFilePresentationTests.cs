@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
 using DNSConformance.Core.Fixtures;
+using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.ResourceRecords.Tests;
 
@@ -171,7 +172,7 @@ public class ZoneFilePresentationTests
 
             var type    = tokens[3];
             var theirs  = String.Concat(tokens[4..]);
-            var mine    = String.Concat(Split(((ADNSResourceRecord) parsed).ToZoneFileString())[4..]);
+            var mine    = String.Concat(Split(parsed.ToZoneFileString())[4..]);
 
             if (!String.Equals(theirs, mine, StringComparison.OrdinalIgnoreCase) && !divergent.ContainsKey(type))
                 divergent[type] = $"BIND:   {Shorten(theirs)}{Environment.NewLine}      Hermod: {Shorten(mine)}";
@@ -226,6 +227,64 @@ public class ZoneFilePresentationTests
         Assert.That(broken, Is.Empty,
                     "types that do not survive a presentation round trip:" + Environment.NewLine +
                     String.Join(Environment.NewLine, broken));
+
+    }
+
+    #endregion
+
+    #region What_The_Reader_Returns_Can_Be_Written()
+
+    [Test]
+    [Property("RFC", "1035 §5.1")]
+    public void What_The_Reader_Returns_Can_Be_Written()
+    {
+
+        // The zone-file reader hands back an IDNSResourceRecord, and until now
+        // that interface could serialize a record to the wire but not write it
+        // as text — so reading a line and writing it again needed a cast to the
+        // abstract base, in every caller, for a method every one of them had.
+        //
+        // Deliberately typed as the interface: the point is that the cast is
+        // gone, and a test that used the concrete type would not notice if it
+        // came back.
+        IDNSResourceRecord parsed = ADNSResourceRecord.ParseZoneFileString("a.example.com. 3600 IN A 192.0.2.1");
+
+        Assert.That(parsed.ToZoneFileString(), Does.Contain("192.0.2.1"));
+
+    }
+
+    #endregion
+
+    #region An_Opt_Record_Has_No_Zone_File_Form_And_Says_So()
+
+    [Test]
+    [Property("RFC", "6891 §6.1.1")]
+    public void An_Opt_Record_Has_No_Zone_File_Form_And_Says_So()
+    {
+
+        // The one record that cannot answer. RFC 6891 §6.1.1: an OPT "MUST NOT
+        // be cached, forwarded, or stored in or loaded from master files" — it
+        // belongs to a single message and nothing else. So the interface's new
+        // member is one OPT refuses, and the refusal is the specification rather
+        // than an omission, which is why it names the section.
+        //
+        // The zone-file reader can never produce one, so no caller reaches this
+        // by reading a file; it is here because an OPT can reach a caller from a
+        // response's additional section.
+        var stream = new MemoryStream(new RawDnsWriter().
+                                          U16(1232).          // CLASS: UDP payload size
+                                          U32(0x00008000).    // TTL: extRCODE 0, version 0, DO
+                                          U16(0).             // no options
+                                          ToArray());
+
+        IDNSResourceRecord opt = new OPT(DNSServiceName.Parse("."), stream);
+
+        var thrown = Assert.Throws<NotSupportedException>(() => opt.ToZoneFileString());
+
+        Assert.Multiple(() => {
+            Assert.That(thrown!.Message, Does.Contain("6891"),  "the refusal cites the rule");
+            Assert.That(thrown.Message,  Does.Contain("OPT"));
+        });
 
     }
 

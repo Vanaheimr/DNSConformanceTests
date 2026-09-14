@@ -106,7 +106,7 @@ public class BindVerifiesHermodSignaturesTests
 
         File.WriteAllLines(
             file,
-            Signed.Select(record => ((ADNSResourceRecord) record).ToZoneFileString())
+            Signed.Select(record => record.ToZoneFileString())
         );
 
         try

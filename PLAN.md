@@ -169,6 +169,7 @@ round-trip where supported.
 | 1876 §2 | LOC | the scaled octet over all 256 values, the lat/lon 2^31 offset, the altitude reference at both extremes | ✅ |
 | 1876 §2 | LOC version | an unrecognised version, or an undefined scaled octet, is written generically per RFC 3597 §5 ✅ (finding 29) | ✅ |
 | 1035 §5.1 | master file format: `$ORIGIN`, `$TTL`, `@`, omitted owner names, parenthesised records, comments; relative names completed against the origin in the owner and in the RDATA, and refused when there is no origin ✅ (finding 45); the reference interop zone loads whole and into a zone | ✅ |
+| 6891 §6.1.1 | `IDNSResourceRecord` writes both forms, wire and master file, so the zone-file reader's result needs no cast; OPT refuses with the section that says why | ✅ |
 | 1035 §3.2.4, §5.1 | the class is read from the line rather than assumed IN — `CH` and the `CLASS3` form — and a TTL may be written with BIND's units in a record, in `$TTL` and in the SOA intervals | ✅ |
 | 1876 §3 | LOC master file | size and both precisions survive a zone-file line ✅ (finding 28); the defaults apply only to omitted fields | ✅ |
 | 2782 | SRV | priority/weight/port/target; no RDATA compression on emit | ✅ |
