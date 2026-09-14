@@ -192,7 +192,8 @@ round-trip where supported.
 | 6672 §2.2 | DNAME | RDATA shape ✅; the substitution on labels, so a name that merely ends with the owner's spelling is not redirected ✅ (finding 24); the 255-octet limit told apart from "does not apply" ✅ | ✅ |
 | 6891 | OPT | see EDNS project | ✅ |
 | 8945 | TSIG | record shape ✅, signing and verification ✅, and both ends wired: the server verifies signed queries and signs replies, the client signs and checks (UDP/TCP) | ✅ |
-| 2535 §3, 3445 | KEY | wire round-trip, protocol fixed at 3, the use bits, "no key information" distinguished from a restricted key | ✅ |
+| 2535 §3, 3445 | KEY | wire round-trip, protocol fixed at 3, the use bits, "no key information" distinguished from a restricted key; presentation round-trip ✅ (finding 46) | ✅ |
+| 2535 §4.4, 4034 §3.2 | a signature time in both published presentation forms, for SIG as well as RRSIG ✅ (finding 46) | ✅ |
 | 2539 | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; well-known-group indices refused rather than read as a prime | ✅ |
 | 2930 §4.1 | TKEY, Diffie-Hellman mode | the §4.1 keying material, checked against the formula applied by hand; the derived secret used as a real TSIG key | ✅ |
 | 2930 §4.2 | TKEY, GSS-API mode | needs a Kerberos/SPNEGO stack | ⬜ |

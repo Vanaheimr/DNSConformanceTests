@@ -17,14 +17,14 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-14): 945 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-14): 946 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 45 RFC deviations in Hermod. All are fixed;
+The suite has found 46 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -181,7 +181,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **2181** §10.1 | Clarifications | an alias owns no other data |
 | **2181** §11 | Name syntax | "any binary string whatever can be used as the label of any resource record": a zone-file owner name and the thirteen record types that hold a name in their RDATA all accept the wildcard of RFC 4592 §2.1.1 and the underscore names of RFC 8552, which hostname syntax forbids ✅ (finding 44). Every line of every signed fixture is read, and Hermod's rendering of each is compared against the text BIND wrote for it, with the known divergences asserted as an exact set |
 | **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA — and on the serving side (§3) every negative answer cites the zone's SOA, without which none of the above has anything to work from |
-| **2535** §3, **3445** | KEY | wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
+| **2535** §3, **3445** | KEY | presentation round-trip — KEY and SIG had a writer and no reader, so a line Hermod wrote it could not read back ✅ (finding 46); SIG's signature time reads both forms RFC 4034 §3.2 publishes, the fourteen digits and the count of seconds. Wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
 | **2539** | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; a well-known-group index refused rather than read as a literal prime; truncated and over-long RDATA rejected |
 | **2782** | SRV | priority/weight/port/target, no RDATA compression on emit |
 | **2930** §4.1 | TKEY, Diffie-Hellman mode | keying material against the §4.1 formula applied by hand; nonce order not interchangeable; the derived secret actually signs and verifies as a TSIG key |

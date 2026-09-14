@@ -34,16 +34,15 @@ public class ZoneFilePresentationTests
     #region Data
 
     /// <summary>
-    /// One record of every type Hermod can both write and read, in the form a
-    /// zone file would hold it.
+    /// One record of every type Hermod claims a presentation format for, in the
+    /// form a zone file would hold it.
     /// </summary>
     /// <remarks>
-    /// KEY (RFC 2535) and SIG (RFC 2931) are deliberately absent, and their
-    /// absence is itself a gap rather than a decision: both have a
-    /// <c>ZoneFileRData</c> and neither has an entry in the zone-file type
-    /// dispatch, so Hermod writes a line for them that it cannot read back. They
-    /// belong in this list the moment that is fixed, and putting them in before
-    /// that would only restate what is already recorded.
+    /// KEY and SIG are in this list because of finding 46, and they are the reason
+    /// the list is worth keeping complete: both had a <c>ZoneFileRData</c> and
+    /// neither had an entry in the zone-file type dispatch, so Hermod wrote a line
+    /// for them that it could not read back. Nothing noticed, because nothing
+    /// asked.
     /// </remarks>
     private static readonly String[] OneOfEachType = [
         "a.example.com. 3600 IN A 192.0.2.1",
@@ -64,6 +63,8 @@ public class ZoneFilePresentationTests
         "a.example.com. 3600 IN DS 12345 8 2 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
         "a.example.com. 3600 IN SSHFP 1 1 1469679466a193364f3928b7f3b6a15180244ec1",
         "a.example.com. 3600 IN RRSIG A 8 3 3600 20261014083329 20260914083329 1234 example.com. AQID",
+        "a.example.com. 3600 IN KEY 256 3 8 AQID",
+        "a.example.com. 3600 IN SIG A 8 3 3600 20261014083329 20260914083329 1234 example.com. AQID",
         "a.example.com. 3600 IN NSEC next.example.com. A NS SOA MX TXT AAAA RRSIG NSEC DNSKEY",
         "a.example.com. 3600 IN DNSKEY 257 3 8 AQID",
         "a.example.com. 3600 IN NSEC3 1 1 12 aabbccdd 2t7b4g4vsa5smi47k61mv5bv1a22bojr MX DNSKEY NS SOA NSEC3PARAM RRSIG",
@@ -225,6 +226,52 @@ public class ZoneFilePresentationTests
         Assert.That(broken, Is.Empty,
                     "types that do not survive a presentation round trip:" + Environment.NewLine +
                     String.Join(Environment.NewLine, broken));
+
+    }
+
+    #endregion
+
+    #region A_Signature_Time_Is_Read_In_Both_Published_Forms()
+
+    [Test]
+    [Property("RFC", "4034 §3.2, 2535 §4.4")]
+    public void A_Signature_Time_Is_Read_In_Both_Published_Forms()
+    {
+
+        // RFC 4034 §3.2 gives a signature time two presentation forms — the
+        // fourteen digits of YYYYMMDDHHmmSS in UTC, or a plain unsigned decimal
+        // count of seconds — and a reader owes both. RFC 2535 §4.4 says the same
+        // of SIG, which is RRSIG's older twin and was written by the same hand.
+        //
+        // SIG accepted only the second, while its own writer emits the first, so
+        // it could not read a line it had just written: fourteen digits do not
+        // fit in a UInt32 and the parse threw. RRSIG had the right reader all
+        // along, one file away.
+        var forms = new[] {
+            ("as fourteen digits", "20261014083329", "20260914083329"),
+            ("as seconds",         "1791966809",     "1789374809")
+        };
+
+        foreach (var (what, expiration, inception) in forms)
+            foreach (var type in new[] { "RRSIG", "SIG" })
+            {
+
+                var record = ADNSResourceRecord.ParseZoneFileString(
+                                 $"a.example.com. 3600 IN {type} A 8 3 3600 {expiration} {inception} 1234 example.com. AQID"
+                             );
+
+                var (gotExpiration, gotInception) = record switch {
+                    RRSIG r  => (r.SignatureExpiration, r.SignatureInception),
+                    SIG   s  => (s.SignatureExpiration, s.SignatureInception),
+                    _        => (0u, 0u)
+                };
+
+                Assert.Multiple(() => {
+                    Assert.That(gotExpiration, Is.EqualTo(1791966809u), $"{type} expiration {what}");
+                    Assert.That(gotInception,  Is.EqualTo(1789374809u), $"{type} inception {what}");
+                });
+
+            }
 
     }
 

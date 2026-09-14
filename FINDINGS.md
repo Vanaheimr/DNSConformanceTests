@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-five RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-six RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -61,6 +61,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 43 | NSEC3: the next hashed owner name written and read as hex | Medium | 5155 §3.3 | ✅ fixed |
 | 44 | Zone file: wildcard and underscore names judged by hostname rules | **High** | 2181 §11, 4592 §2.1.1, 8552 | ✅ fixed |
 | 45 | Zone file: a relative name taken as complete, silently | **High** | 1035 §5.1 | ✅ fixed |
+| 46 | KEY and SIG could be written but not read back | Low | 2535 §4.4, 3597 §5 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2136,6 +2137,54 @@ name, restoring one type's hand-made promotion, and no longer counting
 parentheses each kill exactly what they should — the last of them taking both
 reference-zone tests with it, since the SOA in that file is written across six
 lines.
+
+---
+
+## 46 — Two types that could be written and not read
+
+The smallest of the zone-file findings and the one with the tidiest shape. `KEY`
+(RFC 2535 §3.1) and `SIG` (RFC 2535 §4.1, the record RFC 2931 signs transactions
+with) each had a presentation writer and each had a working
+`TryParseFromJSON` — and neither had an entry in the table that connects the two.
+Hermod wrote a line for them that Hermod could not read.
+
+Nothing noticed because nothing asked. It surfaced from the list of types in
+`Every_Record_Type_Survives_A_Presentation_Round_Trip`, where the two had been
+left out on the grounds that they did not parse; writing down *why* a type is
+missing from a list is what turned an omission into a question.
+
+Underneath the missing rows sat a second defect, in SIG alone. RFC 4034 §3.2
+gives a signature time two presentation forms — `YYYYMMDDHHmmSS` in UTC, or an
+unsigned decimal count of seconds — and RFC 2535 §4.4 says the same for SIG. SIG
+read only the second:
+
+```csharp
+UInt32.Parse(parts[4]),   // 20261014083329 does not fit in a UInt32
+```
+
+Its own writer emits the first. So even with a row in the table, SIG could not
+have read back the line it had just written; the parse threw and the record came
+back as null. `RRSIG`, its modern twin and clearly the template it was written
+from, had the correct reader all along — one file away, as a private copy.
+
+The fix moves that reader onto `ADNSResourceRecord` as
+`TryParseSignatureTime`, where both types share it and RRSIG's copy is deleted
+rather than a third one written, and adds the two missing rows.
+
+Severity is **Low**. Neither type is common in a zone file, the wire format was
+never involved, and the failure was a refusal rather than a wrong answer. It is
+here because of what it says about the shape of the other two: findings 44, 45
+and this one are all the same absence — a presentation format that nothing ever
+asked to make a round trip.
+
+Pinned by `A_Signature_Time_Is_Read_In_Both_Published_Forms`, which reads both
+forms for RRSIG and for SIG and asserts the same instant from each, and by the
+round-trip sweep, which now covers all thirty-nine types rather than
+thirty-seven. Three mutations are caught: taking KEY out of the table again kills
+the sweep; narrowing SIG back to the integer form kills the sweep and the
+signature-time test; narrowing RRSIG kills those two *and*
+`Every_Line_The_Reference_Signer_Wrote_Is_Readable`, since every RRSIG in the
+signed fixtures is written in the fourteen-digit form.
 
 ---
 
