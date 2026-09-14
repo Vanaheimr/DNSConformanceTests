@@ -101,9 +101,16 @@ public class ZoneFilePresentationTests
     /// the suite records it rather than overturning it — see FINDINGS.md
     /// § Interpretations.
     /// </remarks>
-    private static readonly Dictionary<String, String> KnownRenderingDivergences = new() {
-        ["AAAA"] = "IPv6 in the fully expanded form rather than RFC 5952 §4's canonical one"
-    };
+    /// <remarks>
+    /// Empty, and that is the interesting state: this table used to hold
+    /// <c>["AAAA"] = "IPv6 in the fully expanded form rather than RFC 5952 §4's
+    /// canonical one"</c> — the divergence was seen, written down, and filed as
+    /// cosmetic. It was not. The same code path returned <c>[::1]</c> for
+    /// loopback, brackets and all, which BIND refuses outright; the fixtures
+    /// simply had no <c>::1</c> in them, so the corpus only ever showed the
+    /// harmless half. Finding 50.
+    /// </remarks>
+    private static readonly Dictionary<String, String> KnownRenderingDivergences = [];
 
     #endregion
 

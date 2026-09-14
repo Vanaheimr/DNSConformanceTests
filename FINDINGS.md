@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-nine RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -65,6 +65,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 47 | The AD and CD header bits were neither read nor written | **High** | 4035 §3.2, 6840 §5.7 | ✅ fixed |
 | 48 | The JSON reader dropped records without a word | **High** | 2181 §11, 3597 §2 | ✅ fixed |
 | 49 | A response was matched by its transaction ID and nothing else | **High** | 5452 §9.1, §3, 4343 | ✅ fixed |
+| 50 | AAAA wrote an IPv6 literal in URI bracket syntax | **High** | 3596 §2.4, 5952 §4 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2430,6 +2431,98 @@ and no other. The sixth breaks nothing in the check at all: `return response;`
 where the receive loop says `continue;`. It fails all four forgery tests, and it
 fails them on their *second* assertion, the one saying the genuine answer must
 still arrive. That mutation is the whole reason the forgery is sent first.
+
+## 50 — An address written in the syntax of a URL, in a file that is not one
+
+Found while adding APL, which needed IPv6 text of its own and so asked what the
+stack already had. What it had was this, in `AAAA`:
+
+```csharp
+protected override String ZoneFileRData()
+    => IPv6Address.ToString();
+```
+
+`IPv6Address.ToString()` is shaped for an HTTP authority, where an IPv6 literal
+is bracketed (RFC 3986 §3.2.2). It special-cases two addresses and brackets
+them:
+
+```
+::   →  [::]
+::1  →  [::1]
+```
+
+Everything else comes out as eight zero-padded groups. Both halves went straight
+into the RDATA of a zone file.
+
+**The judge.** RFC 3596 §2.4: "The textual representation of the data portion of
+the AAAA resource record used in a master database file is the textual
+representation of an IPv6 address as defined in [RFC 3513]." A bracket is not
+part of that representation — it belongs to URI syntax — so `[::1]` is not a
+badly-formatted address, it is not an address. BIND agrees, and says so:
+
+```
+$ named-checkzone test. zone
+dns_rdata_fromtext: zone:4: near '[::1]': bad IPv6 address
+zone test/IN: loading from master file zone failed: bad IPv6 address
+zone test/IN: not loaded due to errors.
+```
+
+An AAAA for localhost made the entire zone unloadable. Not the record — the
+zone.
+
+**Why nothing caught it.** `IPv6Address.Parse` accepts the brackets that
+`ToString` writes. The round trip closes inside Hermod and breaks at the first
+reader that is not Hermod, which is the one shape of defect a self-consistent
+test can never see.
+
+**And the part that is worth more than the bug.** The suite had already noticed.
+`ZoneFilePresentationTests` carried a table of known rendering divergences from
+BIND, and AAAA was in it:
+
+```csharp
+["AAAA"] = "IPv6 in the fully expanded form rather than RFC 5952 §4's canonical one"
+```
+
+That entry is true, and it describes the harmless half. Writing
+`2001:0db8:0000:0000:0000:0000:0000:0001` where RFC 5952 §4.1 asks for
+`2001:db8::1` is a SHOULD-level divergence — §4's opening sentence is "SHOULD be
+followed by systems when generating an address to be represented as text", and
+RFC 4291 form is legal input everywhere. The brackets are a different thing
+entirely, and they are not in the note, because **the fixtures contain no `::1`**.
+The corpus only ever showed the cosmetic half, so the cosmetic half is what got
+written down and filed as acceptable.
+
+The lesson is one level above the usual one. It is not only unexamined code that
+hides defects; a divergence that *was* examined, named and accepted hides them
+too, when the material it was measured against never contained the case that
+matters. Finding 43 lived where nothing looked. This one lived inside something
+that had been looked at and summarised in a single line.
+
+**The fix** is one line, because the canonical formatter already existed by the
+time this was confirmed — APL needed it first, and it was deliberately put in
+`DNSTools` rather than inside APL so that this second caller would not become a
+second implementation. Findings 46 and 48 were both exactly that.
+
+```csharp
+protected override String ZoneFileRData()
+    => DNSTools.ToZoneFileText(IPv6Address);
+```
+
+`DNSTools.ToZoneFileText` is RFC 5952 §4 in full: §4.1 leading zeros suppressed,
+§4.2.1 `::` used to its maximum capability, §4.2.2 never for a single zero group,
+§4.2.3 longest run wins and leftmost on a tie, §4.3 lowercase.
+
+Severity is **High**, for the brackets rather than for the canonical form: a zone
+file another implementation refuses to load is a worse outcome than an ugly one.
+
+Pinned by thirteen cases in `IPv6PresentationTests`, and every expected string in
+them is BIND's own output for the same zone, taken from `named-checkzone -D`
+rather than from what this suite believes RFC 5952 says. Five mutations, one per
+subsection of §4 plus the original defect put back, all caught.
+
+The table of known divergences is now **empty**, and that is the claim worth
+making: there is no record type left that Hermod renders differently from the
+reference signer.
 
 ---
 
