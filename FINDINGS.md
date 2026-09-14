@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-eight RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-nine RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -64,6 +64,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 46 | KEY and SIG could be written but not read back | Low | 2535 §4.4, 3597 §5 | ✅ fixed |
 | 47 | The AD and CD header bits were neither read nor written | **High** | 4035 §3.2, 6840 §5.7 | ✅ fixed |
 | 48 | The JSON reader dropped records without a word | **High** | 2181 §11, 3597 §2 | ✅ fixed |
+| 49 | A response was matched by its transaction ID and nothing else | **High** | 5452 §9.1, §3, 4343 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2315,6 +2316,120 @@ through both readers and compares the RDATA octets, so the two staying
 equivalent is asserted rather than assumed. Three mutations are caught, one per
 mechanism, each by only the test aimed at it — a strict name gate, a guard that
 drops unknown types, and the empty additional list.
+
+## 49 — The other half of finding 5: one of the three checks that were this code's to make
+
+Finding 5 is the oldest entry in this file that RFC 5452 put there, and it fixed
+the *reaction*: a datagram that does not match the outstanding query is ignored,
+and ignoring means keep waiting, not abort. What it never touched is the
+*match*. Forty-four findings later, the match was still this:
+
+> comparing the transaction ID in the first two octets
+
+— which is the whole of finding 5's fix, quoted from finding 5.
+
+RFC 5452 §9.1 lists six attributes and requires all of them, in the strongest
+form the document has:
+
+> "A resolver implementation MUST match responses to all of the following
+> attributes of the query:
+>
+> o Source address against query destination address
+> o Destination address against query source address
+> o Destination port against query source port
+> o Query ID
+> o Query name
+> o Query class and type
+>
+> A mismatch and the response MUST be considered invalid."
+
+Three of those six are the socket's, not this code's. `DNSUDPClient` calls
+`ConnectAsync` on its UDP socket, so the kernel delivers only datagrams from the
+connected peer and the local port is fixed at connect time — the three address
+and port items are matched before a datagram ever reaches the parser. Which
+leaves exactly three for the resolver to make, and is why the count matters:
+this is not one check missing out of six, it is **two of the three that were
+ours**.
+
+§3 states the same requirement from the other side — data is accepted "if and
+only if" the question section of the reply is equivalent to that of a question
+waiting for an answer — and §4.2 says outright that the question section is what
+has to be verified.
+
+Hermod matched the ID. The question section was read out of the wire and thrown
+away, in a loop whose own header had been asking about itself since a cleanup in
+May:
+
+```csharp
+//ToDo: Does this make sense?
+#region Process Questions
+```
+
+The three parsed values went into locals that nothing read. And the comment the
+UDP client carried over its ID check cited **§4.2** — the section about the
+question section — as the authority for a check that never looked at one.
+
+**What it cost.** Not entropy: a forger who can already guess sixteen bits of ID
+and the source port can echo the question too, so this is not the bit of
+hardening that stops a determined off-path attacker. It is the check that
+catches everything cheaper than that — a blind forgery with whatever question
+the forger happened to put in it, a delayed duplicate answering a query two
+queries ago, a server answering something other than what it was asked. Against
+a scripted server, all four of those were believed:
+
+```
+asked:  asked.example.        A  IN
+served: elsewhere.example.    A  IN   →  6.6.6.6 accepted
+served: asked.example.       MX  IN   →  6.6.6.6 accepted
+served: asked.example.        A  CH   →  6.6.6.6 accepted
+served: (no question at all)          →  6.6.6.6 accepted
+```
+
+The last line is the one to look at. An empty question section is the cheapest
+forgery there is — it needs no knowledge of what was asked — and it was accepted
+on every transport.
+
+**The fix has one place to be.** Every transport in the stack funnels through
+`DNSInfo.ReadResponse`, so the check sits there, comparing QDCOUNT against the
+outstanding query and then each question against it. The new parameter is
+**required rather than optional**: a defaulted one would have compiled on all
+five call sites and left however many of them nobody remembered unchecked, which
+is the failure mode findings 31, 32 and 34 were — the same omission on the
+transport nobody looked at. A required parameter made the compiler name all
+five.
+
+Names are compared the way RFC 4343 requires, case-insensitively. A resolver
+that folds the QNAME before answering is returning the same name, and most of
+the deployed world does; a fix that compared octets here would be a new bug
+wearing this one's clothes. `A_Lowercased_Question_Is_Still_The_Same_Question`
+holds that door open, and the mutation to `StringComparison.Ordinal` is the one
+that proves it is holding something.
+
+**And the trap, which was sprung.** The first version of this fix *returned* the
+rejection from `ReadResponse`. Every test went green on its first assertion —
+the forgery was not believed — and the UDP client had quietly become finding 5
+again: one forged datagram ended the query. What caught it is the second
+assertion each test carries, that the genuine answer arriving behind the forgery
+must still be delivered. **A check and the reaction to it have to be decided
+together**, because rejecting and aborting look identical from the inside of the
+rejecting code. On UDP the reaction is `continue`; on TCP, TLS and DoH there is
+exactly one response per query and nothing further to wait for, so the invalid
+result is returned — carrying `Invalid`'s empty record set, which is also why
+the RFC 7828 keep-alive applied afterwards can read nothing out of a forgery.
+
+Severity is **High**: a MUST on accepting responses, on every transport.
+
+Pinned by five tests in `ResponseMatchingTests`, four of which send the forgery
+*before* the genuine answer, so that passing means ignored rather than merely
+not finished.
+
+Six mutations, all caught, and they split five to one against the shape of the
+fix. Five break the *check* — the name, the type, the class, the question count,
+and the case-insensitive comparison — and each dies by the one test aimed at it
+and no other. The sixth breaks nothing in the check at all: `return response;`
+where the receive loop says `continue;`. It fails all four forgery tests, and it
+fails them on their *second* assertion, the one saying the genuine answer must
+still arrive. That mutation is the whole reason the forgery is sent first.
 
 ---
 

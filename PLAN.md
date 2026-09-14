@@ -229,6 +229,9 @@ round-trip where supported.
 | 5452 §9.2 | transaction IDs vary and span the 16-bit space | ✅ |
 | 5452 §4.1 | a response with a non-matching ID is never accepted as the answer | ✅ |
 | 5452 §4.2 | …and the query keeps waiting for the genuine response instead of aborting | ✅ |
+| 5452 §9.1 | the response's question is the one that was asked — name, class and type — checked where every transport passes through, not per client | ✅ |
+| 5452 §3 | a reply with no question section is equivalent to no outstanding question, so it is never the answer — the cheapest forgery, since it needs no knowledge of what was asked | ✅ |
+| 4343 | …and the names are compared case-insensitively, so a server that folds the QNAME has still answered | ✅ |
 | 6891 §6.2.3 | client advertises EDNS0 with a payload size ≥ 512 | ✅ |
 | 7766 §5 | TC=1 over UDP → retry over TCP, full answer surfaced | ✅ |
 | 7766 §8 | TCP 2-byte length framing; reassembly of split prefix / dribbled bytes | ✅ |
