@@ -96,6 +96,93 @@ public class MasterFileFormatTests
 
     #endregion
 
+    #region A_Relative_Wildcard_Is_Qualified_Like_Any_Other_Name()
+
+    [Test]
+    [Property("RFC", "1035 §5.1")]
+    [Property("RFC", "4592 §2.1.1")]
+    public void A_Relative_Wildcard_Is_Qualified_Like_Any_Other_Name()
+    {
+
+        // The way every hand-written zone file spells a wildcard, and the one
+        // relative name the reader refused: it answered "The owner name '*' is
+        // not one the 'A' zone-file parser accepts".
+        //
+        // The cause was a question asked in the wrong order. A relative name had
+        // to be a valid name *on its own* before it was completed against the
+        // origin — and "*" is not one, any more than "@" is. "@" had a
+        // hand-written exception for exactly that reason; the wildcard had none.
+        // Judging the completed name instead makes both ordinary, which is why
+        // the "@" exception is gone.
+        //
+        // Finding 44 made the wildcard acceptable to the name parser. This is the
+        // half that finding left: the fixtures are named-compilezone output, and
+        // that is fully qualified, so no relative name of any kind — let alone a
+        // relative wildcard — has ever been in the corpus.
+        Assert.Multiple(() => {
+
+            Assert.That(Owner(One("*       IN  A  192.0.2.99")),
+                        Is.EqualTo("*.example.com").IgnoreCase,
+                        "BIND reads this line and writes back *.example.com.");
+
+            Assert.That(Owner(One("*.sub   IN  A  192.0.2.98")),
+                        Is.EqualTo("*.sub.example.com").IgnoreCase,
+                        "a wildcard below a relative name is the same case one label down");
+
+            Assert.That(Owner(One("*.other.test. IN A 192.0.2.97")),
+                        Is.EqualTo("*.other.test").IgnoreCase,
+                        "and an absolute wildcard is still left alone");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Whole_Zone_File_Keeps_Its_Wildcard()
+
+    [Test]
+    [Property("RFC", "4592 §2.1.1")]
+    public void A_Whole_Zone_File_Keeps_Its_Wildcard()
+    {
+
+        // The line above in the place it actually occurs. A zone file is read as
+        // a unit, and one unreadable line took the whole file with it — which is
+        // how this surfaced: not as a wildcard complaint, but as a zone that
+        // could not be built at all.
+        var records = DNSZoneFile.Parse(
+                          """
+                          $ORIGIN example.com.
+                          $TTL 3600
+                          @    IN SOA ns1 hostmaster 1 7200 3600 1209600 3600
+                          @    IN NS  ns1
+                          ns1  IN A   192.0.2.1
+                          a    IN A   192.0.2.10
+                          *    IN A   192.0.2.99
+                          """,
+                          Origin
+                      );
+
+        Assert.Multiple(() => {
+
+            Assert.That(records.Select(Owner).Select(name => name.ToLowerInvariant()),
+                        Is.EquivalentTo(new[] {
+                            "example.com",
+                            "example.com",
+                            "ns1.example.com",
+                            "a.example.com",
+                            "*.example.com"
+                        }),
+                        "every owner name of the file, the wildcard included");
+
+            Assert.That(records.Count, Is.EqualTo(5));
+
+        });
+
+    }
+
+    #endregion
+
     #region An_Omitted_Owner_Repeats_The_Previous_One()
 
     [Test]

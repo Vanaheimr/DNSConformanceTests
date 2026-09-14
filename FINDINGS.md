@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty-one RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -66,6 +66,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 48 | The JSON reader dropped records without a word | **High** | 2181 §11, 3597 §2 | ✅ fixed |
 | 49 | A response was matched by its transaction ID and nothing else | **High** | 5452 §9.1, §3, 4343 | ✅ fixed |
 | 50 | AAAA wrote an IPv6 literal in URI bracket syntax | **High** | 3596 §2.4, 5952 §4 | ✅ fixed |
+| 51 | A relative wildcard owner name was refused, and took its zone file with it | **High** | 1035 §5.1, 4592 §2.1.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2523,6 +2524,96 @@ subsection of §4 plus the original defect put back, all caught.
 The table of known divergences is now **empty**, and that is the claim worth
 making: there is no record type left that Hermod renders differently from the
 reference signer.
+
+## 51 — The one relative name that had to be a name before it was allowed to become one
+
+Found by trying to write an ordinary zone file. This line:
+
+```
+*        IN A    192.0.2.99
+```
+
+is how every hand-written zone file in the world spells a wildcard, and Hermod
+answered:
+
+```
+The owner name '*' is not one the 'A' zone-file parser accepts
+```
+
+BIND reads the same line, expands it against the origin and writes it back as
+`*.example.com.` — so this is not a disagreement about the format, it is a
+reader that could not read it.
+
+**The mechanism is a question asked in the wrong order.** An owner name was
+parsed twice: once as written, and again after being completed against the
+origin. The second only happened if the first had succeeded.
+
+```csharp
+DNS.DomainName.TryParseLenient(ownerNameText, out var domainName, out var error);
+
+if (Origin is not null)
+{
+    var absolute = DNS.DomainName.ParseLenient(ownerNameText, Origin).FullName;
+
+    if (domainName is not null || ownerNameText == "@")
+        domainName = DNS.DomainName.ParseLenient(absolute);
+    …
+}
+```
+
+So a relative name had to be a valid name *on its own* before it was allowed to
+be completed into one. `ns1` is, and passes. `*` is not — a lone asterisk is a
+wildcard label with nothing under it — and neither is `@`. The difference
+between them is that `@` had been given a hand-written exception, right there in
+the condition, and the wildcard had not. One name had been noticed; the other
+was the same case and nobody connected them.
+
+The fix judges the completed name, which is the only name that was ever going to
+be used:
+
+```csharp
+if (DNS.DomainName.TryParseLenient(absolute, out var qualifiedName, out var qualifiedError))
+{
+    domainName      = qualifiedName;
+    ownerNameError  = null;
+}
+else
+    ownerNameError  = qualifiedError;
+```
+
+The `@` exception is gone with it, because `@` completes to the origin and the
+origin parses. A special case that disappears when the general rule is stated
+correctly is usually a sign the general rule was wrong, and it was.
+
+**What it cost** is more than one record. A zone file is read as a unit, and
+`DNSZoneFile.Parse` refuses the file when a line will not parse — correctly, since
+a zone missing a record is worse than a zone that fails to load. So a single
+wildcard line took the whole zone with it, and the symptom was not "bad
+wildcard" but "this zone cannot be built at all".
+
+Severity is **High**: a zone file most real zones contain could not be loaded.
+
+**Why forty-four findings of zone-file work went past it.** Finding 44 is the
+near miss. It made the wildcard acceptable to the name parser — `*.example.com.`
+had been refused by hostname syntax, and 49 fixture lines proved it. Every one of
+those 49 lines was **absolute**, because the fixtures are `named-compilezone`
+output and that format writes every name in full. There is not one relative name
+in the corpus, so there was never a relative wildcard in it either, and the half
+of the wildcard problem that lives in the *relative* path was never reachable
+from the material the suite measures against.
+
+That is the third time in this session, and by now it is the pattern rather than
+the coincidence: finding 50 hid inside a divergence that had been examined and
+written down, because the fixtures had no `::1`; this one hid behind a finding
+that had already been fixed, because the fixtures have no relative names. A
+corpus is not a specification. What it does not contain, it cannot refute.
+
+Pinned by `A_Relative_Wildcard_Is_Qualified_Like_Any_Other_Name` — the bare `*`,
+a wildcard below a relative name, and an absolute wildcard still left alone —
+and by `A_Whole_Zone_File_Keeps_Its_Wildcard`, which reads the line in the place
+it actually occurs and asserts the *exact set* of owner names the file produces,
+so a wildcard that silently lands somewhere else fails just as loudly as one that
+disappears.
 
 ---
 
