@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-four RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -60,6 +60,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 42 | Unique goodbye records lost the cache-flush bit | Low | 6762 §10.1, §10.2 | ✅ fixed |
 | 43 | NSEC3: the next hashed owner name written and read as hex | Medium | 5155 §3.3 | ✅ fixed |
 | 44 | Zone file: wildcard and underscore names judged by hostname rules | **High** | 2181 §11, 4592 §2.1.1, 8552 | ✅ fixed |
+| 45 | Zone file: a relative name taken as complete, silently | **High** | 1035 §5.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2058,6 +2059,83 @@ fixtures, with the known divergences asserted as an exact set. The second is the
 one that would have caught finding 43 the day it was written; the first would
 not have, and the difference between them is why the comparison against somebody
 else's output is the one worth having.
+
+---
+
+## 45 — A relative name taken as complete, which puts the whole zone at the root
+
+The answer to "what else did we overlook", asked straight after finding 44 and
+answered by the same reader. This one does not refuse anything. It succeeds.
+
+```
+ns1     IN  A   192.0.2.53     →  owner = ns1.
+mx      IN  MX  10 mail1       →  owner = mx.    rdata = 10 mail1.
+```
+
+RFC 1035 §5.1: "Domain names that end in a dot are called absolute, and are taken
+as complete. Domain names which do not end in a dot are called relative" —
+relative to the current origin. Hermod took every name as complete, so `ns1`
+became the top-level name `ns1.` rather than `ns1.example.com.`, and reported
+success. Handed the reference zone file that BIND, Knot, CoreDNS and Unbound are
+each given in the interop tests, it read 20 of 28 lines — every one of them with
+the wrong name — and refused the other 8.
+
+**This is the worse half of the pair.** Finding 44 refused lines loudly; a
+refusal is a bug report. A zone that loads into the root and answers from there
+is wrong everywhere and complains nowhere, and every test that then queries it
+agrees with itself.
+
+**Why there was nowhere to put the origin.** `ParseZoneFileString` reads a
+*line*, and so did `AddZoneFileString`, which called it once per line. A line has
+no origin: the origin is a property of the file, set by `$ORIGIN` or by whoever
+loaded the zone — and none of `$ORIGIN`, `$TTL`, `@`, an owner name omitted by
+starting the line with a blank, or the parentheses that every SOA in the world is
+written with were understood at all. There was no file layer to hold any of it.
+
+Underneath, fourteen record types each carried their own copy of the same
+mistake, and it ran before an origin could ever have applied:
+
+```csharp
+if (!exchange.EndsWith('.')) exchange += ".";
+```
+
+`PTR` was the fifteenth and hid from the first sweep, because it builds a
+`DNSServiceName` rather than a `DomainName`. The SOA's RNAME hid differently: it
+becomes a mailbox, `hostmaster.example.com.` → `hostmaster@example.com`, so
+written relatively it had no dot for the `@` to replace and the record was
+refused — the one place this failed loudly, and only by accident.
+
+**The fix is a file layer.** `DNSZoneFile` reads the master file format: the two
+directives, `@`, the omitted owner, parentheses, and comments outside quoted
+strings. `$INCLUDE` and `$GENERATE` are refused *by name* rather than skipped,
+because a zone quietly missing what they stand for is worse than one that will
+not load. `DomainName.ParseLenient(Text, Origin)` now decides whether a name is
+complete, and the fifteen hand-made promotions are gone; the origin reaches the
+RDATA through the type parsers that hold a name.
+
+**And where there is no origin, it refuses.** That is the direct replacement for
+what this finding was: a file that declares no `$ORIGIN` and is given none cannot
+resolve `ns1`, and saying so is the only honest answer. A fully absolute file —
+the flattened form every signer emits — still loads without one. The line-level
+API keeps its context-free reading, now documented as such rather than assumed.
+This mattered more than it looks: `AddZoneFile` was written to fall back to the
+zone's own origin, and a zone learns its origin from its SOA, which is inside the
+file being loaded. That fallback is empty exactly when the first record is read.
+
+Severity is **High**, for the silence rather than the size.
+
+Pinned by fifteen tests in `MasterFileFormatTests`, of which the one that would
+have caught this on day one is `The_Reference_Zone_File_Loads_Whole`: it asserts
+that no owner name in that file lands outside `interop.test`, and since every
+owner in it is relative, taking them as complete puts every single one outside.
+The rest pin the directives one at a time, and
+`The_Reference_Zone_File_Loads_Into_A_Zone` closes the loop end to end. Five
+mutations are caught: ignoring the origin kills eight of the fifteen; removing
+the refusal kills only the test that asks for it; not inheriting an omitted owner
+name, restoring one type's hand-made promotion, and no longer counting
+parentheses each kill exactly what they should — the last of them taking both
+reference-zone tests with it, since the SOA in that file is written across six
+lines.
 
 ---
 
