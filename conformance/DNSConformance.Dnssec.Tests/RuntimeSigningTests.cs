@@ -270,6 +270,167 @@ public class RuntimeSigningTests
 
     #endregion
 
+    #region Resigning_Moves_The_Window_Without_Being_Told_Anything()
+
+    [Test]
+    public async Task Resigning_Moves_The_Window_Without_Being_Told_Anything()
+    {
+
+        // Nothing here is required by a specification: RFC 6781 is Informational
+        // and names no interval, and it is a validating resolver rather than an
+        // authoritative server that decides an expired signature is expired. It
+        // exists because a zone signed at start-up and served for longer than its
+        // signatures last gets called Bogus by every validator on the same day,
+        // with the server having done nothing to deserve it.
+        var zone = UnsignedZone().Sign(Keys(), Expiration: DateTime.UtcNow.AddDays(3));
+
+        var firstExpiry = zone.SignaturesExpireAt!.Value;
+
+        zone.Resign();
+
+        var secondExpiry = zone.SignaturesExpireAt!.Value;
+
+        Assert.Multiple(() => {
+
+            // The validity is remembered as a *length*, not as the moment it
+            // ended. Reusing the old absolute expiration would produce signatures
+            // exactly as stale as the ones they replaced — which looks like
+            // re-signing and achieves nothing.
+            Assert.That(secondExpiry, Is.GreaterThan(firstExpiry),
+                        "a repeat has to move the window, not reuse it");
+
+            Assert.That(secondExpiry - DateTime.UtcNow,
+                        Is.EqualTo(TimeSpan.FromDays(3)).Within(TimeSpan.FromMinutes(1)),
+                        "and keep the length it was originally given");
+
+        });
+
+        // And the records have to agree with the property, not merely follow it.
+        var signatures = (await AllRecordsOf(zone)).OfType<RRSIG>().ToArray();
+
+        Assert.That(signatures, Is.Not.Empty);
+
+        Assert.That(signatures.Select(sig => DateTimeOffset.FromUnixTimeSeconds(sig.SignatureExpiration).UtcDateTime).Distinct().Count(),
+                    Is.EqualTo(1),
+                    "every RRSIG carries the new expiration");
+
+    }
+
+    #endregion
+
+    #region Resigning_Needs_No_Keys_Because_It_Kept_Them()
+
+    [Test]
+    public void Resigning_Needs_No_Keys_Because_It_Kept_Them()
+    {
+
+        // The point of keeping them: whatever drives the re-signing — a timer, an
+        // operator, a server's housekeeping — should not have to be the thing
+        // that holds the private keys.
+        var zone = UnsignedZone().Sign(Keys(), NSEC3: NSEC3Parameters.Recommended);
+
+        zone.Resign();
+
+        Assert.Multiple(() => {
+
+            Assert.That(zone.IsSigned,          Is.True);
+            Assert.That(zone.SignaturesAreStale, Is.False);
+
+        });
+
+    }
+
+    #endregion
+
+    #region Resigning_An_Unsigned_Zone_Is_Refused()
+
+    [Test]
+    public void Resigning_An_Unsigned_Zone_Is_Refused()
+    {
+
+        // A repeat of something that never happened has no parameters to repeat,
+        // and inventing them would mean signing a zone with keys nobody chose.
+        var exception = Assert.Throws<InvalidOperationException>(() => UnsignedZone().Resign());
+
+        Assert.That(exception!.Message, Does.Contain("never been signed"));
+
+    }
+
+    #endregion
+
+    #region ResignIfDue_Acts_Only_When_It_Is_Due()
+
+    [Test]
+    public void ResignIfDue_Acts_Only_When_It_Is_Due()
+    {
+
+        var zone  = UnsignedZone().Sign(Keys(), Expiration: DateTime.UtcNow.AddDays(10));
+        var first = zone.SignaturesExpireAt!.Value;
+
+        Assert.Multiple(() => {
+
+            Assert.That(zone.ResignIfDue(TimeSpan.FromDays(1)), Is.False,
+                        "ten days out and nothing has changed: there is nothing to do");
+
+            Assert.That(zone.SignaturesExpireAt, Is.EqualTo(first),
+                        "and it must not have signed anyway");
+
+            Assert.That(zone.ResignIfDue(TimeSpan.FromDays(30)), Is.True,
+                        "a window wider than the remaining validity makes it due");
+
+            Assert.That(zone.SignaturesExpireAt, Is.GreaterThan(first));
+
+        });
+
+    }
+
+    #endregion
+
+    #region ResignIfDue_Also_Acts_On_A_Stale_Zone()
+
+    [Test]
+    public void ResignIfDue_Also_Acts_On_A_Stale_Zone()
+    {
+
+        // Expiry is the failure that arrives on its own; staleness is the one
+        // somebody causes. Both leave the zone answering wrongly, so both are
+        // reasons to sign again — and staleness is the more urgent of the two,
+        // because an added RRset is unsigned *now* rather than in a month.
+        var zone = UnsignedZone().Sign(Keys(), Expiration: DateTime.UtcNow.AddDays(10));
+
+        Assert.That(zone.ResignIfDue(TimeSpan.FromDays(1)), Is.False);
+
+        zone.AddZoneFileString($"late.{Zone}. 3600 IN A 192.0.2.77");
+
+        Assert.Multiple(() => {
+
+            Assert.That(zone.SignaturesAreStale, Is.True);
+
+            Assert.That(zone.ResignIfDue(TimeSpan.FromDays(1)), Is.True,
+                        "a stale zone is due however far off its expiry is");
+
+            Assert.That(zone.SignaturesAreStale, Is.False);
+
+        });
+
+    }
+
+    #endregion
+
+    #region ResignIfDue_On_An_Unsigned_Zone_Does_Nothing()
+
+    [Test]
+    public void ResignIfDue_On_An_Unsigned_Zone_Does_Nothing()
+    {
+
+        // Not an exception: a caller polling every zone it serves should not have
+        // to know which of them are signed.
+        Assert.That(UnsignedZone().ResignIfDue(TimeSpan.FromDays(1)), Is.False);
+
+    }
+
+    #endregion
+
     #region Signing_A_Zone_With_No_Soa_Is_Refused()
 
     [Test]
