@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-14): 965 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-14): 985 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
@@ -198,6 +198,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **4398** | CERT | type/keytag/algorithm |
 | **4592** | Wildcards | §2.1.1 the owner name: `*` accepted as leftmost label only, and never by the strict hostname parser — which is the parser the zone-file reader used to reach for, so every wildcard line BIND wrote was unreadable ✅ (finding 44). §3.3.1 the *matching*: synthesis at the closest encloser and nowhere above it, an exact match and an empty non-terminal each suppressing it, more than one label covered, no type of its own meaning NODATA — and the answer carrying the queried name, with the asterisk absent from the response entirely |
 | **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good |
+| **4035** §2, **5155** §6/§7 | Signing | the direction the stack never had. Every authoritative RRset signed and no delegation's NS RRset or glue; an NSEC chain that closes, or an NSEC3 one with the empty non-terminals §7.1 demands and the opt-out of §6; the labels field of §3.1.3 shortened for a wildcard. **BIND's `dnssec-verify` is the judge** for all six algorithms RFC 8624 §3.1 lets a signer choose, and `dnssec-dsfromkey` for the DS. What it reads is a zone *file*, so the fields that only matter in an answer — the labels field, the opt-out flag — are pinned separately; both of those gaps were found by mutations that survived it. The suite's fixtures stay BIND-signed: a validator measured against its own signatures measures nothing |
 | **5155** | NSEC3 | §3.3 presentation format: the salt hexadecimal and the next hashed owner name base32hex, read and written, against the record App. A publishes ✅ (finding 43). Hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material. §6 opt-out, against a zone BIND signed with `-A`: the flag on every record, no NSEC3 for the insecure delegation, and the §7.2.7 referral proof whose covering record carries the flag |
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
 | **6605** | ECDSA | P-256 and P-384: fixed-width r‖s, 64/96-octet keys |
