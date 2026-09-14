@@ -179,6 +179,45 @@ public class MasterFileFormatTests
 
     #endregion
 
+    #region Dollar_Ttl_May_Be_Written_With_Units()
+
+    [Test]
+    [Property("RFC", "2308 §4")]
+    public void Dollar_Ttl_May_Be_Written_With_Units()
+    {
+
+        // Whatever a record's own TTL may be written as, the directive that
+        // supplies the default has to accept too — a file that says "$TTL 1h" and
+        // then omits every TTL is the ordinary shape.
+        var records = DNSZoneFile.Parse(
+                          "$TTL 1h\n" +
+                          "a  IN  A  192.0.2.1\n",
+                          Origin
+                      );
+
+        Assert.That(records.Single().TimeToLive, Is.EqualTo(TimeSpan.FromHours(1)));
+
+    }
+
+    #endregion
+
+    #region A_Malformed_Dollar_Ttl_Is_Refused()
+
+    [Test]
+    [Property("RFC", "2308 §4")]
+    public void A_Malformed_Dollar_Ttl_Is_Refused()
+    {
+
+        var thrown = Assert.Throws<ArgumentException>(
+                         () => DNSZoneFile.Parse("$TTL 1x\na IN A 192.0.2.1\n", Origin)
+                     );
+
+        Assert.That(thrown!.Message, Does.Contain("$TTL"));
+
+    }
+
+    #endregion
+
     #region Parentheses_Make_One_Record_Of_Several_Lines()
 
     [Test]

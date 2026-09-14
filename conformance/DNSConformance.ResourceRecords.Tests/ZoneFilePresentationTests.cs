@@ -231,6 +231,115 @@ public class ZoneFilePresentationTests
 
     #endregion
 
+    #region The_Class_Comes_From_The_Line()
+
+    [Test]
+    [Property("RFC", "1035 §3.2.4, §5.1")]
+    public void The_Class_Comes_From_The_Line()
+    {
+
+        // RFC 1035 §3.2.4 defines CH alongside IN, and §5.1 puts the class in the
+        // line beside the TTL and the type. The reader used to refuse anything
+        // but IN — honestly, with a message naming the class, but it refused —
+        // because every type parser wrote DNSQueryClasses.IN into the record and
+        // the line parser then noticed the mismatch.
+        //
+        // The zone and the wire were ready for it all along: InMemoryDNSZone
+        // matches a question's class against the record's, and the wire reader
+        // takes the class from the octets.
+        var chaos = ADNSResourceRecord.ParseZoneFileString("version.bind. 0 CH TXT \"9.18.0\"");
+        var inet  = ADNSResourceRecord.ParseZoneFileString("version.bind. 0 IN TXT \"9.18.0\"");
+
+        Assert.Multiple(() => {
+
+            Assert.That(chaos.Class,            Is.EqualTo(DNSQueryClasses.CH));
+            Assert.That(inet. Class,            Is.EqualTo(DNSQueryClasses.IN));
+            Assert.That(((TXT) chaos).Text,     Is.EqualTo("9.18.0"));
+
+            // Same octets, different class: the class is a property of the record,
+            // not of how its RDATA is written.
+            Assert.That(RData((ADNSResourceRecord) chaos),
+                        Is.EqualTo(RData((ADNSResourceRecord) inet)));
+
+            // RFC 3597 §5's numeric form of a class, for the same record.
+            Assert.That(ADNSResourceRecord.ParseZoneFileString("version.bind. 0 CLASS3 TXT \"9.18.0\"").Class,
+                        Is.EqualTo(DNSQueryClasses.CH));
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Time_To_Live_May_Be_Written_With_Units()
+
+    [Test]
+    [Property("RFC", "1035 §5.1")]
+    public void A_Time_To_Live_May_Be_Written_With_Units()
+    {
+
+        // RFC 1035 §5.1 spells a TTL as "a decimal integer", and the units are
+        // BIND's extension rather than the RFC's — but they are what zone files
+        // are actually written with, and refusing them means refusing most files
+        // in the world. Accepted on the way in; the way out stays the integer the
+        // RFC names.
+        var cases = new (String Written, Int32 Seconds)[] {
+            ("3600",   3600),
+            ("60s",      60),
+            ("30m",    1800),
+            ("1h",     3600),
+            ("1D",    86400),
+            ("2w",  1209600),
+            ("1d12h", 129600),
+            ("1h30m",  5400)
+        };
+
+        Assert.Multiple(() => {
+
+            foreach (var (written, seconds) in cases)
+                Assert.That(ADNSResourceRecord.ParseZoneFileString($"a.example.com. {written} IN A 192.0.2.1").TimeToLive,
+                            Is.EqualTo(TimeSpan.FromSeconds(seconds)),
+                            $"TTL '{written}'");
+
+            // And what is not a TTL stays not a TTL, or the token loop would eat
+            // the record type: the header reader tries class, then TTL, then type.
+            foreach (var notATTL in new[] { "1x", "h", "1h2", "-1", "1.5h" })
+                Assert.That(() => ADNSResourceRecord.ParseZoneFileString($"a.example.com. {notATTL} IN A 192.0.2.1"),
+                            Throws.TypeOf<ArgumentException>(),
+                            $"'{notATTL}' is not a TTL");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Soa_Interval_May_Be_Written_With_Units()
+
+    [Test]
+    [Property("RFC", "1035 §3.3.13")]
+    public void A_Soa_Interval_May_Be_Written_With_Units()
+    {
+
+        // The four intervals of an SOA are where units are written most often,
+        // and the serial beside them is not a time at all — so a reader that
+        // takes units has to keep telling them apart.
+        var soa = (SOA) ADNSResourceRecord.ParseZoneFileString(
+                      "example.com. 3600 IN SOA ns1.example.com. hostmaster.example.com. 2026072501 2h 1h 2w 1h"
+                  );
+
+        Assert.Multiple(() => {
+            Assert.That(soa.Serial,  Is.EqualTo(2026072501u), "the serial is a number, not a duration");
+            Assert.That(soa.Refresh, Is.EqualTo(TimeSpan.FromHours(2)));
+            Assert.That(soa.Retry,   Is.EqualTo(TimeSpan.FromHours(1)));
+            Assert.That(soa.Expire,  Is.EqualTo(TimeSpan.FromDays(14)));
+            Assert.That(soa.Minimum, Is.EqualTo(TimeSpan.FromHours(1)));
+        });
+
+    }
+
+    #endregion
+
     #region A_Signature_Time_Is_Read_In_Both_Published_Forms()
 
     [Test]
