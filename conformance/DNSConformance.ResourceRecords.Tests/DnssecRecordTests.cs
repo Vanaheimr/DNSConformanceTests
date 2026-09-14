@@ -241,6 +241,93 @@ public class DnssecRecordTests
 
     #endregion
 
+    #region NSEC3_ZoneFile_Next_Hashed_Owner_Is_Base32Hex()
+
+    [Test]
+    [Property("RFC", "5155 §3.3")]
+    public void NSEC3_ZoneFile_Next_Hashed_Owner_Is_Base32Hex()
+    {
+
+        // RFC 5155 §3.3: the Next Hashed Owner Name field is "an unpadded
+        // sequence of case-insensitive base32 digits, with the extended hex
+        // alphabet". Not hex — and the two are told apart at a glance, because
+        // base32hex of a 20-octet SHA-1 hash is 32 characters where hex is 40.
+        //
+        // The hash arrives through ComputeHash rather than as a literal, and
+        // Nsec3HashTests pins that against RFC 5155 Appendix A, which publishes
+        // 2t7b4g4vsa5smi47k61mv5bv1a22bojr as the hash of ns1.example. The only
+        // thing left for this test to measure is the encoding.
+        var salt      = Bytes.FromHex("aabbccdd");
+        var nextHash  = NSEC3.ComputeHash(DomainName.Parse("ns1.example."), 12, salt);
+
+        var record    = new NSEC3(
+                            DomainName.Parse("0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example."),
+                            DNSQueryClasses.IN,
+                            Ttl,
+                            1,          // SHA-1
+                            1,          // Opt-Out
+                            12,
+                            salt,
+                            nextHash,
+                            Bytes.FromHex("00 01 40")   // window 0, one octet, type A
+                        );
+
+        var rendered  = record.ToZoneFileString();
+
+        Assert.That(rendered.ToLowerInvariant(),
+                    Does.Contain("2t7b4g4vsa5smi47k61mv5bv1a22bojr"),
+                    "RFC 5155 Appendix A writes this next hashed owner name as " +
+                    "2t7b4g4vsa5smi47k61mv5bv1a22bojr. Hermod rendered:" +
+                    Environment.NewLine + rendered);
+
+    }
+
+    #endregion
+
+    #region NSEC3_ZoneFile_Line_From_A_Signer_Round_Trips()
+
+    [Test]
+    [Property("RFC", "5155 §3.3")]
+    public void NSEC3_ZoneFile_Line_From_A_Signer_Round_Trips()
+    {
+
+        // The same record as dnssec-signzone writes it, flattened onto one line.
+        // Reading it is what loading a signed zone from disk depends on, and no
+        // test reached that path before: the signed fixtures are parsed by this
+        // suite's own reader and handed to the zone as records, so Hermod's
+        // zone-file parser never saw an NSEC3.
+        const String line = "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. 3600 IN NSEC3 " +
+                            "1 1 12 aabbccdd 2t7b4g4vsa5smi47k61mv5bv1a22bojr " +
+                            "MX DNSKEY NS SOA NSEC3PARAM RRSIG";
+
+        var parsed = ADNSResourceRecord.ParseZoneFileString(line);
+
+        Assert.That(parsed, Is.InstanceOf<NSEC3>());
+
+        var nsec3  = (NSEC3) parsed;
+
+        Assert.Multiple(() => {
+
+            Assert.That(nsec3.NextHashedOwnerName, Has.Length.EqualTo(20),
+                        "32 base32hex characters decode to the 20 octets of a SHA-1 hash");
+
+            Assert.That(NSEC3.Base32HexEncode(nsec3.NextHashedOwnerName).ToLowerInvariant(),
+                        Is.EqualTo("2t7b4g4vsa5smi47k61mv5bv1a22bojr"));
+
+            Assert.That(nsec3.Salt,        Is.EqualTo(Bytes.FromHex("aabbccdd")));
+            Assert.That(nsec3.Iterations,  Is.EqualTo((UInt16) 12));
+            Assert.That(nsec3.Flags,       Is.EqualTo((Byte) 1));
+
+            // And out again, so that what one signer wrote another can read.
+            Assert.That(nsec3.ToZoneFileString().ToLowerInvariant(),
+                        Does.Contain("1 1 12 aabbccdd 2t7b4g4vsa5smi47k61mv5bv1a22bojr"));
+
+        });
+
+    }
+
+    #endregion
+
     #region CDS_And_CDNSKEY_Mirror_Parent_Formats()
 
     [Test]

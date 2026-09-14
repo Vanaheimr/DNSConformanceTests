@@ -170,7 +170,7 @@ round-trip where supported.
 | 2782 | SRV | priority/weight/port/target; no RDATA compression on emit | ✅ |
 | 3403 | NAPTR | flags/service/regexp character-strings | ✅ |
 | 4034 | DNSKEY, RRSIG, DS, NSEC | type bitmap windows (RFC 4034 §4.3 worked example, wire + zone-file), RRSIG field layout, DS digest lengths | ✅ |
-| 5155 | NSEC3, NSEC3PARAM | salt, flags, iterations, next-hashed-owner | ✅ |
+| 5155 | NSEC3, NSEC3PARAM | salt, flags, iterations, next-hashed-owner; §3.3 presentation form in both directions ✅ (finding 43) | ✅ |
 | 4255 | SSHFP | algorithm/fingerprint-type matrix | ✅ |
 | 4398 | CERT | type/keytag/algorithm | ✅ |
 | 6698/8162 | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names | ✅ |

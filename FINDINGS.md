@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-two RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-three RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -58,6 +58,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 40 | The one flag a refusal kept echoing | Low | 1035 §4.1.1, 6895 §2 | ✅ fixed |
 | 41 | An authoritative "does not exist" for names it serves no zone for | **High** | 1035 §4.1.1, 8020, 1034 §4.3.2 | ✅ fixed |
 | 42 | Unique goodbye records lost the cache-flush bit | Low | 6762 §10.1, §10.2 | ✅ fixed |
+| 43 | NSEC3: the next hashed owner name written and read as hex | Medium | 5155 §3.3 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1922,6 +1923,60 @@ Pinned independently by
 decodes Hermod's bytes with RawDns. Hermod's own
 `Withdraw_SendsGoodbyeForAllRecords_StopsAnswering_AndIsIdempotent` and
 `Update_RemovingAnRRSet_SendsGoodbyeForIt` now assert the corrected split too.
+
+---
+
+## 43 — A hash spelled in hex, beside a hash of the same name spelled in base32
+
+Found while costing out a DNSSEC zone signer in C#, because writing an NSEC3
+record out is the first thing such a signer would have to do.
+
+RFC 5155 §3.3 fixes the presentation form of the RDATA field by field, and the
+two variable-length fields are deliberately unalike: the salt is "a sequence of
+case-insensitive hexadecimal digits", the Next Hashed Owner Name is "an unpadded
+sequence of case-insensitive base32 digits, with the extended hex alphabet".
+Hermod wrote both as hex and read both as hex.
+
+The consequence is visible in a single line, without reference to the RFC:
+
+```
+0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example. 3600 IN NSEC3 1 1 12 aabbccdd 174eb2409fe28bcb4887a1836f957f0a8425e27b A
+```
+
+The owner name is the base32hex of a hash, 32 characters, produced correctly by
+`Base32HexEncode`. The next hashed owner name is a hash of exactly the same kind
+rendered 40 characters wide by `Convert.ToHexString`. Two spellings of one thing,
+in one record, eight fields apart.
+
+The reading half had the sharper edge. `ADNSResourceRecord` routes the zone-file
+type NSEC3 through `NSEC3.TryParseFromJSON`, which decoded that field with
+`Convert.FromHexString`. Base32hex uses G through V, so the decode threw, the
+parser returned null, and `AddZoneFileString` raised *"Could not parse RDATA for
+DNS resource record type 'NSEC3'!"*. Loading an NSEC3-signed zone from a zone
+file was impossible — which is every zone `dnssec-signzone` produces with `-3`.
+
+**Why it survived.** Nothing had cause to use that path. The signed fixtures are
+read by this suite's own parser in `SignedZoneFixture`, which gets §3.3 right and
+says so in a comment, and hands the records to `InMemoryDNSZone.Add` already
+built. So the serving tests drive NSEC3 hard — opt-out, closest encloser, the lot
+— and never once ask Hermod to read or write the presentation form. The wire
+format was never in doubt either: `SerializeRRData` writes the hash as the octets
+it already holds. The defect lived entirely in the two places where those octets
+become text, and both of them were unreached.
+
+Severity is **Medium**. No answer was ever wrong and no running server touches
+it. But it seals the zone-file boundary in both directions — a signer's output
+cannot be read in, Hermod's output cannot be read by anything else — and NSEC3
+records arriving from a DNS JSON API are discarded for the same reason.
+
+Pinned by `NSEC3_ZoneFile_Next_Hashed_Owner_Is_Base32Hex`, which renders a record
+whose hash RFC 5155 Appendix A publishes, and
+`NSEC3_ZoneFile_Line_From_A_Signer_Round_Trips`, which reads the appendix's own
+record back and writes it out again. The hash reaches the first test through
+`ComputeHash`, pinned against the appendix by `Nsec3HashTests`, rather than as a
+literal — so the only thing that test is free to get wrong is the encoding. Both
+mutations, the hex encoder and the hex decoder restored one at a time, are
+caught, each by the test aimed at it and not by the other.
 
 ---
 
