@@ -128,7 +128,7 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the full 2026-09-14 Windows run: **1037 tests, 1033 ✅, 0 ❌, 4
+Counts as of the full 2026-09-14 Windows run: **1051 tests, 1047 ✅, 0 ❌, 4
 skipped**. All twelve test projects and every category ran, including the public
 resolvers, WSL tools, Docker servers and native multicast DNS-SD. The four skips
 are RSA public-key exponent cases that Windows CNG cannot import; the Linux CI
@@ -151,6 +151,8 @@ leg covers them. Every deviation the suite has found is fixed; see
 | 3597 §4 | RDATA compression | the eleven post-1035 types no longer compress the names in their RDATA ✅ (finding 22); the five RFC 1035 types still do | ✅ |
 | 3597 §5 | Presentation format | `\#` generic RDATA both ways, `TYPEnnn`/`CLASSnn`, a bare decimal is a TTL ✅ (finding 23), a known type written generically re-reads as that type | ✅ |
 | 3123 §4 | APL wire form | family, prefix, and the negation flag in the top bit of the length octet — plus the MUST only octets can show: no trailing zero octets in the AFDPART, since `10.0.0.0/16` and `10/16` print identically | ✅ |
+| 4025 §2.3 | IPSECKEY gateway | four shapes chosen by the octet before them; type 3's length is written nowhere, so the boundary between gateway and public key is found by walking labels — read off the wire for every type, not only through the presentation format | ✅ |
+| 4025 §2.4, §2.5 | IPSECKEY name and key | the gateway name uncompressed (RFC 3597 §4), and a record with algorithm 0 and no key — legal by §2.5, and refused by BIND in both the presentation and the generic form | ✅ |
 | 3123 §5 | APL presentation | the text form both ways, negation included; an address family the RFC gives no syntax for falls back to the RFC 3597 §5 generic form rather than invented syntax; an empty prefix list is legal and reads back as one | ✅ |
 | 4701 §3.1, §3.5 | DHCID | the identifier type code, digest type code and digest; the presentation form as base-64 of the whole block rather than of the digest alone, against all three of the RFC's own examples | ✅ |
 | 3596 §2.4, 5952 §4 | AAAA presentation | IPv6 address text, not URI authority text — no brackets ✅ (finding 50) — and the canonical form of each §4 subsection, every expectation taken from `named-checkzone -D` | ✅ |

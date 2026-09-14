@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-14): 1033 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-14): 1047 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
@@ -197,6 +197,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **3597** | Unknown RR types | §2 a type with no parser is kept as opaque data, in requests and in responses, and stepping over it leaves the reader where the next record begins — so it costs no record behind it. §3 the RDATA is served back octet for octet, including RDATA that reads as a compression pointer. §4 the eleven post-1035 types that carry a name in their RDATA emit it uncompressed, while the five RFC 1035 types still compress. §5 the `\#` generic form both ways, `TYPEnnn`/`CLASSnn`, a bare decimal read as a TTL and not a class, and a *known* type written generically re-read as that type. §6 RDATA compared as octets, case sensitively |
 | **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent; and a DS query at a zone cut is answered by the parent rather than referred (§3.1.4.1) |
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
+| **4025** | IPSECKEY | §2.3's gateway field, whose meaning is decided by the octet before it: none, four octets of IPv4, sixteen of IPv6, or a wire-encoded name whose length "is implicit" and therefore has to be found by walking labels — the one place in this record where being one octet out produces a shorter key that still decodes and still looks like a key. §2.4 the name uncompressed, asserted by walking the RDATA rather than trusting the serializer. §2.5 a record with no key at all, which is legal and which BIND cannot represent in either the presentation or the generic form. Every expected string is `named-checkzone -D`'s own output |
 | **4343** | Case-insensitivity | names differing only in case are equal, hash alike, order alike |
 | **5952** §4 | IPv6 text | the canonical form a zone file is written in, one case per subsection: §4.1 leading zeros suppressed, §4.2.1 `::` used to its maximum capability, §4.2.2 never for a single zero group, §4.2.3 the longest run and the leftmost of two equal ones, §4.3 lowercase. Written once in `DNSTools.ToZoneFileText` and used by both AAAA and APL, because findings 46 and 48 were each a second implementation quietly disagreeing with the first |
 | **4398** | CERT | type/keytag/algorithm |
@@ -328,7 +329,7 @@ the feature, the entry moves up a list — none of these are refusals on princip
 src/DNSConformance.Core          shared infrastructure (not tests)
 conformance/                     RFC conformance, offline
   …WireFormat.Tests              RFC 1035 header, names, compression, TTLs
-  …ResourceRecords.Tests         42 RR types: wire format, presentation format, round-trips
+  …ResourceRecords.Tests         43 RR types: wire format, presentation format, round-trips
   …Edns.Tests                    RFC 6891 OPT + typed EDNS options
   …Multicast.Tests               RFC 6762 mDNS + RFC 6763 DNS-SD wire behavior
   …Client.Tests                  client vs. scripted servers
