@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Forty-three RFC deviations in the Hermod DNS stack, each
+What this suite caught. Forty-four RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -59,6 +59,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 41 | An authoritative "does not exist" for names it serves no zone for | **High** | 1035 §4.1.1, 8020, 1034 §4.3.2 | ✅ fixed |
 | 42 | Unique goodbye records lost the cache-flush bit | Low | 6762 §10.1, §10.2 | ✅ fixed |
 | 43 | NSEC3: the next hashed owner name written and read as hex | Medium | 5155 §3.3 | ✅ fixed |
+| 44 | Zone file: wildcard and underscore names judged by hostname rules | **High** | 2181 §11, 4592 §2.1.1, 8552 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -1980,6 +1981,86 @@ caught, each by the test aimed at it and not by the other.
 
 ---
 
+## 44 — Names a hostname may not have, in a place that is not a hostname
+
+Found by the hunt finding 43 suggested: if the suite's own readers keep Hermod's
+unexercised, then Hermod's reader is where to look. The first probe fed all 345
+resource record lines of the signed fixtures through `ParseZoneFileString`. It
+refused 49 of them — every line of `dname.dnssec.test`, which is the one fixture
+zone with a wildcard in it.
+
+**RFC 2181 §11 is the sentence this turns on.** "Any binary string whatever can be
+used as the label of any resource record"; the familiar letter-digit-hyphen rule
+restricts *hostnames*, and a resource record name is not one. RFC 4592 §2.1.1
+makes the asterisk an ordinary label that acquires a meaning in the leftmost
+position of an owner name, and RFC 8552 is built entirely on underscore names.
+Hermod validated both by hostname syntax and refused them.
+
+**What made it hard to see is that the error named the wrong half of the line.**
+
+```
+*.example.com. 3600 IN A 192.0.2.1
+    → Could not parse RDATA for DNS resource record type 'A'!
+```
+
+The RDATA is `192.0.2.1`. `TryParseZoneFileString` parses the owner name twice —
+once as a `DNSServiceName`, which accepts both forms, and once as a `DomainName`,
+which did not — and the second result is taken with `out _`, the error thrown
+away. A null `domainName` then skips the entire type dispatch below it, and the
+line falls through to the two types that are keyed on `DNSServiceName` instead.
+
+The message is now honest about which half it could not read — the owner-name
+error is kept rather than discarded, and a name the parser still refuses (an
+asterisk anywhere but leftmost, say) is reported as a name.
+
+That misdirection produced the symptom that finally named the cause: **SRV and
+URI parsed and nothing else did.** `_sip._tcp.example.com. IN SRV` was fine while
+`_443._tcp.example.com. IN TLSA` was not — the same owner name, accepted or
+refused according to which branch its record type lived in.
+
+The same rule applies one field to the right, and thirteen types broke it: the
+name inside the RDATA went through the strict parser too, so a CNAME to
+`_dmarc.example.com.`, an MX to a wildcard, or an NSEC whose Next Domain Name is
+the wildcard it walks past — which is exactly what BIND wrote in the fixture —
+were all refused. `SIG` was already using `ParseLenient` for its signer name
+while `RRSIG`, its modern twin, used the strict one: the right answer was in the
+codebase, applied once.
+
+Severity is **High**. Nothing on the wire was wrong — names arriving in a DNS
+*response* were already read leniently — but a zone file is how a server is
+loaded, and between wildcards, DMARC, DKIM and TLSA this is most of what an
+operator writes. The suite's own DNSSEC fixtures could not be read by the stack
+they were built for.
+
+The fix gives `DomainName` a public `TryParseLenient` — `ParseLenient` existed but
+only in the throwing form, which a parser cannot use for control flow — and
+applies it to the owner name and to all thirteen RDATA names. The leniency is
+exactly the two documented forms; an asterisk anywhere other than leftmost stays
+rejected, as `TryParse` already commented.
+
+Pinned by `A_Wildcard_Owner_Name_Is_Read`, `An_Underscore_Owner_Name_Is_Read`,
+`Names_In_The_RDATA_Carry_The_Same_Labels` and
+`A_Refused_Owner_Name_Is_Reported_As_One`, and by the sweep that found it,
+`Every_Line_The_Reference_Signer_Wrote_Is_Readable`, which reads every line of
+every signed fixture rather than a sample — 49 lines out of 345 were the whole of
+one zone, and a sample would have had to be unlucky to hit them. Four mutations
+are caught and each by only the tests aimed at it: the owner name back to strict
+kills the two owner tests and the sweep; the NSEC name back to strict kills the
+RDATA test and the sweep; dropping only the wildcard half of the leniency kills
+the wildcard tests and leaves the underscore one green; restoring the
+unconditional "could not parse RDATA" kills the diagnostic test alone.
+
+Two further tests came out of the same hunt and found nothing, which is worth
+recording. `Every_Record_Type_Survives_A_Presentation_Round_Trip` takes all 37
+types through write-then-read; `Hermod_Renders_A_Record_The_Way_The_Reference_Signer_Did`
+compares Hermod's rendering against BIND's own text for every line of the signed
+fixtures, with the known divergences asserted as an exact set. The second is the
+one that would have caught finding 43 the day it was written; the first would
+not have, and the difference between them is why the comparison against somebody
+else's output is the one worth having.
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
@@ -1992,6 +2073,19 @@ to "a prior occurrence of the same name". Hermod accepts forward pointers; the
 suite's strict reference reader rejects them. Leniency on receive is a
 defensible robustness choice and violates no MUST, so this is documented rather
 than failed (`Forward_Pointers_Are_Not_Prior_Locations`).
+
+**IPv6 addresses are written in the fully expanded form.** `IPv6Address.ToString()`
+renders `2001:db8::13` as `2001:0db8:0000:0000:0000:0000:0000:0013`, so a zone
+file Hermod writes does not compare textually with the same zone written by BIND.
+RFC 3596 §2.4 defines AAAA presentation by reference to the IPv6 text
+representation, which permits every form RFC 4291 §2.2 allows, so the record is
+correct; RFC 5952 §4 later named one canonical *output* form, which suppresses
+leading zeroes and uses "::". Hermod's choice is the older one, it is pinned by
+Hermod's own `IPv6AddressTests`, and it reaches every part of the stack that
+prints an address rather than only DNS — so the suite records it and compares
+addresses as addresses (`Hermod_Reads_Aaaa`) rather than overturning it.
+`Hermod_Renders_A_Record_The_Way_The_Reference_Signer_Did` holds AAAA as its one
+known divergence, so if this is ever changed that test says so.
 
 **Compression is off by default.** `DNSServerOptions.UseCompression` defaults to
 false. Compression is optional (RFC 1035 §4.1.4), so this is a size/CPU trade-off

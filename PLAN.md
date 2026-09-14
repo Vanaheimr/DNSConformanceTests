@@ -343,6 +343,7 @@ side of the connection.
 | 4035 §5.3.2 | wildcard-expanded RRsets validate against the wildcard signature | ✅ |
 | 5011 §2.1 | a revoked KSK is dropped from the anchors and cannot come back | ✅ |
 | 4592 §2.1.1 | wildcard owner names round-trip; the `*` label is accepted leftmost only, and never by the strict hostname parser | ✅ |
+| 2181 §11, 4592 §2.1.1, 8552 | the zone-file boundary: a wildcard or underscore owner name, and the same labels in the RDATA of all thirteen types that hold a name, read rather than refused ✅ (finding 44); every line of every signed fixture read; every type through a presentation round trip; Hermod's rendering compared against BIND's own text, known divergences as an exact set | ✅ |
 | 5155 App. A | NSEC3 hash vectors: all twelve hashed owner names, salt per iteration, canonical-wire input, Base32hex | ✅ |
 | 5155 §8, 4035 §5.4 | authenticated denial of existence: match/cover, closest encloser, opt-out, wildcard NODATA, and canonical ordering against the §6.1 list | ✅ |
 | 5155 §6, §7.2.7 | opt-out, against a zone BIND signed with `-A`: the flag on every NSEC3, no NSEC3 for the insecure delegation, and a referral whose covering record carries the flag; a name inside an opted-out span is covered but not proven | ✅ |

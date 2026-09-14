@@ -17,14 +17,14 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-14): 923 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-14): 930 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 43 RFC deviations in Hermod. All are fixed;
+The suite has found 44 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -178,6 +178,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **1876** | LOC | the six fields that hold something other than what they mean. §2's scaled octet across all 256 values — 91 of them defined, the rest refused rather than rendered as a sphere wider than the solar system. The 2^31 offset on latitude and longitude and the 100 km offset on altitude, at both ends of the 32-bit range. §3's master-file defaults applied only to fields that are absent, not to fields that were written (finding 28). And the version field checked, with a record this build cannot read written in RFC 3597 §5's generic form — which is the example §5 itself gives |
 | **2181** §8 | TTL range | a received TTL with the sign bit set reads as zero rather than as an expiry 136 years out, and every value below the bit is taken literally — the half that stops "always zero" from passing. On the way out the value is capped at 2^31-1 instead of being allowed to spill into the sign bit. OPT is left alone, because RFC 6891 §6.1.3 spends the same four octets on an extended RCODE (finding 38) |
 | **2181** §10.1 | Clarifications | an alias owns no other data |
+| **2181** §11 | Name syntax | "any binary string whatever can be used as the label of any resource record": a zone-file owner name and the thirteen record types that hold a name in their RDATA all accept the wildcard of RFC 4592 §2.1.1 and the underscore names of RFC 8552, which hostname syntax forbids ✅ (finding 44). Every line of every signed fixture is read, and Hermod's rendering of each is compared against the text BIND wrote for it, with the known divergences asserted as an exact set |
 | **2308** | Negative caching | NXDOMAIN vs NODATA kept distinct, both cached per (name, type), TTL = `min(SOA.MINIMUM, SOA.TTL)`, entries actually expire, a referral is not mistaken for NODATA — and on the serving side (§3) every negative answer cites the zone's SOA, without which none of the above has anything to work from |
 | **2535** §3, **3445** | KEY | wire round-trip, protocol fixed at 3, the use bits, and "no key information" kept distinct from a key with one use forbidden |
 | **2539** | Diffie-Hellman in KEY | length-prefixed prime/generator/public value; a well-known-group index refused rather than read as a literal prime; truncated and over-long RDATA rejected |
@@ -192,7 +193,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
 | **4343** | Case-insensitivity | names differing only in case are equal, hash alike, order alike |
 | **4398** | CERT | type/keytag/algorithm |
-| **4592** | Wildcards | §2.1.1 the owner name: `*` accepted as leftmost label only, and never by the strict hostname parser. §3.3.1 the *matching*: synthesis at the closest encloser and nowhere above it, an exact match and an empty non-terminal each suppressing it, more than one label covered, no type of its own meaning NODATA — and the answer carrying the queried name, with the asterisk absent from the response entirely |
+| **4592** | Wildcards | §2.1.1 the owner name: `*` accepted as leftmost label only, and never by the strict hostname parser — which is the parser the zone-file reader used to reach for, so every wildcard line BIND wrote was unreadable ✅ (finding 44). §3.3.1 the *matching*: synthesis at the closest encloser and nowhere above it, an exact match and an empty non-terminal each suppressing it, more than one label covered, no type of its own meaning NODATA — and the answer carrying the queried name, with the asterisk absent from the response entirely |
 | **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good |
 | **5155** | NSEC3 | §3.3 presentation format: the salt hexadecimal and the next hashed owner name base32hex, read and written, against the record App. A publishes ✅ (finding 43). Hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material. §6 opt-out, against a zone BIND signed with `-A`: the flag on every record, no NSEC3 for the insecure delegation, and the §7.2.7 referral proof whose covering record carries the flag |
 | **5452** | Spoofing resistance | transaction IDs span the 16-bit space; a non-matching response is ignored, not fatal |
