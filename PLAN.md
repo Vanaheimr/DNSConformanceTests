@@ -250,6 +250,8 @@ round-trip where supported.
 | 7766 §6.2.1 | multiple queries on one TCP connection; recovery when the server closes | ✅ |
 | 7766 §7 | a response that does not match is skipped, not returned: a late answer to a timed-out query leaves the reused connection usable, a stale one never reaches the caller, a message too short for a header is consumed rather than stranded, and a read abandoned mid-message drops the connection | ✅ |
 | 1035 §4.2.1 | UDP timeout respected; silence never hangs the caller | ✅ |
+| 1035 §3.2.1 | a record stops being served when its own TTL is over, while a longer-lived record cached beside it at the same name goes on being served — the entry has a lifetime and so does every record in it, and only the second is the one the TTL is about | ✅ |
+| consistency | one event, four transports: a query that runs out of its own time reports `IsTimeout` over UDP, TCP, DoT and DoH alike. DoH used to call its own deadline a plain failure, because the HTTP layer turned the cancellation into a statusless response before the timeout path could see it — no wire rule, but it decides whether a caller retries a slow resolver or writes it off as broken | ✅ |
 | robustness | garbage responses produce a result object, not an unhandled exception | ✅ |
 | 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
