@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty-one RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty-two RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -67,6 +67,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 49 | A response was matched by its transaction ID and nothing else | **High** | 5452 §9.1, §3, 4343 | ✅ fixed |
 | 50 | AAAA wrote an IPv6 literal in URI bracket syntax | **High** | 3596 §2.4, 5952 §4 | ✅ fixed |
 | 51 | A relative wildcard owner name was refused, and took its zone file with it | **High** | 1035 §5.1, 4592 §2.1.1 | ✅ fixed |
+| 52 | SRV: a weight of 0 was never chosen, and an unreachable priority hid the rest | Medium | 2782 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2618,6 +2619,116 @@ and by `A_Whole_Zone_File_Keeps_Its_Wildcard`, which reads the line in the place
 it actually occurs and asserts the *exact set* of owner names the file produces,
 so a wildcard that silently lands somewhere else fails just as loudly as one that
 disappears.
+
+## 52 — A weight of zero meant never, and an unreachable priority meant nothing exists
+
+Found beside a `//ToDo` that turned out to be the least interesting thing in the
+file. The note asked whether an expired SRV cache entry should refresh itself
+asynchronously — an ergonomics question with no RFC behind it. Three lines below
+it sat `SelectEndpoint`, which implements an algorithm RFC 2782 writes out in
+full, and got two thirds of it wrong.
+
+**The weighted pick.** RFC 2782 is explicit about weight 0:
+
+> "In the presence of records containing weights greater than 0, records with
+> weight 0 should have a very small chance of being selected."
+
+The small chance is not an accident of the arithmetic; the RFC engineers it, out
+of three details that only work together:
+
+> "Arrange all SRV RRs … in any order, except that all those with weight 0 are
+> placed at the beginning of the list."
+> "…choose a uniform random number between 0 and the sum computed (inclusive),
+> and select the RR whose running sum value is the first … which is greater than
+> or equal to the random number selected."
+
+Weight-0 first, an *inclusive* draw, and *greater than or equal*. Only a draw of
+exactly zero reaches a zero-weight record — one outcome in sum + 1.
+
+The implementation had none of the three. It wrote the obvious weighted pick:
+
+```csharp
+var randomValue = Random.Shared.Next(0, totalWeight);   // exclusive
+
+foreach (var candidate in candidates)
+{
+    if (randomValue < candidate.Weight)   // strictly less
+        return candidate;
+    randomValue -= candidate.Weight;
+}
+return candidates.Last();                 // "Fallback"
+```
+
+Nothing is ever less than zero, so a weight-0 target is skipped every time.
+Measured over 20,000 draws against weights 0, 10 and 40:
+
+```
+zero    weight     0 ->      0 of 20000
+ten     weight    10 ->   3932 of 20000
+forty   weight    40 ->  16068 of 20000
+```
+
+Not rare. Never.
+
+**And the case the RFC recommends.** "Domain administrators SHOULD use Weight 0
+when there isn't any server selection to do" — so all-zero weights are the
+normal way to publish equal targets. With every weight zero the sum is zero,
+`Next(0, 0)` returns 0, no candidate satisfies `0 < 0`, and every single draw
+falls through to `candidates.Last()`:
+
+```
+alpha   weight     0 ->      0 of 20000
+beta    weight     0 ->      0 of 20000
+gamma   weight     0 ->  20000 of 20000
+```
+
+Three equal targets doing the work of one. RFC 2782 permits "any order" here, so
+this is not a MUST violation — it is the recommendation being emptied of its
+purpose, which is why the fix shuffles rather than merely ordering.
+
+**The third part is a MUST, and it is in the same sentence as the priority
+rule.** RFC 2782: "A client MUST attempt to contact the target host with the
+lowest-numbered priority **it can reach**". The code took the lowest priority
+and returned null if none of its targets were healthy:
+
+```csharp
+var minPriority = endpoints.Min(e => e.Priority);
+var candidates  = endpoints.Where(e => e.Priority == minPriority && e.IsHealthy).ToList();
+
+if (candidates.Count == 0)
+    return null;
+```
+
+A backup at priority 20 is exactly what a failed primary at priority 10 is for,
+and the caller is never told it exists — it asked for a target and was told there
+is none. The search now walks the priorities in order and stops at the first one
+with something reachable.
+
+**Also removed: `MarkUnhealthy`.** Its entire body was commented out, so the
+method marked nothing, while `SelectEndpoint` filtered on `IsHealthy` as though
+something could. A method that silently does nothing is worse than an absent
+one: the filter beside it reads as working. The flag stays, because it is
+reachable through the constructor and now decides when the priority walk moves
+on.
+
+Severity is **Medium**: two SHOULD-level deviations with real operational cost,
+and one MUST that hides the rest of a target list. `DNSSRVManager` has no callers
+in either repository, which lowers the urgency and changes nothing about the
+reading.
+
+Pinned by six tests in `SrvSelectionTests`. Six mutations, five caught, and the
+sixth — the inclusive draw — is declared as expected to survive: it shifts a
+weight-0 record from one chance in 51 to one in 50, and no honest bound
+separates two per cent from noise. The line is right because the RFC says so,
+and the script says out loud that it is carried by the specification rather than
+by evidence.
+
+The mutation that earned its keep is `do-not-put-weight-zero-first`, because it
+survived the first run. The test asked only whether a weight-0 target was *ever*
+chosen, and unsorted, it still lands first in a third of the shuffles and is
+still reachable then — about 131 draws instead of 392. Three times too rare is
+invisible to a test that asks whether something ever happens, so the bound is now
+seven standard deviations around the expected count instead.
 
 ---
 
