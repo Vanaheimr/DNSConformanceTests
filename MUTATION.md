@@ -124,7 +124,9 @@ build/mutation/
   sweep.py        pass 1 — mutate, build, run one test project, record
   sweep_wide.py   pass 2 — re-judge only the survivors against six more projects
   control.py      the self-test: does the bench notice a change it must notice
-  report.py       triage and the gap list
+  report.py       triage and the gap list, read against the working tree
+  classify.py     the same triage, pinned to the revision the sweep measured
+  standing.py     how much is closed, derived from files rather than typed
   results/        the raw verdicts, one row per mutant
 ```
 
@@ -186,15 +188,25 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **60 of the 240 are closed** and **7 were declared equivalent
-rather than chased**, leaving **173 open**:
+Since the sweep, **80 of the 240 are closed** and **7 were declared equivalent
+rather than chased**, leaving **153 open** — across APL, TXT, the base class, the
+SRV identifiers, and the shortest RDATA that IPSECKEY, DHCID and the Extended DNS
+Error option can carry.
 
-| | closed | equivalent | open |
-|---|---:|---:|---:|
-| `APL.cs` | 13 | 3 | 0 |
-| `TXT.cs` | 25 | 3 | 1 |
-| `ADNSResourceRecord.cs` | 22 | 1 | 26 |
-| everything else | 0 | 0 | 146 |
+Do not trust that sentence. Print it:
+
+```bash
+python build/mutation/standing.py
+```
+
+The count above was recomputed by hand four times and was wrong twice, both
+times because the triage read a source tree that had moved under it while the
+verdicts stayed pinned to the revision they were measured on. Two files now hold
+what the source used to be asked for — `results/records-classified.tsv`, every
+survivor classified against Hermod `973fed31`, and `results/records-closed.tsv`,
+every gap since closed or declared equivalent, keyed the same way. `standing.py`
+reads those two and nothing else, so it cannot drift no matter how far the code
+moves.
 
 Each closure was verified by a mutation taken from this output rather than
 invented, and **every one of the three rounds caught a test that closed the gap

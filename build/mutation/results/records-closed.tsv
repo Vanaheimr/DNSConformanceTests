@@ -1,0 +1,91 @@
+# Gaps that are no longer gaps, keyed to the same revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# file	line	operator	state	round	why
+DNS/ResourceRecords/ADNSResourceRecord.cs	515	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	703	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	731	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	758	logical-or-to-and	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	759	greater-to-ge	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	761	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	778	greater-to-ge	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	779	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	827	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	832	logical-or-to-and	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	832	less-to-less-or-equal	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	832	greater-to-ge	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	833	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	953	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	959	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1045	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1052	ge-to-greater	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1056	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1162	le-to-less	equivalent		a window header at the very end of the buffer carries no bitmap, so entering it and skipping it both end in false
+DNS/ResourceRecords/ADNSResourceRecord.cs	1171	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1179	ge-to-greater	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1180	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1191	false-to-true	killed	adns	
+DNS/ResourceRecords/APL.cs	114	greater-to-ge	killed	apl	
+DNS/ResourceRecords/APL.cs	144	ge-to-greater	equivalent		width is 4, 16, or AFDPart.Length itself, so both branches return the same octets
+DNS/ResourceRecords/APL.cs	178	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	181	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	188	less-to-less-or-equal	equivalent		a slash at position 0 leaves an empty address the parser refuses twelve lines later
+DNS/ResourceRecords/APL.cs	189	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	192	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	202	greater-to-ge	killed	apl	
+DNS/ResourceRecords/APL.cs	203	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	206	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	216	greater-to-ge	killed	apl	
+DNS/ResourceRecords/APL.cs	217	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	220	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	231	false-to-true	killed	apl	
+DNS/ResourceRecords/APL.cs	317	le-to-less	killed	apl	
+DNS/ResourceRecords/APL.cs	401	logical-or-to-and	equivalent		TryParse nulls Item on every false it returns, so the two operands never differ
+DNS/ResourceRecords/DHCID.cs	157	ge-to-greater	killed	bounds	
+DNS/ResourceRecords/DHCID.cs	191	ge-to-greater	killed	bounds	
+DNS/ResourceRecords/HTTPS.cs	274	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/IPSECKEY.cs	230	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/IPSECKEY.cs	231	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/IPSECKEY.cs	232	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/LOC.cs	451	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/NSEC.cs	175	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/SVCB.cs	368	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/SVCB.cs	376	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	killed	txt	
+DNS/ResourceRecords/TXT.cs	338	equality-to-inequality	killed	txt	
+DNS/ResourceRecords/TXT.cs	338	less-to-less-or-equal	killed	txt	
+DNS/ResourceRecords/TXT.cs	338	greater-to-ge	killed	txt	
+DNS/ResourceRecords/TXT.cs	392	logical-and-to-or	killed	txt	
+DNS/ResourceRecords/TXT.cs	392	greater-to-ge	killed	txt	
+DNS/ResourceRecords/TXT.cs	452	greater-to-ge	equivalent		only an empty text leaves the builder empty, and ValidateStrings turns [] into [""] anyway
+DNS/ResourceRecords/TXT.cs	478	greater-to-ge	killed	txt	
+DNS/ResourceRecords/TXT.cs	503	logical-or-to-and	killed	txt	
+DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	killed	txt	
+DNS/ResourceRecords/TXT.cs	508	less-to-less-or-equal	equivalent		equals is 0 only when the text starts with '=', which ParseKeyValues skipped four lines earlier
+DNS/ResourceRecords/TXT.cs	509	less-to-less-or-equal	equivalent		the same: position zero is unreachable here
+DNS/ResourceRecords/TXT.cs	534	logical-or-to-and	killed	txt	
+DNS/ResourceRecords/TXT.cs	534	equality-to-inequality	killed	txt	
+DNS/ResourceRecords/TXT.cs	534	inequality-to-equality	killed	txt	
+DNS/ResourceRecords/TXT.cs	535	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	539	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	540	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	551	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	554	equality-to-inequality	killed	txt	
+DNS/ResourceRecords/TXT.cs	555	true-to-false	killed	txt	
+DNS/ResourceRecords/TXT.cs	557	equality-to-inequality	killed	txt	
+DNS/ResourceRecords/TXT.cs	561	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	569	equality-to-inequality	killed	txt	
+DNS/ResourceRecords/TXT.cs	570	true-to-false	killed	txt	
+DNS/ResourceRecords/TXT.cs	573	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	578	false-to-true	killed	txt	
+DNS/ResourceRecords/TXT.cs	581	true-to-false	killed	txt	
+DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	265	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	270	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	162	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/SRV/SRVSpec.cs	302	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/SRV/SRVSpec.cs	317	le-to-less	killed	bounds	
+DNS/ResourceRecords/SRV/SRVSpec.cs	332	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/SRV/SRVSpec.cs	347	ge-to-greater	killed	bounds	
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	177	le-to-less	killed	bounds	
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	192	greater-to-ge	killed	bounds	
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	207	ge-to-greater	killed	bounds	
