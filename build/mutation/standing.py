@@ -59,6 +59,13 @@ def main():
     print("  still open                 %4d" % still_open)
     print()
 
+    if still_open == 0:
+        print("  Nothing is left. Every mutant this sweep could not kill has since been")
+        print("  killed, shown unreachable, or had its line replaced by a fix.")
+        print()
+        print("=" * 74)
+        return
+
     by_kind = {}
     for r in real:
         if (r[0], r[1], r[2]) not in done:

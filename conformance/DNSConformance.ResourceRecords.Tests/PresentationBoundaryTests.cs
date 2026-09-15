@@ -205,6 +205,61 @@ public class PresentationBoundaryTests
 
     }
 
+    [Test]
+    [Property("RFC", "1876 §2")]
+    [Property("RFC", "1876 §5")]
+    [TestCase(0,  "N", "E", TestName = "the equator and the prime meridian themselves")]
+    [TestCase(-1, "S", "W", TestName = "one thousandth of a second below each")]
+    [TestCase(1,  "N", "E", TestName = "one thousandth of a second above each")]
+    public void The_Reference_Point_Belongs_To_The_Northern_And_Eastern_Side(Int32   Offset,
+                                                                             String  NorthSouth,
+                                                                             String  EastWest)
+    {
+
+        // §2 says only which side the values *around* the reference point are on:
+        // "2^31 represents the equator; numbers above that are north latitude",
+        // and the same for the prime meridian. It does not say in prose which
+        // letter 2^31 itself takes, and for a long time this pair was left open
+        // here for exactly that reason.
+        //
+        // It is settled all the same, in §5 — the RFC publishes the conversion
+        // itself, and loc_ntoa decides the hemisphere like this:
+        //
+        //     if (latval < 0) { northsouth = 'S'; latval = -latval; }
+        //     else              northsouth = 'N';
+        //
+        // Strictly below zero is 'S' and everything else, zero included, is 'N';
+        // longitude the same with 'W' and 'E'. So a location on the equator is
+        // written N and one on the prime meridian E, and a reader that puts the
+        // boundary one step over disagrees with the RFC's own code — and with
+        // every implementation derived from it — about which hemisphere the
+        // reference point is in.
+        //
+        // The value round-trips either way, which is why nothing else catches
+        // this: "0 0 0.000 S" parses back to 2^31 exactly as "0 0 0.000 N" does.
+        // Only the text differs, and the text is what another resolver reads.
+        var loc = new LOC(
+                      DomainName.Parse("probe.example."),
+                      DNSQueryClasses.IN,
+                      Ttl,
+                      0,
+                      LOC.DefaultSize,
+                      LOC.DefaultHorizPrecision,
+                      LOC.DefaultVertPrecision,
+                      (UInt32) (Equator + Offset),
+                      (UInt32) (Equator + Offset),
+                      10_000_000
+                  );
+
+        var fields = Rdata(loc).Split(' ');
+
+        Assert.Multiple(() => {
+            Assert.That(fields[3], Is.EqualTo(NorthSouth), "latitude");
+            Assert.That(fields[7], Is.EqualTo(EastWest),   "longitude");
+        });
+
+    }
+
     #endregion
 
 

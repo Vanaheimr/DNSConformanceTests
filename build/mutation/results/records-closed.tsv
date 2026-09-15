@@ -127,6 +127,8 @@ DNS/ResourceRecords/LOC.cs	486	equality-to-inequality	killed	branch
 DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	killed	branch2	
 DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/LOC.cs	493	less-to-less-or-equal	killed	bounds2	
+DNS/ResourceRecords/LOC.cs	549	ge-to-greater	killed	loc	
+DNS/ResourceRecords/LOC.cs	558	ge-to-greater	killed	loc	
 DNS/ResourceRecords/MX.cs	215	greater-to-ge	equivalent		two octets and a name, so at most 257
 DNS/ResourceRecords/NAPTR.cs	227	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/NAPTR.cs	276	greater-to-ge	equivalent		four octets, three character-strings capped at 255 each, and a name — at most 1027

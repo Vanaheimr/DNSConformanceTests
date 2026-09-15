@@ -86,6 +86,13 @@ KILLED = {
                 "DNS/ResourceRecords/SRV/DNSSRVManager.cs":          {92},
                 "DNS/ResourceRecords/SRV/SRVSpec.cs":                {38, 45, 163, 168, 175, 383, 423},
                 "DNS/ResourceRecords/SVCB.cs":                       {371}},
+
+    # The last two rows of the sweep, and the pair that had been left open on
+    # the grounds that RFC 1876 §2 does not say in prose which hemisphere the
+    # reference point itself is in. It does not — but §5 publishes the
+    # conversion, and loc_ntoa gives 'S' to latval < 0 and 'N' to everything
+    # else. Zero is northern, and eastern, because the RFC's own code says so.
+    "loc":     {"DNS/ResourceRecords/LOC.cs": {549, 558}},
 }
 
 # Mutations that are real and unobservable: the program is the same either way.

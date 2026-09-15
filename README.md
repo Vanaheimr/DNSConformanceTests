@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-15): 1294 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-15): 1297 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
@@ -392,9 +392,9 @@ to Hermod's resource-record code one at a time — a comparison shifted, a
 condition inverted, a rejection made to succeed — and the suite is run against
 each. **Of 585 such changes, 358 went unnoticed; 240 of those are real gaps
 rather than equivalent code.** About half of what can be changed in that code,
-this suite did not watch. Every one of them has since been answered: 180 closed by
-a test, 54 unreachable rather than untested, 4 whose line a fix removed, and 2
-left open because the RFC does not decide them. Closing them turned up four more
+this suite did not watch. Every one of them has since been answered: 182 closed by
+a test, 54 unreachable rather than untested, and 4 whose line a fix removed — none
+left open. Closing them turned up four more
 deviations — [findings 54, 55 and 56](FINDINGS.md), plus `DNSSRVEndpoint`'s
 broken `Equals` and `CompareTo` — each of them a survivor that no test could
 kill, because no input could reach it.

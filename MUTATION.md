@@ -194,11 +194,12 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **180 of the 240 are closed** and **54 were declared equivalent
+Since the sweep, **182 of the 240 are closed** and **54 were declared equivalent
 rather than chased**. **4 more are gone**: the lines their verdicts were measured
 on were replaced by fixes, which is neither of the other two things.
 
-That leaves **2 open**, and they are one boundary written twice: see below.
+That leaves **none**. Every mutant this sweep could not kill has since been
+killed, shown unreachable, or had its line replaced.
 
 Do not trust that sentence. Print it:
 
@@ -258,15 +259,28 @@ the same guard in ten record types — an RDATA length of 65535, checked for by 
 type whose RDATA is domain names, which RFC 1035 §2.3.4 stops at 255 — and the
 evidence for that one is a test in the suite rather than a sentence here.
 
-Two boundaries are left with neither a test nor a reason, and they are the same
-boundary twice: LOC writes `N` for a latitude of exactly 2^31 and `E` for a
-longitude of exactly 2^31, where RFC 1876 §2 says only that values *above* 2^31
-are north and east. Both spellings read back as the same octets, so a test
-preferring one would be pinning a choice the RFC declines to make.
+The last pair to fall was the pair that looked least decidable, and it is worth
+keeping as a warning about this kind of judgement. LOC writes `N` for a latitude
+of exactly 2^31 and `E` for a longitude of exactly 2^31, and RFC 1876 §2 says
+only that values *above* 2^31 are north and east. Both spellings read back as the
+same octets, so the round trip cannot prefer one. They were left open here on the
+grounds that the RFC declines to choose.
 
-What is left is no longer a map of anything: two rows, one rule, and the rule is
-one RFC 1876 does not make. The sweep set out to find where this suite believed
-it was looking and was not, and it has now been walked end to end.
+It does not. §5 of the same RFC publishes the conversion, and `loc_ntoa` reads:
+
+```c
+if (latval < 0) { northsouth = 'S'; latval = -latval; }
+else              northsouth = 'N';
+```
+
+Strictly below zero is `S`; everything else, zero included, is `N`. The reference
+point is northern and eastern because the RFC's own code says so, and every
+implementation derived from that code agrees. The prose had been read and the
+appendix had not — which is the same mistake as stopping at the first `grep`
+result, one document larger.
+
+The sweep set out to find where this suite believed it was looking and was not,
+and it has been walked end to end. Nothing is left to map.
 
 Four defects came out of that walk, and none of them by a test failing.
 [Findings 54, 55 and 56](FINDINGS.md), and `DNSSRVEndpoint`'s `Equals` and

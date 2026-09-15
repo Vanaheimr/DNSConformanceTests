@@ -1,7 +1,8 @@
 # The seventh round re-run: every branch and rejection it claims, mutated again
 # and judged. Three passes — the first over all forty-eight, the second over the
 # four it left standing once they had tests, the third over the two spellings of
-# LOC's hemisphere that the second pass showed were still unwatched.
+# LOC's hemisphere that the second pass showed were still unwatched, and a
+# fourth over the last two rows of the sweep.
 #
 # GONE means the line a verdict belongs to was replaced by a fix and cannot be
 # mutated any more; the ledger records those as 'superseded' with the reason.
@@ -67,3 +68,5 @@ DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#3: 5 of 440 failed
 DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED	#4: 0 of 440 failed
 DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#2: 1 of 441 failed
 DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#4: 1 of 441 failed
+DNS/ResourceRecords/LOC.cs	549	ge-to-greater	KILLED	#1: 1 of 444 failed
+DNS/ResourceRecords/LOC.cs	558	ge-to-greater	KILLED	#1: 1 of 444 failed
