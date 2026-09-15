@@ -379,6 +379,25 @@ Every assertion is checked against an independent reference:
   and Hermod's reading of it is compared record for record, as an exact
   set in both directions.
 
+### And what grades the suite
+
+Everything above is about judging Hermod with something other than Hermod. It
+says nothing about whether a green test is green because the code is right or
+green because the test asks nothing, and from the outside those are identical.
+Four tests here turned out to be the second kind, every one found by accident.
+
+[MUTATION.md](MUTATION.md) is the answer to that question and the only number in
+this repository that was not chosen by whoever wrote the tests. Changes are made
+to Hermod's resource-record code one at a time — a comparison shifted, a
+condition inverted, a rejection made to succeed — and the suite is run against
+each. **Of 585 such changes, 358 went unnoticed; 240 of those are real gaps
+rather than equivalent code.** About half of what can be changed in that code,
+this suite does not watch.
+
+The list is not a backlog. It is a map of where the suite believes it is looking
+and is not — which is how APL's nine unexercised rejection paths were found,
+days after APL's own tests were written and passed.
+
 ### Scripted servers
 
 `ScriptedUdpServer`, `ScriptedTcpServer`, `ScriptedTlsServer` and

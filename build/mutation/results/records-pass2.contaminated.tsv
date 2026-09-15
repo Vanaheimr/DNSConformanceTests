@@ -1,0 +1,433 @@
+DNS/ResourceRecords/A.cs	209	inequality-to-equality	SURVIVED-EVERYWHERE	if (RData.Length != 4)
+DNS/ResourceRecords/A.cs	234	inequality-to-equality	SURVIVED-EVERYWHERE	if (read != 4)
+DNS/ResourceRecords/A.cs	272	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/A.cs	281	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/AAAA.cs	208	inequality-to-equality	SURVIVED-EVERYWHERE	if (RData.Length != 16)
+DNS/ResourceRecords/AAAA.cs	233	inequality-to-equality	SURVIVED-EVERYWHERE	if (read != 16)
+DNS/ResourceRecords/AAAA.cs	281	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/AAAA.cs	290	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/ADNSResourceRecord.cs	211	true-to-false	SURVIVED-EVERYWHERE	[NotNullWhen(true)] out IDNSResourceRecord?  ResourceRecord,
+DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	344	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 6)
+DNS/ResourceRecords/ADNSResourceRecord.cs	388	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 6)
+DNS/ResourceRecords/ADNSResourceRecord.cs	425	false-to-true	SURVIVED-EVERYWHERE	var isEscaped   = false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	433	false-to-true	SURVIVED-EVERYWHERE	isEscaped = false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	440	true-to-false	SURVIVED-EVERYWHERE	isEscaped = true;
+DNS/ResourceRecords/ADNSResourceRecord.cs	504	true-to-false	SURVIVED-EVERYWHERE	[NotNullWhen(true)] out Byte[]?   Bytes)
+DNS/ResourceRecords/ADNSResourceRecord.cs	515	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	SURVIVED-EVERYWHERE	ResourceRecord.Serialize(wire, UseCompression: false);
+DNS/ResourceRecords/ADNSResourceRecord.cs	572	less-to-less-or-equal	SURVIVED-EVERYWHERE	while (offset < bytes.Length && bytes[offset] != 0)
+DNS/ResourceRecords/ADNSResourceRecord.cs	617	greater-to-ge	SURVIVED-EVERYWHERE	if (RData.Length > UInt16.MaxValue)
+DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	SURVIVED-EVERYWHERE	DNSServiceName.Serialize(wire, 0, UseCompression: false, Offsets: []);
+DNS/ResourceRecords/ADNSResourceRecord.cs	656	true-to-false	SURVIVED-EVERYWHERE	if (Enum.TryParse(Text, true, out Class) &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	690	logical-and-to-or	SURVIVED-EVERYWHERE	if (Enum.TryParse (Text, true, out Type) &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	690	true-to-false	SURVIVED-EVERYWHERE	if (Enum.TryParse (Text, true, out Type) &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	703	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	731	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	758	logical-or-to-and	SURVIVED-EVERYWHERE	if (!UInt64.TryParse(Text[start..index], NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ||
+DNS/ResourceRecords/ADNSResourceRecord.cs	759	greater-to-ge	SURVIVED-EVERYWHERE	value > UInt32.MaxValue)
+DNS/ResourceRecords/ADNSResourceRecord.cs	761	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	778	greater-to-ge	SURVIVED-EVERYWHERE	if (total > UInt32.MaxValue)
+DNS/ResourceRecords/ADNSResourceRecord.cs	779	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	827	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	832	logical-or-to-and	SURVIVED-EVERYWHERE	if (unixTime < 0 || unixTime > UInt32.MaxValue)
+DNS/ResourceRecords/ADNSResourceRecord.cs	832	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (unixTime < 0 || unixTime > UInt32.MaxValue)
+DNS/ResourceRecords/ADNSResourceRecord.cs	832	greater-to-ge	SURVIVED-EVERYWHERE	if (unixTime < 0 || unixTime > UInt32.MaxValue)
+DNS/ResourceRecords/ADNSResourceRecord.cs	833	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	858	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	862	true-to-false	SURVIVED-EVERYWHERE	return true;
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	logical-and-to-or	SURVIVED-EVERYWHERE	if (Enum.TryParse<DNSResourceRecordTypes>(Text, true, out var resourceRecordType) &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	true-to-false	SURVIVED-EVERYWHERE	if (Enum.TryParse<DNSResourceRecordTypes>(Text, true, out var resourceRecordType) &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	940	true-to-false	SURVIVED-EVERYWHERE	[NotNullWhen(true)]  out IDNSResourceRecord?  ResourceRecord,
+DNS/ResourceRecords/ADNSResourceRecord.cs	941	false-to-true	SURVIVED-EVERYWHERE	[NotNullWhen(false)] out String?              ErrorResponse,
+DNS/ResourceRecords/ADNSResourceRecord.cs	953	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	959	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1010	false-to-true	SURVIVED-EVERYWHERE	var typeFound            = false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1013	less-to-less-or-equal	SURVIVED-EVERYWHERE	while (index < tokens.Count)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1045	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1052	ge-to-greater	SURVIVED-EVERYWHERE	if (index >= tokens.Count &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	1056	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1075	logical-and-to-or	SURVIVED-EVERYWHERE	ErrorResponse = domainName is null &&
+DNS/ResourceRecords/ADNSResourceRecord.cs	1089	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1162	le-to-less	SURVIVED-EVERYWHERE	while (offset + 2 <= TypeBitMaps.Length)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1170	greater-to-ge	KILLED-ELSEWHERE	dnssec (2 of 251 failed)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1171	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1173	equality-to-inequality	KILLED-ELSEWHERE	dnssec (2 of 251 failed)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1179	ge-to-greater	SURVIVED-EVERYWHERE	if (octetIndex >= bitmapLength)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1180	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1183	inequality-to-equality	KILLED-ELSEWHERE	dnssec (2 of 251 failed)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1191	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/ADNSResourceRecord.cs	1206	less-to-less-or-equal	SURVIVED-EVERYWHERE	while (offset < TypeBitMaps.Length)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1209	greater-to-ge	SURVIVED-EVERYWHERE	if (offset + 2 > TypeBitMaps.Length)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1222	less-to-less-or-equal	SURVIVED-EVERYWHERE	for (var bit = 0; bit < 8; bit++)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1302	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/ADNSResourceRecord.cs	1307	true-to-false	SURVIVED-EVERYWHERE	#region Serialize(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/ADNSResourceRecord.cs	1316	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/ADNSResourceRecord.cs	1376	false-to-true	SURVIVED-EVERYWHERE	ResourceRecord.Serialize(original, UseCompression: false, CompressionOffsets: []);
+DNS/ResourceRecords/ADNSResourceRecord.cs	1387	false-to-true	SURVIVED-EVERYWHERE	NewOwner.Serialize(rewritten, 0, UseCompression: false, Offsets: []);
+DNS/ResourceRecords/AFSDB.cs	190	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/AFSDB.cs	199	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/AFSDB.cs	213	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/AFSDB.cs	218	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/APL.cs	114	greater-to-ge	SURVIVED-EVERYWHERE	while (length > 0 && FullAddress[length - 1] == 0)
+DNS/ResourceRecords/APL.cs	144	ge-to-greater	SURVIVED-EVERYWHERE	if (AFDPart.Length >= width)
+DNS/ResourceRecords/APL.cs	178	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	181	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	188	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (slash < 0)
+DNS/ResourceRecords/APL.cs	189	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	192	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	202	greater-to-ge	SURVIVED-EVERYWHERE	if (prefix > 32)
+DNS/ResourceRecords/APL.cs	203	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	206	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	216	greater-to-ge	SURVIVED-EVERYWHERE	if (prefix > 128)
+DNS/ResourceRecords/APL.cs	217	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	220	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	231	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/APL.cs	317	le-to-less	SURVIVED-EVERYWHERE	while (offset + 4 <= rdata.Length)
+DNS/ResourceRecords/APL.cs	401	logical-or-to-and	SURVIVED-EVERYWHERE	if (!APLItem.TryParse(word, out var item) || item is null)
+DNS/ResourceRecords/APL.cs	474	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/APL.cs	483	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/CAA.cs	208	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/CAA.cs	217	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/CDNSKEY.cs	239	logical-and-to-or	KILLED-ELSEWHERE	dnssec (5 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	239	equality-to-inequality	KILLED-ELSEWHERE	dnssec (3 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	240	logical-and-to-or	KILLED-ELSEWHERE	dnssec (5 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	240	equality-to-inequality	KILLED-ELSEWHERE	dnssec (3 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	241	logical-and-to-or	KILLED-ELSEWHERE	dnssec (5 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	241	equality-to-inequality	KILLED-ELSEWHERE	dnssec (3 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	242	logical-and-to-or	KILLED-ELSEWHERE	dnssec (6 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	242	equality-to-inequality	KILLED-ELSEWHERE	dnssec (4 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	243	equality-to-inequality	KILLED-ELSEWHERE	dnssec (2 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	260	logical-and-to-or	KILLED-ELSEWHERE	dnssec (1 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	260	equality-to-inequality	KILLED-ELSEWHERE	dnssec (1 of 251 failed)
+DNS/ResourceRecords/CDNSKEY.cs	275	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/CDNSKEY.cs	284	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/CDS.cs	253	logical-and-to-or	KILLED-ELSEWHERE	dnssec (6 of 251 failed)
+DNS/ResourceRecords/CDS.cs	253	equality-to-inequality	KILLED-ELSEWHERE	dnssec (5 of 251 failed)
+DNS/ResourceRecords/CDS.cs	254	logical-and-to-or	KILLED-ELSEWHERE	dnssec (6 of 251 failed)
+DNS/ResourceRecords/CDS.cs	254	equality-to-inequality	KILLED-ELSEWHERE	dnssec (5 of 251 failed)
+DNS/ResourceRecords/CDS.cs	255	logical-and-to-or	KILLED-ELSEWHERE	dnssec (6 of 251 failed)
+DNS/ResourceRecords/CDS.cs	255	equality-to-inequality	KILLED-ELSEWHERE	dnssec (5 of 251 failed)
+DNS/ResourceRecords/CDS.cs	256	logical-and-to-or	KILLED-ELSEWHERE	dnssec (7 of 251 failed)
+DNS/ResourceRecords/CDS.cs	256	equality-to-inequality	KILLED-ELSEWHERE	dnssec (7 of 251 failed)
+DNS/ResourceRecords/CDS.cs	257	equality-to-inequality	KILLED-ELSEWHERE	dnssec (4 of 251 failed)
+DNS/ResourceRecords/CDS.cs	278	logical-and-to-or	KILLED-ELSEWHERE	dnssec (1 of 251 failed)
+DNS/ResourceRecords/CDS.cs	278	equality-to-inequality	KILLED-ELSEWHERE	dnssec (1 of 251 failed)
+DNS/ResourceRecords/CDS.cs	293	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/CDS.cs	302	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/CERT.cs	215	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/CERT.cs	224	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/CNAME.cs	175	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/CNAME.cs	184	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/CNAME.cs	199	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/CSYNC.cs	182	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 2) return null;
+DNS/ResourceRecords/CSYNC.cs	201	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/CSYNC.cs	210	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/DHCID.cs	157	ge-to-greater	SURVIVED-EVERYWHERE	if (Data.Length >= HeaderLength)
+DNS/ResourceRecords/DHCID.cs	191	ge-to-greater	SURVIVED-EVERYWHERE	if (Data.Length >= HeaderLength)
+DNS/ResourceRecords/DHCID.cs	279	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/DHCID.cs	288	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/DNAME.cs	241	true-to-false	SURVIVED-EVERYWHERE	[NotNullWhen(true)] out DNSServiceName?  Rewritten)
+DNS/ResourceRecords/DNAME.cs	348	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/DNAME.cs	357	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/DNAME.cs	367	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/DNAME.cs	372	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/DNSKEY.cs	212	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/DNSKEY.cs	221	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/DS.cs	212	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/DS.cs	221	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/EUI48.cs	172	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/EUI48.cs	181	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/EUI64.cs	172	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/EUI64.cs	181	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/HINFO.cs	193	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/HINFO.cs	202	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/HTTPS.cs	196	greater-to-ge	SURVIVED-EVERYWHERE	if (param.Value.Length > 0)
+DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte)'\\' && b != (Byte)'"')
+DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte)'\\' && b != (Byte)'"')
+DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte)'\\' && b != (Byte)'"')
+DNS/ResourceRecords/HTTPS.cs	237	le-to-less	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte)'\\' && b != (Byte)'"')
+DNS/ResourceRecords/HTTPS.cs	237	ge-to-greater	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte)'\\' && b != (Byte)'"')
+DNS/ResourceRecords/HTTPS.cs	274	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 2) return null;
+DNS/ResourceRecords/HTTPS.cs	277	equality-to-inequality	SURVIVED-EVERYWHERE	var targetStr  = parts[1].TrimEnd('.').Length == 0 ? "." : parts[1];
+DNS/ResourceRecords/HTTPS.cs	282	greater-to-ge	SURVIVED-EVERYWHERE	if (parts.Length > 2)
+DNS/ResourceRecords/HTTPS.cs	288	ge-to-greater	SURVIVED-EVERYWHERE	var keyName = eqIdx >= 0 ? token[..eqIdx] : token;
+DNS/ResourceRecords/HTTPS.cs	289	ge-to-greater	SURVIVED-EVERYWHERE	var value   = eqIdx >= 0 ? token[(eqIdx + 1)..].Trim('"') : "";
+DNS/ResourceRecords/HTTPS.cs	335	false-to-true	SURVIVED-EVERYWHERE	var inQuote = false;
+DNS/ResourceRecords/HTTPS.cs	340	logical-and-to-or	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/HTTPS.cs	340	logical-or-to-and	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/HTTPS.cs	340	inequality-to-equality	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/HTTPS.cs	343	logical-and-to-or	SURVIVED-EVERYWHERE	else if (Input[i] == ' ' && !inQuote)
+DNS/ResourceRecords/HTTPS.cs	343	equality-to-inequality	SURVIVED-EVERYWHERE	else if (Input[i] == ' ' && !inQuote)
+DNS/ResourceRecords/HTTPS.cs	345	greater-to-ge	SURVIVED-EVERYWHERE	if (i > start)
+DNS/ResourceRecords/HTTPS.cs	352	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (start < Input.Length)
+DNS/ResourceRecords/HTTPS.cs	368	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/HTTPS.cs	377	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/HTTPS.cs	390	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/HTTPS.cs	402	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/HTTPS.cs	424	greater-to-ge	SURVIVED-EVERYWHERE	=> $"Priority={Priority}, Target={TargetName}, SvcParams={string.Join(", ", SVCParameters.Select(p => $"{GetKeyName(p.Ke
+DNS/ResourceRecords/IDNSResourceRecord.cs	33	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/IPSECKEY.cs	166	logical-and-to-or	SURVIVED-EVERYWHERE	=> GatewayType == IPv4Gateway && Gateway.Length == 4
+DNS/ResourceRecords/IPSECKEY.cs	175	logical-and-to-or	SURVIVED-EVERYWHERE	=> GatewayType == IPv6Gateway && Gateway.Length == 16
+DNS/ResourceRecords/IPSECKEY.cs	187	logical-or-to-and	SURVIVED-EVERYWHERE	if (GatewayType != NameGateway || Gateway.Length == 0)
+DNS/ResourceRecords/IPSECKEY.cs	230	greater-to-ge	SURVIVED-EVERYWHERE	this.Precedence   = rdata.Length > 0 ? rdata[0] : (Byte) 0;
+DNS/ResourceRecords/IPSECKEY.cs	231	greater-to-ge	SURVIVED-EVERYWHERE	this.GatewayType  = rdata.Length > 1 ? rdata[1] : (Byte) 0;
+DNS/ResourceRecords/IPSECKEY.cs	232	greater-to-ge	SURVIVED-EVERYWHERE	this.Algorithm    = rdata.Length > 2 ? rdata[2] : (Byte) 0;
+DNS/ResourceRecords/IPSECKEY.cs	314	less-to-less-or-equal	SURVIVED-EVERYWHERE	while (index < RData.Length)
+DNS/ResourceRecords/IPSECKEY.cs	419	false-to-true	SURVIVED-EVERYWHERE	gatewayName.Serialize(stream, 0, false, null);
+DNS/ResourceRecords/IPSECKEY.cs	432	greater-to-ge	SURVIVED-EVERYWHERE	if (parts.Length > 4)
+DNS/ResourceRecords/IPSECKEY.cs	494	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/IPSECKEY.cs	503	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/KEY.cs	324	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/KEY.cs	333	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/LOC.cs	256	logical-or-to-and	SURVIVED-EVERYWHERE	out var metres) ||
+DNS/ResourceRecords/LOC.cs	257	less-to-less-or-equal	SURVIVED-EVERYWHERE	metres < 0)
+DNS/ResourceRecords/LOC.cs	331	ge-to-greater	SURVIVED-EVERYWHERE	if (Centimetres >= MaxExpressibleCentimetres)
+DNS/ResourceRecords/LOC.cs	337	greater-to-ge	SURVIVED-EVERYWHERE	while (value > 9)
+DNS/ResourceRecords/LOC.cs	451	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 4) return null;
+DNS/ResourceRecords/LOC.cs	461	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length && Int32.TryParse(parts[idx], out var latDeg))
+DNS/ResourceRecords/LOC.cs	465	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length && Int32.TryParse(parts[idx], out latMin)) idx++;
+DNS/ResourceRecords/LOC.cs	466	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length && Double.TryParse(parts[idx], System.Globalization.NumberStyles.Float, System.Globalization.Cult
+DNS/ResourceRecords/LOC.cs	468	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length)
+DNS/ResourceRecords/LOC.cs	470	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "S" || parts[idx] == "s") latMs = -latMs;
+DNS/ResourceRecords/LOC.cs	471	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	471	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	471	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+DNS/ResourceRecords/LOC.cs	477	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length && Int32.TryParse(parts[idx], out var lonDeg))
+DNS/ResourceRecords/LOC.cs	481	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length && Int32.TryParse(parts[idx], out lonMin)) idx++;
+DNS/ResourceRecords/LOC.cs	482	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length && Double.TryParse(parts[idx], System.Globalization.NumberStyles.Float, System.Globalization.Cult
+DNS/ResourceRecords/LOC.cs	484	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length)
+DNS/ResourceRecords/LOC.cs	486	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "W" || parts[idx] == "w") lonMs = -lonMs;
+DNS/ResourceRecords/LOC.cs	486	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "W" || parts[idx] == "w") lonMs = -lonMs;
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED-EVERYWHERE	if (parts[idx] == "E" || parts[idx] == "e" || parts[idx] == "W" || parts[idx] == "w") idx++;
+DNS/ResourceRecords/LOC.cs	493	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (idx < parts.Length)
+DNS/ResourceRecords/LOC.cs	549	ge-to-greater	SURVIVED-EVERYWHERE	var latNorth         = latMilliseconds >= 0;
+DNS/ResourceRecords/LOC.cs	558	ge-to-greater	SURVIVED-EVERYWHERE	var lonEast          = lonMilliseconds >= 0;
+DNS/ResourceRecords/LOC.cs	613	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/LOC.cs	622	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/MX.cs	189	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/MX.cs	198	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/MX.cs	215	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/NAPTR.cs	227	equality-to-inequality	SURVIVED-EVERYWHERE	var replacement = parts[5].TrimEnd('.').Length == 0 ? "." : parts[5];
+DNS/ResourceRecords/NAPTR.cs	246	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/NAPTR.cs	255	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/NAPTR.cs	272	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/NAPTR.cs	276	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/NS.cs	173	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/NS.cs	182	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/NS.cs	197	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/NSEC.cs	175	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 1) return null;
+DNS/ResourceRecords/NSEC.cs	192	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/NSEC.cs	201	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/NSEC.cs	211	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/NSEC.cs	219	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/NSEC3.cs	364	ge-to-greater	SURVIVED-EVERYWHERE	while (bitsInBuf >= 5)
+DNS/ResourceRecords/NSEC3.cs	439	greater-to-ge	SURVIVED-EVERYWHERE	var saltHex     = Salt.Length > 0 ? Convert.ToHexString(Salt).ToLowerInvariant() : "-";
+DNS/ResourceRecords/NSEC3.cs	446	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/NSEC3.cs	455	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/NSEC3PARAM.cs	211	greater-to-ge	SURVIVED-EVERYWHERE	var saltHex = Salt.Length > 0 ? Convert.ToHexString(Salt).ToLowerInvariant() : "-";
+DNS/ResourceRecords/NSEC3PARAM.cs	217	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/NSEC3PARAM.cs	226	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/OPENPGPKEY.cs	170	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/OPENPGPKEY.cs	179	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/PTR.cs	199	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/PTR.cs	208	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/PTR.cs	223	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/RP.cs	193	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/RP.cs	202	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/RP.cs	213	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/RP.cs	222	false-to-true	SURVIVED-EVERYWHERE	false,   // RFC 3597 §4: the same holds for the TXT domain name.
+DNS/ResourceRecords/RP.cs	227	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/RRSIG.cs	291	logical-and-to-or	SURVIVED-EVERYWHERE	if (Enum.TryParse(Text, true, out TypeCovered) &&
+DNS/ResourceRecords/RRSIG.cs	291	true-to-false	SURVIVED-EVERYWHERE	if (Enum.TryParse(Text, true, out TypeCovered) &&
+DNS/ResourceRecords/RRSIG.cs	301	true-to-false	SURVIVED-EVERYWHERE	return true;
+DNS/ResourceRecords/RRSIG.cs	307	true-to-false	SURVIVED-EVERYWHERE	return true;
+DNS/ResourceRecords/RRSIG.cs	310	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/RRSIG.cs	328	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/RRSIG.cs	337	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/RRSIG.cs	364	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/SIG.cs	265	true-to-false	SURVIVED-EVERYWHERE	if (!Enum.TryParse<DNSResourceRecordTypes>(parts[0], true, out var typeCovered) &&
+DNS/ResourceRecords/SIG.cs	266	logical-or-to-and	SURVIVED-EVERYWHERE	!(parts[0] == "0" || parts[0].Equals("TYPE0", StringComparison.OrdinalIgnoreCase)))
+DNS/ResourceRecords/SIG.cs	266	equality-to-inequality	SURVIVED-EVERYWHERE	!(parts[0] == "0" || parts[0].Equals("TYPE0", StringComparison.OrdinalIgnoreCase)))
+DNS/ResourceRecords/SIG.cs	325	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SIG.cs	340	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SIG.cs	361	greater-to-ge	SURVIVED-EVERYWHERE	if (rdataBytes.Length > UInt16.MaxValue)
+DNS/ResourceRecords/SMIMEA.cs	213	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SMIMEA.cs	222	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SOA.cs	277	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SOA.cs	286	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SOA.cs	316	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/SPF.cs	181	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SPF.cs	190	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SPF.cs	197	greater-to-ge	SURVIVED-EVERYWHERE	if (dataLen > UInt16.MaxValue)
+DNS/ResourceRecords/SRV.cs	244	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SRV.cs	253	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SRV.cs	268	false-to-true	KILLED-ELSEWHERE	wireformat (2 of 81 failed)
+DNS/ResourceRecords/SRV.cs	272	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/SSHFP.cs	169	logical-and-to-or	SURVIVED-EVERYWHERE	if (FingerprintType == SSHFP_FingerprintType.SHA1   && Fingerprint.Length != 20)
+DNS/ResourceRecords/SSHFP.cs	169	equality-to-inequality	SURVIVED-EVERYWHERE	if (FingerprintType == SSHFP_FingerprintType.SHA1   && Fingerprint.Length != 20)
+DNS/ResourceRecords/SSHFP.cs	169	inequality-to-equality	SURVIVED-EVERYWHERE	if (FingerprintType == SSHFP_FingerprintType.SHA1   && Fingerprint.Length != 20)
+DNS/ResourceRecords/SSHFP.cs	172	logical-and-to-or	SURVIVED-EVERYWHERE	if (FingerprintType == SSHFP_FingerprintType.SHA256 && Fingerprint.Length != 32)
+DNS/ResourceRecords/SSHFP.cs	172	equality-to-inequality	SURVIVED-EVERYWHERE	if (FingerprintType == SSHFP_FingerprintType.SHA256 && Fingerprint.Length != 32)
+DNS/ResourceRecords/SSHFP.cs	172	inequality-to-equality	SURVIVED-EVERYWHERE	if (FingerprintType == SSHFP_FingerprintType.SHA256 && Fingerprint.Length != 32)
+DNS/ResourceRecords/SSHFP.cs	211	equality-to-inequality	KILLED-ELSEWHERE	server (91 of 140 failed)
+DNS/ResourceRecords/SSHFP.cs	214	inequality-to-equality	KILLED-ELSEWHERE	server (91 of 140 failed)
+DNS/ResourceRecords/SSHFP.cs	304	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SSHFP.cs	313	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SVCB.cs	172	ge-to-greater	SURVIVED-EVERYWHERE	while (remaining >= 4)
+DNS/ResourceRecords/SVCB.cs	288	greater-to-ge	SURVIVED-EVERYWHERE	if (param.Value.Length > 0)
+DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte) '\\' && b != (Byte) '"')
+DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte) '\\' && b != (Byte) '"')
+DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte) '\\' && b != (Byte) '"')
+DNS/ResourceRecords/SVCB.cs	330	le-to-less	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte) '\\' && b != (Byte) '"')
+DNS/ResourceRecords/SVCB.cs	330	ge-to-greater	SURVIVED-EVERYWHERE	if (b >= 32 && b <= 126 && b != (Byte) '\\' && b != (Byte) '"')
+DNS/ResourceRecords/SVCB.cs	368	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (parts.Length < 2) return null;
+DNS/ResourceRecords/SVCB.cs	371	equality-to-inequality	SURVIVED-EVERYWHERE	var targetStr  = parts[1].TrimEnd('.').Length == 0 ? "." : parts[1];
+DNS/ResourceRecords/SVCB.cs	376	greater-to-ge	SURVIVED-EVERYWHERE	if (parts.Length > 2)
+DNS/ResourceRecords/SVCB.cs	382	ge-to-greater	SURVIVED-EVERYWHERE	var keyName = eqIdx >= 0 ? token[..eqIdx] : token;
+DNS/ResourceRecords/SVCB.cs	383	ge-to-greater	SURVIVED-EVERYWHERE	var value   = eqIdx >= 0 ? token[(eqIdx + 1)..].Trim('"') : "";
+DNS/ResourceRecords/SVCB.cs	434	logical-or-to-and	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/SVCB.cs	434	inequality-to-equality	SURVIVED-EVERYWHERE	if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+DNS/ResourceRecords/SVCB.cs	437	logical-and-to-or	SURVIVED-EVERYWHERE	else if (Input[i] == ' ' && !inQuote)
+DNS/ResourceRecords/SVCB.cs	437	equality-to-inequality	SURVIVED-EVERYWHERE	else if (Input[i] == ' ' && !inQuote)
+DNS/ResourceRecords/SVCB.cs	439	greater-to-ge	SURVIVED-EVERYWHERE	if (i > start)
+DNS/ResourceRecords/SVCB.cs	446	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (start < Input.Length)
+DNS/ResourceRecords/SVCB.cs	462	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/SVCB.cs	471	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SVCB.cs	484	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/SVCB.cs	496	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/SVCB.cs	518	greater-to-ge	SURVIVED-EVERYWHERE	=> $"Priority={Priority}, Target={TargetName}, SVCParams={string.Join(", ", SVCParameters.Select(p => $"{GetKeyName(p.Ke
+DNS/ResourceRecords/TKEY.cs	234	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/TKEY.cs	243	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/TKEY.cs	254	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/TKEY.cs	272	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/TLSA.cs	259	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/TLSA.cs	268	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/TSIG.cs	238	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/TSIG.cs	247	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/TSIG.cs	258	false-to-true	KILLED-ELSEWHERE	wireformat (1 of 81 failed)
+DNS/ResourceRecords/TSIG.cs	280	greater-to-ge	SURVIVED-EVERYWHERE	if (tempStream.Length > UInt16.MaxValue)
+DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	SURVIVED-EVERYWHERE	if (character < 0x20 || character > 0x7E || character == '=')
+DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	SURVIVED-EVERYWHERE	if (character < 0x20 || character > 0x7E || character == '=')
+DNS/ResourceRecords/TXT.cs	338	equality-to-inequality	SURVIVED-EVERYWHERE	if (character < 0x20 || character > 0x7E || character == '=')
+DNS/ResourceRecords/TXT.cs	338	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (character < 0x20 || character > 0x7E || character == '=')
+DNS/ResourceRecords/TXT.cs	338	greater-to-ge	SURVIVED-EVERYWHERE	if (character < 0x20 || character > 0x7E || character == '=')
+DNS/ResourceRecords/TXT.cs	392	logical-and-to-or	SURVIVED-EVERYWHERE	if (TryParseQuotedStrings(Data, out var quotedStrings) && quotedStrings.Count > 1)
+DNS/ResourceRecords/TXT.cs	392	greater-to-ge	SURVIVED-EVERYWHERE	if (TryParseQuotedStrings(Data, out var quotedStrings) && quotedStrings.Count > 1)
+DNS/ResourceRecords/TXT.cs	452	greater-to-ge	SURVIVED-EVERYWHERE	if (current.Length > 0)
+DNS/ResourceRecords/TXT.cs	478	greater-to-ge	SURVIVED-EVERYWHERE	if (byteCount > MaxCharacterStringLength)
+DNS/ResourceRecords/TXT.cs	503	logical-or-to-and	SURVIVED-EVERYWHERE	if (text.Length == 0 || text[0] == '=')
+DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	SURVIVED-EVERYWHERE	if (text.Length == 0 || text[0] == '=')
+DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	SURVIVED-EVERYWHERE	if (text.Length == 0 || text[0] == '=')
+DNS/ResourceRecords/TXT.cs	508	less-to-less-or-equal	SURVIVED-EVERYWHERE	var key    = equals < 0 ? text : text[..equals];
+DNS/ResourceRecords/TXT.cs	509	less-to-less-or-equal	SURVIVED-EVERYWHERE	var value  = equals < 0 ? null : text[(equals + 1)..];
+DNS/ResourceRecords/TXT.cs	527	true-to-false	SURVIVED-EVERYWHERE	[NotNullWhen(true)] out List<String>?    Strings)
+DNS/ResourceRecords/TXT.cs	534	logical-or-to-and	SURVIVED-EVERYWHERE	if (text.Length == 0 || text[0] != '"')
+DNS/ResourceRecords/TXT.cs	534	equality-to-inequality	SURVIVED-EVERYWHERE	if (text.Length == 0 || text[0] != '"')
+DNS/ResourceRecords/TXT.cs	534	inequality-to-equality	SURVIVED-EVERYWHERE	if (text.Length == 0 || text[0] != '"')
+DNS/ResourceRecords/TXT.cs	535	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/TXT.cs	539	false-to-true	SURVIVED-EVERYWHERE	var inString  = false;
+DNS/ResourceRecords/TXT.cs	540	false-to-true	SURVIVED-EVERYWHERE	var escaped   = false;
+DNS/ResourceRecords/TXT.cs	551	false-to-true	SURVIVED-EVERYWHERE	escaped = false;
+DNS/ResourceRecords/TXT.cs	554	equality-to-inequality	SURVIVED-EVERYWHERE	else if (character == '\\')
+DNS/ResourceRecords/TXT.cs	555	true-to-false	SURVIVED-EVERYWHERE	escaped = true;
+DNS/ResourceRecords/TXT.cs	557	equality-to-inequality	SURVIVED-EVERYWHERE	else if (character == '"')
+DNS/ResourceRecords/TXT.cs	561	false-to-true	SURVIVED-EVERYWHERE	inString = false;
+DNS/ResourceRecords/TXT.cs	569	equality-to-inequality	SURVIVED-EVERYWHERE	else if (character == '"')
+DNS/ResourceRecords/TXT.cs	570	true-to-false	SURVIVED-EVERYWHERE	inString = true;
+DNS/ResourceRecords/TXT.cs	573	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/TXT.cs	578	false-to-true	SURVIVED-EVERYWHERE	return false;
+DNS/ResourceRecords/TXT.cs	581	true-to-false	SURVIVED-EVERYWHERE	return true;
+DNS/ResourceRecords/TXT.cs	600	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/TXT.cs	609	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/TXT.cs	614	greater-to-ge	SURVIVED-EVERYWHERE	if (dataLen > UInt16.MaxValue)
+DNS/ResourceRecords/URI.cs	192	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (RDLength < 4)
+DNS/ResourceRecords/URI.cs	237	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/URI.cs	246	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/URI.cs	258	greater-to-ge	SURVIVED-EVERYWHERE	if (dataLen > UInt16.MaxValue)
+DNS/ResourceRecords/UnknownRecord.cs	127	greater-to-ge	SURVIVED-EVERYWHERE	if (RData.Length > UInt16.MaxValue)
+DNS/ResourceRecords/UnknownRecord.cs	191	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/UnknownRecord.cs	200	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/ZONEMD.cs	214	true-to-false	SURVIVED-EVERYWHERE	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)
+DNS/ResourceRecords/ZONEMD.cs	223	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	104	equality-to-inequality	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	132	greater-to-ge	SURVIVED-EVERYWHERE	if (addrLength > 0)
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	135	inequality-to-equality	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	161	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (Data.Length < 4)
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	171	equality-to-inequality	SURVIVED-EVERYWHERE	var fullLength          = family == 1 ? 4 : 16;
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	57	logical-and-to-or	KILLED-ELSEWHERE	client (1 of 89 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	57	greater-to-ge	SURVIVED-EVERYWHERE	=> ServerCookie is not null && ServerCookie.Length > 0;
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	76	inequality-to-equality	KILLED-ELSEWHERE	edns (6 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	79	logical-and-to-or	KILLED-ELSEWHERE	edns (6 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	79	logical-or-to-and	SURVIVED-EVERYWHERE	if (ServerCookie is not null && (ServerCookie.Length < 8 || ServerCookie.Length > 32))
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	79	less-to-less-or-equal	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	79	greater-to-ge	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	146	logical-or-to-and	KILLED-ELSEWHERE	edns (5 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	146	equality-to-inequality	KILLED-ELSEWHERE	edns (7 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	147	logical-and-to-or	KILLED-ELSEWHERE	edns (5 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	147	le-to-less	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	147	ge-to-greater	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	172	greater-to-ge	KILLED-ELSEWHERE	edns (2 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	247	greater-to-ge	SURVIVED-EVERYWHERE	if (textBytes.Length > 0)
+DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	265	less-to-less-or-equal	SURVIVED-EVERYWHERE	if (Data.Length < 2)
+DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	270	greater-to-ge	SURVIVED-EVERYWHERE	var extraText = Data.Length > 2
+DNS/ResourceRecords/OTP/EDNSKeepaliveOption.cs	120	equality-to-inequality	KILLED-ELSEWHERE	edns (4 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSKeepaliveOption.cs	124	equality-to-inequality	KILLED-ELSEWHERE	edns (4 of 32 failed)
+DNS/ResourceRecords/OTP/EDNSPaddingOption.cs	86	equality-to-inequality	KILLED-ELSEWHERE	edns (5 of 32 failed)
+DNS/ResourceRecords/OTP/OPT.cs	60	inequality-to-equality	KILLED-ELSEWHERE	dnssec (17 of 251 failed)
+DNS/ResourceRecords/OTP/OPT.cs	124	less-to-less-or-equal	SURVIVED-EVERYWHERE	while (bytesRead < rdLength)
+DNS/ResourceRecords/OTP/OPT.cs	127	less-to-less-or-equal	KILLED-ELSEWHERE	transports (2 of 129 failed)
+DNS/ResourceRecords/OTP/OPT.cs	138	greater-to-ge	KILLED-ELSEWHERE	edns (1 of 32 failed)
+DNS/ResourceRecords/OTP/OPT.cs	146	greater-to-ge	SURVIVED-EVERYWHERE	if (optionLength > 0)
+DNS/ResourceRecords/OTP/OPT.cs	244	true-to-false	SURVIVED-EVERYWHERE	Boolean                     UseCompression       = true,
+DNS/ResourceRecords/SRV/DNSSRVCacheEntry.cs	50	greater-to-ge	SURVIVED-EVERYWHERE	=> Timestamp.Now > LastRefresh.Add(MinTTL);
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	92	true-to-false	SURVIVED-EVERYWHERE	Boolean                   IsHealthy           = true)
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	121	equality-to-inequality	SURVIVED-EVERYWHERE	#region Operator == (DNSSRVEndpoint1, DNSSRVEndpoint2)
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	136	inequality-to-equality	SURVIVED-EVERYWHERE	#region Operator != (DNSSRVEndpoint1, DNSSRVEndpoint2)
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	151	less-to-less-or-equal	SURVIVED-EVERYWHERE	#region Operator <  (DNSSRVEndpoint1, DNSSRVEndpoint2)
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	162	less-to-less-or-equal	SURVIVED-EVERYWHERE	=> DNSSRVEndpoint1.CompareTo(DNSSRVEndpoint2) < 0;
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	166	le-to-less	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	177	le-to-less	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	181	greater-to-ge	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	192	greater-to-ge	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	196	ge-to-greater	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	207	ge-to-greater	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	213	greater-to-ge	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	249	greater-to-ge	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	272	false-to-true	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/DNSSRVManager.cs	92	logical-or-to-and	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	38	logical-or-to-and	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	45	logical-and-to-or	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	77	logical-or-to-and	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	83	logical-and-to-or	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	163	logical-and-to-or	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	168	true-to-false	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	175	false-to-true	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	261	equality-to-inequality	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	276	inequality-to-equality	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	291	less-to-less-or-equal	BUILD-FAILED	not a viable mutant
+DNS/ResourceRecords/SRV/SRVSpec.cs	302	less-to-less-or-equal	SURVIVED-EVERYWHERE	=> SRVSpec1.CompareTo(SRVSpec2) < 0;
+DNS/ResourceRecords/SRV/SRVSpec.cs	306	le-to-less	SURVIVED-EVERYWHERE	#region Operator <= (SRVSpec1, SRVSpec2)
+DNS/ResourceRecords/SRV/SRVSpec.cs	317	le-to-less	SURVIVED-EVERYWHERE	=> SRVSpec1.CompareTo(SRVSpec2) <= 0;
+DNS/ResourceRecords/SRV/SRVSpec.cs	321	greater-to-ge	SURVIVED-EVERYWHERE	#region Operator >  (SRVSpec1, SRVSpec2)
+DNS/ResourceRecords/SRV/SRVSpec.cs	332	greater-to-ge	SURVIVED-EVERYWHERE	=> SRVSpec1.CompareTo(SRVSpec2) > 0;
+DNS/ResourceRecords/SRV/SRVSpec.cs	336	ge-to-greater	SURVIVED-EVERYWHERE	#region Operator >= (SRVSpec1, SRVSpec2)
+DNS/ResourceRecords/SRV/SRVSpec.cs	347	ge-to-greater	SURVIVED-EVERYWHERE	=> SRVSpec1.CompareTo(SRVSpec2) >= 0;
+DNS/ResourceRecords/SRV/SRVSpec.cs	353	greater-to-ge	SURVIVED-EVERYWHERE	#region IComparable<SRV_Spec> Members
+DNS/ResourceRecords/SRV/SRVSpec.cs	383	equality-to-inequality	SURVIVED-EVERYWHERE	if (c == 0)
+DNS/ResourceRecords/SRV/SRVSpec.cs	396	greater-to-ge	SURVIVED-EVERYWHERE	#region IEquatable<SRV_Spec> Members
+DNS/ResourceRecords/SRV/SRVSpec.cs	423	logical-and-to-or	SURVIVED-EVERYWHERE	StringComparison.Ordinal) &&
