@@ -128,6 +128,9 @@ build/mutation/
   classify.py     the same triage, pinned to the revision the sweep measured
   make_closed.py  the ledger of what each round closed
   standing.py     how much is closed, derived from files rather than typed
+
+  results/records-bounds2.tsv   the sixth round re-run: every boundary it
+                                claims, mutated again and judged
   results/        the raw verdicts, one row per mutant
 ```
 
@@ -189,10 +192,10 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **109 of the 240 are closed** and **7 were declared equivalent
-rather than chased**, leaving **124 open** — across APL, TXT, the base class, the
-SRV identifiers, and the shortest RDATA that IPSECKEY, DHCID and the Extended DNS
-Error option can carry.
+Since the sweep, **145 of the 240 are closed** and **45 were declared equivalent
+rather than chased**, leaving **50 open** — almost all of them branches now, in
+LOC, SVCB, HTTPS, the SRV specification and the base class every record passes
+through. Two boundaries are left, and both are the same one: see below.
 
 Do not trust that sentence. Print it:
 
@@ -210,8 +213,8 @@ reads those two and nothing else, so it cannot drift no matter how far the code
 moves.
 
 Each closure was verified by a mutation taken from this output rather than
-invented, and **every one of the three rounds caught a test that closed the gap
-only halfway**:
+invented, and **every round so far has caught something the tests alone did
+not**. Three rounds caught a test that closed its gap only halfway:
 
 - APL's four-octet item was read back through the text reader, while the line at
   issue lives in the wire reader.
@@ -225,9 +228,20 @@ only halfway**:
   mutations died once it named `Missing RDATA` instead, and a third died once the
   message for an unknown type token had to name the token.
 
-That last one is the pattern worth keeping: three times out of three, the
-mutation run did not only find the gap. It found the part of the patch that was
-decoration.
+That last one is the pattern worth keeping: the mutation run did not only find
+the gap. It found the part of the patch that was decoration.
+
+The sixth round caught a different shape of the same thing: a test written to
+kill NSEC3's base32 encoder came back SURVIVED, and it was right to. Whenever a
+five-bit group is emitted it is still the k-th group of the stream, and the
+trailing partial group is written with an expression that coincides with the
+loop's at exactly the offset in question — the same string either way. The claim
+in the test's own comment was wrong, and the run said so before the commit did.
+
+Two rounds found a defect instead of a half-patch — `DNSSRVEndpoint`, whose
+`Equals` and `CompareTo` answered unconditionally, and finding 54, where a field
+read short was completed with zeros. Both were found the same way: by a survivor
+no test could kill, because no input could reach it.
 
 An equivalent mutant is not a gap. Chasing one produces a test that pins an
 implementation detail, so each is recorded with the reason it cannot be observed
@@ -235,5 +249,17 @@ instead: a comparison against a length that is by construction equal, a branch
 whose condition the caller has already excluded, a second operand that is never
 different from the first.
 
-The remaining 196 are not a backlog and are not sorted by importance. They are a
+The sixth round is where that mattered most: of the seventy-four boundaries it
+took up, thirty-eight turned out to be unreachable rather than untested. Ten are
+the same guard in ten record types — an RDATA length of 65535, checked for by a
+type whose RDATA is domain names, which RFC 1035 §2.3.4 stops at 255 — and the
+evidence for that one is a test in the suite rather than a sentence here.
+
+Two boundaries are left with neither a test nor a reason, and they are the same
+boundary twice: LOC writes `N` for a latitude of exactly 2^31 and `E` for a
+longitude of exactly 2^31, where RFC 1876 §2 says only that values *above* 2^31
+are north and east. Both spellings read back as the same octets, so a test
+preferring one would be pinning a choice the RFC declines to make.
+
+The remaining 50 are not a backlog and are not sorted by importance. They are a
 map of where this suite believes it is looking and is not.

@@ -1,0 +1,47 @@
+# The sixth round re-run: every boundary this round claims, mutated again and judged.
+# Line numbers are the sweep's (Hermod 973fed31); the mutation is applied to the
+# line carrying the same text in the current tree, and refused if that text is not
+# unique or the operator has more than one place to go on it.
+# file	sweep-line	operator	verdict	detail
+DNS/ResourceRecords/TXT.cs	614	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/SPF.cs	197	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/URI.cs	258	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/UnknownRecord.cs	127	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	617	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/RRSIG.cs	364	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/SIG.cs	361	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/TSIG.cs	280	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/TKEY.cs	272	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	496	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	402	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/NSEC.cs	219	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/LOC.cs	477	less-to-less-or-equal	KILLED	2 of 373 failed
+DNS/ResourceRecords/LOC.cs	481	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/LOC.cs	482	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/LOC.cs	257	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/LOC.cs	337	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	172	ge-to-greater	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	288	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	330	le-to-less	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	330	ge-to-greater	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	376	greater-to-ge	KILLED	4 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	196	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	237	le-to-less	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	237	ge-to-greater	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	282	greater-to-ge	KILLED	3 of 373 failed
+DNS/ResourceRecords/NSEC3.cs	364	ge-to-greater	SURVIVED	0 of 373 failed
+DNS/ResourceRecords/NSEC3.cs	439	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/NSEC3PARAM.cs	211	greater-to-ge	KILLED	1 of 373 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	1013	less-to-less-or-equal	KILLED	2 of 373 failed
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	161	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/IPSECKEY.cs	314	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/LOC.cs	484	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/LOC.cs	493	less-to-less-or-equal	KILLED	8 of 373 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	344	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	388	less-to-less-or-equal	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	KILLED	1 of 373 failed
+DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	KILLED	1 of 373 failed
+DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	KILLED	1 of 373 failed

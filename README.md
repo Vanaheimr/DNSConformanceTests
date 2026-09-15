@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-15): 1191 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-15): 1227 ✅ · 0 ❌ · 4 platform-specific skips.**
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
@@ -392,9 +392,10 @@ to Hermod's resource-record code one at a time — a comparison shifted, a
 condition inverted, a rejection made to succeed — and the suite is run against
 each. **Of 585 such changes, 358 went unnoticed; 240 of those are real gaps
 rather than equivalent code.** About half of what can be changed in that code,
-this suite did not watch — 109 of those gaps are closed since, and closing them
-turned up [finding 54](FINDINGS.md), where a field shorter than it should be was
-being completed with zeros.
+this suite did not watch — 145 of those gaps are closed since and 45 more turned
+out to be unreachable rather than untested, and closing them turned up
+[finding 54](FINDINGS.md), where a field shorter than it should be was being
+completed with zeros.
 
 The list is not a backlog. It is a map of where the suite believes it is looking
 and is not — which is how APL's nine unexercised rejection paths were found,

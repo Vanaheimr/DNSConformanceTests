@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Write down which gaps are closed, so the standing count is derived instead of
-typed. Four rounds so far, each verified by mutations taken from the sweep's own
+typed. Six rounds so far, each verified by mutations taken from the sweep's own
 output."""
 
 import io
 import os
 
-ROOT = r"D:\Coding\Vanaheimr\DNSConformanceTests"
-CLASSIFIED = os.path.join(ROOT, r"build\mutation\results\records-classified.tsv")
-OUT        = os.path.join(ROOT, r"build\mutation\results\records-closed.tsv")
+HERE       = os.path.dirname(os.path.abspath(__file__))
+CLASSIFIED = os.path.join(HERE, "results", "records-classified.tsv")
+OUT        = os.path.join(HERE, "results", "records-closed.tsv")
 
 # Line numbers as the sweep measured them, at Hermod 973fed31.
 KILLED = {
@@ -38,6 +38,27 @@ KILLED = {
                "DNS/ResourceRecords/LOC.cs":       {470, 471, 486},
                "DNS/ResourceRecords/ADNSResourceRecord.cs": {656, 690},
                "DNS/ResourceRecords/RRSIG.cs":     {291}},
+
+    # The rest of the boundaries. Twelve of these are the same guard in twelve
+    # record types — RFC 1035 §4.1.3's 65535 — reached from both sides for the
+    # first time; the others are where a presentation format is allowed to stop.
+    "bounds2": {"DNS/ResourceRecords/TXT.cs":            {614},
+                "DNS/ResourceRecords/SPF.cs":            {197},
+                "DNS/ResourceRecords/URI.cs":            {258},
+                "DNS/ResourceRecords/UnknownRecord.cs":  {127},
+                "DNS/ResourceRecords/RRSIG.cs":          {364},
+                "DNS/ResourceRecords/SIG.cs":            {361},
+                "DNS/ResourceRecords/TSIG.cs":           {280},
+                "DNS/ResourceRecords/TKEY.cs":           {272},
+                "DNS/ResourceRecords/NSEC.cs":           {219},
+                "DNS/ResourceRecords/ADNSResourceRecord.cs": {344, 388, 617, 1013},
+                "DNS/ResourceRecords/SVCB.cs":           {172, 288, 330, 496},
+                "DNS/ResourceRecords/HTTPS.cs":          {196, 237, 282, 402},
+                "DNS/ResourceRecords/LOC.cs":            {257, 337, 477, 481, 482, 484, 493},
+                "DNS/ResourceRecords/NSEC3.cs":          {439},
+                "DNS/ResourceRecords/NSEC3PARAM.cs":     {211},
+                "DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs": {161},
+                "DNS/ResourceRecords/IPSECKEY.cs":       {314}},
 }
 
 # Mutations that are real and unobservable: the program is the same either way.
@@ -54,6 +75,84 @@ EQUIVALENT = {
     },
     "DNS/ResourceRecords/ADNSResourceRecord.cs": {
         1162: "a window header at the very end of the buffer carries no bitmap, so entering it and skipping it both end in false",
+
+        # The rest of the boundaries, sixth round.
+        572:  "the owner name of a record it has just serialized always ends in a root label, so the walk cannot reach the end of the buffer",
+        1206: "entering the loop at the end of the bitmap breaks at the window-header check two lines below",
+        1209: "a window header with nothing behind it adds no types whether the loop leaves here or at the bitmap-length check",
+        1222: "0x80 >> 8 is zero, so the ninth pass masks nothing and adds nothing",
+    },
+
+    # RFC 1035 §2.3.4 stops a domain name at 255 octets on the wire, so a record
+    # whose RDATA is names plus fixed fields cannot come within three orders of
+    # magnitude of the 65535 its serializer guards against. The test that shows
+    # the cap is in the suite, not in this comment: RdataLengthTests.
+    "DNS/ResourceRecords/CNAME.cs":  {199: "one name, and RFC 1035 §2.3.4 stops a name at 255 octets"},
+    "DNS/ResourceRecords/NS.cs":     {197: "one name, and RFC 1035 §2.3.4 stops a name at 255 octets"},
+    "DNS/ResourceRecords/PTR.cs":    {223: "one name, and RFC 1035 §2.3.4 stops a name at 255 octets"},
+    "DNS/ResourceRecords/DNAME.cs":  {372: "one name, and RFC 1035 §2.3.4 stops a name at 255 octets"},
+    "DNS/ResourceRecords/MX.cs":     {215: "two octets and a name, so at most 257"},
+    "DNS/ResourceRecords/AFSDB.cs":  {218: "two octets and a name, so at most 257"},
+    "DNS/ResourceRecords/SRV.cs":    {272: "six octets and a name, so at most 261"},
+    "DNS/ResourceRecords/RP.cs":     {227: "two names, so at most 510"},
+    "DNS/ResourceRecords/SOA.cs":    {316: "two names and twenty octets, so at most 530"},
+    "DNS/ResourceRecords/NAPTR.cs":  {276: "four octets, three character-strings capped at 255 each, and a name — at most 1027"},
+
+    "DNS/ResourceRecords/LOC.cs": {
+        461: "parts.Length < 4 has already returned; idx is 0 here, so both readings are true",
+        465: "idx is 1 and parts.Length at least 4",
+        466: "idx is 1 or 2 and parts.Length at least 4",
+        468: "idx is at most 3 and parts.Length at least 4",
+        331: "9e9 centimetres reduces through the loop to 9e0 as well, so both paths return 0x99",
+    },
+
+    "DNS/ResourceRecords/SVCB.cs": {
+        382: "a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey",
+        383: "the same token: the key name has already dropped the parameter, whatever the value is",
+        439: "an empty token between two separators is yielded and then dropped for having no key name",
+        446: "a trailing separator yields an empty final token, dropped for the same reason",
+        518: "the '=' sits outside the conditional, so an empty value renders as 'key=' from both sides of it",
+    },
+    "DNS/ResourceRecords/HTTPS.cs": {
+        288: "a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey",
+        289: "the same token: the key name has already dropped the parameter, whatever the value is",
+        345: "an empty token between two separators is yielded and then dropped for having no key name",
+        352: "a trailing separator yields an empty final token, dropped for the same reason",
+        424: "the '=' sits outside the conditional, so an empty value renders as 'key=' from both sides of it",
+    },
+
+    "DNS/ResourceRecords/NSEC3.cs": {
+        364: "base32hex: whenever a five-bit group is emitted it is still the k-th group of the stream, "
+             "and the trailing partial group is written with an expression that coincides with the loop's "
+             "at that offset — the same string comes out either way, which a test written to kill it proved "
+             "by surviving",
+    },
+
+    "DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs": {
+        132: "a source prefix of zero bits makes trailingBits zero as well, and the inner guard skips the indexing",
+    },
+    "DNS/ResourceRecords/OTP/OPT.cs": {
+        124: "entering the loop with no octets left breaks immediately at the four-octet header check",
+        146: "ReadExactly of zero octets is exactly what the skipped branch does",
+    },
+    "DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs": {
+        247: "Array.Copy of zero octets is exactly what the skipped branch does",
+    },
+    "DNS/ResourceRecords/OTP/EDNSCookieOption.cs": {
+        57: "the constructor refuses a server cookie shorter than eight octets (RFC 7873 §5.2), so an empty one never reaches this",
+    },
+
+    "DNS/ResourceRecords/IPSECKEY.cs": {
+        432: "parts[4..] of a four-element array is empty, and Convert.FromBase64String(\"\") is the empty array the other branch starts with",
+    },
+    "DNS/ResourceRecords/URI.cs": {
+        192: "at this revision the guard was one octet loose — RFC 7553 §4.5 needs at least five — but the "
+             "empty target it let through was refused by URL.Parse on the next line, and both callers treat "
+             "the two refusals alike: an UnknownRecord on the wire, 'could not parse RDATA' in a zone file. "
+             "The guard has since been tightened to state the rule; the behaviour is the same",
+    },
+    "DNS/ResourceRecords/SRV/DNSSRVCacheEntry.cs": {
+        50: "the boundary is one instant of the system clock, and no test can place Timestamp.Now exactly on it",
     },
 }
 
