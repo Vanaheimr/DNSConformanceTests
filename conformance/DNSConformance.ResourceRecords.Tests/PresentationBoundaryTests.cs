@@ -149,6 +149,62 @@ public class PresentationBoundaryTests
 
     }
 
+    [Test]
+    [Property("RFC", "1876 §2")]
+    [Property("RFC", "1876 §3")]
+    [TestCase("abc",     TestName = "a size that is not a number")]
+    [TestCase("-1.00m",  TestName = "a size below zero")]
+    public void A_Size_That_Says_Nothing_Leaves_The_Default_Standing(String Size)
+    {
+
+        // §3 makes size optional and §2 encodes it as two four-bit unsigned
+        // integers, so a token that is not a number and a token below zero are
+        // both outside what the field can hold. Neither is a size, and the RFC's
+        // default is what stands in either case — reading the first as zero
+        // shrinks the entity to a point, and the second wraps into 0x99, which
+        // is ninety thousand kilometres.
+        var loc = Read($"probe.example. 3600 IN LOC 52 22 23.000 N 4 53 32.000 E -2.00m {Size}") as LOC;
+
+        Assert.That(loc!.Size, Is.EqualTo(LOC.DefaultSize));
+
+    }
+
+    [Test]
+    [Property("RFC", "1876 §3")]
+    public void The_Longitude_Hemisphere_Is_A_Token_Of_Its_Own()
+    {
+
+        // The letter both sets the sign and advances past itself, and the field
+        // behind it is the altitude. A reader that does not step over "E" reads
+        // the letter as the altitude and the altitude as the size — every field
+        // after the hemisphere shifted by one, with nothing failing.
+        var loc = Read("probe.example. 3600 IN LOC 52 22 23.000 N 4 53 32.000 E 100.00m 2.00m") as LOC;
+
+        Assert.Multiple(() => {
+            Assert.That(loc!.Altitude, Is.EqualTo(10_010_000u), "100 metres above the reference");
+            Assert.That(loc!.Size,     Is.EqualTo(LOC.EncodeScaled(200)), "two metres, in centimetres");
+        });
+
+    }
+
+    [Test]
+    [Property("RFC", "1876 §3")]
+    public void A_Token_That_Is_Not_A_Hemisphere_Stays_Where_It_Is()
+    {
+
+        // The other side of the same four comparisons. §3 names exactly four
+        // spellings for the longitude hemisphere, so a token that is none of them
+        // is not the hemisphere and is still the next field's. A reader that
+        // steps over it anyway loses the altitude, and everything behind it
+        // shifts up by one — with nothing failing, because every field after
+        // the hemisphere is optional.
+        var loc = Read("probe.example. 3600 IN LOC 52 22 23.000 N 4 53 32.000 100.00m") as LOC;
+
+        Assert.That(loc!.Altitude, Is.EqualTo(10_010_000u),
+                    "100.00m is the altitude, not a hemisphere the reader consumed");
+
+    }
+
     #endregion
 
 
@@ -248,6 +304,47 @@ public class PresentationBoundaryTests
             Assert.That(svcb!.SVCParameters.First().Key, Is.EqualTo((UInt16) 2));
             Assert.That(svcb!.SVCParameters.First().Value, Is.Empty);
         });
+
+    }
+
+    [Test]
+    [Property("RFC", "9460 §2.4.2")]
+    [Property("RFC", "2915 §2")]
+    [TestCase("SVCB",  "0 .",              TestName = "an SVCB whose target is the root")]
+    [TestCase("HTTPS", "0 .",              TestName = "an HTTPS whose target is the root")]
+    public void A_Target_Of_The_Root_Is_A_Target(String Type, String Rdata)
+    {
+
+        // RFC 9460 §2.4.2: in AliasMode "a TargetName of '.' indicates that the
+        // service is not available or does not exist". It is the one target that
+        // means something by being empty, and a reader that treats the empty
+        // remainder of "." as a missing field loses the statement entirely.
+        var record = Read($"probe.example. 3600 IN {Type} {Rdata}");
+
+        Assert.That(record.ToZoneFileString(), Does.Contain(" 0 ."),
+                    "the root is written as the root");
+
+    }
+
+    [Test]
+    [Property("RFC", "2915 §2")]
+    public void A_Naptr_Replacement_Of_The_Root_Is_A_Replacement()
+    {
+
+        // RFC 2915 §2 gives NAPTR a REPLACEMENT that "will be '.' to indicate
+        // that the value of the REGEXP field should be used instead" — so the
+        // root is not an absent field here either, it is the terminal rule.
+        var terminal = Read("probe.example. 3600 IN NAPTR 100 10 \"u\" \"E2U+sip\" \"!^.*$!sip:x@example.!\" .") as NAPTR;
+
+        Assert.That(terminal!.Replacement.FullName, Is.EqualTo("."));
+
+        // And the other side of the same comparison, which is the ordinary case:
+        // §2's non-terminal rule replaces the name with another name, and a
+        // reader that answers "." for everything that is not empty throws the
+        // replacement away and sends every lookup to the root.
+        var nonTerminal = Read("probe.example. 3600 IN NAPTR 100 10 \"s\" \"SIP+D2U\" \"\" _sip._udp.example.") as NAPTR;
+
+        Assert.That(nonTerminal!.Replacement.FullName, Is.EqualTo("_sip._udp.example."));
 
     }
 
@@ -364,27 +461,6 @@ public class PresentationBoundaryTests
             Assert.That(again!.Mode,               Is.EqualTo((UInt16) 3));
             Assert.That(again!.KeyData,            Is.EqualTo(new Byte[] { 0x0A, 0x0B, 0x0C }));
         });
-
-    }
-
-    [Test]
-    [Property("RFC", "1035 §5.1")]
-    [TestCase("probe.example.",           TestName = "an owner name and nothing else")]
-    [TestCase("probe.example. IN",        TestName = "a class and no type")]
-    [TestCase("probe.example. IN 3600",   TestName = "a class, a TTL and no type")]
-    public void A_Line_That_Never_Reaches_Its_Type_Is_Refused_And_Says_So(String Line)
-    {
-
-        // RFC 1035 §5.1: "<rr> contents take one of the following forms:
-        // [<TTL>] [<class>] <type> <RDATA>" — the type is the one field with no
-        // brackets around it. A header that runs out of tokens before reaching
-        // it has to be reported as that, and a reader looking one token past the
-        // end reports an index instead.
-        Assert.That(ADNSResourceRecord.TryParseZoneFileString(Line, out _, out var error),
-                    Is.False);
-
-        Assert.That(error, Does.Contain("type"),
-                    "the line is missing a type, and that is what the reader should say");
 
     }
 

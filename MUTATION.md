@@ -131,6 +131,8 @@ build/mutation/
 
   results/records-bounds2.tsv   the sixth round re-run: every boundary it
                                 claims, mutated again and judged
+  results/records-branch2.tsv   the seventh, over the branches and the last
+                                rejections, in three passes
   results/        the raw verdicts, one row per mutant
 ```
 
@@ -192,10 +194,11 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **145 of the 240 are closed** and **45 were declared equivalent
-rather than chased**, leaving **50 open** — almost all of them branches now, in
-LOC, SVCB, HTTPS, the SRV specification and the base class every record passes
-through. Two boundaries are left, and both are the same one: see below.
+Since the sweep, **180 of the 240 are closed** and **54 were declared equivalent
+rather than chased**. **4 more are gone**: the lines their verdicts were measured
+on were replaced by fixes, which is neither of the other two things.
+
+That leaves **2 open**, and they are one boundary written twice: see below.
 
 Do not trust that sentence. Print it:
 
@@ -261,5 +264,13 @@ longitude of exactly 2^31, where RFC 1876 §2 says only that values *above* 2^31
 are north and east. Both spellings read back as the same octets, so a test
 preferring one would be pinning a choice the RFC declines to make.
 
-The remaining 50 are not a backlog and are not sorted by importance. They are a
-map of where this suite believes it is looking and is not.
+What is left is no longer a map of anything: two rows, one rule, and the rule is
+one RFC 1876 does not make. The sweep set out to find where this suite believed
+it was looking and was not, and it has now been walked end to end.
+
+Four defects came out of that walk, and none of them by a test failing.
+[Findings 54, 55 and 56](FINDINGS.md), and `DNSSRVEndpoint`'s `Equals` and
+`CompareTo` — recorded in [PLAN.md](PLAN.md) rather than numbered, because they
+break a .NET contract rather than an RFC. Each was found the same way: a
+survivor that no test could kill, and the reason was not a gap in the tests but
+that no input could reach it.

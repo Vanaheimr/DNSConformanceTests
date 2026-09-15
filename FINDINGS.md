@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty-four RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty-six RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -70,6 +70,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 52 | SRV: a weight of 0 was never chosen, and an unreachable priority hid the rest | Medium | 2782 | ✅ fixed |
 | 53 | A late answer desynchronised the reused TCP/DoT stream for good | **High** | 7766 §7, 8945 §5.4 | ✅ fixed |
 | 54 | A field shorter than it should be was completed with zeros | **High** | 1035 §4.1.3, 4255 §3.1.3 | ✅ fixed |
+| 55 | A signature said which type it covered, in a spelling nothing else reads | Medium | 4034 §3.2, 3597 §5 | ✅ fixed |
+| 56 | A backslash in a zone file arrived as a backslash | **High** | 1035 §5.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2940,6 +2942,145 @@ SSHFP checks were on the survivor list, a test was written to kill them, and the
 test failed because the record it expected to be refused was accepted instead.
 Pinned by `RecordBranchTests`, and by seventeen mutations of which the first is
 this padding restored.
+
+---
+
+## 55 — A signature said which type it covered, in a spelling nothing else reads
+
+RFC 4034 §3.2 is one sentence and leaves nothing open:
+
+> The Type Covered field is represented as an RR type mnemonic. When the
+> mnemonic is not known, the TYPE representation as described in [RFC3597],
+> Section 5, MUST be used.
+
+RRSIG wrote the field like this:
+
+```csharp
+return $"{TypeCovered} {Algorithm} {Labels} {OriginalTTL} ...";
+```
+
+`TypeCovered` is an enum. For a value with a name, `ToString()` gives the
+mnemonic. For a value without one it gives the number — so an RRSIG over a type
+this build has no name for came out as
+
+```
+probe.example. 3600 IN RRSIG 65280 8 2 3600 20301231235959 20200101000000 12345 example. AQID
+```
+
+where every other implementation writes `TYPE65280`. A zone file Hermod
+produced was one `named-checkzone` would refuse, and the field it refuses is the
+one that says what the signature is for.
+
+**The rule was already in the file.** `ADNSResourceRecord.TypeName` is exactly
+RFC 3597 §5 — mnemonic, else `TYPE` and the decimal — and the record header two
+lines above used it, and the type bit map used it. The Type Covered field did
+not.
+
+**Why nothing noticed.** The reader is lenient in precisely the shape the writer
+was wrong: `TryParseTypeCovered` accepts a bare decimal as its last resort. So
+the record round-tripped through Hermod perfectly, over a line no other reader
+would take. That is the same trap as finding 54 — a check its own surroundings
+satisfy — and it is what a round trip cannot see by construction: both halves
+have to be wrong the same way for the trip to close, and then it closes.
+
+**SIG had the same fault and its mirror image.** RFC 2535 §7.2 gives SIG the
+presentation format RRSIG later inherited, and SIG's parser knew mnemonics and
+the single word `TYPE0`:
+
+```csharp
+if (!Enum.TryParse<DNSResourceRecordTypes>(parts[0], true, out var typeCovered) &&
+    !(parts[0] == "0" || parts[0].Equals("TYPE0", StringComparison.OrdinalIgnoreCase)))
+    return null;
+```
+
+`TYPE0` is one of the RFC 3597 §5 spellings. Every other one — `TYPE65280`,
+`TYPE1`, `type1` — was refused outright: a SIG over an unknown type could not be
+read at all. So the two types disagreed with each other *and* with the RFC, in
+opposite directions, which is what two copies of one rule do.
+
+**The fix is one writer and one reader.** Both now write `TypeName(TypeCovered)`,
+and SIG parses through the reader RRSIG already had, which knows both spellings
+and both cases. SIG(0)'s `TYPE0` falls out of the general rule — type 0 has no
+mnemonic — rather than out of a case of its own.
+
+Severity is **Medium**. It corrupts no data and drops no record; what it does is
+write a zone file that a conformant reader rejects, in the field that identifies
+what a signature protects. For SIG the reading half is worse: a record it could
+not parse was a record it returned as nothing.
+
+Found while closing the branch gaps from the mutation sweep, and by the sweep in
+a roundabout way: `TryParseTypeCovered`'s bare-decimal branch was on the survivor
+list, which is how the leniency came to be read closely enough to ask what it
+was there for. Pinned by `TypeMnemonicTests`.
+
+---
+
+## 56 — A backslash in a zone file arrived as a backslash
+
+RFC 1035 §5.1 gives a master file two escape forms and says what each one means:
+
+> `\X` where X is any character other than a digit (0-9), is used to quote that
+> character so that its special meaning does not apply. For example, "\\." can be
+> used to place a dot character in a label.
+
+> `\DDD` where each D is a digit is the octet corresponding to the decimal
+> number described by DDD. The resulting octet is assumed to be text and is not
+> checked for special meaning.
+
+Both are syntax. Neither survives into the data. A TXT record written
+
+```
+probe.example. 3600 IN TXT "say \"hi\" now"
+```
+
+carries twelve octets: `say "hi" now`. Hermod read fourteen — `say \"hi\" now`,
+with both backslashes — and `"a\098c"` came back as the six characters `a\098c`
+where the zone says three: `abc`.
+
+**The reader that knew this was not the one being called.** TXT has a
+quoted-string reader which handles `\X` correctly, and it was reached like this:
+
+```csharp
+if (TryParseQuotedStrings(Data, out var quotedStrings) && quotedStrings.Count > 1)
+    return new TXT(Name, DNSQueryClasses.IN, TimeToLive, quotedStrings);
+
+return new TXT(Name, DNSQueryClasses.IN, TimeToLive, Data.Trim('"'));
+```
+
+Two or more character-strings went to the reader. **One** went to
+`Data.Trim('"')` — the quotes taken off the ends and everything between them
+kept as it lay. And one is the common case: an SPF policy, a DKIM key, a DMARC
+record and a DNS-SD key/value set are each a single quoted string. The path that
+knew the rule was the path almost nothing took.
+
+`\DDD` was not implemented at all, in either path.
+
+**What that costs.** The octets go on the wire. A DKIM public key quoted in a
+zone file arrives with backslashes in it and verifies against nothing; an SPF
+record containing `\;` carries a character the policy does not have. RFC 6763
+§6.4 reads DNS-SD key/value pairs out of the same strings, so a value containing
+an escaped `=` is split in the wrong place. And because Hermod's *writer*
+escapes on the way out, its own round trip closed: it read `\"` as two
+characters and wrote them back as `\\\"`, which reads back as the same two. Self
+-consistent, and not what the zone said.
+
+**The fix uses the escape-aware reader whenever the text is quoted**, not only
+when there are two strings, and that reader now implements both forms — three
+digits taken as one octet, anything else as the character it quotes. Unquoted
+text is left alone: RFC 1035 §5.1 makes an unquoted character-string one that
+cannot contain a blank, so there is nothing to unescape and nothing to split.
+
+One limit is worth stating rather than hiding: this type stores text, so a
+`\DDD` above 127 becomes a code point and is written back as two UTF-8 octets
+rather than the one the zone named. That is the representation's bound, not this
+fix's — and it is now the only case of it left.
+
+Severity is **High**. It changes record content, silently, on the most widely
+deployed record type there is, for every zone file that uses an escape.
+
+Found while closing the branch gaps from the mutation sweep: the lexer's escape
+flag was on the survivor list, and a test written to ask what it did showed the
+escapes still sitting in the record. Pinned by `ZoneFileLexerTests`.
 
 ---
 

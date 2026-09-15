@@ -50,10 +50,18 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifty-four deviations so far, and all of them are now
+The suite has confirmed fifty-six deviations so far, and all of them are now
 fixed in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the
 single record, with chapter and verse, the mechanism, the change, and the test
 that pins each one. The summary table at the top of that file is the fastest way in.
+
+Two things this round looked at and did **not** open. RFC 1035 §5.1's own example
+of an escape is `\.` placing a dot inside a label, and `DomainName` refuses a name
+written that way while `DNSServiceName` carries `EscapeLabel` and `IsEscaped`
+helpers of its own — an asymmetry worth a look, on its own, with the wire form in
+hand. And `URL.Parse("x")` answers `https://x`, inventing a scheme where RFC 3986
+has no relative URIs; that is a question for `URL` rather than for a record type,
+and it reaches DNS only through a URI record's target.
 
 One review suspicion did *not* survive contact with a test: the compression-offset
 bookkeeping produces messages that decode correctly under the suite's strict
@@ -168,6 +176,15 @@ leg covers them. Every deviation the suite has found is fixed; see
 | 7553 §4.4, §4.5 | A URI record with no URI in it | two MUSTs on the same octet: §4.4 says the Target "MUST NOT be an empty URI" and §4.5 that "The length of the Target field MUST be greater than zero". Priority and Weight take four octets, so an RDLENGTH of exactly four is the one length this type may never have. It was refused already — by a URL parser one line below that happens not to accept an empty string, which is a guard standing on an accident rather than on the rule; the rule is now where the octets are counted | ✅ |
 | 7871 §6 | An option that carries no address | a source prefix of zero bits truncates the address to nothing, which §7.1.2 uses to say "do not scope this query": four octets, and a whole option rather than a short one | ✅ |
 | 4025 §2.5 | A gateway name that runs off the end | §2.5 makes gateway type 3 a wire-encoded domain name and §2.4 forbids compressing it, so the only thing that ends it is a root label. A record that stops before one arrives is malformed, and RFC 3597 §2 still wants the reader past it: the walk has to end at the last octet rather than one after it | ✅ |
+| 1035 §5.1 | What a backslash means | the master file gives two escape forms and both of them are syntax: `\X` quotes the character so its special meaning does not apply, and `\DDD` is the octet that decimal number names. Neither survives into the record ✅ (finding 56) — a single quoted character-string, which is every SPF, DKIM and DMARC record there is, used to take a path that kept them. And the lexer's side of the same rule: an escaped quote does not end a string, so the blanks behind it are data |
+| 1035 §5.1 | Where a line is allowed to run out | three tokens cannot be a resource record whatever they are, and a header that reaches four without a type is missing a type — two refusals with two messages, and naming which is which is the point. An assertion that looks for the word "type" cannot tell them apart, which is how this test read when the sixth round wrote it |
+| 3597 §5, 4034 §3.2 | How a type is written when nobody has a name for it | "When the mnemonic is not known, the TYPE representation ... MUST be used" ✅ (finding 55). RRSIG wrote a bare decimal and read one back, so its round trip closed over a line no other implementation takes; SIG wrote the same and could read only `TYPE0` of all the RFC 3597 §5 spellings. One writer and one reader now, and both of them case-insensitive per §2.3.3 |
+| 1035 §3.4.1, 3596 §2.2 | An address is as wide as its type says | thirty-two bits and a hundred and twenty-eight, counted at the number and on both sides of it, through the array reader and the stream reader alike. A guard that has only ever seen the right answer is indistinguishable from one that accepts anything |
+| 7871 §6, 7873 §5.2 | An option whose width its own field decides | the ECS family decides how wide the address is, and reading a four-octet prefix as the start of a sixteen-octet one puts the client in a different internet; a server cookie is eight to thirty-two octets, and a bound that fires on one side only lets the other through |
+| 2782 | The two labels in front of a name, as a value | `_Service._Proto.Name` is two labels and both identify the service: `_sip._tcp` and `_sip._udp` are two record sets. An equality that needs only one of them to agree makes them one, an ordering that consults the second when the first has answered sorts by the wrong one, and an emptiness test asked of nothing has to answer rather than throw |
+| 1035 §4.1.4, 3597 §4 | Where a name may not become a pointer | §4.1.4 measures a pointer from the start of the message, so RDATA lifted out of one carries no pointers — not when an owner name is rewritten, and not when RDATA is handed to another reader. And §4.2's own rule: RP is RFC 1183, so neither of its names may be compressed even when the message has already written that very name |
+| 7477 §2.1 | A CSYNC that names no types | the SOA serial and the flags are the record; §2.1.3's type bit map is a list of what to process, and a list of none is a record with nothing to do rather than a field missing |
+| 1876 §2, §3 | A size that says nothing, and a token that is not a hemisphere | a size that will not parse and a size below zero are both outside what two four-bit unsigned integers can hold, so the RFC's default stands for either. And §3 names exactly four spellings for the longitude hemisphere: a token that is none of them is still the altitude's, and a reader that steps over it anyway shifts every field behind it |
 | dns-json | The least a JSON `data` field can say | SVCB and HTTPS need a priority and a target, NSEC a next name, LOC four words — one word fewer is not a record, one word more is the optional part beginning, and a comparison shifted one step loses exactly that part without failing. The path finding 48 lived in | ✅ |
 | 4025 §2.4, §2.5 | IPSECKEY name and key | the gateway name uncompressed (RFC 3597 §4), and a record with algorithm 0 and no key — legal by §2.5, and refused by BIND in both the presentation and the generic form | ✅ |
 | 3123 §5 | APL presentation | the text form both ways, negation included; an address family the RFC gives no syntax for falls back to the RFC 3597 §5 generic form rather than invented syntax; an empty prefix list is legal and reads back as one | ✅ |

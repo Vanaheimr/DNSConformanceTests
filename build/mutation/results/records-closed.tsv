@@ -1,12 +1,23 @@
 # Gaps that are no longer gaps, keyed to the same revision as the verdicts.
 # 'killed' means a mutation taken from this sweep's output now fails a test.
 # 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/ResourceRecords/A.cs	209	inequality-to-equality	killed	branch2	
+DNS/ResourceRecords/A.cs	234	inequality-to-equality	killed	branch2	
+DNS/ResourceRecords/AAAA.cs	208	inequality-to-equality	killed	branch2	
+DNS/ResourceRecords/AAAA.cs	233	inequality-to-equality	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	equivalent		both call sites ask whether the record is null before calling, so the null check inside is one the caller has already made
 DNS/ResourceRecords/ADNSResourceRecord.cs	344	less-to-less-or-equal	killed	bounds2	
 DNS/ResourceRecords/ADNSResourceRecord.cs	388	less-to-less-or-equal	killed	bounds2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	425	false-to-true	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	433	false-to-true	equivalent		an escape can only appear in the RDATA, and the RDATA tokens are rejoined with a single blank before any type parser sees them — so where the lexer split them survives as whitespace that every RDATA parser normalises again. In the header it would tell, and a name carrying an escape is refused before the lexer's state is ever consulted
+DNS/ResourceRecords/ADNSResourceRecord.cs	440	true-to-false	killed	branch2	
 DNS/ResourceRecords/ADNSResourceRecord.cs	515	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	equivalent		Serialize is called with no offset table, and DomainName.Serialize starts a fresh empty one per name, so nothing is ever in it to point at
 DNS/ResourceRecords/ADNSResourceRecord.cs	572	less-to-less-or-equal	equivalent		the owner name of a record it has just serialized always ends in a root label, so the walk cannot reach the end of the buffer
 DNS/ResourceRecords/ADNSResourceRecord.cs	617	greater-to-ge	killed	bounds2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	equivalent		the name is the first thing written into a fresh stream with an empty table
 DNS/ResourceRecords/ADNSResourceRecord.cs	656	true-to-false	killed	branch	
 DNS/ResourceRecords/ADNSResourceRecord.cs	690	logical-and-to-or	killed	branch	
 DNS/ResourceRecords/ADNSResourceRecord.cs	690	true-to-false	killed	branch	
@@ -22,12 +33,19 @@ DNS/ResourceRecords/ADNSResourceRecord.cs	832	logical-or-to-and	killed	adns
 DNS/ResourceRecords/ADNSResourceRecord.cs	832	less-to-less-or-equal	killed	adns	
 DNS/ResourceRecords/ADNSResourceRecord.cs	832	greater-to-ge	killed	adns	
 DNS/ResourceRecords/ADNSResourceRecord.cs	833	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	858	false-to-true	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	862	true-to-false	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	logical-and-to-or	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	true-to-false	killed	branch2	
 DNS/ResourceRecords/ADNSResourceRecord.cs	953	false-to-true	killed	adns	
 DNS/ResourceRecords/ADNSResourceRecord.cs	959	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1010	false-to-true	killed	branch2	
 DNS/ResourceRecords/ADNSResourceRecord.cs	1013	less-to-less-or-equal	killed	bounds2	
 DNS/ResourceRecords/ADNSResourceRecord.cs	1045	false-to-true	killed	adns	
 DNS/ResourceRecords/ADNSResourceRecord.cs	1052	ge-to-greater	killed	adns	
 DNS/ResourceRecords/ADNSResourceRecord.cs	1056	false-to-true	killed	adns	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1075	logical-and-to-or	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1089	false-to-true	equivalent		ReadBackFromWire writes the stated class into the wire form it reads back, so a record reaching this line is already in the class the line stated
 DNS/ResourceRecords/ADNSResourceRecord.cs	1162	le-to-less	equivalent		a window header at the very end of the buffer carries no bitmap, so entering it and skipping it both end in false
 DNS/ResourceRecords/ADNSResourceRecord.cs	1171	false-to-true	killed	adns	
 DNS/ResourceRecords/ADNSResourceRecord.cs	1179	ge-to-greater	killed	adns	
@@ -36,6 +54,8 @@ DNS/ResourceRecords/ADNSResourceRecord.cs	1191	false-to-true	killed	adns
 DNS/ResourceRecords/ADNSResourceRecord.cs	1206	less-to-less-or-equal	equivalent		entering the loop at the end of the bitmap breaks at the window-header check two lines below
 DNS/ResourceRecords/ADNSResourceRecord.cs	1209	greater-to-ge	equivalent		a window header with nothing behind it adds no types whether the loop leaves here or at the bitmap-length check
 DNS/ResourceRecords/ADNSResourceRecord.cs	1222	less-to-less-or-equal	equivalent		0x80 >> 8 is zero, so the ninth pass masks nothing and adds nothing
+DNS/ResourceRecords/ADNSResourceRecord.cs	1376	false-to-true	killed	branch2	
+DNS/ResourceRecords/ADNSResourceRecord.cs	1387	false-to-true	equivalent		the same as 622: the new owner goes first, into an empty stream with an empty table
 DNS/ResourceRecords/AFSDB.cs	218	greater-to-ge	equivalent		two octets and a name, so at most 257
 DNS/ResourceRecords/APL.cs	114	greater-to-ge	killed	apl	
 DNS/ResourceRecords/APL.cs	144	ge-to-greater	equivalent		width is 4, 16, or AFDPart.Length itself, so both branches return the same octets
@@ -54,6 +74,7 @@ DNS/ResourceRecords/APL.cs	231	false-to-true	killed	apl
 DNS/ResourceRecords/APL.cs	317	le-to-less	killed	apl	
 DNS/ResourceRecords/APL.cs	401	logical-or-to-and	equivalent		TryParse nulls Item on every false it returns, so the two operands never differ
 DNS/ResourceRecords/CNAME.cs	199	greater-to-ge	equivalent		one name, and RFC 1035 §2.3.4 stops a name at 255 octets
+DNS/ResourceRecords/CSYNC.cs	182	less-to-less-or-equal	killed	branch2	
 DNS/ResourceRecords/DHCID.cs	157	ge-to-greater	killed	bounds	
 DNS/ResourceRecords/DHCID.cs	191	ge-to-greater	killed	bounds	
 DNS/ResourceRecords/DNAME.cs	372	greater-to-ge	equivalent		one name, and RFC 1035 §2.3.4 stops a name at 255 octets
@@ -62,9 +83,11 @@ DNS/ResourceRecords/HTTPS.cs	237	logical-and-to-or	killed	bounds2
 DNS/ResourceRecords/HTTPS.cs	237	le-to-less	killed	bounds2	
 DNS/ResourceRecords/HTTPS.cs	237	ge-to-greater	killed	bounds2	
 DNS/ResourceRecords/HTTPS.cs	274	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/HTTPS.cs	277	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/HTTPS.cs	282	greater-to-ge	killed	bounds2	
 DNS/ResourceRecords/HTTPS.cs	288	ge-to-greater	equivalent		a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey
 DNS/ResourceRecords/HTTPS.cs	289	ge-to-greater	equivalent		the same token: the key name has already dropped the parameter, whatever the value is
+DNS/ResourceRecords/HTTPS.cs	335	false-to-true	killed	branch2	
 DNS/ResourceRecords/HTTPS.cs	340	logical-and-to-or	killed	branch	
 DNS/ResourceRecords/HTTPS.cs	340	logical-or-to-and	killed	branch	
 DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	killed	branch	
@@ -82,7 +105,9 @@ DNS/ResourceRecords/IPSECKEY.cs	230	greater-to-ge	killed	bounds
 DNS/ResourceRecords/IPSECKEY.cs	231	greater-to-ge	killed	bounds	
 DNS/ResourceRecords/IPSECKEY.cs	232	greater-to-ge	killed	bounds	
 DNS/ResourceRecords/IPSECKEY.cs	314	less-to-less-or-equal	killed	bounds2	
+DNS/ResourceRecords/IPSECKEY.cs	419	false-to-true	equivalent		the gateway name is serialized on its own, with no offset table at all
 DNS/ResourceRecords/IPSECKEY.cs	432	greater-to-ge	equivalent		parts[4..] of a four-element array is empty, and Convert.FromBase64String("") is the empty array the other branch starts with
+DNS/ResourceRecords/LOC.cs	256	logical-or-to-and	killed	branch2	
 DNS/ResourceRecords/LOC.cs	257	less-to-less-or-equal	killed	bounds2	
 DNS/ResourceRecords/LOC.cs	331	ge-to-greater	equivalent		9e9 centimetres reduces through the loop to 9e0 as well, so both paths return 0x99
 DNS/ResourceRecords/LOC.cs	337	greater-to-ge	killed	bounds2	
@@ -99,8 +124,11 @@ DNS/ResourceRecords/LOC.cs	481	less-to-less-or-equal	killed	bounds2
 DNS/ResourceRecords/LOC.cs	482	less-to-less-or-equal	killed	bounds2	
 DNS/ResourceRecords/LOC.cs	484	less-to-less-or-equal	killed	bounds2	
 DNS/ResourceRecords/LOC.cs	486	equality-to-inequality	killed	branch	
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	killed	branch2	
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/LOC.cs	493	less-to-less-or-equal	killed	bounds2	
 DNS/ResourceRecords/MX.cs	215	greater-to-ge	equivalent		two octets and a name, so at most 257
+DNS/ResourceRecords/NAPTR.cs	227	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/NAPTR.cs	276	greater-to-ge	equivalent		four octets, three character-strings capped at 255 each, and a name — at most 1027
 DNS/ResourceRecords/NS.cs	197	greater-to-ge	equivalent		one name, and RFC 1035 §2.3.4 stops a name at 255 octets
 DNS/ResourceRecords/NSEC.cs	175	less-to-less-or-equal	killed	bounds	
@@ -109,10 +137,17 @@ DNS/ResourceRecords/NSEC3.cs	364	ge-to-greater	equivalent		base32hex: whenever a
 DNS/ResourceRecords/NSEC3.cs	439	greater-to-ge	killed	bounds2	
 DNS/ResourceRecords/NSEC3PARAM.cs	211	greater-to-ge	killed	bounds2	
 DNS/ResourceRecords/PTR.cs	223	greater-to-ge	equivalent		one name, and RFC 1035 §2.3.4 stops a name at 255 octets
+DNS/ResourceRecords/RP.cs	222	false-to-true	killed	branch2	
 DNS/ResourceRecords/RP.cs	227	greater-to-ge	equivalent		two names, so at most 510
 DNS/ResourceRecords/RRSIG.cs	291	logical-and-to-or	killed	branch	
 DNS/ResourceRecords/RRSIG.cs	291	true-to-false	killed	branch	
+DNS/ResourceRecords/RRSIG.cs	301	true-to-false	killed	branch2	
+DNS/ResourceRecords/RRSIG.cs	307	true-to-false	killed	branch2	
+DNS/ResourceRecords/RRSIG.cs	310	false-to-true	killed	branch2	
 DNS/ResourceRecords/RRSIG.cs	364	greater-to-ge	killed	bounds2	
+DNS/ResourceRecords/SIG.cs	265	true-to-false	superseded		finding 55 replaced this condition with a call to the reader RRSIG already had, so SIG no longer has a type-covered parser of its own to get wrong
+DNS/ResourceRecords/SIG.cs	266	logical-or-to-and	superseded		the same line, and the TYPE0 special case with it: type 0 has no mnemonic, so the general rule writes and reads it like any other
+DNS/ResourceRecords/SIG.cs	266	equality-to-inequality	superseded		the same line, and the TYPE0 special case with it: type 0 has no mnemonic, so the general rule writes and reads it like any other
 DNS/ResourceRecords/SIG.cs	361	greater-to-ge	killed	bounds2	
 DNS/ResourceRecords/SOA.cs	316	greater-to-ge	equivalent		two names and twenty octets, so at most 530
 DNS/ResourceRecords/SPF.cs	197	greater-to-ge	killed	bounds2	
@@ -129,6 +164,7 @@ DNS/ResourceRecords/SVCB.cs	330	logical-and-to-or	killed	bounds2
 DNS/ResourceRecords/SVCB.cs	330	le-to-less	killed	bounds2	
 DNS/ResourceRecords/SVCB.cs	330	ge-to-greater	killed	bounds2	
 DNS/ResourceRecords/SVCB.cs	368	less-to-less-or-equal	killed	bounds	
+DNS/ResourceRecords/SVCB.cs	371	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/SVCB.cs	376	greater-to-ge	killed	bounds	
 DNS/ResourceRecords/SVCB.cs	382	ge-to-greater	equivalent		a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey
 DNS/ResourceRecords/SVCB.cs	383	ge-to-greater	equivalent		the same token: the key name has already dropped the parameter, whatever the value is
@@ -177,7 +213,9 @@ DNS/ResourceRecords/URI.cs	258	greater-to-ge	killed	bounds2
 DNS/ResourceRecords/UnknownRecord.cs	127	greater-to-ge	killed	bounds2	
 DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	132	greater-to-ge	equivalent		a source prefix of zero bits makes trailingBits zero as well, and the inner guard skips the indexing
 DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	161	less-to-less-or-equal	killed	bounds2	
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	171	equality-to-inequality	killed	branch2	
 DNS/ResourceRecords/OTP/EDNSCookieOption.cs	57	greater-to-ge	equivalent		the constructor refuses a server cookie shorter than eight octets (RFC 7873 §5.2), so an empty one never reaches this
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	79	logical-or-to-and	killed	branch2	
 DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	247	greater-to-ge	equivalent		Array.Copy of zero octets is exactly what the skipped branch does
 DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	265	less-to-less-or-equal	killed	bounds	
 DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	270	greater-to-ge	killed	bounds	
@@ -189,6 +227,17 @@ DNS/ResourceRecords/SRV/SRVSpec.cs	302	less-to-less-or-equal	killed	bounds
 DNS/ResourceRecords/SRV/SRVSpec.cs	317	le-to-less	killed	bounds	
 DNS/ResourceRecords/SRV/SRVSpec.cs	332	greater-to-ge	killed	bounds	
 DNS/ResourceRecords/SRV/SRVSpec.cs	347	ge-to-greater	killed	bounds	
+DNS/ResourceRecords/SRV/SRVSpec.cs	383	equality-to-inequality	killed	branch2	
+DNS/ResourceRecords/SRV/SRVSpec.cs	423	logical-and-to-or	killed	branch2	
 DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	177	le-to-less	killed	bounds	
 DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	192	greater-to-ge	killed	bounds	
 DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	207	ge-to-greater	killed	bounds	
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	272	false-to-true	superseded		the body of the Equals that returned false unconditionally. The boundaries round replaced it with a seven-field comparison, and the mutants of that replacement (162, 177, 192, 207) were killed there
+DNS/ResourceRecords/SRV/DNSSRVManager.cs	92	logical-or-to-and	killed	branch2	
+DNS/ResourceRecords/SRV/SRVSpec.cs	38	logical-or-to-and	killed	branch2	
+DNS/ResourceRecords/SRV/SRVSpec.cs	45	logical-and-to-or	killed	branch2	
+DNS/ResourceRecords/SRV/SRVSpec.cs	77	logical-or-to-and	equivalent		the constructor is private and TryParse refuses a half, so the two identifiers are empty together or neither is — and || and && agree on both states
+DNS/ResourceRecords/SRV/SRVSpec.cs	83	logical-and-to-or	equivalent		the same pair, the same two states
+DNS/ResourceRecords/SRV/SRVSpec.cs	163	logical-and-to-or	killed	branch2	
+DNS/ResourceRecords/SRV/SRVSpec.cs	168	true-to-false	killed	branch2	
+DNS/ResourceRecords/SRV/SRVSpec.cs	175	false-to-true	killed	branch2	

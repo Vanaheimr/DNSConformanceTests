@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 """Write down which gaps are closed, so the standing count is derived instead of
-typed. Six rounds so far, each verified by mutations taken from the sweep's own
-output."""
+typed. Seven rounds so far, each verified by mutations taken from the sweep's own
+output.
+
+Three ways a gap stops being one:
+
+  killed      a mutation taken from this sweep's output now fails a test
+  equivalent  the mutation is real and the program is the same either way
+  superseded  the line the verdict belongs to no longer exists, because a fix
+              replaced it — neither of the other two would be true of it
+"""
 
 import io
 import os
@@ -59,6 +67,25 @@ KILLED = {
                 "DNS/ResourceRecords/NSEC3PARAM.cs":     {211},
                 "DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs": {161},
                 "DNS/ResourceRecords/IPSECKEY.cs":       {314}},
+
+    # The branches, and the last six rejections. Where a line carries several
+    # mutations of one operator — LOC's four hemisphere spellings, the printable
+    # range's three ands — every one of them was run, because the sweep's row does
+    # not say which of them survived.
+    "branch2": {"DNS/ResourceRecords/A.cs":                          {209, 234},
+                "DNS/ResourceRecords/AAAA.cs":                       {208, 233},
+                "DNS/ResourceRecords/ADNSResourceRecord.cs":         {425, 440, 858, 862, 874, 1010, 1075, 1376},
+                "DNS/ResourceRecords/CSYNC.cs":                      {182},
+                "DNS/ResourceRecords/HTTPS.cs":                      {277, 335},
+                "DNS/ResourceRecords/LOC.cs":                        {256, 487},
+                "DNS/ResourceRecords/NAPTR.cs":                      {227},
+                "DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs": {171},
+                "DNS/ResourceRecords/OTP/EDNSCookieOption.cs":       {79},
+                "DNS/ResourceRecords/RP.cs":                         {222},
+                "DNS/ResourceRecords/RRSIG.cs":                      {301, 307, 310},
+                "DNS/ResourceRecords/SRV/DNSSRVManager.cs":          {92},
+                "DNS/ResourceRecords/SRV/SRVSpec.cs":                {38, 45, 163, 168, 175, 383, 423},
+                "DNS/ResourceRecords/SVCB.cs":                       {371}},
 }
 
 # Mutations that are real and unobservable: the program is the same either way.
@@ -81,6 +108,20 @@ EQUIVALENT = {
         1206: "entering the loop at the end of the bitmap breaks at the window-header check two lines below",
         1209: "a window header with nothing behind it adds no types whether the loop leaves here or at the bitmap-length check",
         1222: "0x80 >> 8 is zero, so the ninth pass masks nothing and adds nothing",
+
+        # The branches, seventh round.
+        244:  "both call sites ask whether the record is null before calling, so the null check inside is one "
+              "the caller has already made",
+        433:  "an escape can only appear in the RDATA, and the RDATA tokens are rejoined with a single blank "
+              "before any type parser sees them — so where the lexer split them survives as whitespace that "
+              "every RDATA parser normalises again. In the header it would tell, and a name carrying an escape "
+              "is refused before the lexer's state is ever consulted",
+        567:  "Serialize is called with no offset table, and DomainName.Serialize starts a fresh empty one per "
+              "name, so nothing is ever in it to point at",
+        622:  "the name is the first thing written into a fresh stream with an empty table",
+        1089: "ReadBackFromWire writes the stated class into the wire form it reads back, so a record reaching "
+              "this line is already in the class the line stated",
+        1387: "the same as 622: the new owner goes first, into an empty stream with an empty table",
     },
 
     # RFC 1035 §2.3.4 stops a domain name at 255 octets on the wire, so a record
@@ -143,6 +184,7 @@ EQUIVALENT = {
     },
 
     "DNS/ResourceRecords/IPSECKEY.cs": {
+        419: "the gateway name is serialized on its own, with no offset table at all",
         432: "parts[4..] of a four-element array is empty, and Convert.FromBase64String(\"\") is the empty array the other branch starts with",
     },
     "DNS/ResourceRecords/URI.cs": {
@@ -153,6 +195,26 @@ EQUIVALENT = {
     },
     "DNS/ResourceRecords/SRV/DNSSRVCacheEntry.cs": {
         50: "the boundary is one instant of the system clock, and no test can place Timestamp.Now exactly on it",
+    },
+    "DNS/ResourceRecords/SRV/SRVSpec.cs": {
+        77: "the constructor is private and TryParse refuses a half, so the two identifiers are empty together "
+            "or neither is — and || and && agree on both states",
+        83: "the same pair, the same two states",
+    },
+}
+
+# Lines a fix removed. The verdict was measured on code that is no longer there,
+# so neither "killed" nor "equivalent" would be a true thing to write down.
+SUPERSEDED = {
+    "DNS/ResourceRecords/SIG.cs": {
+        265: "finding 55 replaced this condition with a call to the reader RRSIG already had, so SIG no longer "
+             "has a type-covered parser of its own to get wrong",
+        266: "the same line, and the TYPE0 special case with it: type 0 has no mnemonic, so the general rule "
+             "writes and reads it like any other",
+    },
+    "DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs": {
+        272: "the body of the Equals that returned false unconditionally. The boundaries round replaced it with "
+             "a seven-field comparison, and the mutants of that replacement (162, 177, 192, 207) were killed there",
     },
 }
 
@@ -173,17 +235,24 @@ for line in io.open(CLASSIFIED, encoding="utf-8"):
         why = EQUIVALENT.get(rel, {}).get(ln)
         if why:
             rows.append((rel, str(ln), op, "equivalent", "", why))
+        else:
+            why = SUPERSEDED.get(rel, {}).get(ln)
+            if why:
+                rows.append((rel, str(ln), op, "superseded", "", why))
 
 with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
     f.write("# Gaps that are no longer gaps, keyed to the same revision as the verdicts.\n")
     f.write("# 'killed' means a mutation taken from this sweep's output now fails a test.\n")
     f.write("# 'equivalent' means the mutation is real and the program is the same either way.\n")
+    f.write("# 'superseded' means the line the verdict belongs to was replaced by a fix.\n")
     f.write("# file\tline\toperator\tstate\tround\twhy\n")
     for r in rows:
         f.write("\t".join(r) + "\n")
 
 killed = sum(1 for r in rows if r[3] == "killed")
 equiv  = sum(1 for r in rows if r[3] == "equivalent")
+gone   = sum(1 for r in rows if r[3] == "superseded")
 print("wrote %s" % OUT)
 print("  killed      %3d" % killed)
 print("  equivalent  %3d" % equiv)
+print("  superseded  %3d" % gone)

@@ -1,0 +1,69 @@
+# The seventh round re-run: every branch and rejection it claims, mutated again
+# and judged. Three passes — the first over all forty-eight, the second over the
+# four it left standing once they had tests, the third over the two spellings of
+# LOC's hemisphere that the second pass showed were still unwatched.
+#
+# GONE means the line a verdict belongs to was replaced by a fix and cannot be
+# mutated any more; the ledger records those as 'superseded' with the reason.
+# file	sweep-line	operator	verdict	detail
+DNS/ResourceRecords/A.cs	209	inequality-to-equality	KILLED	1 of 437 failed
+DNS/ResourceRecords/A.cs	234	inequality-to-equality	KILLED	1 of 437 failed
+DNS/ResourceRecords/AAAA.cs	208	inequality-to-equality	KILLED	1 of 437 failed
+DNS/ResourceRecords/AAAA.cs	233	inequality-to-equality	KILLED	1 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	425	false-to-true	KILLED	1 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	433	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	440	true-to-false	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	858	false-to-true	KILLED	4 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	862	true-to-false	KILLED	3 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	logical-and-to-or	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	true-to-false	KILLED	1 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	1010	false-to-true	KILLED	4 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	1075	logical-and-to-or	KILLED	1 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	1089	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	1376	false-to-true	KILLED	1 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	1387	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/CSYNC.cs	182	less-to-less-or-equal	KILLED	1 of 437 failed
+DNS/ResourceRecords/HTTPS.cs	277	equality-to-inequality	KILLED	2 of 437 failed
+DNS/ResourceRecords/HTTPS.cs	335	false-to-true	KILLED	1 of 437 failed
+DNS/ResourceRecords/IPSECKEY.cs	419	false-to-true	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/LOC.cs	256	logical-or-to-and	KILLED	2 of 437 failed
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	SETUP-ERROR	3 mutations of that operator on the line
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SETUP-ERROR	4 mutations of that operator on the line
+DNS/ResourceRecords/NAPTR.cs	227	equality-to-inequality	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs	171	equality-to-inequality	KILLED	1 of 437 failed
+DNS/ResourceRecords/OTP/EDNSCookieOption.cs	79	logical-or-to-and	KILLED	1 of 437 failed
+DNS/ResourceRecords/RP.cs	222	false-to-true	KILLED	1 of 437 failed
+DNS/ResourceRecords/RRSIG.cs	301	true-to-false	KILLED	5 of 437 failed
+DNS/ResourceRecords/RRSIG.cs	307	true-to-false	KILLED	1 of 437 failed
+DNS/ResourceRecords/RRSIG.cs	310	false-to-true	KILLED	4 of 437 failed
+DNS/ResourceRecords/SIG.cs	265	true-to-false	GONE	the line the verdict belongs to no longer exists
+DNS/ResourceRecords/SIG.cs	266	logical-or-to-and	GONE	the line the verdict belongs to no longer exists
+DNS/ResourceRecords/SIG.cs	266	equality-to-inequality	GONE	the line the verdict belongs to no longer exists
+DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs	272	false-to-true	GONE	the line the verdict belongs to no longer exists
+DNS/ResourceRecords/SRV/DNSSRVManager.cs	92	logical-or-to-and	KILLED	1 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	38	logical-or-to-and	KILLED	1 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	45	logical-and-to-or	KILLED	1 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	77	logical-or-to-and	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	83	logical-and-to-or	SURVIVED	0 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	163	logical-and-to-or	KILLED	4 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	168	true-to-false	KILLED	8 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	175	false-to-true	KILLED	5 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	383	equality-to-inequality	KILLED	2 of 437 failed
+DNS/ResourceRecords/SRV/SRVSpec.cs	423	logical-and-to-or	KILLED	2 of 437 failed
+DNS/ResourceRecords/SVCB.cs	371	equality-to-inequality	KILLED	2 of 437 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	440	true-to-false	KILLED	#1: 1 of 440 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	SURVIVED	#1: 0 of 440 failed
+DNS/ResourceRecords/ADNSResourceRecord.cs	874	logical-and-to-or	KILLED	#1: 1 of 440 failed
+DNS/ResourceRecords/NAPTR.cs	227	equality-to-inequality	KILLED	#1: 1 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	KILLED	#1: 3 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	KILLED	#2: 5 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	logical-or-to-and	KILLED	#3: 5 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#1: 3 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED	#2: 0 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#3: 5 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	SURVIVED	#4: 0 of 440 failed
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#2: 1 of 441 failed
+DNS/ResourceRecords/LOC.cs	487	equality-to-inequality	KILLED	#4: 1 of 441 failed

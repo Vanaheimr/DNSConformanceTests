@@ -8,7 +8,8 @@ script nor the files it reads touch the source at all:
 
   results/records-classified.tsv   every survivor, classified against the
                                    revision the sweep measured
-  results/records-closed.tsv       every gap since closed or declared equivalent
+  results/records-closed.tsv       every gap since closed, declared equivalent, or
+                                   left behind by a fix that removed its line
 
 Run it instead of trusting a count written in prose.
 """
@@ -42,7 +43,8 @@ def main():
 
     killed     = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "killed")
     equivalent = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "equivalent")
-    still_open = len(real) - killed - equivalent
+    superseded = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "superseded")
+    still_open = len(real) - killed - equivalent - superseded
 
     print("=" * 74)
     print("MUTATION SWEEP - standing state")
@@ -53,6 +55,7 @@ def main():
     print()
     print("  closed by a test           %4d" % killed)
     print("  declared equivalent        %4d" % equivalent)
+    print("  the line is gone           %4d" % superseded)
     print("  still open                 %4d" % still_open)
     print()
 
