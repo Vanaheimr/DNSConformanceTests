@@ -264,6 +264,7 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | RFC / area | What is missing | Blocker |
 |------------|-----------------|---------|
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
+| **2230** KX, **8005** HIP, **6742** NID/L32/L64/LP | record types Hermod has no parser for | nothing — they are rare and none of them has the shape that makes a record type worth reaching for first. RFC 3597 §5 already carries them: Hermod reads and writes them as `TYPE36`, `TYPE55` and so on, losing nothing but the mnemonic. IPSECKEY was taken ahead of them because its gateway field changes meaning with the octet before it and its length is written nowhere, which is where parsers go wrong; these three are a preference and a name, a fixed-shape key, and a 64-bit identifier |
 
 **TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
 stating rather than discovering.** The exchange is unauthenticated on its own —
@@ -301,12 +302,14 @@ explains — which records a signed zone owes each kind of negative answer — i
 covered under RFC 4035 §3.1 and RFC 5155 §7, and 7129 remains the readable
 account of why those particular records.
 
-One entry, and it is the blocked one — that column is not decoration.
-Everything else this list once held has been done; what is left needs a
-Kerberos/SPNEGO stack before a single assertion can be written. It sits here
-rather than under *Out of scope* because it is a gap and not a refusal: GSS-TSIG
-is what is actually deployed, and a suite that judged Hermod's transaction
-security without saying so would be quietly flattering it.
+Two entries, and only the first is blocked — that column is not decoration, and
+neither is an empty cell in it. GSS-TSIG needs a Kerberos/SPNEGO stack before a
+single assertion can be written, and sits here rather than under *Out of scope*
+because it is a gap and not a refusal: it is what is actually deployed, and a
+suite that judged Hermod's transaction security without saying so would be
+quietly flattering it. The record types are the other kind of entry entirely —
+unblocked, unstarted, and written down so that the decision to defer them is a
+decision rather than something nobody got round to.
 
 ### Out of scope
 
