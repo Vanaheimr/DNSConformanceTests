@@ -177,6 +177,9 @@ round-trip where supported.
 |-----|-------|--------------------|:--:|
 | 1035 | A, NS, CNAME, SOA, PTR, MX, HINFO | SOA 32-bit serial/timers; MX preference; two-name and character-string RDATA | ✅ |
 | 1035 §3.3.14 | TXT | multi-character-string RDATA (> 255 B), concatenated per RFC 7208 §3.3 | ✅ |
+| 1035 §3.3.14, 6763 §6.1 | TXT: the 255-octet limit, both sides | a character-string of exactly 255 octets is legal and 256 is not, and the count is of UTF-8 octets rather than characters — 128 two-octet characters are 256 octets and must be refused | ✅ |
+| 6763 §6.4 | TXT: what a DNS-SD key is, and what a string means | keys are "printable US-ASCII values (0x20-0x7E), excluding '='" — both ends of that interval accepted, control characters, 0x7F, non-ASCII and '=' refused. A string with no '=' is a boolean attribute with a null value; `k=` is a key set to nothing, which is not the same thing; the split is at the *first* '=' so a base64 value keeps its padding; strings beginning with '=' and empty strings are silently ignored; and of a repeated key only the first occurrence counts, case-insensitively | ✅ |
+| 1035 §3.3.14 | TXT: several quoted strings, or one text | the JSON `data` field is read as a list of character-strings only when it is one: an escaped quote belongs to the string it is inside, and a word outside the quotes, an unterminated string, or no quotes at all make it a single text rather than a parse failure. An empty quoted string is still a string — §6.1's "0-255 bytes" includes zero | ✅ |
 | 3596 | AAAA | full/compressed IPv6 forms | ✅ |
 | 1183 | RP, AFSDB | two-name RDATA | ✅ |
 | 1876 §2 | LOC | the scaled octet over all 256 values, the lat/lon 2^31 offset, the altitude reference at both extremes | ✅ |

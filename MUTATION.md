@@ -186,13 +186,29 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, thirteen of the 240 are closed — APL's nine rejection paths, its
-two prefix limits, and two ends of the all-zero address — verified by thirteen
-mutations taken from this output rather than invented. Three further APL
-survivors are recorded there as unkillable and were **declared equivalent rather
-than chased**, each with the reason it cannot be observed. Chasing an equivalent
-mutant produces a test that pins an implementation detail, which is worse than
-the gap it was meant to close.
+Since the sweep, **38 of the 240 are closed** and **6 were declared equivalent
+rather than chased**, leaving **196 open**:
 
-The remaining 227 are not a backlog and are not sorted by importance. They are a
+| | closed | equivalent | open |
+|---|---:|---:|---:|
+| `APL.cs` | 13 | 3 | 0 |
+| `TXT.cs` | 25 | 3 | 1 |
+| everything else | 0 | 0 | 195 |
+
+Each closure was verified by a mutation taken from this output rather than
+invented — thirteen for APL, twenty for TXT — and in both cases the re-run caught
+a test that closed the gap only halfway. APL's four-octet item was read back
+through the text reader while the line at issue lives in the wire reader. TXT's
+quoted-string reader was started in the escaped state by one mutation that
+survived every test, because the escape flag is first read *inside* a string and
+every test began its first string with an ordinary character; only an empty first
+string reaches it.
+
+An equivalent mutant is not a gap. Chasing one produces a test that pins an
+implementation detail, so each is recorded with the reason it cannot be observed
+instead: a comparison against a length that is by construction equal, a branch
+whose condition the caller has already excluded, a second operand that is never
+different from the first.
+
+The remaining 196 are not a backlog and are not sorted by importance. They are a
 map of where this suite believes it is looking and is not.
