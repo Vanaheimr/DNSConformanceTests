@@ -166,7 +166,7 @@ public class SignedQueriesOverDotAndDohTests
     #region Dot_Client_Discards_A_Reply_Signed_With_The_Wrong_Secret()
 
     [Test]
-    [Property("RFC", "8945 §5.3")]
+    [Property("RFC", "8945 §5.3, 8945 §5.4")]
     public async Task Dot_Client_Discards_A_Reply_Signed_With_The_Wrong_Secret()
     {
 
@@ -178,21 +178,38 @@ public class SignedQueriesOverDotAndDohTests
             request => SignedAnswer(request, impostor, "dot.example.", "192.0.2.66")
         );
 
+        var timeout = TimeSpan.FromSeconds(1);
+
         await using var client = new DNSTLSClient(
                                      IPv4Address.Localhost,
                                      TCPPort:                     IPPort.Parse((UInt16) server.Port),
-                                     QueryTimeout:                TimeSpan.FromSeconds(10),
+                                     QueryTimeout:                timeout,
                                      RemoteCertificateValidator:  (_, _, _, _, _) => TLSValidationResult.Success()
                                  ) { TransactionSecurity = new DNSTransactionSecurity(TSIGKey: key) };
 
-        var response = await client.Query<A>(DomainName.Parse("dot.example."), Timeout: TimeSpan.FromSeconds(10));
+        var response = await client.Query<A>(DomainName.Parse("dot.example."), Timeout: timeout);
 
-        // TLS already proves the channel was not tampered with — which is exactly
-        // why this is worth asserting. The two mechanisms answer different
-        // questions, and a client that signed its query and then believed
-        // whatever came back would have gained nothing from asking.
-        Assert.That(response.Answers.Any(), Is.False,
-                    "a reply that does not authenticate is not an answer, encrypted channel or not");
+        Assert.Multiple(() => {
+
+            // TLS already proves the channel was not tampered with — which is
+            // exactly why this is worth asserting. The two mechanisms answer
+            // different questions, and a client that signed its query and then
+            // believed whatever came back would have gained nothing from asking.
+            Assert.That(response.Answers.Any(), Is.False,
+                        "a reply that does not authenticate is not an answer, encrypted channel or not");
+
+            // §5.4 names the reaction, not just the verdict: "the client SHOULD
+            // log an error and continue to wait for a signed response until the
+            // request times out". Reporting a failure the moment the forgery
+            // arrives hands whoever sent it the power to end the request, and
+            // returns before the answer that might still have been coming.
+            Assert.That(response.IsTimeout, Is.True,
+                        "§5.4: the request runs to its timeout rather than ending on the forgery");
+
+            Assert.That(response.Runtime, Is.GreaterThan(TimeSpan.FromMilliseconds(700)),
+                        "it waited for a signed response instead of giving up when the unsigned one arrived");
+
+        });
 
     }
 

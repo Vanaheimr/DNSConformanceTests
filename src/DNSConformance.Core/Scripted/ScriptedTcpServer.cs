@@ -52,6 +52,14 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
     public Int32                    ConnectionCount  => connectionCount;
     private Int32                   connectionCount;
 
+    /// <summary>
+    /// Messages this server has finished writing. A test that depends on a
+    /// response already being on the wire can check that rather than trust a
+    /// sleep.
+    /// </summary>
+    public Int32                    ResponsesWritten => responsesWritten;
+    private Int32                   responsesWritten;
+
 
     /// <param name="Responder">The scripted response logic.</param>
     /// <param name="Options">Framing options.</param>
@@ -149,6 +157,8 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
                         await stream.WriteAsync(framed, cts.Token);
 
                     await stream.FlushAsync(cts.Token);
+
+                    Interlocked.Increment(ref responsesWritten);
 
                     if (options.CloseAfterFirst)
                         return;

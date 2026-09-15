@@ -50,7 +50,7 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifty-two deviations so far, and all of them are now
+The suite has confirmed fifty-three deviations so far, and all of them are now
 fixed in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the
 single record, with chapter and verse, the mechanism, the change, and the test
 that pins each one. The summary table at the top of that file is the fastest way in.
@@ -248,6 +248,7 @@ round-trip where supported.
 | 7766 §5 | TC=1 over UDP → retry over TCP, full answer surfaced | ✅ |
 | 7766 §8 | TCP 2-byte length framing; reassembly of split prefix / dribbled bytes | ✅ |
 | 7766 §6.2.1 | multiple queries on one TCP connection; recovery when the server closes | ✅ |
+| 7766 §7 | a response that does not match is skipped, not returned: a late answer to a timed-out query leaves the reused connection usable, a stale one never reaches the caller, a message too short for a header is consumed rather than stranded, and a read abandoned mid-message drops the connection | ✅ |
 | 1035 §4.2.1 | UDP timeout respected; silence never hangs the caller | ✅ |
 | robustness | garbage responses produce a result object, not an unhandled exception | ✅ |
 | 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |

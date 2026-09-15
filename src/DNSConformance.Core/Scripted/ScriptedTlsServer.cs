@@ -30,6 +30,14 @@ public sealed class ScriptedTlsServer : IAsyncDisposable
     public Int32                    HandshakeCount   => handshakeCount;
     private Int32                   handshakeCount;
 
+    /// <summary>
+    /// Messages this server has finished writing. A test that depends on a
+    /// response already being on the wire can check that rather than trust a
+    /// sleep.
+    /// </summary>
+    public Int32                    ResponsesWritten => responsesWritten;
+    private Int32                   responsesWritten;
+
 
     public ScriptedTlsServer(Func<Byte[], IEnumerable<Byte[]>>  Responder,
                              X509Certificate2?                  Certificate   = null)
@@ -117,6 +125,8 @@ public sealed class ScriptedTlsServer : IAsyncDisposable
 
                     await tls.WriteAsync(framed, cts.Token);
                     await tls.FlushAsync(cts.Token);
+
+                    Interlocked.Increment(ref responsesWritten);
 
                 }
 

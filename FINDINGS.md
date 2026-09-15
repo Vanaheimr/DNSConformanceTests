@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty-two RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty-three RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -68,14 +68,15 @@ what is queued, what is out of scope — are not here at all; they live in
 | 50 | AAAA wrote an IPv6 literal in URI bracket syntax | **High** | 3596 §2.4, 5952 §4 | ✅ fixed |
 | 51 | A relative wildcard owner name was refused, and took its zone file with it | **High** | 1035 §5.1, 4592 §2.1.1 | ✅ fixed |
 | 52 | SRV: a weight of 0 was never chosen, and an unreachable priority hid the rest | Medium | 2782 | ✅ fixed |
+| 53 | A late answer desynchronised the reused TCP/DoT stream for good | **High** | 7766 §7, 8945 §5.4 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
 as the tracking signal ([PLAN.md §9](PLAN.md)).
 
-The last seventeen were found *after* the first eight were already fixed, by tests
-written to deepen areas the suite had reported green. That is the argument for
-the queued list in the README: untested working code is where the next one will
+Most of them were found *after* the first eight were fixed, by tests written to
+deepen areas the suite had already reported green. That is the argument for the
+queued list in the README: untested working code is where the next one will
 be. Findings 21, 23, 25 and 27 make a sharper version of the same point — all
 four sit in code that was already there and already believed to work. Findings
 26 and 27 add another: both were found while implementing something else, by
@@ -83,6 +84,13 @@ a test written for a different purpose that happened to walk past them. So were
 34 and 35, noticed while 30 to 32 were being fixed — and 34 is the sharpest
 version of it yet, because two rounds had already edited the very line that
 causes it, on two other transports, without either one looking at the third.
+
+That first sentence used to carry a count, bumped by hand every time the list
+grew — ten, eleven, twelve, fourteen, sixteen, seventeen — and then it stopped
+being bumped and spent ten findings quietly wrong, through a documentation audit
+that fixed four other stale counts and walked past this one. A number that has
+to be maintained to stay true eventually will not be, so this sentence no longer
+has one.
 
 ---
 
@@ -2729,6 +2737,123 @@ chosen, and unsorted, it still lands first in a third of the shuffles and is
 still reachable then — about 131 draws instead of 392. Three times too rare is
 invisible to a test that asks whether something ever happens, so the bound is now
 seven standard deviations around the expected count instead.
+
+---
+
+## 53 — A query that timed out was still answered, and that answer broke every query after it
+
+The first fifty-two findings are each about one message: a record written
+wrongly, a field read wrongly, an answer accepted that should not have been.
+This one is about what the *connection* looks like afterwards, which is a
+question none of them asked.
+
+**The measurement.** A scripted TCP server answers the first query 1500 ms after
+it was asked, by which time the client has given up on a 400 ms timeout. The
+answer still goes out on the wire. Every later query on that reused connection,
+measured against Hermod before the fix:
+
+```
+1. slow (times out)   IsValid=False  IsTimeout=True   answers=[]  runtime=400ms
+2. fast               IsValid=False  IsTimeout=False  answers=[]  runtime=0ms
+3. fast               IsValid=False  IsTimeout=False  answers=[]  runtime=0ms
+4. fast               IsValid=False  IsTimeout=False  answers=[]  runtime=0ms
+connections opened: 1   requests seen by the server: 4
+```
+
+Instantly, forever, on a connection that is alive — the server saw all four
+queries and answered them. The 0 ms is the tell: a complete message was already
+waiting, so nothing had to be waited for. The client was exactly one message
+behind and stayed there.
+
+That the connection is alive rather than dead is not an inference. With the
+server made silent after the late answer, the second query still returns in 0 ms
+— it consumed the stale message — and the third one, with nothing left in the
+buffer, waits out its full 400 ms. A dead socket fails fast on both.
+
+**What RFC 7766 §7 asks for.** The section is two sentences and Hermod
+implemented the second one only:
+
+> "Stub and recursive resolvers MUST be able to process responses that arrive in
+> a different order than that in which the requests were sent, regardless of the
+> transport protocol in use."
+
+> "Since pipelined responses can arrive out of order, clients MUST match
+> responses to outstanding queries on the same TCP connection using the Message
+> ID. If the response contains a question section, the client MUST match the
+> QNAME, QCLASS, and QTYPE fields."
+
+The matching rule is finding 49, done. The first MUST is this one: the reader
+read *one* message, and when it did not match it gave up and left the stream
+where it stood. The UDP client got `continue` in finding 49 — ignore it, the
+real answer may still be coming. TCP and DoT got `return`. Same finding, three
+transports, one of them left with half the fix.
+
+**What it was before finding 49, measured rather than argued.** With the ID and
+question checks disabled — the state of the code before that fix — the same
+scenario gives:
+
+```
+2. fast    IsValid=True   answers=[192.0.2.1]   <- asked for fast.example
+3. fast    IsValid=True   answers=[192.0.2.2]
+4. fast    IsValid=True   answers=[192.0.2.2]
+```
+
+Query 2 is handed the address of `slow.example` and believes it: cache poisoning
+over TCP, with no race to win, caused by a server that was merely slow. Rows 3
+and 4 are the part that was not predicted — they return the *right* value while
+still being one message behind, because consecutive identical queries mask the
+shift. So finding 49 did not only reduce the severity here; it converted a silent
+wrong answer into a loud failure, which is why what remained could be found at
+all.
+
+**The half no matching rule can repair.** When the timeout falls between the
+two-octet length prefix and the end of the body, the frame boundary is gone, and
+every later read starts mid-message. Measured, with the answer dribbled out in
+3-octet chunks:
+
+```
+2. fast    IsValid=False  IsTimeout=True   runtime=2000ms
+3. fast    IsValid=False  IsTimeout=True   runtime=2000ms
+connections opened: 1
+```
+
+Worse than the 0 ms failure, because each query now burns its whole timeout. No
+amount of matching fixes this — there is nothing to match, only bytes at an
+unknown offset. The only correct move is to stop using the connection, so a read
+abandoned after the prefix has been consumed now takes the connection with it,
+and the next query pays one round trip for a fresh one. A read abandoned *before*
+the prefix has consumed nothing, leaves the framing intact, and keeps the
+connection — the distinction is the whole design, and a mutation that drops the
+connection in both cases is caught by the test that asserts the reuse.
+
+**And one more message that used to end the wait.** On DoT a response that fails
+transaction-signature verification was answered with a failure. RFC 8945 §5.4
+asks for the opposite, and in so many words:
+
+> "the client SHOULD log an error and continue to wait for a signed response
+> until the request times out"
+
+Ending the request on the forgery hands whoever sent it the power to deny an
+answer that was still coming — and on a reused stream the "forgery" is very
+often the honest answer to a query that already timed out, whose MAC folds in a
+different request's. This is the same reaction rule as the rest of the finding,
+arrived at from a different specification.
+
+Severity is **High**. One answer slower than the timeout — from an honest server
+having a bad minute, no attacker anywhere — permanently disables a reused TCP or
+DoT connection, and nothing closes it or notices. DoH is unaffected: each query
+there has its own HTTP response, and the framing is not shared.
+
+Pinned by six tests: five in `OutOfOrderResponseTests` and one in `DotTests`,
+plus `Dot_Client_Discards_A_Reply_Signed_With_The_Wrong_Secret`, which had
+asserted that the forgery was not returned and now also asserts that the request
+ran to its timeout instead of ending on it. Six mutations, six killed, every
+prediction exact. Two of them are the kind worth writing down: one drops the
+connection whenever a read is abandoned, not only when the framing is lost — too
+broad rather than wrong, and caught only because a test asserts the connection
+count rather than just the answer; the other is RFC 8945 §5.4's, which nothing
+would have caught an hour earlier, because the test it kills did not exist until
+reading the section made it necessary.
 
 ---
 

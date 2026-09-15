@@ -197,4 +197,68 @@ public class DotTests
 
     #endregion
 
+    #region An_Answer_That_Arrives_After_The_Timeout_Is_Skipped_Over_Dot()
+
+    [Test]
+    [Property("RFC", "7766 §7")]
+    public async Task An_Answer_That_Arrives_After_The_Timeout_Is_Skipped_Over_Dot()
+    {
+
+        // RFC 7766 §7 binds itself to no transport — "regardless of the
+        // transport protocol in use" — and RFC 7858 §3.3 puts DoT on RFC
+        // 7766's framing, so a TLS session carries the same stale message as a
+        // TCP connection does. Finding 53 was in both readers, written twice.
+        await using var server = new ScriptedTlsServer(
+            request => {
+
+                var name = RawDnsReader.Parse(request).Questions.Single().Name.Canonical;
+
+                if (name == "slow.example")
+                    Thread.Sleep(TimeSpan.FromMilliseconds(1500));
+
+                return RawDnsResponder.Answer(
+                           request,
+                           (name + ".", RawDnsType.A, 300, name == "slow.example" ? [192, 0, 2, 1] : [192, 0, 2, 2])
+                       );
+
+            }
+        );
+
+        await using var client = new DNSTLSClient(
+                                     IPv4Address.Localhost,
+                                     TCPPort:                     IPPort.Parse((UInt16) server.Port),
+                                     QueryTimeout:                TimeSpan.FromMilliseconds(400),
+                                     RemoteCertificateValidator:  (_, _, _, _, _) => TLSValidationResult.Success()
+                                 );
+
+        var first = await client.Query<A>(DomainName.Parse("slow.example."), Timeout: TimeSpan.FromMilliseconds(400));
+
+        Assert.That(first.IsTimeout, Is.True, "the first query must time out for this test to be about anything");
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (server.ResponsesWritten < 1 && DateTime.UtcNow < deadline)
+            await Task.Delay(25);
+
+        Assert.That(server.ResponsesWritten, Is.GreaterThanOrEqualTo(1),
+                    "the late answer was never written — nothing is waiting on the session");
+
+        await Task.Delay(TimeSpan.FromMilliseconds(250));
+
+        var second = await client.Query<A>(DomainName.Parse("fast.example."), Timeout: TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() => {
+
+            Assert.That(second.FilteredAnswers.Select(a => a.IPv4Address),
+                        Is.EqualTo(new[] { IPv4Address.Parse("192.0.2.2") }),
+                        "the answer to the query that was actually asked, not the one left over");
+
+            Assert.That(server.HandshakeCount, Is.EqualTo(1),
+                        "the stale message was stepped over, not escaped by a second TLS handshake");
+
+        });
+
+    }
+
+    #endregion
+
 }
