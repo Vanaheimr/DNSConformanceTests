@@ -186,23 +186,35 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **38 of the 240 are closed** and **6 were declared equivalent
-rather than chased**, leaving **196 open**:
+Since the sweep, **60 of the 240 are closed** and **7 were declared equivalent
+rather than chased**, leaving **173 open**:
 
 | | closed | equivalent | open |
 |---|---:|---:|---:|
 | `APL.cs` | 13 | 3 | 0 |
 | `TXT.cs` | 25 | 3 | 1 |
-| everything else | 0 | 0 | 195 |
+| `ADNSResourceRecord.cs` | 22 | 1 | 26 |
+| everything else | 0 | 0 | 146 |
 
 Each closure was verified by a mutation taken from this output rather than
-invented — thirteen for APL, twenty for TXT — and in both cases the re-run caught
-a test that closed the gap only halfway. APL's four-octet item was read back
-through the text reader while the line at issue lives in the wire reader. TXT's
-quoted-string reader was started in the escaped state by one mutation that
-survived every test, because the escape flag is first read *inside* a string and
-every test began its first string with an ordinary character; only an empty first
-string reaches it.
+invented, and **every one of the three rounds caught a test that closed the gap
+only halfway**:
+
+- APL's four-octet item was read back through the text reader, while the line at
+  issue lives in the wire reader.
+- TXT's quoted-string reader was started in the escaped state by a mutation that
+  survived every test, because the escape flag is first read *inside* a string
+  and every test began its first string with an ordinary character. Only an empty
+  first string reaches it.
+- ADNSResourceRecord's "this line has no RDATA" was asserted by looking for the
+  word `RDATA` in the refusal — which the *other* refusal, "Could not parse
+  RDATA", contains as well. The assertion read as a test and was not one. Two
+  mutations died once it named `Missing RDATA` instead, and a third died once the
+  message for an unknown type token had to name the token.
+
+That last one is the pattern worth keeping: three times out of three, the
+mutation run did not only find the gap. It found the part of the patch that was
+decoration.
 
 An equivalent mutant is not a gap. Chasing one produces a test that pins an
 implementation detail, so each is recorded with the reason it cannot be observed
