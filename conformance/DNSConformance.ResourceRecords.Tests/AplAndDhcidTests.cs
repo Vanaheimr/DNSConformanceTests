@@ -363,4 +363,150 @@ public class AplAndDhcidTests
 
     #endregion
 
+    #region APL — what the presentation format has to refuse (RFC 3123 §5)
+
+    [Test]
+    [Property("RFC", "3123 §5")]
+    // No colon at all, and a colon with nothing before it: §5's grammar is
+    // "[!]afi:address/prefix", and an item without an address family is not it.
+    [TestCase("192.168.32.0/21",      TestName = "no address family and no colon")]
+    [TestCase(":192.168.32.0/21",     TestName = "a colon with no family before it")]
+    [TestCase("!:192.168.32.0/21",    TestName = "negated, and still no family")]
+    // A family that is not a number, and one that does not fit the 16 bits the
+    // AFI field has on the wire.
+    [TestCase("v4:192.168.32.0/21",   TestName = "an address family that is not a number")]
+    [TestCase("65536:192.168.32.0/21", TestName = "an address family past 16 bits")]
+    // §5 requires the prefix, and requires it to be a number that fits the
+    // single octet the PREFIX field is.
+    [TestCase("1:192.168.32.0",       TestName = "no prefix")]
+    [TestCase("1:192.168.32.0/",      TestName = "a slash with no prefix after it")]
+    [TestCase("1:192.168.32.0/x",     TestName = "a prefix that is not a number")]
+    [TestCase("1:192.168.32.0/256",   TestName = "a prefix past one octet")]
+    // The address itself has to parse as the family says it should.
+    [TestCase("1:192.168.32.999/21",  TestName = "an IPv4 address that is not one")]
+    [TestCase("1:hello/21",           TestName = "an IPv4 address that is not even close")]
+    [TestCase("2:zzzz::/64",          TestName = "an IPv6 address that is not one")]
+    [TestCase("2:192.168.32.0/64",    TestName = "an IPv4 address under family 2")]
+    // §4 gives an AFDPART to families 1 and 2 and to no others, and §5 gives a
+    // text form to exactly those two. Guessing at a third would invent syntax.
+    [TestCase("3:192.168.32.0/21",    TestName = "an address family with no text form")]
+    [TestCase("0:192.168.32.0/21",    TestName = "address family zero")]
+    public void An_Item_That_Is_Not_The_Section_5_Syntax_Is_Refused(String Text)
+    {
+
+        var parsed = APLItem.TryParse(Text, out var item);
+
+        Assert.Multiple(() => {
+
+            Assert.That(parsed, Is.False,
+                        $"'{Text}' is not RFC 3123 §5 syntax and must be refused");
+
+            Assert.That(item, Is.Null,
+                        "a refused item must not leave something behind for the caller to use");
+
+        });
+
+    }
+
+    #endregion
+
+    #region APL — the longest prefix each family allows (RFC 3123 §5.1, §5.2)
+
+    [Test]
+    [Property("RFC", "3123 §5.1")]
+    [Property("RFC", "3123 §5.2")]
+    public void The_Longest_Prefix_Each_Family_Allows_Is_Accepted_And_The_Next_One_Is_Not()
+    {
+
+        // §5.1: "The <prefix> has values from the interval 0..32 (decimal)."
+        // §5.2: "Legal values for <prefix> are from the interval 0..128 (decimal)."
+        //
+        // Both ends, because a rejection test only ever proves that something is
+        // refused. Moving either comparison one step would start refusing a host
+        // route — /32 and /128 are the single most common prefixes there are —
+        // and no test that only feeds it bad input would ever see that.
+        Assert.Multiple(() => {
+
+            Assert.That(APLItem.TryParse("1:192.168.32.1/32", out var ipv4Host), Is.True,
+                        "§5.1 puts 32 inside the interval: a single IPv4 host is a legal item");
+            Assert.That(ipv4Host?.Prefix, Is.EqualTo((Byte) 32));
+
+            Assert.That(APLItem.TryParse("1:192.168.32.1/33", out _), Is.False,
+                        "and 33 is outside it");
+
+            Assert.That(APLItem.TryParse("2:2001:db8::1/128", out var ipv6Host), Is.True,
+                        "§5.2 puts 128 inside the interval: a single IPv6 host is a legal item");
+            Assert.That(ipv6Host?.Prefix, Is.EqualTo((Byte) 128));
+
+            Assert.That(APLItem.TryParse("2:2001:db8::1/129", out _), Is.False,
+                        "and 129 is outside it");
+
+            Assert.That(APLItem.TryParse("1:192.168.32.0/0", out var ipv4Zero), Is.True,
+                        "zero is inside the interval at the other end");
+            Assert.That(ipv4Zero?.Prefix, Is.EqualTo((Byte) 0));
+
+        });
+
+    }
+
+    #endregion
+
+    #region APL — an address that is nothing but zeros (RFC 3123 §4)
+
+    [Test]
+    [Property("RFC", "3123 §4")]
+    public void An_Address_Of_Nothing_But_Zeros_Has_An_Empty_Afdpart()
+    {
+
+        // §4's MUST at its limit: "the sender MUST NOT include trailing zero
+        // octets in the AFDPART regardless of the value of PREFIX". When every
+        // octet is zero, every octet is a trailing zero, and what is left is an
+        // AFDPART of length nothing.
+        //
+        // It is also the case where the stripping loop walks off the front of
+        // the array if its guard is one step wrong, and the case where an item
+        // occupies exactly the four octets of its header on the wire with no
+        // address behind them.
+        Assert.That(APLItem.TryParse("1:0.0.0.0/0", out var item), Is.True);
+
+        Assert.That(item!.AFDPart, Is.Empty,
+                    "§4: every octet is a trailing zero, so none of them may be sent");
+
+        var record = new APL(Name, DNSQueryClasses.IN, Ttl, [item]);
+        var rdata  = RDataOf(record);
+
+        Assert.Multiple(() => {
+
+            Assert.That(Hex(rdata), Is.EqualTo("00010000"),
+                        "family 1, prefix 0, no negation, AFDLENGTH 0 — four octets and nothing else");
+
+            // And it survives the trip back through the text reader.
+            var readBack = Read("probe.example. 3600 IN APL 1:0.0.0.0/0") as APL;
+
+            Assert.That(readBack?.Items.Count(), Is.EqualTo(1),
+                        "the item is four octets long and must still be read as one");
+
+            Assert.That(readBack!.Items.First().AFDPart, Is.Empty);
+
+            // And through the wire, which is a different reader and the one that
+            // decides how many octets an item needs before it counts as one. The
+            // RFC 3597 §5 generic form hands these four straight to it, and with
+            // nothing behind them this is the shortest APL RDATA there is.
+            // Reading it needs "offset + 4 <= length"; one step tighter and the
+            // only item in the record disappears without a word.
+            var fromWire = Read(@"probe.example. 3600 IN APL \# 4 00010000") as APL;
+
+            Assert.That(fromWire?.Items.Count(), Is.EqualTo(1),
+                        "four octets are a whole item, not a truncated one");
+
+            Assert.That(fromWire!.Items.First().AFDPart,       Is.Empty);
+            Assert.That(fromWire!.Items.First().AddressFamily, Is.EqualTo(1));
+            Assert.That(fromWire!.Items.First().Prefix,        Is.EqualTo(0));
+
+        });
+
+    }
+
+    #endregion
+
 }
