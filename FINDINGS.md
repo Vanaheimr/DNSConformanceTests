@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty-three RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty-four RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -69,6 +69,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 51 | A relative wildcard owner name was refused, and took its zone file with it | **High** | 1035 §5.1, 4592 §2.1.1 | ✅ fixed |
 | 52 | SRV: a weight of 0 was never chosen, and an unreachable priority hid the rest | Medium | 2782 | ✅ fixed |
 | 53 | A late answer desynchronised the reused TCP/DoT stream for good | **High** | 7766 §7, 8945 §5.4 | ✅ fixed |
+| 54 | A field shorter than it should be was completed with zeros | **High** | 1035 §4.1.3, 4255 §3.1.3 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -2854,6 +2855,91 @@ broad rather than wrong, and caught only because a test asserts the connection
 count rather than just the answer; the other is RFC 8945 §5.4's, which nothing
 would have caught an hour earlier, because the test it kills did not exist until
 reading the section made it necessary.
+
+---
+
+## 54 — A field shorter than it should be was completed with zeros
+
+`DNSTools.ExtractByteArray` is how nearly every record type reads a run of
+octets out of a message: a fixed-width field, an RDLENGTH-bounded remainder, a
+digest. Twenty-six files call it. It read like this:
+
+```csharp
+var ByteArray = new Byte[LengthOfSegment];
+DNSStream.Read(ByteArray, 0, (Int32) LengthOfSegment);
+return ByteArray;
+```
+
+The array is allocated at the length the caller asked for, one `Read` is issued,
+its return value is dropped, and the array is handed back whole. Whatever the
+stream did not supply stays zero — and the caller cannot tell an octet that
+arrived as zero from one that never arrived at all.
+
+**What that does to a truncated record.** An SSHFP whose RDATA carries two
+octets of fingerprint where RFC 4255 §3.1.3 requires twenty:
+
+```
+probe.example. 3600 IN SSHFP \# 4 0101aabb
+
+  fingerprint length: 20
+  fingerprint:        AABB000000000000000000000000000000000000
+```
+
+The record is accepted. The two octets that arrived are followed by eighteen the
+wire never carried, and the result is published as a key fingerprint — one that
+cannot match anything, and that no operator would ever recognise as truncated.
+RFC 1035 §4.1.3 makes RDLENGTH the authority on how much RDATA there is; reading
+past what it delivered and filling the difference is the same family as findings
+2, 3 and 4, from the other direction.
+
+**And it made the check that should have caught it unreachable.** SSHFP
+validates the pair:
+
+```csharp
+if (FingerprintType == SSHFP_FingerprintType.SHA1 && Fingerprint.Length != 20)
+    throw new ArgumentException(...);
+```
+
+That can never fire, because `Fingerprint.Length` is whatever the caller asked
+for. The mutation sweep reported both of SSHFP's length checks as survivors —
+no test could kill them — and the reason was not a gap in the tests. It was that
+no input existed which could reach them. A guard satisfied by its own padding is
+a guard in name only, and this is what that looks like from the outside.
+
+**The second fault in the same line.** `Stream.Read` is permitted to return
+fewer octets than asked for even when more are coming, which is what the
+CA2022 analyser warns about. On a network stream a record can therefore be
+corrupted *and* the stream left in the middle of it — the same shape as finding
+53, one layer further in.
+
+**The fix reads in a loop and returns what arrived.**
+
+```csharp
+while (total < buffer.Length)
+{
+    var read = DNSStream.Read(buffer, total, buffer.Length - total);
+    if (read == 0) break;
+    total += read;
+}
+
+return total == buffer.Length ? buffer : buffer[..total];
+```
+
+Returning the short array rather than throwing is the conservative half, and it
+is deliberate: throwing would cost every record behind this one, which is
+finding 21. Handing back what actually arrived lets each type decide — those
+with a fixed field width now refuse the record, those that guard on a minimum
+length degrade the way they were written to.
+
+Severity is **High**. It fabricates record content out of nothing, silently, in
+the one helper that twenty-six record types share; and it disabled at least one
+validation that was written correctly and could never run.
+
+Found by the mutation sweep, though not in the way the sweep intended: the two
+SSHFP checks were on the survivor list, a test was written to kill them, and the
+test failed because the record it expected to be refused was accepted instead.
+Pinned by `RecordBranchTests`, and by seventeen mutations of which the first is
+this padding restored.
 
 ---
 

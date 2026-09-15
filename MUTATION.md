@@ -126,6 +126,7 @@ build/mutation/
   control.py      the self-test: does the bench notice a change it must notice
   report.py       triage and the gap list, read against the working tree
   classify.py     the same triage, pinned to the revision the sweep measured
+  make_closed.py  the ledger of what each round closed
   standing.py     how much is closed, derived from files rather than typed
   results/        the raw verdicts, one row per mutant
 ```
@@ -188,8 +189,8 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **80 of the 240 are closed** and **7 were declared equivalent
-rather than chased**, leaving **153 open** — across APL, TXT, the base class, the
+Since the sweep, **109 of the 240 are closed** and **7 were declared equivalent
+rather than chased**, leaving **124 open** — across APL, TXT, the base class, the
 SRV identifiers, and the shortest RDATA that IPSECKEY, DHCID and the Extended DNS
 Error option can carry.
 
