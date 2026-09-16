@@ -1,0 +1,27 @@
+# Gaps of the 'core' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why
+DNS/DNSNamePattern.cs	40	true-to-false	killed	pattern	
+DNS/DNSNamePattern.cs	47	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	218	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	231	equality-to-inequality	killed	pattern	
+DNS/DNSNamePattern.cs	234	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	279	true-to-false	killed	pattern	
+DNS/DNSNamePattern.cs	329	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	341	inequality-to-equality	killed	pattern	
+DNS/DNSNamePattern.cs	342	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	347	false-to-true	equivalent		the left-most label of a parsed host name cannot be empty — DomainName refuses an empty label before Matches is ever reached — so this guard has nothing to guard against. The comment above it says as much: "the check costs nothing and this is the wrong place to find out"
+DNS/DNSNamePattern.cs	349	less-to-less-or-equal	killed	pattern	
+DNS/DNSNamePattern.cs	355	false-to-true	killed	pattern	
+DNS/DNSNamePattern.cs	359	true-to-false	killed	pattern	
+DNS/DNSNamePattern.cs	378	logical-and-to-or	killed	pattern	
+DNS/DNSNamePattern.cs	422	less-to-less-or-equal	killed	pattern	
+DNS/DNSNamePattern.cs	430	le-to-less	killed	pattern	
+DNS/DNSNamePattern.cs	438	greater-to-ge	killed	pattern	
+DNS/DNSNamePattern.cs	446	ge-to-greater	killed	pattern	
+DNS/DNSNamePattern.cs	503	logical-and-to-or	killed	pattern	

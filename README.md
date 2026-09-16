@@ -17,7 +17,9 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-15): 1297 ✅ · 0 ❌ · 4 platform-specific skips.**
+**Current verified status on Windows (2026-09-16): 1291 ✅ · 0 ❌ · 37 skips** — 4
+platform-specific, and 33 interop tests that need a Docker daemon which was not
+running when this was measured.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

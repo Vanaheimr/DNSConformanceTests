@@ -28,7 +28,14 @@ PASS1 = os.path.join(ROOT, r"build\mutation\results\records-pass1.tsv")
 REVISION = "973fed31"
 
 REGION    = re.compile(r"^#(region|endregion)")
-ATTRIBUTE = re.compile(r"^\[")
+# An attribute is compile-time and mutating one changes nothing that runs.
+# Matching only at the start of a line misses the common case: a nullability
+# annotation inside a parameter list, as in
+#     public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this Foo? X)
+# where the line begins with "public". Five of the core block's "real gaps"
+# were that, and the first of them was found by writing a test for it and
+# watching the mutation survive anyway.
+ATTRIBUTE = re.compile(r"^\[|\[(NotNullWhen|MaybeNullWhen|DoesNotReturnIf)\(")
 DEFAULT   = re.compile(r"^(Boolean|String|Int32|UInt16|UInt32|UInt64|Byte|TimeSpan|DNSQueryClasses)\s+\w+\s*=")
 REJECTION = re.compile(r"\breturn\s+(false|null)\s*;")
 BOUNDARY  = ("less-to-less-or-equal", "greater-to-ge", "le-to-less", "ge-to-greater")
@@ -52,7 +59,7 @@ def classify(rel, line_no, op):
     text = snapshot(rel)[line_no - 1].strip()
     if REGION.match(text):
         return "noise-region", text
-    if ATTRIBUTE.match(text):
+    if ATTRIBUTE.search(text):
         return "noise-attribute", text
     if DEFAULT.match(text):
         return "noise-default", text

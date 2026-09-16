@@ -12,14 +12,14 @@ DNS/DomainName.cs	41	true-to-false	branch	=> DomainName?.FullName.IsNullOrEmpty(
 DNS/Helpers/DNSTools.cs	33	true-to-false	branch	private static readonly UTF8Encoding strictUTF8 = new(false, true);
 DNS/IDomainName.cs	40	true-to-false	branch	=> DomainName?.FullName.IsNullOrEmpty() ?? true;
 DNS/DNSInfo.cs	49	false-to-true	noise-default	Boolean                          CheckingDisabled   = false)
-DNS/DNSNamePattern.cs	46	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSNamePattern? DNSNamePattern)
+DNS/DNSNamePattern.cs	46	true-to-false	noise-attribute	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSNamePattern? DNSNamePattern)
 DNS/DNSQuestion.cs	106	true-to-false	noise-default	Boolean                     UseCompression       = true,
-DNS/DNSServiceInstanceName.cs	49	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSServiceInstanceName? DNSServiceInstance)
-DNS/DNSServiceName.cs	49	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSServiceName? DNSService)
+DNS/DNSServiceInstanceName.cs	49	true-to-false	noise-attribute	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSServiceInstanceName? DNSServiceInstance)
+DNS/DNSServiceName.cs	49	true-to-false	noise-attribute	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSServiceName? DNSService)
 DNS/DNSZoneFile.cs	93	false-to-true	noise-attribute	[NotNullWhen(false)] out String?                  ErrorResponse,
-DNS/DomainName.cs	47	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DomainName? DomainName)
+DNS/DomainName.cs	47	true-to-false	noise-attribute	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DomainName? DomainName)
 DNS/Helpers/DNSTools.cs	33	false-to-true	branch	private static readonly UTF8Encoding strictUTF8 = new(false, true);
-DNS/IDomainName.cs	46	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this IDomainName? DomainName)
+DNS/IDomainName.cs	46	true-to-false	noise-attribute	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this IDomainName? DomainName)
 DNS/DNSInfo.cs	263	false-to-true	noise-default	Boolean                          AuthenticData      = false,
 DNS/DNSNamePattern.cs	47	false-to-true	branch	=> DNSNamePattern?.FullName.IsNotNullOrEmpty() ?? false;
 DNS/DNSQuestion.cs	127	equality-to-inequality	noise-region	#region Operator == (DNSQuestion1, DNSQuestion2)

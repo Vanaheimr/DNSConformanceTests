@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **137 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **111 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -76,11 +76,11 @@ the shared reading helpers — judged by the same bench.
 | caught by the record tests | 110 |
 | caught **only** by another project | 60 |
 | caught by nothing | 203 |
-| — of those, not really code | 66 |
-| — of those, **real gaps** | **137** |
+| — of those, not really code | 71 |
+| — of those, **real gaps** | **132** |
 | not judged: three mutations of one operator on one line | 2 |
 
-**Score as measured: 45.3 %. With the noise removed: 55.0 %.**
+**Score as measured: 45.3 %. With the noise removed: 55.9 %.**
 
 Slightly better than the record types, and the same order of magnitude: the code
 every single query passes through is not better watched than the individual
@@ -93,22 +93,41 @@ are caught by `WireFormat`, `Server`, `Client`, `SecureTransports`, `Edns` or
 `Dnssec` — including 24 of `DNSPacket`'s 26, which is exactly right and would have
 been reported as a gap by a one-project sweep.
 
-Where the 137 are:
+Where the 132 are — the first of them closed:
 
 | file | gaps | mostly |
 |---|---:|---|
-| `DNSNamePattern.cs` | 22 | branches, then refusals |
-| `DNSServiceName.cs` | 21 | boundaries |
-| `DomainName.cs` | 20 | boundaries |
+| `DNSNamePattern.cs` | 21 | **closed** — 20 killed, 1 unreachable |
+| `DNSServiceName.cs` | 20 | boundaries |
 | `DNSInfo.cs` | 20 | **all twenty are branches** |
-| `DNSServiceInstanceName.cs` | 17 | branches |
+| `DomainName.cs` | 19 | boundaries |
+| `DNSServiceInstanceName.cs` | 16 | branches |
 | `DNSTools.cs` | 15 | boundaries |
 | `DNSZoneFile.cs` | 11 | |
-| `DNSQuestion.cs`, `IDomainName.cs`, `DNSPacket.cs`, `DNSPadding.cs` | 11 | |
+| `DNSQuestion.cs`, `IDomainName.cs`, `DNSPacket.cs`, `DNSPadding.cs` | 10 | |
 
 `DNSInfo` is the one that reads as a pattern rather than a list: twenty branches
 and not one boundary or refusal. It decides which answer counts and what is
 cached, and no test has taken both sides of any of those decisions.
+
+### A rule the triage was missing
+
+The first file taken up, `DNSNamePattern`, came back 20 killed of 22 — and one of
+the two survivors was not a gap at all:
+
+```csharp
+public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSNamePattern? X)
+```
+
+`[NotNullWhen(true)]` is compile-time and changing it changes nothing that runs.
+The triage knew that and tested for it with `^\[`, which matches a line that
+*begins* with an attribute — and this one begins with `public`. Five of the core
+block's "real gaps" were that same extension method in five files. The rule now
+searches the whole line, and the count moved from 137 to 132.
+
+The records block is untouched by the change: none of its 240 had this shape,
+which is why nobody noticed. And it was not found by reading the rule — it was
+found by writing a test for the line and watching the mutation survive anyway.
 
 ### What the two numbers mean, and do not
 
