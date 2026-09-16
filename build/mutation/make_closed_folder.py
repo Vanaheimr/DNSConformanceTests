@@ -37,6 +37,15 @@ CORE_KILLED = {
                                   422, 430, 438, 446, 503},
     },
 
+    # RFC 1035 §5.1: the master file format, and what it refuses — the directives,
+    # the owner name a line does not state, and where a backslash stops a
+    # semicolon or a parenthesis from meaning what it usually means.
+    "zonefile": {
+
+        "DNS/DNSZoneFile.cs": {123, 129, 181, 215, 229, 321, 328},
+
+    },
+
     # RFC 1035 §3.3/§4.1.1/§4.1.4 and §2.3.4: the helpers every message passes
     # through — reading a name and a character-string off the wire, writing a name
     # back, and the compression table a serializer leaves behind. Eleven of the
@@ -77,6 +86,35 @@ CORE_KILLED = {
 }
 
 CORE_EQUIVALENT = {
+
+    # All four are LogicalLines asking about a line that is empty at a point no
+    # empty line can reach. depth only leaves zero on a line that has put a '('
+    # into the builder, and the builder is only cleared where depth is back to
+    # zero — so wherever these four are evaluated, the builder is non-empty and
+    # the line is not blank.
+    "DNS/DNSZoneFile.cs": {
+
+        259:
+            "the initial value of ownerOmitted. Every line that is not skipped passes through "
+            "the branch that assigns it, and both yields are downstream of that branch, so "
+            "nothing ever reads the initializer",
+
+        275:
+            "line.Length > 0 before looking at line[0]. A line that is empty after the comment "
+            "is stripped is skipped several lines earlier unless the parenthesis depth is "
+            "non-zero, and depth is non-zero only when the builder already holds something — "
+            "which is the other branch. The guard is real and the case it guards cannot arrive",
+
+        289:
+            "complete.Length > 0 before yielding a joined line. Reaching it means at least one "
+            "non-empty append, so the condition is true either way",
+
+        294:
+            "joined.Length > 0 for the group a missing ')' left open. When the builder is empty "
+            "the mutant yields one more logical line, which is the empty string; the caller "
+            "splits it into no tokens and moves on. No record, no error, no difference",
+
+    },
 
     "DNS/Helpers/DNSTools.cs": {
 

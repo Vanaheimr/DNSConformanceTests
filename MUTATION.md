@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **35 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **24 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -103,7 +103,7 @@ Where the 132 are — the first of them closed:
 | `DomainName.cs` | 19 | **closed** — 15 killed, 3 unreachable, 1 superseded by finding 57 |
 | `DNSServiceInstanceName.cs` | 16 | branches |
 | `DNSTools.cs` | 15 | **closed** — 11 killed, 4 unobservable |
-| `DNSZoneFile.cs` | 11 | |
+| `DNSZoneFile.cs` | 11 | **closed** — 7 killed, 4 unreachable |
 | `IDomainName.cs` | 2 | **closed** |
 | `DNSQuestion.cs` 5, `DNSPacket.cs` 2, `DNSPadding.cs` 1 | 8 | |
 
@@ -131,6 +131,64 @@ QR is not among them. Finding 49 was about that list, which is why it was worth
 looking up rather than assuming.
 
 
+
+
+### The master file, and a test that passed twice without testing anything
+
+`DNSZoneFile` reads RFC 1035 §5.1. Eleven gaps, ten tests, and the round is worth
+recording for the middle of it rather than the end.
+
+Seven fell: the two ways a `$ORIGIN` can be wrong, an owner name omitted on the
+first line of a file where there is no previous record to take one from, a line
+carrying nothing but a name, a line that is not a record at all, and both halves
+of the escape state machine.
+
+**The four that did not are one shape seen four times.** Every one of them is
+`LogicalLines` asking whether something is empty at a point no empty thing can
+reach: the initial value of `ownerOmitted`, which every path assigns before any
+path reads; `line.Length > 0` before `line[0]`; `complete.Length > 0` before a
+yield; and `joined.Length > 0` for the group a missing `)` left open. The
+argument is the same each time and it is short: `depth` leaves zero only on a
+line that has put a `(` into the builder, and the builder is cleared only where
+`depth` is back to zero — so wherever these four are evaluated the builder is not
+empty and the line is not blank. The guards are real; the cases they guard
+against cannot arrive.
+
+### The one that had to be written three times
+
+`isEscaped = false` — the line that ends an escape after one character — survived
+twice before a test caught it, and both failures are worth keeping.
+
+**The first version asserted on the wrong property.** It fed the reader a line
+whose comment should be stripped and checked that `TXT.Text` did not contain
+"real comment". `Text` is the concatenation of the character-strings *without*
+separators (RFC 7208 §3.3), so a swallowed comment arrives in it as
+"andarealcomment" and the test found nothing and passed. It looked right. It
+asserted nothing.
+
+**The second version asserted on the right property and still could not see it.**
+`Strings` does show the swallowed comment — except that the record parser strips
+comments again downstream, so the record comes out identical either way. A
+semicolon cannot distinguish this line at all, no matter what is asserted about
+it.
+
+**The third version uses the other character §5.1 gives a meaning to.**
+Parentheses group data across a line boundary, and an escape that never ends
+stops the reader counting them, so
+
+```
+esc  IN  TXT  has\;semi  (
+     more
+     )
+```
+
+is one record when the escape ends after one character and is cut off at the
+first line when it does not. That one kills it.
+
+Three versions, and the mutation run is what said so each time — which is the
+whole point of running it against a test that has already gone green. A passing
+test is evidence that the code does something; only a failing mutant is evidence
+that the test would notice if it stopped.
 
 ### The helpers every message passes through
 

@@ -12,21 +12,27 @@ DNS/IDomainName.cs	40	true-to-false	killed	names
 DNS/Helpers/DNSTools.cs	33	false-to-true	equivalent		the first argument of UTF8Encoding decides what GetPreamble() returns, and this encoding is only ever asked for GetString. The same pair as DNSServiceName.cs:181, and the same half of it matters: the second argument is what refuses a label whose octets are not UTF-8, and a test now pins that
 DNS/DNSNamePattern.cs	47	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	50	false-to-true	killed	names	
+DNS/DNSZoneFile.cs	123	false-to-true	killed	zonefile	
 DNS/DomainName.cs	48	false-to-true	killed	names	
 DNS/Helpers/DNSTools.cs	96	less-to-less-or-equal	equivalent		FindLastRecordOffset refusing a message shorter than RFC 1035 §4.1.1's twelve-octet header. At exactly twelve both readings answer the same: with every count zero the walk ends where it started and returns -1, and with a count the message cannot keep the walk runs off the end, which both callers catch. TSIGSigner and SIG0Signer each check the length themselves before calling, so no caller can reach a difference
 DNS/IDomainName.cs	47	false-to-true	killed	names	
+DNS/DNSZoneFile.cs	129	false-to-true	killed	zonefile	
 DNS/DomainName.cs	133	greater-to-ge	killed	names	
 DNS/Helpers/DNSTools.cs	151	less-to-less-or-equal	equivalent		the loop that reads an exact number of octets. At total == buffer.Length the mutant asks for one more read of zero octets, which returns zero and breaks out of the loop on the next line — the same octets, one wasted call
+DNS/DNSZoneFile.cs	181	false-to-true	killed	zonefile	
 DNS/DomainName.cs	158	ge-to-greater	killed	names	
 DNS/DNSInfo.cs	319	equality-to-inequality	equivalent		the QR bit is read into a local that nothing reads back — it appears twice in the file, one of them in the licence header — so both readings assign a value nobody observes. Not checking it is conformant besides: RFC 5452 §9.1 enumerates what a resolver MUST match a response against, and the six are the addresses, the port, the ID, the name, the class and the type. QR is not among them
 DNS/DNSNamePattern.cs	218	false-to-true	killed	pattern	
+DNS/DNSZoneFile.cs	215	greater-to-ge	killed	zonefile	
 DNS/DomainName.cs	167	ge-to-greater	killed	names	
 DNS/Helpers/DNSTools.cs	224	ge-to-greater	killed	dnstools	
 DNS/DNSInfo.cs	321	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	231	equality-to-inequality	killed	pattern	
 DNS/DNSServiceName.cs	181	true-to-false	killed	names	
+DNS/DNSZoneFile.cs	229	false-to-true	killed	zonefile	
 DNS/DNSNamePattern.cs	234	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	181	false-to-true	equivalent		the first argument of UTF8Encoding is encoderShouldEmitUTF8Identifier, which decides what GetPreamble() returns and nothing else. This encoding is only ever asked for GetByteCount and GetBytes, and neither of them emits a preamble, so both readings count and write the same octets. The second argument is the one that matters here, and a label holding an unpaired surrogate now pins it
+DNS/DNSZoneFile.cs	259	false-to-true	equivalent		the initial value of ownerOmitted. Every line that is not skipped passes through the branch that assigns it, and both yields are downstream of that branch, so nothing ever reads the initializer
 DNS/DNSInfo.cs	323	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern	
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	killed	dnstools	
@@ -34,18 +40,23 @@ DNS/DNSInfo.cs	326	inequality-to-equality	killed	dnsinfo
 DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	
 DNS/DNSNamePattern.cs	279	true-to-false	killed	pattern	
 DNS/DNSServiceName.cs	194	false-to-true	killed	names	
+DNS/DNSZoneFile.cs	275	greater-to-ge	equivalent		line.Length > 0 before looking at line[0]. A line that is empty after the comment is stripped is skipped several lines earlier unless the parenthesis depth is non-zero, and depth is non-zero only when the builder already holds something — which is the other branch. The guard is real and the case it guards cannot arrive
 DNS/DomainName.cs	378	false-to-true	killed	names	
 DNS/DNSNamePattern.cs	329	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	215	ge-to-greater	killed	names	
+DNS/DNSZoneFile.cs	289	greater-to-ge	equivalent		complete.Length > 0 before yielding a joined line. Reaching it means at least one non-empty append, so the condition is true either way
 DNS/Helpers/DNSTools.cs	314	less-to-less-or-equal	killed	dnstools	
 DNS/DNSNamePattern.cs	341	inequality-to-equality	killed	pattern	
 DNS/DNSServiceName.cs	218	false-to-true	killed	names	
+DNS/DNSZoneFile.cs	294	greater-to-ge	equivalent		joined.Length > 0 for the group a missing ')' left open. When the builder is empty the mutant yields one more logical line, which is the empty string; the caller splits it into no tokens and moves on. No record, no error, no difference
 DNS/Helpers/DNSTools.cs	347	equality-to-inequality	killed	dnstools	
 DNS/DNSNamePattern.cs	342	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	230	false-to-true	killed	names	
+DNS/DNSZoneFile.cs	321	false-to-true	killed	zonefile	
 DNS/Helpers/DNSTools.cs	351	inequality-to-equality	killed	dnstools	
 DNS/DNSNamePattern.cs	347	false-to-true	equivalent		the left-most label of a parsed host name cannot be empty — DomainName refuses an empty label before Matches is ever reached — so this guard has nothing to guard against. The comment above it says as much: "the check costs nothing and this is the wrong place to find out"
 DNS/DNSServiceName.cs	245	false-to-true	killed	names	
+DNS/DNSZoneFile.cs	328	true-to-false	killed	zonefile	
 DNS/DomainName.cs	414	false-to-true	killed	names	
 DNS/Helpers/DNSTools.cs	368	less-to-less-or-equal	killed	dnstools	
 DNS/DNSNamePattern.cs	349	less-to-less-or-equal	killed	pattern	
