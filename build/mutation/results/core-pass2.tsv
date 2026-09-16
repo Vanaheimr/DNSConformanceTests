@@ -1,0 +1,265 @@
+DNS/DNSInfo.cs	48	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	40	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	94	false-to-true	KILLED-ELSEWHERE	Server: 1 of 140 failed
+DNS/DNSQuestion.cs	95	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	43	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	43	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	92	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	41	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSPadding.cs	97	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 10 of 129 failed
+DNS/Helpers/DNSTools.cs	33	true-to-false	SURVIVED-EVERYWHERE	
+DNS/IDomainName.cs	40	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	49	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	46	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	95	false-to-true	KILLED-ELSEWHERE	Server: 1 of 140 failed
+DNS/DNSQuestion.cs	106	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	49	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	49	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	93	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	47	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSPadding.cs	140	equality-to-inequality	KILLED-ELSEWHERE	Client: 8 of 89 failed
+DNS/Helpers/DNSTools.cs	33	false-to-true	SURVIVED-EVERYWHERE	
+DNS/IDomainName.cs	46	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	263	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	47	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	214	false-to-true	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSQuestion.cs	127	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	50	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	50	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	123	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	48	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSPadding.cs	144	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 20 of 129 failed
+DNS/Helpers/DNSTools.cs	96	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/IDomainName.cs	47	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	264	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	206	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	215	false-to-true	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSQuestion.cs	142	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	166	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	163	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	129	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	133	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSPadding.cs	152	logical-and-to-or	KILLED-ELSEWHERE	Client: 8 of 89 failed
+DNS/Helpers/DNSTools.cs	151	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	311	inequality-to-equality	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	207	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	260	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSQuestion.cs	159	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	167	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	164	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	181	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	158	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSPadding.cs	152	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	214	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSInfo.cs	319	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	218	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	279	true-to-false	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSQuestion.cs	190	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	175	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	170	false-to-true	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSZoneFile.cs	215	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	167	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSPadding.cs	189	inequality-to-equality	KILLED-ELSEWHERE	SecureTransports: 1 of 129 failed
+DNS/Helpers/DNSTools.cs	224	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	321	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	231	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	345	false-to-true	KILLED-ELSEWHERE	Edns: 1 of 32 failed
+DNS/DNSQuestion.cs	193	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	179	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	181	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	229	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	334	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	231	logical-and-to-or	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSInfo.cs	322	equality-to-inequality	KILLED-ELSEWHERE	Server: 5 of 140 failed
+DNS/DNSNamePattern.cs	234	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	372	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/DNSQuestion.cs	204	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	188	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	181	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	259	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	335	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	231	greater-to-ge	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSInfo.cs	323	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	259	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	372	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSQuestion.cs	227	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	189	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	184	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	270	equality-to-inequality	SETUP-ERROR	3 mutations of that operator on the line
+DNS/DomainName.cs	372	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	243	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	326	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	268	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	381	greater-to-ge	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSQuestion.cs	229	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	194	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	185	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	270	equality-to-inequality	SETUP-ERROR	3 mutations of that operator on the line
+DNS/DomainName.cs	373	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	273	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSInfo.cs	331	inequality-to-equality	KILLED-ELSEWHERE	Client: 4 of 89 failed
+DNS/DNSNamePattern.cs	279	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	398	false-to-true	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSQuestion.cs	230	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	197	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	194	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	275	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	378	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	276	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSInfo.cs	332	inequality-to-equality	KILLED-ELSEWHERE	Client: 3 of 89 failed
+DNS/DNSNamePattern.cs	329	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	399	false-to-true	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSServiceInstanceName.cs	200	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	215	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	289	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	379	false-to-true	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/Helpers/DNSTools.cs	314	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	359	inequality-to-equality	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	341	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	401	false-to-true	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSServiceInstanceName.cs	200	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	218	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	294	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	395	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	347	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	362	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	342	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	425	less-to-less-or-equal	KILLED-ELSEWHERE	WireFormat: 4 of 81 failed
+DNS/DNSServiceInstanceName.cs	200	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	230	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	321	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	396	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	351	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	373	logical-and-to-or	KILLED-ELSEWHERE	Client: 3 of 89 failed
+DNS/DNSNamePattern.cs	347	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	458	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSServiceInstanceName.cs	203	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	245	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSZoneFile.cs	328	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	414	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	368	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	373	equality-to-inequality	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	349	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	501	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSServiceInstanceName.cs	213	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	259	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	420	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	380	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	374	logical-and-to-or	KILLED-ELSEWHERE	Client: 3 of 89 failed
+DNS/DNSNamePattern.cs	355	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	503	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSServiceInstanceName.cs	255	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	271	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	423	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	389	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	374	equality-to-inequality	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	359	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	504	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSServiceInstanceName.cs	265	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	283	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	462	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	414	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	390	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	378	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	505	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DNSServiceInstanceName.cs	280	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	286	greater-to-ge	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DomainName.cs	465	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	422	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	397	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	422	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	506	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSServiceInstanceName.cs	298	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	289	false-to-true	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DomainName.cs	468	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	463	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 1 of 140 failed
+DNS/DNSInfo.cs	404	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	430	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	510	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSServiceInstanceName.cs	313	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	299	false-to-true	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DomainName.cs	500	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	469	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	432	true-to-false	KILLED-ELSEWHERE	Server: 6 of 140 failed
+DNS/DNSNamePattern.cs	438	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	511	inequality-to-equality	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSServiceInstanceName.cs	331	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	311	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	509	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	471	equality-to-inequality	KILLED-ELSEWHERE	Server: 1 of 140 failed
+DNS/DNSInfo.cs	433	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	446	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	521	less-to-less-or-equal	KILLED-ELSEWHERE	WireFormat: 4 of 81 failed
+DNS/DNSServiceInstanceName.cs	342	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	345	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	561	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/Helpers/DNSTools.cs	550	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	524	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	450	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	560	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	346	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	345	ge-to-greater	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DomainName.cs	561	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	525	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	481	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	580	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 3 of 81 failed
+DNS/DNSServiceInstanceName.cs	357	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	384	true-to-false	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	579	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	526	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSNamePattern.cs	503	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSPacket.cs	753	false-to-true	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
+DNS/DNSServiceInstanceName.cs	361	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	397	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	594	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	527	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	372	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	420	greater-to-ge	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
+DNS/DomainName.cs	609	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	532	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	376	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	426	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	624	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	533	true-to-false	KILLED-ELSEWHERE	Client: 7 of 89 failed
+DNS/DNSServiceInstanceName.cs	387	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	426	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	639	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	543	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	393	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	445	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	650	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	544	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	432	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	460	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	654	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	545	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceInstanceName.cs	455	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	475	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	665	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	546	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	490	inequality-to-equality	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	669	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	551	false-to-true	KILLED-ELSEWHERE	Client: 6 of 89 failed
+DNS/DNSServiceName.cs	505	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	680	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	552	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	516	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	684	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	568	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	520	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	695	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	569	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	531	le-to-less	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	701	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	570	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	535	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	741	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	571	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	546	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DomainName.cs	764	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/DNSInfo.cs	576	false-to-true	KILLED-ELSEWHERE	Server: 3 of 140 failed
+DNS/DNSServiceName.cs	550	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSInfo.cs	577	false-to-true	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	561	ge-to-greater	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	567	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/DNSServiceName.cs	606	greater-to-ge	SURVIVED-EVERYWHERE	

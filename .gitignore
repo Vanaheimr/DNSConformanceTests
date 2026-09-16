@@ -15,3 +15,7 @@ fixtures/zones/signed/dsset-*
 # Visual Studio's per-solution state: window layout, the browse database,
 # and the file-watcher cache. Machine-local, and large.
 .vs/
+
+# Python bytecode from the mutation tooling
+__pycache__/
+*.pyc

@@ -19,7 +19,31 @@ line.
 
 ---
 
-## The result
+## Six blocks, two measured
+
+The DNS code lives in six folders and the sweep was pointed at one of them. That
+was not a judgement about the other five — it was where the work started, and
+saying so is the difference between a measurement and a claim. The map, with the
+cheapest test project that exercises each:
+
+| block | folder | judged by | mutants | state |
+|---|---|---|---:|---|
+| `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **137 open** |
+| `client` | `DNS/Client` | Client | 558 | not measured |
+| `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
+| `server` | `DNS/Server` | Server | 361 | not measured |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 202 | not measured |
+| `tsig` | `DNS/TSIG` | SecureTransports | 70 | not measured |
+
+One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
+second look before anyone reads a number off it: its judge has **four tests** for
+551 mutable places, so whatever that block eventually reports will be a statement
+about the tests rather than about mDNS.
+
+---
+
+## The result: the record types
 
 Measured against Hermod **`973fed31`**, `libs/Hermod/Hermod/DNS/ResourceRecords/**`,
 judged by all seven conformance projects that need neither Docker nor WSL.
@@ -37,6 +61,54 @@ judged by all seven conformance projects that need neither Docker nor WSL.
 
 About half of the changes that can be made to Hermod's resource-record code go
 unnoticed by every test in this repository.
+
+---
+
+## The result: the code every query passes through
+
+Measured against Hermod **`e592b5e7`**, the files directly in
+`libs/Hermod/Hermod/DNS/` — names, the message, the question, the zone file and
+the shared reading helpers — judged by the same bench.
+
+| | |
+|---|---:|
+| viable mutants | **375** |
+| caught by the record tests | 110 |
+| caught **only** by another project | 60 |
+| caught by nothing | 203 |
+| — of those, not really code | 66 |
+| — of those, **real gaps** | **137** |
+| not judged: three mutations of one operator on one line | 2 |
+
+**Score as measured: 45.3 %. With the noise removed: 55.0 %.**
+
+Slightly better than the record types, and the same order of magnitude: the code
+every single query passes through is not better watched than the individual
+record parsers. 103 of the 478 mutants did not compile, twice the record block's
+share — a property of the code rather than of the tests, since `DomainName` and
+`DNSPacket` hold more comparisons whose operands have only one legal shape.
+
+The second pass earned its five hours here. Sixty of the 265 first-pass survivors
+are caught by `WireFormat`, `Server`, `Client`, `SecureTransports`, `Edns` or
+`Dnssec` — including 24 of `DNSPacket`'s 26, which is exactly right and would have
+been reported as a gap by a one-project sweep.
+
+Where the 137 are:
+
+| file | gaps | mostly |
+|---|---:|---|
+| `DNSNamePattern.cs` | 22 | branches, then refusals |
+| `DNSServiceName.cs` | 21 | boundaries |
+| `DomainName.cs` | 20 | boundaries |
+| `DNSInfo.cs` | 20 | **all twenty are branches** |
+| `DNSServiceInstanceName.cs` | 17 | branches |
+| `DNSTools.cs` | 15 | boundaries |
+| `DNSZoneFile.cs` | 11 | |
+| `DNSQuestion.cs`, `IDomainName.cs`, `DNSPacket.cs`, `DNSPadding.cs` | 11 | |
+
+`DNSInfo` is the one that reads as a pattern rather than a list: twenty branches
+and not one boundary or refusal. It decides which answer counts and what is
+cached, and no test has taken both sides of any of those decisions.
 
 ### What the two numbers mean, and do not
 
@@ -128,6 +200,11 @@ build/mutation/
   classify.py     the same triage, pinned to the revision the sweep measured
   make_closed.py  the ledger of what each round closed
   standing.py     how much is closed, derived from files rather than typed
+                  (takes a block name; defaults to 'records')
+
+  sweep_folder.py       the same sweep, pointed at any of the six blocks
+  sweep_wide_folder.py  and its second pass, over the rest of the bench
+  classify_folder.py    and its triage, pinned to the block's own revision
 
   results/records-bounds2.tsv   the sixth round re-run: every boundary it
                                 claims, mutated again and judged
@@ -279,8 +356,9 @@ implementation derived from that code agrees. The prose had been read and the
 appendix had not — which is the same mistake as stopping at the first `grep`
 result, one document larger.
 
-The sweep set out to find where this suite believed it was looking and was not,
-and it has been walked end to end. Nothing is left to map.
+The record block set out to find where this suite believed it was looking and was
+not, and it has been walked end to end. Nothing is left in it to map — which is a
+statement about one folder of six, and the map above says which.
 
 Four defects came out of that walk, and none of them by a test failing.
 [Findings 54, 55 and 56](FINDINGS.md), and `DNSSRVEndpoint`'s `Equals` and

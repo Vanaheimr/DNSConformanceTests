@@ -1,0 +1,207 @@
+# Every mutant of the 'core' block that survived every project,
+# classified against Hermod e592b5e7 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source
+DNS/DNSInfo.cs	48	false-to-true	noise-default	Boolean                          AuthenticData      = false,
+DNS/DNSNamePattern.cs	40	true-to-false	branch	=> DNSNamePattern?.FullName.IsNullOrEmpty() ?? true;
+DNS/DNSQuestion.cs	95	true-to-false	noise-region	#region Serialize(Stream, CurrentOffset, UseCompression = true, CompressionOffsets = null)
+DNS/DNSServiceInstanceName.cs	43	true-to-false	branch	=> DNSServiceInstance?.FullName.IsNullOrEmpty() ?? true;
+DNS/DNSServiceName.cs	43	true-to-false	branch	=> DNSService?.FullName.IsNullOrEmpty() ?? true;
+DNS/DNSZoneFile.cs	92	true-to-false	noise-attribute	[NotNullWhen(true)]  out List<IDNSResourceRecord> Records,
+DNS/DomainName.cs	41	true-to-false	branch	=> DomainName?.FullName.IsNullOrEmpty() ?? true;
+DNS/Helpers/DNSTools.cs	33	true-to-false	branch	private static readonly UTF8Encoding strictUTF8 = new(false, true);
+DNS/IDomainName.cs	40	true-to-false	branch	=> DomainName?.FullName.IsNullOrEmpty() ?? true;
+DNS/DNSInfo.cs	49	false-to-true	noise-default	Boolean                          CheckingDisabled   = false)
+DNS/DNSNamePattern.cs	46	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSNamePattern? DNSNamePattern)
+DNS/DNSQuestion.cs	106	true-to-false	noise-default	Boolean                     UseCompression       = true,
+DNS/DNSServiceInstanceName.cs	49	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSServiceInstanceName? DNSServiceInstance)
+DNS/DNSServiceName.cs	49	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DNSServiceName? DNSService)
+DNS/DNSZoneFile.cs	93	false-to-true	noise-attribute	[NotNullWhen(false)] out String?                  ErrorResponse,
+DNS/DomainName.cs	47	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this DomainName? DomainName)
+DNS/Helpers/DNSTools.cs	33	false-to-true	branch	private static readonly UTF8Encoding strictUTF8 = new(false, true);
+DNS/IDomainName.cs	46	true-to-false	branch	public static Boolean IsNotNullOrEmpty([NotNullWhen(true)] this IDomainName? DomainName)
+DNS/DNSInfo.cs	263	false-to-true	noise-default	Boolean                          AuthenticData      = false,
+DNS/DNSNamePattern.cs	47	false-to-true	branch	=> DNSNamePattern?.FullName.IsNotNullOrEmpty() ?? false;
+DNS/DNSQuestion.cs	127	equality-to-inequality	noise-region	#region Operator == (DNSQuestion1, DNSQuestion2)
+DNS/DNSServiceInstanceName.cs	50	false-to-true	branch	=> DNSServiceInstance?.FullName.IsNotNullOrEmpty() ?? false;
+DNS/DNSServiceName.cs	50	false-to-true	branch	=> DNSService?.FullName.IsNotNullOrEmpty() ?? false;
+DNS/DNSZoneFile.cs	123	false-to-true	rejection	return false;
+DNS/DomainName.cs	48	false-to-true	branch	=> DomainName?.FullName.IsNotNullOrEmpty() ?? false;
+DNS/Helpers/DNSTools.cs	96	less-to-less-or-equal	boundary	if (Message.Length < 12)
+DNS/IDomainName.cs	47	false-to-true	branch	=> DomainName?.FullName.IsNotNullOrEmpty() ?? false;
+DNS/DNSInfo.cs	264	false-to-true	noise-default	Boolean                          CheckingDisabled   = false)
+DNS/DNSNamePattern.cs	206	true-to-false	noise-attribute	[NotNullWhen(true)]  out DNSNamePattern?  DNSNamePattern,
+DNS/DNSQuestion.cs	142	inequality-to-equality	noise-region	#region Operator != (DNSQuestion1, DNSQuestion2)
+DNS/DNSServiceInstanceName.cs	166	true-to-false	noise-attribute	[NotNullWhen(true)]  out DNSServiceInstanceName?  DNSServiceInstance,
+DNS/DNSServiceName.cs	163	true-to-false	noise-attribute	[NotNullWhen(true)]  out DNSServiceName?  DNSService,
+DNS/DNSZoneFile.cs	129	false-to-true	rejection	return false;
+DNS/DomainName.cs	133	greater-to-ge	boundary	=> labels.Length > 1
+DNS/Helpers/DNSTools.cs	151	less-to-less-or-equal	boundary	while (total < buffer.Length)
+DNS/DNSNamePattern.cs	207	false-to-true	noise-attribute	[NotNullWhen(false)] out String?          ErrorResponse)
+DNS/DNSPacket.cs	260	true-to-false	branch	true,
+DNS/DNSQuestion.cs	159	greater-to-ge	noise-region	#region IComparable<DNSQuestion> Members
+DNS/DNSServiceInstanceName.cs	167	false-to-true	noise-attribute	[NotNullWhen(false)] out String?                  ErrorResponse)
+DNS/DNSServiceName.cs	164	false-to-true	noise-attribute	[NotNullWhen(false)] out String?          ErrorResponse)
+DNS/DNSZoneFile.cs	181	false-to-true	rejection	return false;
+DNS/DomainName.cs	158	ge-to-greater	boundary	=> labels.Length >= 2
+DNS/Helpers/DNSPadding.cs	152	greater-to-ge	boundary	if (MaxLength.HasValue && MeasuredLength + octets > MaxLength.Value)
+DNS/DNSInfo.cs	319	equality-to-inequality	branch	var IS               = (Byte2 & 128) == 128;
+DNS/DNSNamePattern.cs	218	false-to-true	rejection	return false;
+DNS/DNSQuestion.cs	190	equality-to-inequality	branch	if (c == 0)
+DNS/DNSServiceInstanceName.cs	175	false-to-true	rejection	return false;
+DNS/DNSZoneFile.cs	215	greater-to-ge	boundary	if (tokens.Length > 0 && ADNSResourceRecord.TryParseZoneFileTimeToLive(tokens[0], out var explicitTTL))
+DNS/DomainName.cs	167	ge-to-greater	boundary	=> labels.Length >= 2
+DNS/Helpers/DNSTools.cs	224	ge-to-greater	boundary	if (offset >= DNSStream.Length)
+DNS/DNSInfo.cs	321	equality-to-inequality	branch	var AA               = (Byte2 & 4) == 4;
+DNS/DNSNamePattern.cs	231	equality-to-inequality	branch	if (text == "*")
+DNS/DNSQuestion.cs	193	equality-to-inequality	branch	if (c == 0)
+DNS/DNSServiceInstanceName.cs	179	true-to-false	branch	return true;
+DNS/DNSServiceName.cs	181	true-to-false	branch	private static readonly UTF8Encoding strictUTF8 = new(false, true);
+DNS/DNSZoneFile.cs	229	false-to-true	rejection	return false;
+DNS/DomainName.cs	334	true-to-false	noise-attribute	[NotNullWhen(true)]  out DomainName?  DomainName,
+DNS/DNSNamePattern.cs	234	false-to-true	rejection	return false;
+DNS/DNSPacket.cs	372	logical-or-to-and	branch	if (ResourceRecordTypes is null || ResourceRecordTypes.Length == 0)
+DNS/DNSQuestion.cs	204	greater-to-ge	noise-region	#region IEquatable<DNSQuestion> Members
+DNS/DNSServiceInstanceName.cs	188	true-to-false	noise-attribute	[NotNullWhen(true)]  out String[]? NormalizedLabels,
+DNS/DNSServiceName.cs	181	false-to-true	branch	private static readonly UTF8Encoding strictUTF8 = new(false, true);
+DNS/DNSZoneFile.cs	259	false-to-true	branch	var ownerOmitted  = false;
+DNS/DomainName.cs	335	false-to-true	noise-attribute	[NotNullWhen(false)] out String?      ErrorResponse)
+DNS/DNSInfo.cs	323	equality-to-inequality	branch	var RD               = (Byte2 & 1) == 1;
+DNS/DNSNamePattern.cs	259	false-to-true	rejection	return false;
+DNS/DNSQuestion.cs	227	logical-and-to-or	branch	=> DNSQuestion is not null &&
+DNS/DNSServiceInstanceName.cs	189	false-to-true	noise-attribute	[NotNullWhen(false)] out String?   ErrorResponse)
+DNS/DNSServiceName.cs	184	true-to-false	noise-attribute	[NotNullWhen(true)]  out String[]?   Labels,
+DNS/DomainName.cs	372	true-to-false	noise-attribute	[NotNullWhen(true)]  out DomainName?  DomainName,
+DNS/Helpers/DNSTools.cs	243	greater-to-ge	boundary	if (lengthByte > 63)
+DNS/DNSInfo.cs	326	inequality-to-equality	branch	var RA               = (Byte3 & 0x80) != 0;
+DNS/DNSNamePattern.cs	268	false-to-true	rejection	return false;
+DNS/DNSQuestion.cs	229	logical-and-to-or	branch	DomainName.Equals(DNSQuestion.DomainName) &&
+DNS/DNSServiceInstanceName.cs	194	equality-to-inequality	branch	if (Labels.Count == 0)
+DNS/DNSServiceName.cs	185	false-to-true	noise-attribute	[NotNullWhen(false)] out String?      ErrorResponse)
+DNS/DomainName.cs	373	false-to-true	noise-attribute	[NotNullWhen(false)] out String?      ErrorResponse)
+DNS/DNSNamePattern.cs	279	true-to-false	branch	return true;
+DNS/DNSQuestion.cs	230	logical-and-to-or	branch	QueryType. Equals(DNSQuestion.QueryType)  &&
+DNS/DNSServiceInstanceName.cs	197	false-to-true	rejection	return false;
+DNS/DNSServiceName.cs	194	false-to-true	rejection	return false;
+DNS/DNSZoneFile.cs	275	greater-to-ge	boundary	ownerOmitted  = line.Length > 0 && (line[0] == ' ' || line[0] == '\t');
+DNS/DomainName.cs	378	false-to-true	branch	AllowUnderscoreLabels:  false,
+DNS/DNSNamePattern.cs	329	false-to-true	rejection	return false;
+DNS/DNSServiceInstanceName.cs	200	logical-or-to-and	branch	if (Labels[0].Any(character => character <= '\u001F' || character == '\u007F'))
+DNS/DNSServiceName.cs	215	ge-to-greater	boundary	if (++i >= presentation.Length)
+DNS/DNSZoneFile.cs	289	greater-to-ge	boundary	if (complete.Length > 0)
+DNS/Helpers/DNSTools.cs	314	less-to-less-or-equal	boundary	if (length < 0)
+DNS/DNSNamePattern.cs	341	inequality-to-equality	branch	if (hostLabels.Count != baseLabels.Count + 1)
+DNS/DNSServiceInstanceName.cs	200	equality-to-inequality	branch	if (Labels[0].Any(character => character <= '\u001F' || character == '\u007F'))
+DNS/DNSServiceName.cs	218	false-to-true	rejection	return false;
+DNS/DNSZoneFile.cs	294	greater-to-ge	boundary	if (joined.Length > 0)
+DNS/DomainName.cs	395	true-to-false	noise-attribute	[NotNullWhen(true)]  out DomainName?  DomainName,
+DNS/Helpers/DNSTools.cs	347	equality-to-inequality	branch	if (length == 0)
+DNS/DNSNamePattern.cs	342	false-to-true	rejection	return false;
+DNS/DNSServiceInstanceName.cs	200	le-to-less	boundary	if (Labels[0].Any(character => character <= '\u001F' || character == '\u007F'))
+DNS/DNSServiceName.cs	230	false-to-true	rejection	return false;
+DNS/DNSZoneFile.cs	321	false-to-true	branch	isEscaped = false;
+DNS/DomainName.cs	396	false-to-true	noise-attribute	[NotNullWhen(false)] out String?      ErrorResponse,
+DNS/Helpers/DNSTools.cs	351	inequality-to-equality	branch	if (Stream.Read(buffer, 0, length) != length)
+DNS/DNSNamePattern.cs	347	false-to-true	rejection	return false;
+DNS/DNSServiceInstanceName.cs	203	false-to-true	rejection	return false;
+DNS/DNSServiceName.cs	245	false-to-true	rejection	return false;
+DNS/DNSZoneFile.cs	328	true-to-false	branch	isEscaped = true;
+DNS/DomainName.cs	414	false-to-true	rejection	return false;
+DNS/Helpers/DNSTools.cs	368	less-to-less-or-equal	boundary	if (idx < 0)
+DNS/DNSNamePattern.cs	349	less-to-less-or-equal	boundary	for (var i = 0; i < baseLabels.Count; i++)
+DNS/DNSServiceInstanceName.cs	213	false-to-true	rejection	return false;
+DNS/DNSServiceName.cs	259	false-to-true	noise-attribute	[NotNullWhen(false)] out String?  ErrorResponse)
+DNS/DomainName.cs	420	greater-to-ge	boundary	if (Text.Length > 255)
+DNS/Helpers/DNSTools.cs	380	true-to-false	noise-default	Boolean                     UseCompression   = true,
+DNS/DNSNamePattern.cs	355	false-to-true	rejection	return false;
+DNS/DNSServiceInstanceName.cs	255	true-to-false	noise-default	Boolean                     UseCompression   = true,
+DNS/DNSServiceName.cs	271	false-to-true	rejection	return false;
+DNS/DomainName.cs	423	false-to-true	rejection	return false;
+DNS/Helpers/DNSTools.cs	389	logical-or-to-and	branch	if (Text == String.Empty || Text == ".")
+DNS/DNSNamePattern.cs	359	true-to-false	branch	return true;
+DNS/DNSServiceInstanceName.cs	265	equality-to-inequality	noise-region	#region Operator == (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DNSServiceName.cs	283	false-to-true	rejection	return false;
+DNS/DomainName.cs	462	false-to-true	rejection	return false;
+DNS/Helpers/DNSTools.cs	414	greater-to-ge	boundary	if (labelBytes.Length > 63)
+DNS/DNSNamePattern.cs	378	logical-and-to-or	branch	=> HostName is not null &&
+DNS/DNSServiceInstanceName.cs	280	equality-to-inequality	noise-region	#region Operator == (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DomainName.cs	465	logical-or-to-and	branch	if (label.StartsWith('-') || label.EndsWith('-'))
+DNS/Helpers/DNSTools.cs	422	logical-and-to-or	branch	if (!String.IsNullOrEmpty(suffix) && !Offsets.ContainsKey(suffix))
+DNS/DNSNamePattern.cs	422	less-to-less-or-equal	boundary	=> DNSNamePattern1.CompareTo(DNSNamePattern2) < 0;
+DNS/DNSServiceInstanceName.cs	298	inequality-to-equality	noise-region	#region Operator != (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DomainName.cs	468	false-to-true	rejection	return false;
+DNS/DNSNamePattern.cs	430	le-to-less	boundary	=> DNSNamePattern1.CompareTo(DNSNamePattern2) <= 0;
+DNS/DNSServiceInstanceName.cs	313	inequality-to-equality	noise-region	#region Operator != (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DomainName.cs	500	false-to-true	rejection	return false;
+DNS/Helpers/DNSTools.cs	469	false-to-true	branch	).ConfigureAwait(false);
+DNS/DNSNamePattern.cs	438	greater-to-ge	boundary	=> DNSNamePattern1.CompareTo(DNSNamePattern2) > 0;
+DNS/DNSServiceInstanceName.cs	331	less-to-less-or-equal	noise-region	#region Operator <  (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DNSServiceName.cs	311	ge-to-greater	boundary	for (var i = Index - 1; i >= 0 && Text[i] == '\\'; i--)
+DNS/DomainName.cs	509	true-to-false	noise-default	Boolean                     UseCompression   = true,
+DNS/DNSInfo.cs	433	false-to-true	branch	false,
+DNS/DNSNamePattern.cs	446	ge-to-greater	boundary	=> DNSNamePattern1.CompareTo(DNSNamePattern2) >= 0;
+DNS/DNSServiceInstanceName.cs	342	less-to-less-or-equal	boundary	=> DNSServiceInstance1.CompareTo(DNSServiceInstance2) < 0;
+DNS/DNSServiceName.cs	345	le-to-less	boundary	characters[i] = source[i] is >= 'A' and <= 'Z'
+DNS/DomainName.cs	561	logical-and-to-or	branch	if (offset <= 0x3FFF && !Offsets.ContainsKey(suffixKey))
+DNS/Helpers/DNSTools.cs	550	greater-to-ge	boundary	if (c > 127)
+DNS/DNSInfo.cs	524	false-to-true	branch	false,
+DNS/DNSNamePattern.cs	450	greater-to-ge	noise-region	#region IComparable<DNSNamePattern> Members
+DNS/DNSPacket.cs	560	false-to-true	noise-default	Boolean                     UseCompression       = false,
+DNS/DNSServiceInstanceName.cs	346	le-to-less	noise-region	#region Operator <= (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DomainName.cs	561	le-to-less	boundary	if (offset <= 0x3FFF && !Offsets.ContainsKey(suffixKey))
+DNS/DNSInfo.cs	525	false-to-true	branch	false,
+DNS/DNSNamePattern.cs	481	greater-to-ge	noise-region	#region IEquatable<DNSNamePattern> Members
+DNS/DNSServiceInstanceName.cs	357	le-to-less	boundary	=> DNSServiceInstance1.CompareTo(DNSServiceInstance2) <= 0;
+DNS/DNSServiceName.cs	384	true-to-false	noise-default	Boolean                     UseCompression   = true,
+DNS/DomainName.cs	579	equality-to-inequality	noise-region	#region Operator == (DomainName1, DomainName2)
+DNS/DNSInfo.cs	526	false-to-true	branch	false,
+DNS/DNSNamePattern.cs	503	logical-and-to-or	branch	=> DNSNamePattern is not null &&
+DNS/DNSServiceInstanceName.cs	361	greater-to-ge	noise-region	#region Operator >  (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DNSServiceName.cs	397	logical-or-to-and	branch	if (Labels.Count == 0 || Labels.All(label => label.Length == 0))
+DNS/DomainName.cs	594	equality-to-inequality	noise-region	#region Operator == (DomainName1, DomainName2)
+DNS/DNSInfo.cs	527	false-to-true	branch	false,
+DNS/DNSServiceInstanceName.cs	372	greater-to-ge	boundary	=> DNSServiceInstance1.CompareTo(DNSServiceInstance2) > 0;
+DNS/DomainName.cs	609	inequality-to-equality	noise-region	#region Operator != (DomainName1, DomainName2)
+DNS/DNSInfo.cs	532	false-to-true	branch	false,
+DNS/DNSServiceInstanceName.cs	376	ge-to-greater	noise-region	#region Operator >= (DNSServiceInstance1, DNSServiceInstance2)
+DNS/DNSServiceName.cs	426	logical-and-to-or	branch	if (offset <= 0x3FFF && !Offsets.ContainsKey(suffixKey))
+DNS/DomainName.cs	624	inequality-to-equality	noise-region	#region Operator != (DomainName1, DomainName2)
+DNS/DNSServiceInstanceName.cs	387	ge-to-greater	boundary	=> DNSServiceInstance1.CompareTo(DNSServiceInstance2) >= 0;
+DNS/DNSServiceName.cs	426	le-to-less	boundary	if (offset <= 0x3FFF && !Offsets.ContainsKey(suffixKey))
+DNS/DomainName.cs	639	less-to-less-or-equal	noise-region	#region Operator <  (DomainName1, DomainName2)
+DNS/DNSInfo.cs	543	false-to-true	branch	false,
+DNS/DNSServiceInstanceName.cs	393	greater-to-ge	noise-region	#region IComparable<DNSServiceInstance> Members
+DNS/DNSServiceName.cs	445	equality-to-inequality	noise-region	#region Operator == (DNSService1, DNSService2)
+DNS/DomainName.cs	650	less-to-less-or-equal	boundary	=> DomainName1.CompareTo(DomainName2) < 0;
+DNS/DNSInfo.cs	544	false-to-true	branch	false,
+DNS/DNSServiceInstanceName.cs	432	greater-to-ge	noise-region	#region IEquatable<DNSServiceInstance> Members
+DNS/DNSServiceName.cs	460	equality-to-inequality	noise-region	#region Operator == (DNSService1, DNSService2)
+DNS/DomainName.cs	654	le-to-less	noise-region	#region Operator <= (DomainName1, DomainName2)
+DNS/DNSInfo.cs	545	false-to-true	branch	false,
+DNS/DNSServiceInstanceName.cs	455	logical-and-to-or	branch	=> DNSServiceInstance is not null &&
+DNS/DNSServiceName.cs	475	inequality-to-equality	noise-region	#region Operator != (DNSService1, DNSService2)
+DNS/DomainName.cs	665	le-to-less	boundary	=> DomainName1.CompareTo(DomainName2) <= 0;
+DNS/DNSInfo.cs	546	false-to-true	branch	false,
+DNS/DNSServiceName.cs	490	inequality-to-equality	noise-region	#region Operator != (DNSService1, DNSService2)
+DNS/DomainName.cs	669	greater-to-ge	noise-region	#region Operator >  (DomainName1, DomainName2)
+DNS/DNSServiceName.cs	505	less-to-less-or-equal	noise-region	#region Operator <  (DNSService1, DNSService2)
+DNS/DomainName.cs	680	greater-to-ge	boundary	=> DomainName1.CompareTo(DomainName2) > 0;
+DNS/DNSInfo.cs	552	false-to-true	branch	false,
+DNS/DNSServiceName.cs	516	less-to-less-or-equal	boundary	=> DNSService1.CompareTo(DNSService2) < 0;
+DNS/DomainName.cs	684	ge-to-greater	noise-region	#region Operator >= (DomainName1, DomainName2)
+DNS/DNSInfo.cs	568	false-to-true	branch	false,
+DNS/DNSServiceName.cs	520	le-to-less	noise-region	#region Operator <= (DNSService1, DNSService2)
+DNS/DomainName.cs	695	ge-to-greater	boundary	=> DomainName1.CompareTo(DomainName2) >= 0;
+DNS/DNSInfo.cs	569	false-to-true	branch	false,
+DNS/DNSServiceName.cs	531	le-to-less	boundary	=> DNSService1.CompareTo(DNSService2) <= 0;
+DNS/DomainName.cs	701	greater-to-ge	noise-region	#region IComparable<DomainName> Members
+DNS/DNSInfo.cs	570	false-to-true	branch	false,
+DNS/DNSServiceName.cs	535	greater-to-ge	noise-region	#region Operator >  (DNSService1, DNSService2)
+DNS/DomainName.cs	741	greater-to-ge	noise-region	#region IEquatable<DomainName> Members
+DNS/DNSInfo.cs	571	false-to-true	branch	false,
+DNS/DNSServiceName.cs	546	greater-to-ge	boundary	=> DNSService1.CompareTo(DNSService2) > 0;
+DNS/DNSServiceName.cs	550	ge-to-greater	noise-region	#region Operator >= (DNSService1, DNSService2)
+DNS/DNSInfo.cs	577	false-to-true	branch	false,
+DNS/DNSServiceName.cs	561	ge-to-greater	boundary	=> DNSService1.CompareTo(DNSService2) >= 0;
+DNS/DNSServiceName.cs	567	greater-to-ge	noise-region	#region IComparable<DNSService> Members
+DNS/DNSServiceName.cs	606	greater-to-ge	noise-region	#region IEquatable<DNSService> Members

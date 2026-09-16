@@ -16,13 +16,22 @@ Run it instead of trusting a count written in prose.
 
 import io
 import os
+import sys
 
-HERE       = os.path.dirname(os.path.abspath(__file__))
-CLASSIFIED = os.path.join(HERE, "results", "records-classified.tsv")
-CLOSED     = os.path.join(HERE, "results", "records-closed.tsv")
+HERE  = os.path.dirname(os.path.abspath(__file__))
+
+# Which block to report on. The records block was the first measured and is the
+# default; the others were swept later and are named on the command line.
+BLOCK      = sys.argv[1] if len(sys.argv) > 1 else "records"
+CLASSIFIED = os.path.join(HERE, "results", "%s-classified.tsv" % BLOCK)
+CLOSED     = os.path.join(HERE, "results", "%s-closed.tsv" % BLOCK)
 
 
 def rows(path):
+    # A block that has been measured but has nothing closed yet has no ledger,
+    # and that is a state rather than an error.
+    if not os.path.exists(path):
+        return []
     out = []
     for line in io.open(path, encoding="utf-8"):
         if line.startswith("#") or not line.strip():
@@ -46,8 +55,11 @@ def main():
     superseded = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "superseded")
     still_open = len(real) - killed - equivalent - superseded
 
+    if not survivors:
+        sys.exit("no classified survivors for block '%s': %s" % (BLOCK, CLASSIFIED))
+
     print("=" * 74)
-    print("MUTATION SWEEP - standing state")
+    print("MUTATION SWEEP - standing state - block '%s'" % BLOCK)
     print("=" * 74)
     print()
     print("  survivors of the sweep     %4d   (%d of them not really code)" % (len(survivors), len(noise)))
