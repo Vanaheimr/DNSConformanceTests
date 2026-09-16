@@ -3190,6 +3190,16 @@ below rather than deleted, because a withdrawn interpretation is evidence about
 how the reading was reached and deleting it would leave the same mistake
 available to be made again.
 
+**A label whose octets are not UTF-8.** RFC 2181 §11 permits any binary string
+as a label; Hermod holds a name as text and decodes labels as strict UTF-8, so
+such a label cannot be represented and `DNSTools.ExtractName` refuses the name.
+The alternative is not accepting it — the representation cannot hold it either
+way — but decoding leniently, which puts U+FFFD where the octets were. Two labels
+that differ on the wire would then be one name, and the record would look valid
+and be a different record; finding 54 was that shape. The refusal is the
+representation's limit rather than a rule of the DNS, so what the suite pins is
+the refusal and not the limit (`A_Label_That_Is_Not_Valid_Utf8_Is_Refused`).
+
 **Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as referring
 to "a prior occurrence of the same name". Hermod accepts forward pointers; the
 suite's strict reference reader rejects them. Leniency on receive is a

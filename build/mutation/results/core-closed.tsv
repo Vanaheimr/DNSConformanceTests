@@ -7,16 +7,21 @@
 DNS/DNSNamePattern.cs	40	true-to-false	killed	pattern	
 DNS/DNSServiceName.cs	43	true-to-false	killed	names	
 DNS/DomainName.cs	41	true-to-false	killed	names	
+DNS/Helpers/DNSTools.cs	33	true-to-false	killed	dnstools	
 DNS/IDomainName.cs	40	true-to-false	killed	names	
+DNS/Helpers/DNSTools.cs	33	false-to-true	equivalent		the first argument of UTF8Encoding decides what GetPreamble() returns, and this encoding is only ever asked for GetString. The same pair as DNSServiceName.cs:181, and the same half of it matters: the second argument is what refuses a label whose octets are not UTF-8, and a test now pins that
 DNS/DNSNamePattern.cs	47	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	50	false-to-true	killed	names	
 DNS/DomainName.cs	48	false-to-true	killed	names	
+DNS/Helpers/DNSTools.cs	96	less-to-less-or-equal	equivalent		FindLastRecordOffset refusing a message shorter than RFC 1035 §4.1.1's twelve-octet header. At exactly twelve both readings answer the same: with every count zero the walk ends where it started and returns -1, and with a count the message cannot keep the walk runs off the end, which both callers catch. TSIGSigner and SIG0Signer each check the length themselves before calling, so no caller can reach a difference
 DNS/IDomainName.cs	47	false-to-true	killed	names	
 DNS/DomainName.cs	133	greater-to-ge	killed	names	
+DNS/Helpers/DNSTools.cs	151	less-to-less-or-equal	equivalent		the loop that reads an exact number of octets. At total == buffer.Length the mutant asks for one more read of zero octets, which returns zero and breaks out of the loop on the next line — the same octets, one wasted call
 DNS/DomainName.cs	158	ge-to-greater	killed	names	
 DNS/DNSInfo.cs	319	equality-to-inequality	equivalent		the QR bit is read into a local that nothing reads back — it appears twice in the file, one of them in the licence header — so both readings assign a value nobody observes. Not checking it is conformant besides: RFC 5452 §9.1 enumerates what a resolver MUST match a response against, and the six are the addresses, the port, the ID, the name, the class and the type. QR is not among them
 DNS/DNSNamePattern.cs	218	false-to-true	killed	pattern	
 DNS/DomainName.cs	167	ge-to-greater	killed	names	
+DNS/Helpers/DNSTools.cs	224	ge-to-greater	killed	dnstools	
 DNS/DNSInfo.cs	321	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	231	equality-to-inequality	killed	pattern	
 DNS/DNSServiceName.cs	181	true-to-false	killed	names	
@@ -24,6 +29,7 @@ DNS/DNSNamePattern.cs	234	false-to-true	killed	pattern
 DNS/DNSServiceName.cs	181	false-to-true	equivalent		the first argument of UTF8Encoding is encoderShouldEmitUTF8Identifier, which decides what GetPreamble() returns and nothing else. This encoding is only ever asked for GetByteCount and GetBytes, and neither of them emits a preamble, so both readings count and write the same octets. The second argument is the one that matters here, and a label holding an unpaired surrogate now pins it
 DNS/DNSInfo.cs	323	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern	
+DNS/Helpers/DNSTools.cs	243	greater-to-ge	killed	dnstools	
 DNS/DNSInfo.cs	326	inequality-to-equality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	
 DNS/DNSNamePattern.cs	279	true-to-false	killed	pattern	
@@ -31,33 +37,42 @@ DNS/DNSServiceName.cs	194	false-to-true	killed	names
 DNS/DomainName.cs	378	false-to-true	killed	names	
 DNS/DNSNamePattern.cs	329	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	215	ge-to-greater	killed	names	
+DNS/Helpers/DNSTools.cs	314	less-to-less-or-equal	killed	dnstools	
 DNS/DNSNamePattern.cs	341	inequality-to-equality	killed	pattern	
 DNS/DNSServiceName.cs	218	false-to-true	killed	names	
+DNS/Helpers/DNSTools.cs	347	equality-to-inequality	killed	dnstools	
 DNS/DNSNamePattern.cs	342	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	230	false-to-true	killed	names	
+DNS/Helpers/DNSTools.cs	351	inequality-to-equality	killed	dnstools	
 DNS/DNSNamePattern.cs	347	false-to-true	equivalent		the left-most label of a parsed host name cannot be empty — DomainName refuses an empty label before Matches is ever reached — so this guard has nothing to guard against. The comment above it says as much: "the check costs nothing and this is the wrong place to find out"
 DNS/DNSServiceName.cs	245	false-to-true	killed	names	
 DNS/DomainName.cs	414	false-to-true	killed	names	
+DNS/Helpers/DNSTools.cs	368	less-to-less-or-equal	killed	dnstools	
 DNS/DNSNamePattern.cs	349	less-to-less-or-equal	killed	pattern	
 DNS/DomainName.cs	420	greater-to-ge	superseded		the length check the sweep measured counted characters and was one too loose; finding 57 replaced it with one that counts the wire form of RFC 1035 §3.1. The rule did not go away with the line — it was re-measured where the fix put it (line 431, greater-to-ge) and killed there by two tests
 DNS/DNSNamePattern.cs	355	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	271	false-to-true	killed	names	
 DNS/DomainName.cs	423	false-to-true	killed	names	
+DNS/Helpers/DNSTools.cs	389	logical-or-to-and	killed	dnstools	
 DNS/DNSNamePattern.cs	359	true-to-false	killed	pattern	
 DNS/DNSServiceName.cs	283	false-to-true	killed	names	
 DNS/DomainName.cs	462	false-to-true	equivalent		the label-length refusal cannot be reached. Every label is matched by DomainNameRegExpr first, whose label is [A-Za-z0-9] followed by at most [A-Za-z0-9-]{0,61} and a closing [A-Za-z0-9] — 63 characters at the outside — so a label of 64 is refused as a format error several lines earlier. RFC 1035 §2.3.4's rule is enforced; this is the second guard on it
+DNS/Helpers/DNSTools.cs	414	greater-to-ge	killed	dnstools	
 DNS/DNSNamePattern.cs	378	logical-and-to-or	killed	pattern	
 DNS/DomainName.cs	465	logical-or-to-and	equivalent		the hyphen check cannot be reached either, and for the same reason: the regex requires a letter or digit at both ends of every label, so no label arriving here starts or ends with one. Whether the condition is || or && makes no difference to a condition that is never true
+DNS/Helpers/DNSTools.cs	422	logical-and-to-or	killed	dnstools	
 DNS/DNSNamePattern.cs	422	less-to-less-or-equal	killed	pattern	
 DNS/DomainName.cs	468	false-to-true	equivalent		the refusal belonging to that unreachable hyphen check
 DNS/DNSNamePattern.cs	430	le-to-less	killed	pattern	
 DNS/DomainName.cs	500	false-to-true	killed	names	
+DNS/Helpers/DNSTools.cs	469	false-to-true	equivalent		ConfigureAwait(false) on the two-octet length prefix of a TCP or TLS message. It chooses which context the continuation resumes on, and a test host has no synchronization context for the two readings to differ about. It is a rule about library code, not a rule about DNS
 DNS/DNSNamePattern.cs	438	greater-to-ge	killed	pattern	
 DNS/DNSServiceName.cs	311	ge-to-greater	killed	names	
 DNS/DNSInfo.cs	433	false-to-true	killed	dnsinfo	
 DNS/DNSNamePattern.cs	446	ge-to-greater	killed	pattern	
 DNS/DNSServiceName.cs	345	le-to-less	killed	names	
 DNS/DomainName.cs	561	logical-and-to-or	killed	names	
+DNS/Helpers/DNSTools.cs	550	greater-to-ge	killed	dnstools	
 DNS/DNSInfo.cs	524	false-to-true	killed	dnsinfo	
 DNS/DomainName.cs	561	le-to-less	killed	names	
 DNS/DNSInfo.cs	525	false-to-true	killed	dnsinfo	

@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **50 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **35 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -102,7 +102,7 @@ Where the 132 are — the first of them closed:
 | `DNSServiceName.cs` | 20 | **closed** — 18 killed, 2 equivalent |
 | `DomainName.cs` | 19 | **closed** — 15 killed, 3 unreachable, 1 superseded by finding 57 |
 | `DNSServiceInstanceName.cs` | 16 | branches |
-| `DNSTools.cs` | 15 | boundaries |
+| `DNSTools.cs` | 15 | **closed** — 11 killed, 4 unobservable |
 | `DNSZoneFile.cs` | 11 | |
 | `IDomainName.cs` | 2 | **closed** |
 | `DNSQuestion.cs` 5, `DNSPacket.cs` 2, `DNSPadding.cs` 1 | 8 | |
@@ -130,6 +130,71 @@ against — both addresses, the port, the ID, the name, the class and the type �
 QR is not among them. Finding 49 was about that list, which is why it was worth
 looking up rather than assuming.
 
+
+
+### The helpers every message passes through
+
+`DNSTools` is where Hermod meets octets somebody else wrote: reading a name and a
+character-string off the wire, writing a name back, and finding where a message's
+last record begins so a TSIG can be checked over everything in front of it. Its
+boundaries are the ones that decide what a truncated or hostile message does, so
+they are worth more than their count. Fifteen gaps, fifteen tests.
+
+Eleven fell. **The four that did not are real mutations that no test can observe**,
+and each for its own reason:
+
+- `new UTF8Encoding(false, true)` — the first argument again, third file running.
+  It decides what `GetPreamble()` returns and this encoding is only ever asked for
+  `GetString`. The second argument is the one that matters, and a label whose
+  octets are not UTF-8 now pins it.
+- `Message.Length < 12` in `FindLastRecordOffset` (RFC 1035 §4.1.1's header). At
+  exactly twelve both readings answer the same: with every count zero the walk
+  ends where it started and returns -1, and with a count the message cannot keep,
+  the walk runs off the end into an exception both callers catch. `TSIGSigner` and
+  `SIG0Signer` check the length themselves before calling, so no caller can reach
+  a difference.
+- `while (total < buffer.Length)` — at equality the mutant asks for one more read
+  of zero octets, which returns zero and breaks out on the next line. The same
+  octets, one wasted call.
+- `ConfigureAwait(false)` — a rule about library code, not about DNS, and a test
+  host has no synchronization context for the two readings to differ about.
+
+### A table that pointed at the wrong octet
+
+The round's one real defect came out of asking a question that can be asked of any
+serializer without knowing how it works: **a compression table is a promise about
+where each name begins, so read the message at the offset and the name has to be
+there.**
+
+It was not. Writing `www.example.com.` through the text serializer left a table
+saying `com` begins at octet 8, where the name actually begins at 12 — octet 8 is
+the `m` of `example`, which as a length octet claims 109 more and runs off the end
+of the message. An SOA left the same lie about its RNAME.
+
+This is finding 9 exactly, in the copy of the code it was not fixed in: every
+suffix measured from `CurrentOffset` rather than from where the label in front of
+it ends, which is right for the first suffix and wrong for every one after. The
+same line also identified a label by its text (`Array.IndexOf`), which finds the
+wrong one in `example.com.example.com`.
+
+**It is not a numbered finding, and the reason is worth writing down.** The entries
+this table gets wrong are keyed without a trailing dot — `com`, because the text
+comes from `EMail.ToString().Replace("@", ".")` — while `DomainName` and
+`DNSServiceName` both look up keys that end in one, `com.`, case-folded. Two
+disjoint key namespaces in one dictionary, so the wrong entries can only be read
+by another text-path name whose whole text equals that suffix: a second SOA in the
+same message whose RNAME is exactly `com`. Nothing produces that.
+
+So the table was lying and the lie was unreachable, by an accident of spelling
+rather than by design. It is fixed anyway, because "no caller does this today" is
+an observation about callers and not about the code — which this plan already
+learned once, from the parser that handled only A and OPT until a signed query
+arrived (finding 16).
+
+The same accident has a cost that is not a defect: an SOA's RNAME never compresses
+against its own MNAME, because neither can find the other's keys. Unifying the
+spelling would make messages smaller and is a deliberate change to what goes on
+the wire, so it is reported here rather than made in passing.
 
 ### Two types for one name
 

@@ -37,6 +37,17 @@ CORE_KILLED = {
                                   422, 430, 438, 446, 503},
     },
 
+    # RFC 1035 §3.3/§4.1.1/§4.1.4 and §2.3.4: the helpers every message passes
+    # through — reading a name and a character-string off the wire, writing a name
+    # back, and the compression table a serializer leaves behind. Eleven of the
+    # fifteen; the other four are real and unobservable.
+    "dnstools": {
+
+        "DNS/Helpers/DNSTools.cs": {(33, "true-to-false"), 224, 243, 314, 347,
+                                    351, 368, 389, 414, 422, 550},
+
+    },
+
     # RFC 1035 §2.3.1/§2.3.4/§4.1.4/§5.1 and RFC 4343: what a name is made of, how
     # long it may be, what a backslash means in it, and which two names are one.
     # Three files taken together because they answer the same rules — thirty-five
@@ -66,6 +77,34 @@ CORE_KILLED = {
 }
 
 CORE_EQUIVALENT = {
+
+    "DNS/Helpers/DNSTools.cs": {
+
+        (33, "false-to-true"):
+            "the first argument of UTF8Encoding decides what GetPreamble() returns, and this "
+            "encoding is only ever asked for GetString. The same pair as DNSServiceName.cs:181, "
+            "and the same half of it matters: the second argument is what refuses a label whose "
+            "octets are not UTF-8, and a test now pins that",
+
+        96:
+            "FindLastRecordOffset refusing a message shorter than RFC 1035 §4.1.1's twelve-octet "
+            "header. At exactly twelve both readings answer the same: with every count zero the "
+            "walk ends where it started and returns -1, and with a count the message cannot keep "
+            "the walk runs off the end, which both callers catch. TSIGSigner and SIG0Signer each "
+            "check the length themselves before calling, so no caller can reach a difference",
+
+        151:
+            "the loop that reads an exact number of octets. At total == buffer.Length the mutant "
+            "asks for one more read of zero octets, which returns zero and breaks out of the "
+            "loop on the next line — the same octets, one wasted call",
+
+        469:
+            "ConfigureAwait(false) on the two-octet length prefix of a TCP or TLS message. It "
+            "chooses which context the continuation resumes on, and a test host has no "
+            "synchronization context for the two readings to differ about. It is a rule about "
+            "library code, not a rule about DNS",
+
+    },
 
     "DNS/DNSServiceName.cs": {
 
