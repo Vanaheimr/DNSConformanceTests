@@ -37,9 +37,26 @@ CORE_KILLED = {
                                   422, 430, 438, 446, 503},
     },
 
+    # RFC 1035 §4.1.1 header flags as the client reads them, and what a query
+    # that never got an answer is allowed to claim. Nineteen of the twenty.
+    "dnsinfo": {
+        "DNS/DNSInfo.cs": {321, 323, 326, 433,
+                           524, 525, 526, 527, 532,
+                           543, 544, 545, 546, 552,
+                           568, 569, 570, 571, 577},
+    },
+
 }
 
 CORE_EQUIVALENT = {
+
+    "DNS/DNSInfo.cs": {
+        319: "the QR bit is read into a local that nothing reads back — it appears twice in the "
+             "file, one of them in the licence header — so both readings assign a value nobody "
+             "observes. Not checking it is conformant besides: RFC 5452 §9.1 enumerates what a "
+             "resolver MUST match a response against, and the six are the addresses, the port, "
+             "the ID, the name, the class and the type. QR is not among them",
+    },
 
     "DNS/DNSNamePattern.cs": {
         347: "the left-most label of a parsed host name cannot be empty — DomainName refuses an "

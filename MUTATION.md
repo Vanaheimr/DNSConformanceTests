@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **111 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **91 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -98,17 +98,36 @@ Where the 132 are — the first of them closed:
 | file | gaps | mostly |
 |---|---:|---|
 | `DNSNamePattern.cs` | 21 | **closed** — 20 killed, 1 unreachable |
+| `DNSInfo.cs` | 20 | **closed** — 19 killed, 1 a dead read |
 | `DNSServiceName.cs` | 20 | boundaries |
-| `DNSInfo.cs` | 20 | **all twenty are branches** |
 | `DomainName.cs` | 19 | boundaries |
 | `DNSServiceInstanceName.cs` | 16 | branches |
 | `DNSTools.cs` | 15 | boundaries |
 | `DNSZoneFile.cs` | 11 | |
 | `DNSQuestion.cs`, `IDomainName.cs`, `DNSPacket.cs`, `DNSPadding.cs` | 10 | |
 
-`DNSInfo` is the one that reads as a pattern rather than a list: twenty branches
+`DNSInfo` was the one that read as a pattern rather than a list: twenty branches
 and not one boundary or refusal. It decides which answer counts and what is
-cached, and no test has taken both sides of any of those decisions.
+cached, and no test had taken both sides of any of those decisions.
+
+The twenty split cleanly in two. RFC 1035 §4.1.1's header flags as the client
+reads them — AA, RD and RA could each be inverted unnoticed, while TC, AD and CD
+could not, because the truncation and DNSSEC rounds had already pinned those
+three. A suite tests what it went looking for, and the sweep is what shows the
+shape of that.
+
+The other sixteen are `false` arguments in `TimedOut`, `Invalid` and `Failed` —
+the flags of a result built when no response arrived at all. Each of them is a
+claim about octets that never existed: a timeout reporting AA claims authority
+for an answer nobody gave.
+
+Nineteen fell. The twentieth is `var IS = (Byte2 & 128) == 128;` — the QR bit,
+read into a local that nothing reads back. The identifier occurs twice in the
+file and one of those is the licence header. Not checking it is conformant
+besides: RFC 5452 §9.1 enumerates the six things a resolver MUST match a response
+against — both addresses, the port, the ID, the name, the class and the type — and
+QR is not among them. Finding 49 was about that list, which is why it was worth
+looking up rather than assuming.
 
 ### A rule the triage was missing
 

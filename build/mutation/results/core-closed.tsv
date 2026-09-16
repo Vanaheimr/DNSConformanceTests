@@ -6,10 +6,14 @@
 # file	line	operator	state	round	why
 DNS/DNSNamePattern.cs	40	true-to-false	killed	pattern	
 DNS/DNSNamePattern.cs	47	false-to-true	killed	pattern	
+DNS/DNSInfo.cs	319	equality-to-inequality	equivalent		the QR bit is read into a local that nothing reads back — it appears twice in the file, once of them in the licence header — so both readings assign a value nobody observes. Not checking it is conformant besides: RFC 5452 6.1 enumerates what a resolver MUST match a response against, and the six are the addresses, the port, the ID, the name, the class and the type. QR is not among them
 DNS/DNSNamePattern.cs	218	false-to-true	killed	pattern	
+DNS/DNSInfo.cs	321	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	231	equality-to-inequality	killed	pattern	
 DNS/DNSNamePattern.cs	234	false-to-true	killed	pattern	
+DNS/DNSInfo.cs	323	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern	
+DNS/DNSInfo.cs	326	inequality-to-equality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	
 DNS/DNSNamePattern.cs	279	true-to-false	killed	pattern	
 DNS/DNSNamePattern.cs	329	false-to-true	killed	pattern	
@@ -23,5 +27,21 @@ DNS/DNSNamePattern.cs	378	logical-and-to-or	killed	pattern
 DNS/DNSNamePattern.cs	422	less-to-less-or-equal	killed	pattern	
 DNS/DNSNamePattern.cs	430	le-to-less	killed	pattern	
 DNS/DNSNamePattern.cs	438	greater-to-ge	killed	pattern	
+DNS/DNSInfo.cs	433	false-to-true	killed	dnsinfo	
 DNS/DNSNamePattern.cs	446	ge-to-greater	killed	pattern	
+DNS/DNSInfo.cs	524	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	525	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	526	false-to-true	killed	dnsinfo	
 DNS/DNSNamePattern.cs	503	logical-and-to-or	killed	pattern	
+DNS/DNSInfo.cs	527	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	532	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	543	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	544	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	545	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	546	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	552	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	568	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	569	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	570	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	571	false-to-true	killed	dnsinfo	
+DNS/DNSInfo.cs	577	false-to-true	killed	dnsinfo	
