@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty-six RFC deviations in the Hermod DNS stack, each
+What this suite caught. Fifty-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -72,6 +72,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 54 | A field shorter than it should be was completed with zeros | **High** | 1035 §4.1.3, 4255 §3.1.3 | ✅ fixed |
 | 55 | A signature said which type it covered, in a spelling nothing else reads | Medium | 4034 §3.2, 3597 §5 | ✅ fixed |
 | 56 | A backslash in a zone file arrived as a backslash | **High** | 1035 §5.1 | ✅ fixed |
+| 57 | A wildcard name was measured two octets short | Low | 1035 §2.3.4, 4592 §2.1.1 | ✅ fixed |
 
 The Status column is uniform by design. It says nothing today, and that is the
 point — it is where a future finding lands as **open**, with its test left red
@@ -3081,6 +3082,101 @@ deployed record type there is, for every zone file that uses an escape.
 Found while closing the branch gaps from the mutation sweep: the lexer's escape
 flag was on the survivor list, and a test written to ask what it did showed the
 escapes still sitting in the record. Pinned by `ZoneFileLexerTests`.
+
+---
+
+## 57 — A wildcard name was measured two octets short
+
+RFC 1035 §2.3.4 sets the limit in one line:
+
+> names           255 octets or less
+
+Octets, and §3.1 says which ones:
+
+> Each label is represented as a one octet length field followed by that number
+> of octets. Since every domain name ends with the null label of the root, a
+> domain name is terminated by a length byte of zero.
+
+So a name's length is each label plus a length octet for it, plus one for the
+root — not the characters of the text it happened to be written as.
+
+`DomainName.TryParse` measured the text. It did so in two places, and neither of
+them was the wire form:
+
+```csharp
+if (Text.Length > 255)
+```
+
+and, in the syntax regex a few lines further down,
+
+```
+^(?=.{1,254}$)
+```
+
+For a name written out to the root those two counts differ by exactly one. Each
+label's separating dot stands in for that label's length octet; the octet the
+text has no character for is the root's zero. So the regex's 254 is the right
+number and the explicit check is one too loose — and harmless, because the regex
+is the stricter of the two and refuses first.
+
+**Except that the regex is not shown the whole name.** An RFC 4592 wildcard is
+validated with its asterisk taken off, so the hostname syntax below it does not
+have to be written a third time:
+
+```csharp
+if (AllowWildcardLabel && textToValidate.StartsWith("*."))
+    textToValidate = textToValidate[2..];
+```
+
+Which means that for exactly the names `TryParseLenient` exists to accept, the
+stricter check counts two octets too few, and the only check still looking at the
+whole text is the one that is one too many. Three octets of slack, of which one
+crosses the limit:
+
+```
+*.aaa…(63).bbb…(63).ccc…(63).ddd…(60).
+```
+
+255 characters, which the explicit check waves through; 253 once the asterisk is
+gone, which the regex waves through; **256 octets on the wire**. Hermod accepted
+it as a name.
+
+**The same library already had the rule right.** `DNSServiceName` counts the wire
+form and nothing else:
+
+```csharp
+var wireLength = 1;
+foreach (var label in Labels)
+{
+    ...
+    wireLength += 1 + labelLength;
+}
+
+if (wireLength > 255)
+```
+
+Two types, one sentence of one RFC, two answers. That asymmetry is what makes
+this a defect rather than a reading: the same text was a name to one of Hermod's
+parsers and not a name to the other, and a caller's choice between them decided
+which.
+
+**What it costs.** A name over §2.3.4's limit cannot be carried in a DNS message,
+and this one is produced rather than read — `Serialize` writes its 256 octets out
+without complaint, because the length was the parser's to enforce and the parser
+let it in. A peer that enforces the limit answers FORMERR. The reach is narrow:
+the lenient parser, a wildcard owner name, and a length of exactly 256. Severity
+is **Low** — it manufactures a name one octet too long; it does not misread one
+that was right.
+
+**The fix measures the wire form** at the check that sees the whole name, and
+says why next to it — including why the regex's own lookahead cannot be leaned on
+for the wildcard case. The error message changed with it: it said "255
+characters" and meant octets.
+
+Found by the mutation sweep of the core block. The length comparison was one of
+the ninety-one open gaps, and the test written to pin it — a name of exactly 255
+octets accepted, one of 256 refused — asked the same question of a wildcard as a
+matter of course. Pinned by `NameSyntaxAndLimitTests`.
 
 ---
 

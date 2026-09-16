@@ -37,6 +37,23 @@ CORE_KILLED = {
                                   422, 430, 438, 446, 503},
     },
 
+    # RFC 1035 §2.3.1/§2.3.4/§4.1.4/§5.1 and RFC 4343: what a name is made of, how
+    # long it may be, what a backslash means in it, and which two names are one.
+    # Three files taken together because they answer the same rules — thirty-five
+    # of their forty-one gaps, plus the line the length fix replaced, re-measured
+    # where the fix put it (DomainName.cs:431, killed, and no longer a sweep row).
+    "names": {
+
+        "DNS/DNSServiceName.cs": {43, 50, (181, "true-to-false"), 194, 215, 218, 230,
+                                  245, 271, 283, 311, 345, 426, 516, 531, 546, 561},
+
+        "DNS/DomainName.cs":     {41, 48, 133, 158, 167, 378, 414, 423, 500, 561,
+                                  650, 665, 680, 695},
+
+        "DNS/IDomainName.cs":    {40, 47},
+
+    },
+
     # RFC 1035 §4.1.1 header flags as the client reads them, and what a query
     # that never got an answer is allowed to claim. Nineteen of the twenty.
     "dnsinfo": {
@@ -49,6 +66,45 @@ CORE_KILLED = {
 }
 
 CORE_EQUIVALENT = {
+
+    "DNS/DNSServiceName.cs": {
+
+        (181, "false-to-true"):
+            "the first argument of UTF8Encoding is encoderShouldEmitUTF8Identifier, which decides "
+            "what GetPreamble() returns and nothing else. This encoding is only ever asked for "
+            "GetByteCount and GetBytes, and neither of them emits a preamble, so both readings "
+            "count and write the same octets. The second argument is the one that matters here, "
+            "and a label holding an unpaired surrogate now pins it",
+
+        397:
+            "Labels.Count == 0 || Labels.All(label => label.Length == 0) — the two readings can "
+            "only differ for a name that has labels and whose labels are all empty, because All "
+            "is vacuously true over none. No such DNSServiceName can be built: TryParseLabels "
+            "answers '.' with an empty list and refuses an empty label anywhere else, and "
+            "TryValidateLabels refuses one on the FromLabels path too. DomainName reaches that "
+            "state and its copy of the line was killed by the sweep; this one cannot",
+
+    },
+
+    "DNS/DomainName.cs": {
+
+        462:
+            "the label-length refusal cannot be reached. Every label is matched by "
+            "DomainNameRegExpr first, whose label is [A-Za-z0-9] followed by at most "
+            "[A-Za-z0-9-]{0,61} and a closing [A-Za-z0-9] — 63 characters at the outside — so a "
+            "label of 64 is refused as a format error several lines earlier. RFC 1035 §2.3.4's "
+            "rule is enforced; this is the second guard on it",
+
+        465:
+            "the hyphen check cannot be reached either, and for the same reason: the regex "
+            "requires a letter or digit at both ends of every label, so no label arriving here "
+            "starts or ends with one. Whether the condition is || or && makes no difference to "
+            "a condition that is never true",
+
+        468:
+            "the refusal belonging to that unreachable hyphen check",
+
+    },
 
     "DNS/DNSInfo.cs": {
         319: "the QR bit is read into a local that nothing reads back — it appears twice in the "
@@ -67,12 +123,31 @@ CORE_EQUIVALENT = {
 
 }
 
-CORE_SUPERSEDED = {}
+CORE_SUPERSEDED = {
+
+    "DNS/DomainName.cs": {
+        420: "the length check the sweep measured counted characters and was one too loose; "
+             "finding 57 replaced it with one that counts the wire form of RFC 1035 §3.1. The "
+             "rule did not go away with the line — it was re-measured where the fix put it "
+             "(line 431, greater-to-ge) and killed there by two tests",
+    },
+
+}
 
 
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
 }
+
+
+def listed(entries, line, operator):
+    """A line may carry more than one mutation, and they need not share a verdict:
+    where they do not, the entry names the operator as well."""
+    return line in entries or (line, operator) in entries
+
+
+def keyed(table, line, operator):
+    return table.get((line, operator)) or table.get(line)
 
 
 def main():
@@ -106,16 +181,16 @@ def main():
         rel, ln, op = p[0], int(p[1]), p[2]
 
         for round_name, files in killed.items():
-            if ln in files.get(rel, ()):
+            if listed(files.get(rel, ()), ln, op):
                 rows.append((rel, str(ln), op, "killed", round_name, ""))
                 break
 
         else:
-            why = equivalent.get(rel, {}).get(ln)
+            why = keyed(equivalent.get(rel, {}), ln, op)
             if why:
                 rows.append((rel, str(ln), op, "equivalent", "", why))
             else:
-                why = superseded.get(rel, {}).get(ln)
+                why = keyed(superseded.get(rel, {}), ln, op)
                 if why:
                     rows.append((rel, str(ln), op, "superseded", "", why))
 

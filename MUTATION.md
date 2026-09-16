@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **91 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **50 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -99,12 +99,13 @@ Where the 132 are — the first of them closed:
 |---|---:|---|
 | `DNSNamePattern.cs` | 21 | **closed** — 20 killed, 1 unreachable |
 | `DNSInfo.cs` | 20 | **closed** — 19 killed, 1 a dead read |
-| `DNSServiceName.cs` | 20 | boundaries |
-| `DomainName.cs` | 19 | boundaries |
+| `DNSServiceName.cs` | 20 | **closed** — 18 killed, 2 equivalent |
+| `DomainName.cs` | 19 | **closed** — 15 killed, 3 unreachable, 1 superseded by finding 57 |
 | `DNSServiceInstanceName.cs` | 16 | branches |
 | `DNSTools.cs` | 15 | boundaries |
 | `DNSZoneFile.cs` | 11 | |
-| `DNSQuestion.cs`, `IDomainName.cs`, `DNSPacket.cs`, `DNSPadding.cs` | 10 | |
+| `IDomainName.cs` | 2 | **closed** |
+| `DNSQuestion.cs` 5, `DNSPacket.cs` 2, `DNSPadding.cs` 1 | 8 | |
 
 `DNSInfo` was the one that read as a pattern rather than a list: twenty branches
 and not one boundary or refusal. It decides which answer counts and what is
@@ -128,6 +129,64 @@ besides: RFC 5452 §9.1 enumerates the six things a resolver MUST match a respon
 against — both addresses, the port, the ID, the name, the class and the type — and
 QR is not among them. Finding 49 was about that list, which is why it was worth
 looking up rather than assuming.
+
+
+### Two types for one name
+
+`DomainName` and `DNSServiceName` were taken as one round rather than two,
+because they are one subject written twice. The gaps stood almost line for line:
+the null-receiver extension pair, the `offset <= 0x3FFF` compression guard, the
+four ordering operators, the parse refusals. `IDomainName` carries that
+extension pair a third time, so its two came along. Forty-one gaps, twenty-five
+tests, and a test written for one type did keep killing mutants in the other —
+which is what the shape of the list had predicted.
+
+The split between the two types is real and worth stating, because it decides
+what each of them is allowed to refuse. `DomainName` is host name syntax (RFC
+1035 §2.3.1, RFC 1123 §2.1): letters, digits and hyphens, and nothing in a label
+with a special meaning to escape. `DNSServiceName` is the presentation format of
+§5.1, a strictly larger language, and it implements `\X` — `a\.b.example.` is two
+labels there, `a.b` and `example`. That asymmetry had been sitting in PLAN.md as
+an open question since the zone-file round; it is answered, and the answer is
+that both types are right.
+
+**What they disagreed about was length**, and that became
+[finding 57](FINDINGS.md): `DomainName` counted characters where RFC 1035 §2.3.4
+counts octets, in two guards neither of which saw the whole name, and accepted a
+wildcard name of 256 wire octets. `DNSServiceName` had counted the wire form all
+along. The line the sweep had measured no longer exists, so its verdict is
+recorded as superseded — and the rule it carried was re-measured where the fix
+put it and killed there.
+
+Five mutations are real and no test can reach them, which is a different thing
+from a gap:
+
+- `new UTF8Encoding(false, true)` — the **first** argument decides only what
+  `GetPreamble()` returns, and this encoding is only ever asked to count and
+  write octets. The second argument is the one that matters, and an unpaired
+  surrogate in a label now pins it.
+- `Labels.Count == 0 || Labels.All(label => label.Length == 0)` in
+  `DNSServiceName.Serialize` — the two readings differ only for a name that has
+  labels and whose labels are all empty, and that name cannot be built: `All` is
+  vacuously true over none, and every path into the type refuses an empty label.
+  `DomainName` does reach that state, and its copy of the line was killed by the
+  sweep.
+- **Three in a row in `DomainName.TryParse`**: the label-length refusal, the
+  hyphen check, and the hyphen check's own refusal. All three sit behind
+  `DomainNameRegExpr`, whose label is at most 63 characters and must start and
+  end with a letter or digit — so RFC 1035 §2.3.4's rule is enforced several
+  lines earlier and these are the second guard on it. A condition that is never
+  true reads the same as `&&` or `||`.
+
+### A line that moved, and how it was followed
+
+`DomainName.cs` had changed since the sweep measured it, so its line numbers had
+moved — 380 of them. The verification did not assume an offset and did not trust
+the old numbers: it read the file back out of git at the sweep's revision, lined
+the two up with `difflib`, and mutated where the map said each line had gone,
+with the anchor text checked on arrival as before. A line the fix replaced maps
+to nothing and is reported as superseded rather than silently mutating whatever
+now sits at that number.
 
 ### A rule the triage was missing
 

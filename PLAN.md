@@ -50,18 +50,32 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifty-six deviations so far, and all of them are now
+The suite has confirmed fifty-seven deviations so far, and all of them are now
 fixed in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the
 single record, with chapter and verse, the mechanism, the change, and the test
 that pins each one. The summary table at the top of that file is the fastest way in.
 
-Two things this round looked at and did **not** open. RFC 1035 §5.1's own example
-of an escape is `\.` placing a dot inside a label, and `DomainName` refuses a name
-written that way while `DNSServiceName` carries `EscapeLabel` and `IsEscaped`
-helpers of its own — an asymmetry worth a look, on its own, with the wire form in
-hand. And `URL.Parse("x")` answers `https://x`, inventing a scheme where RFC 3986
-has no relative URIs; that is a question for `URL` rather than for a record type,
-and it reaches DNS only through a URI record's target.
+**The escape asymmetry is answered.** This plan used to record that RFC 1035 §5.1's
+own example of an escape is `\.` placing a dot inside a label, while `DomainName`
+refuses a name written that way and `DNSServiceName` carries `EscapeLabel` and
+`IsEscaped` helpers of its own. The asymmetry is the design, and it is the right
+one: `DomainName` is host name syntax (RFC 1035 §2.3.1, RFC 1123 §2.1), where a
+label is letters, digits and hyphens and no character in it has a special meaning
+to escape. `DNSServiceName` is the presentation format of §5.1, a strictly larger
+language, and it implements `\X`: `a\.b.example.` parses there into the two labels
+`a.b` and `example` and is written back out escaped. Pinned by
+`NameSyntaxAndLimitTests`, which now asserts both halves. The round did find
+something in the same place — the other question those two types answer
+differently, which is how long a name may be — and that became finding 57.
+
+One edge is noted and not claimed: `DNSZoneFile` reads `$ORIGIN` with
+`DomainName.TryParseLenient`, so an origin whose name needs an escape would be
+refused although §5.1 permits one there. Unverified, and rare enough that it is
+recorded rather than chased.
+
+Still open from that round: `URL.Parse("x")` answers `https://x`, inventing a
+scheme where RFC 3986 has no relative URIs; that is a question for `URL` rather
+than for a record type, and it reaches DNS only through a URI record's target.
 
 One review suspicion did *not* survive contact with a test: the compression-offset
 bookkeeping produces messages that decode correctly under the suite's strict
