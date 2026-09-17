@@ -256,8 +256,51 @@ CORE_SUPERSEDED = {
 }
 
 
+# ---------------------------------------------------------------------- tsig
+
+TSIG_KILLED = {
+
+    # RFC 8945 §5.2.3's fudge and §4.3.1's request MAC, RFC 2931 §3.3's validity
+    # bracket, and the algorithm allow-list — the four places where one comparison
+    # decides whether a captured message still works. Each was already tested and
+    # each test stepped over the boundary without landing on it.
+    "windows": {
+
+        "DNS/TSIG/SIG0Signer.cs":     {398},
+        "DNS/TSIG/TSIGAlgorithms.cs": {86},
+        "DNS/TSIG/TSIGSigner.cs":     {181, 337},
+
+    },
+
+}
+
+TSIG_EQUIVALENT = {
+
+    "DNS/TSIG/TSIGSigner.cs": {
+        177: "now > tsig.TimeSigned, choosing which way round to subtract for the skew. At "
+             "equality both readings give zero, because that is the one value where the two "
+             "subtractions agree — and away from equality the condition already decides the "
+             "same way",
+    },
+
+    "DNS/TSIG/SIG0Signer.cs": {
+        527: "Request.Length > 0 before folding the request into the signed data. SIG(0) "
+             "writes the request's octets and nothing else, so an empty request writes "
+             "nothing under either reading. TSIGSigner's counterpart at line 337 looks "
+             "identical and is not: it writes a two-octet length first, so an empty MAC puts "
+             "00 00 into the digest that a peer would not have. The same guard, one of them "
+             "load-bearing and one not — which is why 337 was killed by a test and this was "
+             "predicted to be and was not",
+    },
+
+}
+
+TSIG_SUPERSEDED = {}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
+    "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
 }
 
 

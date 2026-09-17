@@ -397,6 +397,34 @@ public class Sig0SigningTests
 
         });
 
+        // The two seconds the cases above step over. RFC 2931 §3.3 says the
+        // times "form a time bracket such that messages outside that bracket can
+        // be ignored" — so the bracket's own edges are inside it, and a verifier
+        // that is wrong by one second here rejects a message it was handed at the
+        // instant it became valid.
+        var inception  = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000);
+        var expiration = DateTimeOffset.FromUnixTimeSeconds(1_700_003_600);
+
+        var bracketed  = SIG0Signer.Sign(Query(), SignerName, AlgorithmRSASHA256, rsa, key.KeyTag,
+                                         Inception:  inception,
+                                         Expiration: expiration);
+
+        Assert.Multiple(() => {
+
+            Assert.That(SIG0Signer.Verify(bracketed, key, inception).IsValid,  Is.True,
+                        "the inception second is inside the bracket");
+
+            Assert.That(SIG0Signer.Verify(bracketed, key, expiration).IsValid, Is.True,
+                        "and so is the expiration second");
+
+            Assert.That(SIG0Signer.Verify(bracketed, key, inception.AddSeconds(-1)).IsValid,  Is.False,
+                        "the second before it is not");
+
+            Assert.That(SIG0Signer.Verify(bracketed, key, expiration.AddSeconds(1)).IsValid,  Is.False,
+                        "nor the second after");
+
+        });
+
     }
 
     #endregion
@@ -468,6 +496,19 @@ public class Sig0SigningTests
 
             Assert.That(SIG0Signer.Verify(signed, key).IsValid, Is.False,
                         "…nor on its own");
+
+            // §3.1 folds the request in "when the SIG is a transaction
+            // signature". A request of no octets is not a request, and writing it
+            // in anyway would put nothing into the digest under a different name —
+            // empty and absent have to produce the same signature.
+            Assert.That(SIG0Signer.Sign(response, SignerName, AlgorithmRSASHA256, rsa, key.KeyTag,
+                                        Request:    [],
+                                        Inception:  DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
+                                        Expiration: DateTimeOffset.FromUnixTimeSeconds(1_700_003_600)),
+                        Is.EqualTo(SIG0Signer.Sign(response, SignerName, AlgorithmRSASHA256, rsa, key.KeyTag,
+                                                   Inception:  DateTimeOffset.FromUnixTimeSeconds(1_700_000_000),
+                                                   Expiration: DateTimeOffset.FromUnixTimeSeconds(1_700_003_600))),
+                        "an empty request is no request");
 
         });
 

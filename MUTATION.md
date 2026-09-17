@@ -30,7 +30,7 @@ cheapest test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **40 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **33 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -112,6 +112,53 @@ worth taking as one piece:
 The two the harness refused are one line carrying two mutations of the same
 operator, which it cannot tell apart; they are recorded as SETUP-ERROR rather than
 counted either way.
+
+
+### Four windows, and the second that was never on either side of them
+
+The first of the `tsig` block's forty, and every one of them was **already
+tested**. That is what makes them worth writing down.
+
+RFC 8945 §5.2.3 puts the server's time "outside the time interval specified by the
+request (which is the Time Signed value plus/minus the Fudge value)" before it is
+an error, so the fudge itself is the last second that is still inside. The suite
+had a fudge test with three cases: 299 seconds, 301 seconds, and far in the past.
+It steps over 300 without landing on it, and 300 is the only second where the
+comparison can be wrong by one.
+
+RFC 2931 §3.3 says a SIG(0)'s times "form a time bracket such that messages
+outside that bracket can be ignored" — so the bracket's own edges are inside it.
+The suite had a window test too, built from `now.AddHours(-2)` and
+`now.AddHours(1)`. Hours either side of a boundary that is one second wide.
+
+Both tests were right about what they asserted. Neither could see the line it was
+aimed at.
+
+The same shape a third time: the algorithm allow-list is four `||`s, and a chain
+of ors goes wrong one link at a time. The suite asserted the mandatory
+HMAC-SHA256 and a refused HMAC-MD5 — the two ends — and left SHA1, SHA384 and
+SHA512 in the middle unwatched, where turning one `||` into an `&&` takes out two
+of them at once.
+
+### Two guards that look identical and are not
+
+`RequestMAC.Length > 0` in `TSIGSigner` and `Request.Length > 0` in `SIG0Signer`
+guard the same idea: fold the request in only when there is one. Mutating each to
+`>= 0` changes one of them and not the other.
+
+```csharp
+// TSIG — the length goes in first, so an empty MAC writes 00 00
+digestInput.WriteUInt16BE((UInt16) RequestMAC.Length);
+digestInput.Write(RequestMAC, 0, RequestMAC.Length);
+
+// SIG(0) — only the octets, so an empty request writes nothing at all
+data.Write(Request, 0, Request.Length);
+```
+
+So a test that signs with an empty array and expects the same result as signing
+without one kills the TSIG guard and cannot touch the SIG(0) one. Both assertions
+are true and worth having; only one of them is evidence. This was predicted the
+other way round before the run, and the run is what corrected it.
 
 ---
 

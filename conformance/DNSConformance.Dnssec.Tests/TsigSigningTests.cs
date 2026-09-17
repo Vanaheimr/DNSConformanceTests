@@ -218,6 +218,14 @@ public class TsigSigningTests
     [TestCase(1_700_000_299u, true,  TestName = "Time_Outside_The_Fudge_Window_Fails_With_BADTIME(just inside)")]
     [TestCase(1_700_000_301u, false, TestName = "Time_Outside_The_Fudge_Window_Fails_With_BADTIME(just outside)")]
     [TestCase(1_699_999_699u, false, TestName = "Time_Outside_The_Fudge_Window_Fails_With_BADTIME(too far in the past)")]
+
+    // §5.2.3 puts the server's time "outside the time interval specified by the
+    // request (which is the Time Signed value plus/minus the Fudge value)" before
+    // it is an error — so the fudge itself is the last second that is *inside*,
+    // on both sides. The cases above step over that second without landing on it,
+    // which is the one place the comparison can be wrong by one.
+    [TestCase(1_700_000_300u, true,  TestName = "Time_Outside_The_Fudge_Window_Fails_With_BADTIME(exactly the fudge, ahead)")]
+    [TestCase(1_699_999_700u, true,  TestName = "Time_Outside_The_Fudge_Window_Fails_With_BADTIME(exactly the fudge, behind)")]
     public void Time_Outside_The_Fudge_Window_Fails_With_BADTIME(UInt64 Now, Boolean ShouldVerify)
     {
 
@@ -289,6 +297,14 @@ public class TsigSigningTests
                         Is.False,
                         "verifying without the request MAC must fail — that is the binding doing its job");
 
+            // §4.3.1 prepends the request's MAC "if this is a response"; a MAC of
+            // no octets is not a MAC, and prefixing its length would put two zero
+            // octets into the digest that no peer computing the same digest would
+            // have. Empty and absent have to mean the same thing.
+            Assert.That(TSIGSigner.Sign(response, Key(), TimeSigned: 1_700_000_000, RequestMAC: []),
+                        Is.EqualTo(unbound),
+                        "an empty request MAC is no request MAC, not a zero-length one");
+
         });
 
     }
@@ -324,6 +340,14 @@ public class TsigSigningTests
 
             Assert.That(TSIGAlgorithms.IsSupported(TSIGAlgorithms.HMACSHA256), Is.True,
                         "§6 makes HMAC-SHA256 mandatory to implement");
+
+            // Each of the four is named on its own. An allow-list is a chain of
+            // ors, and a chain of ors is wrong one link at a time — testing the
+            // mandatory one and an outsider leaves the middle of the chain
+            // unwatched.
+            Assert.That(TSIGAlgorithms.IsSupported(TSIGAlgorithms.HMACSHA1),   Is.True);
+            Assert.That(TSIGAlgorithms.IsSupported(TSIGAlgorithms.HMACSHA384), Is.True);
+            Assert.That(TSIGAlgorithms.IsSupported(TSIGAlgorithms.HMACSHA512), Is.True);
 
             Assert.That(TSIGAlgorithms.IsSupported(DomainName.Parse("hmac-md5.sig-alg.reg.int.")), Is.False);
 
