@@ -21,29 +21,37 @@ DNS/IDomainName.cs	47	false-to-true	killed	names
 DNS/DNSZoneFile.cs	129	false-to-true	killed	zonefile	
 DNS/DomainName.cs	133	greater-to-ge	killed	names	
 DNS/Helpers/DNSTools.cs	151	less-to-less-or-equal	equivalent		the loop that reads an exact number of octets. At total == buffer.Length the mutant asks for one more read of zero octets, which returns zero and breaks out of the loop on the next line — the same octets, one wasted call
+DNS/DNSPacket.cs	260	true-to-false	killed	question	
 DNS/DNSZoneFile.cs	181	false-to-true	killed	zonefile	
 DNS/DomainName.cs	158	ge-to-greater	killed	names	
+DNS/Helpers/DNSPadding.cs	152	greater-to-ge	equivalent		RFC 7830 §4's cap, at the length where the padded message lands exactly on it. Both readings answer the same there: if MeasuredLength + octets equals MaxLength then MaxLength - MeasuredLength is octets, so the branch the mutant takes recomputes the number the original kept. The boundary is exercised — Block_Length_Arithmetic_A_Ceiling_On_The_Boundary_Does_Not_Bite pads 85 octets to 468 against a ceiling of 468 — and it still cannot tell them apart
 DNS/DNSInfo.cs	319	equality-to-inequality	equivalent		the QR bit is read into a local that nothing reads back — it appears twice in the file, one of them in the licence header — so both readings assign a value nobody observes. Not checking it is conformant besides: RFC 5452 §9.1 enumerates what a resolver MUST match a response against, and the six are the addresses, the port, the ID, the name, the class and the type. QR is not among them
 DNS/DNSNamePattern.cs	218	false-to-true	killed	pattern	
+DNS/DNSQuestion.cs	190	equality-to-inequality	killed	question	
 DNS/DNSServiceInstanceName.cs	175	false-to-true	killed	instancename	
 DNS/DNSZoneFile.cs	215	greater-to-ge	killed	zonefile	
 DNS/DomainName.cs	167	ge-to-greater	killed	names	
 DNS/Helpers/DNSTools.cs	224	ge-to-greater	killed	dnstools	
 DNS/DNSInfo.cs	321	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	231	equality-to-inequality	killed	pattern	
+DNS/DNSQuestion.cs	193	equality-to-inequality	killed	question	
 DNS/DNSServiceInstanceName.cs	179	true-to-false	killed	instancename	
 DNS/DNSServiceName.cs	181	true-to-false	killed	names	
 DNS/DNSZoneFile.cs	229	false-to-true	killed	zonefile	
 DNS/DNSNamePattern.cs	234	false-to-true	killed	pattern	
+DNS/DNSPacket.cs	372	logical-or-to-and	killed	question	
 DNS/DNSServiceName.cs	181	false-to-true	equivalent		the first argument of UTF8Encoding is encoderShouldEmitUTF8Identifier, which decides what GetPreamble() returns and nothing else. This encoding is only ever asked for GetByteCount and GetBytes, and neither of them emits a preamble, so both readings count and write the same octets. The second argument is the one that matters here, and a label holding an unpaired surrogate now pins it
 DNS/DNSZoneFile.cs	259	false-to-true	equivalent		the initial value of ownerOmitted. Every line that is not skipped passes through the branch that assigns it, and both yields are downstream of that branch, so nothing ever reads the initializer
 DNS/DNSInfo.cs	323	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern	
+DNS/DNSQuestion.cs	227	logical-and-to-or	killed	question	
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	killed	dnstools	
 DNS/DNSInfo.cs	326	inequality-to-equality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	
+DNS/DNSQuestion.cs	229	logical-and-to-or	killed	question	
 DNS/DNSServiceInstanceName.cs	194	equality-to-inequality	killed	instancename	
 DNS/DNSNamePattern.cs	279	true-to-false	killed	pattern	
+DNS/DNSQuestion.cs	230	logical-and-to-or	killed	question	
 DNS/DNSServiceInstanceName.cs	197	false-to-true	killed	instancename	
 DNS/DNSServiceName.cs	194	false-to-true	killed	names	
 DNS/DNSZoneFile.cs	275	greater-to-ge	equivalent		line.Length > 0 before looking at line[0]. A line that is empty after the comment is stripped is skipped several lines earlier unless the parenthesis depth is non-zero, and depth is non-zero only when the builder already holds something — which is the other branch. The guard is real and the case it guards cannot arrive

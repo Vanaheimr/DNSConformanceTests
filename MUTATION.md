@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **8 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -93,7 +93,7 @@ are caught by `WireFormat`, `Server`, `Client`, `SecureTransports`, `Edns` or
 `Dnssec` — including 24 of `DNSPacket`'s 26, which is exactly right and would have
 been reported as a gap by a one-project sweep.
 
-Where the 132 are — the first of them closed:
+Where the 132 were, and what became of each:
 
 | file | gaps | mostly |
 |---|---:|---|
@@ -105,7 +105,9 @@ Where the 132 are — the first of them closed:
 | `DNSTools.cs` | 15 | **closed** — 11 killed, 4 unobservable |
 | `DNSZoneFile.cs` | 11 | **closed** — 7 killed, 4 unreachable |
 | `IDomainName.cs` | 2 | **closed** |
-| `DNSQuestion.cs` 5, `DNSPacket.cs` 2, `DNSPadding.cs` 1 | 8 | |
+| `DNSQuestion.cs` | 5 | **closed** |
+| `DNSPacket.cs` | 2 | **closed** |
+| `DNSPadding.cs` | 1 | **closed** — unreachable |
 
 `DNSInfo` was the one that read as a pattern rather than a list: twenty branches
 and not one boundary or refusal. It decides which answer counts and what is
@@ -133,6 +135,36 @@ looking up rather than assuming.
 
 
 
+
+
+### The last eight, and what the block came to
+
+A question is a name, a type and a class — RFC 1035 §4.1.2 — and `DNSQuestion`
+had five gaps saying that all three of them are the question only if something
+checks. Three were the `&&` chain in `Equals`, where turning any one link into an
+`||` makes two questions that agree on one field agree altogether; RFC 5452 §9.1
+is why that is not a tidiness point, since a resolver matches a response to its
+query on the name, the class and the type. The other two were `CompareTo`'s
+`if (c == 0)` pair, which is the rule that the name decides first and the class
+last — visible only when the fields are made to disagree with one another, so each
+case here has an earlier field saying one thing and a later field saying the
+opposite.
+
+`DNSPacket` had two, both in what a query means when it is not told: the short
+`Query` overload sets RD (§4.1.1), and a query naming no type asks for ANY rather
+than asking nothing. The mutant there turns `||` into `&&` and produces a message
+with QDCOUNT 0, which is not a query.
+
+`DNSPadding`'s one is real and cannot be observed, and the test that proves it was
+already there. RFC 7830 §4's cap fires when the padded message would cross the
+requestor's payload size; at the length where it lands exactly on it, both
+readings answer the same, because `MaxLength - MeasuredLength` *is* `octets` when
+the two are equal. `Block_Length_Arithmetic_A_Ceiling_On_The_Boundary_Does_Not_Bite`
+pads 85 octets to 468 against a ceiling of 468 and still cannot tell them apart.
+
+**The `core` block is closed.** 478 mutants, 203 survivors, 132 of them real gaps:
+114 killed by a test, 17 shown unreachable or without observable effect, one line
+replaced by a fix. Two blocks down — `records` and `core` — and five to go.
 
 ### The name with a rule about what a person may write in it
 

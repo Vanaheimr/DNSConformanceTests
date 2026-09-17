@@ -37,6 +37,16 @@ CORE_KILLED = {
                                   422, 430, 438, 446, 503},
     },
 
+    # RFC 1035 §4.1.2 and §4.1.1, and RFC 5452 §9.1: a question is a name, a type
+    # and a class, all three of them, in that order — and a query that names no
+    # type still asks for something. The last of the block.
+    "question": {
+
+        "DNS/DNSQuestion.cs": {190, 193, 227, 229, 230},
+        "DNS/DNSPacket.cs":   {260, 372},
+
+    },
+
     # RFC 6763 §4.1/§4.1.1: the Service Instance Name — an instance label, the one
     # restriction on what a person may write in it, and Net-Unicode. Fifteen of
     # the sixteen; the type had no test of its own before this round.
@@ -96,6 +106,18 @@ CORE_KILLED = {
 }
 
 CORE_EQUIVALENT = {
+
+    "DNS/Helpers/DNSPadding.cs": {
+
+        152:
+            "RFC 7830 §4's cap, at the length where the padded message lands exactly on it. "
+            "Both readings answer the same there: if MeasuredLength + octets equals MaxLength "
+            "then MaxLength - MeasuredLength is octets, so the branch the mutant takes "
+            "recomputes the number the original kept. The boundary is exercised — "
+            "Block_Length_Arithmetic_A_Ceiling_On_The_Boundary_Does_Not_Bite pads 85 octets to "
+            "468 against a ceiling of 468 — and it still cannot tell them apart",
+
+    },
 
     "DNS/DNSServiceInstanceName.cs": {
 
