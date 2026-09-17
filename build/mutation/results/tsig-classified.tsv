@@ -1,0 +1,44 @@
+# Every mutant of the 'tsig' block that survived every project,
+# classified against Hermod 53f20591 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source
+DNS/TSIG/SIG0Signer.cs	148	less-to-less-or-equal	boundary	if (Message.Length < 12)
+DNS/TSIG/TKEYExchange.cs	198	false-to-true	rejection	return false;
+DNS/TSIG/TSIGSigner.cs	103	less-to-less-or-equal	boundary	if (Message.Length < 12)
+DNS/TSIG/SIG0Signer.cs	241	logical-or-to-and	branch	if (!TryStripSIG0(SignedMessage, out _, out var sig) || sig is null)
+DNS/TSIG/TSIGAlgorithms.cs	86	logical-or-to-and	branch	Algorithm == HMACSHA384 ||
+DNS/TSIG/TSIGSigner.cs	148	logical-or-to-and	branch	if (!TryStripTSIG(SignedMessage, out var unsigned, out var tsig) ||
+DNS/TSIG/DNSTransactionSecurity.cs	165	logical-and-to-or	branch	if (TSIGSigner.TryStripTSIG(Body, out var withoutTSIG, out _) && withoutTSIG is not null)
+DNS/TSIG/TSIGSigner.cs	149	logical-or-to-and	branch	tsig is null || unsigned is null)
+DNS/TSIG/SIG0Signer.cs	283	logical-and-to-or	branch	=> TryStripSIG0(Message, out _, out var sig) &&
+DNS/TSIG/TSIGSigner.cs	177	greater-to-ge	boundary	var skew  = now > tsig.TimeSigned
+DNS/TSIG/DNSTransactionSecurity.cs	192	logical-and-to-or	branch	if (SIG0Signer.TryStripSIG0(Body, out var withoutSIG0, out _) && withoutSIG0 is not null)
+DNS/TSIG/SIG0Signer.cs	306	logical-and-to-or	branch	if (TryStripSIG0(Message, out var withoutSIG0, out _) && withoutSIG0 is not null)
+DNS/TSIG/TSIGSigner.cs	181	greater-to-ge	boundary	if (skew > tsig.Fudge)
+DNS/TSIG/SIG0Signer.cs	309	logical-and-to-or	branch	if (TSIGSigner.TryStripTSIG(Message, out var withoutTSIG, out _) && withoutTSIG is not null)
+DNS/TSIG/TSIGSigner.cs	212	logical-or-to-and	branch	if (!TryStripTSIG(SignedMessage, out _, out var tsig) || tsig is null)
+DNS/TSIG/SIG0Signer.cs	335	logical-or-to-and	branch	if (!TryStripSIG0(SignedMessage, out var unsigned, out var sig) ||
+DNS/TSIG/TSIGSigner.cs	249	less-to-less-or-equal	boundary	if (SignedRequest.Length < 12)
+DNS/TSIG/SIG0Signer.cs	336	logical-or-to-and	branch	sig is null || unsigned is null)
+DNS/TSIG/TKEYExchange.cs	265	less-to-less-or-equal	boundary	(i < Right.Length ? Right[i] : 0));
+DNS/TSIG/TSIGSigner.cs	255	logical-or-to-and	branch	if (!TryStripTSIG(SignedRequest, out var unsigned, out var tsig) ||
+DNS/TSIG/TKEYExchange.cs	290	greater-to-ge	boundary	if (Offset + 2 > Data.Length)
+DNS/TSIG/TSIGSigner.cs	256	logical-or-to-and	branch	unsigned is null || tsig is null)
+DNS/TSIG/SIG0Signer.cs	398	less-to-less-or-equal	boundary	if (now < sig.SignatureInception || now > sig.SignatureExpiration)
+DNS/TSIG/TKEYExchange.cs	291	false-to-true	rejection	return false;
+DNS/TSIG/TSIGSigner.cs	337	greater-to-ge	boundary	if (RequestMAC is not null && RequestMAC.Length > 0)
+DNS/TSIG/SIG0Signer.cs	398	greater-to-ge	boundary	if (now < sig.SignatureInception || now > sig.SignatureExpiration)
+DNS/TSIG/TSIGSigner.cs	395	less-to-less-or-equal	boundary	if (SignedMessage.Length < 12)
+DNS/TSIG/SIG0Signer.cs	433	less-to-less-or-equal	boundary	if (SignedMessage.Length < 12)
+DNS/TSIG/TKEYExchange.cs	297	false-to-true	rejection	return false;
+DNS/TSIG/TSIGSigner.cs	396	false-to-true	rejection	return false;
+DNS/TSIG/SIG0Signer.cs	434	false-to-true	rejection	return false;
+DNS/TSIG/SIG0Signer.cs	439	false-to-true	rejection	return false;
+DNS/TSIG/TSIGSigner.cs	411	less-to-less-or-equal	boundary	if (offset < 0)
+DNS/TSIG/SIG0Signer.cs	446	less-to-less-or-equal	boundary	if (offset < 0)
+DNS/TSIG/TSIGSigner.cs	412	false-to-true	rejection	return false;
+DNS/TSIG/SIG0Signer.cs	447	false-to-true	rejection	return false;
+DNS/TSIG/SIG0Signer.cs	456	false-to-true	rejection	return false;
+DNS/TSIG/SIG0Signer.cs	459	equality-to-inequality	branch	DomainName.ParseLenient(owner.Length == 0 ? "." : owner),
+DNS/TSIG/SIG0Signer.cs	475	false-to-true	rejection	return false;
+DNS/TSIG/SIG0Signer.cs	527	greater-to-ge	boundary	if (Request is not null && Request.Length > 0)

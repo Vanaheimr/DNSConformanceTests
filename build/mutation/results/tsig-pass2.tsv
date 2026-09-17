@@ -1,0 +1,63 @@
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	SETUP-ERROR	2 mutations of that operator on the line
+DNS/TSIG/SIG0Signer.cs	148	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0VerificationResult.cs	93	false-to-true	KILLED-ELSEWHERE	Dnssec: 8 of 251 failed
+DNS/TSIG/TKEYExchange.cs	198	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGAlgorithms.cs	84	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TSIGSigner.cs	103	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	SETUP-ERROR	2 mutations of that operator on the line
+DNS/TSIG/SIG0Signer.cs	241	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	204	false-to-true	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
+DNS/TSIG/TSIGAlgorithms.cs	86	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	148	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/DNSTransactionSecurity.cs	165	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	250	equality-to-inequality	KILLED-ELSEWHERE	Server: 10 of 140 failed
+DNS/TSIG/TKEYExchange.cs	208	false-to-true	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
+DNS/TSIG/TSIGAlgorithms.cs	86	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TSIGSigner.cs	149	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/DNSTransactionSecurity.cs	187	false-to-true	KILLED-ELSEWHERE	Client: 1 of 97 failed
+DNS/TSIG/SIG0Signer.cs	283	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	210	inequality-to-equality	KILLED-ELSEWHERE	ResourceRecords: 2 of 454 failed
+DNS/TSIG/TSIGAlgorithms.cs	87	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TSIGSigner.cs	177	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/TSIG/DNSTransactionSecurity.cs	192	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	306	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	211	false-to-true	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
+DNS/TSIG/TSIGAlgorithms.cs	105	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TSIGSigner.cs	181	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	309	logical-and-to-or	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	217	true-to-false	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
+DNS/TSIG/TSIGAlgorithms.cs	106	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TSIGSigner.cs	212	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	335	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	263	less-to-less-or-equal	KILLED-ELSEWHERE	ResourceRecords: 5 of 454 failed
+DNS/TSIG/TSIGAlgorithms.cs	107	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TSIGSigner.cs	249	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	336	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	265	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	255	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	398	logical-or-to-and	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
+DNS/TSIG/TKEYExchange.cs	290	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	256	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	398	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	291	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	337	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	398	greater-to-ge	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	296	greater-to-ge	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
+DNS/TSIG/TSIGSigner.cs	395	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	433	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	297	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	396	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	434	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TKEYExchange.cs	302	true-to-false	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
+DNS/TSIG/TSIGSigner.cs	401	false-to-true	KILLED-ELSEWHERE	WireFormat: 1 of 136 failed
+DNS/TSIG/SIG0Signer.cs	439	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	411	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	446	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	412	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	447	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	421	false-to-true	KILLED-ELSEWHERE	Client: 2 of 97 failed
+DNS/TSIG/SIG0Signer.cs	456	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/TSIGSigner.cs	439	false-to-true	KILLED-ELSEWHERE	WireFormat: 1 of 136 failed
+DNS/TSIG/SIG0Signer.cs	459	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	475	false-to-true	SURVIVED-EVERYWHERE	
+DNS/TSIG/SIG0Signer.cs	527	greater-to-ge	SURVIVED-EVERYWHERE	

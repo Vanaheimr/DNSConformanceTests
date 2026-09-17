@@ -30,16 +30,88 @@ cheapest test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **40 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
-| `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
+| `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 202 | not measured |
-| `tsig` | `DNS/TSIG` | SecureTransports | 70 | not measured |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | not measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
-551 mutable places, so whatever that block eventually reports will be a statement
+598 mutable places, so whatever that block eventually reports will be a statement
 about the tests rather than about mDNS.
+
+**Three of those counts used to be wrong, and how they were wrong is worth
+keeping.** The table said 70 for `tsig`, 202 for `dnssec` and 551 for `multicast`;
+counting them again gives 94, 227 and 598. It is not staleness — none of those
+three folders changed between the two revisions the sweeps ran at, and
+`genmut.py` has not changed since it was written. The numbers were simply wrong
+when they were typed, and nothing caught them because the column looks measured
+and only two of its rows were. The `tsig` sweep is what found it: it announced 94
+mutants against a row promising 70.
+
+The four rows that were right — `records`, `core`, `client`, `server` — are right to
+the mutant. `core` counts 479 today rather than the 478 it was measured at, which
+is not an error: finding 57's fix and the compression-table fix each added a
+comparison. The measured figure stays, because it is what was measured.
+
+
+---
+
+## The result: transaction security
+
+Measured against Hermod **`53f20591`**, `libs/Hermod/Hermod/DNS/TSIG/**`, judged in
+pass 1 by SecureTransports and in pass 2 by the remaining seven projects.
+
+| | |
+|---|---:|
+| mutants | 94 |
+| not viable (would not compile) | 5 |
+| killed by SecureTransports | 26 |
+| killed by another project | 21 |
+| survived everywhere | 40 |
+| refused by the harness | 2 |
+
+**Every one of the 40 is a real gap.** That is the first thing this block said and
+it is not how the other two went: the records sweep called 118 of its 358
+survivors noise, and `core` called 71 of 203. Here the triage found none at all.
+`DNS/TSIG` is almost pure logic — no `#region` names, no attributes, no parameter
+defaults for the classifier to throw away — so the survivor count and the gap
+count are the same number.
+
+The second thing is that **a third of the pass-1 survivors were caught by somebody
+else** (21 of 63), against `core`'s 60 of 265. The killers are spread across
+Dnssec, ResourceRecords, WireFormat, Server and Client, which is what transaction
+security looks like from outside: it is not a corner of the stack, it is a thing
+every other part touches.
+
+Where the 40 are:
+
+| file | gaps | what it is |
+|---|---:|---|
+| `SIG0Signer.cs` | 18 | RFC 2931 — public-key transaction signatures |
+| `TSIGSigner.cs` | 14 | RFC 8945 — shared-secret transaction signatures |
+| `TKEYExchange.cs` | 5 | RFC 2930 — the Diffie-Hellman key exchange |
+| `DNSTransactionSecurity.cs` | 2 | which of the two a message carries |
+| `TSIGAlgorithms.cs` | 1 | the algorithm allow-list |
+
+And they group into themes rather than scattering, which is what makes the block
+worth taking as one piece:
+
+- **Five copies of `Message.Length < 12`** — RFC 1035 §4.1.1's header — each one
+  standing in front of a walk over octets a peer sent.
+- **The two time windows**: RFC 2931 §3.1's inception and expiration, and RFC 8945
+  §5.2.3's fudge. Both are the shape where one comparison decides whether a replay
+  is accepted.
+- **The `TryStrip*` guard chains**, where an `||` turned into an `&&` makes a
+  message that failed one check pass anyway.
+- **The two `Request.Length > 0` guards** — whether the request's MAC is prepended
+  to the response's digest (RFC 8945 §5.4.1), which is what binds a response to
+  its request.
+
+The two the harness refused are one line carrying two mutations of the same
+operator, which it cannot tell apart; they are recorded as SETUP-ERROR rather than
+counted either way.
 
 ---
 
