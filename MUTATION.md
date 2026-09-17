@@ -29,7 +29,7 @@ cheapest test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **24 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **8 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 551 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -101,7 +101,7 @@ Where the 132 are — the first of them closed:
 | `DNSInfo.cs` | 20 | **closed** — 19 killed, 1 a dead read |
 | `DNSServiceName.cs` | 20 | **closed** — 18 killed, 2 equivalent |
 | `DomainName.cs` | 19 | **closed** — 15 killed, 3 unreachable, 1 superseded by finding 57 |
-| `DNSServiceInstanceName.cs` | 16 | branches |
+| `DNSServiceInstanceName.cs` | 16 | **closed** — 15 killed, 1 unreachable |
 | `DNSTools.cs` | 15 | **closed** — 11 killed, 4 unobservable |
 | `DNSZoneFile.cs` | 11 | **closed** — 7 killed, 4 unreachable |
 | `IDomainName.cs` | 2 | **closed** |
@@ -132,6 +132,42 @@ looking up rather than assuming.
 
 
 
+
+
+### The name with a rule about what a person may write in it
+
+`DNSServiceInstanceName` is the fourth of Hermod's name types and the only one
+whose rules are about a human-readable label. **No test in the suite had ever
+named the type** — sixteen gaps, which is what a type with no tests looks like
+from the outside.
+
+RFC 6763 §4.1.1 is unusually easy to test against, because it states its one
+restriction as an interval and an exception:
+
+> MUST NOT contain ASCII control characters (byte values 0x00-0x1F and 0x7F)
+
+An interval is the shape that gets implemented one character short at one end, so
+both ends and the lone 0x7F are named separately — and the character just past the
+interval, 0x20, is a space, which §4.1.1 explicitly allows. That gives the
+boundary a side that must be refused and a side that must be accepted, which is
+what makes it a boundary rather than a rule about control characters in general.
+
+§4.1.1's other requirement is Net-Unicode: the name is stored as "canonical
+precomposed UTF-8 ... (Unicode Normalization Form C)". `Cafe` + U+0301 and
+`Café` are the same service, and a browser that composed its label differently
+from the publisher would otherwise never find it.
+
+Fifteen of the sixteen fell, and the sixteenth is a guard that is right to be
+there and cannot fire: the refusal for a label `String.Normalize` cannot compose.
+Every path into it runs `DNSServiceName`'s parser first, whose validator counts
+the label's octets with a `UTF8Encoding` built to throw on invalid ones — and the
+strings those two reject are the same strings, the unpaired surrogates. The
+protected labels constructor would reach it, and nothing derives from this type.
+
+The tests sit with the other name types rather than in the Multicast project,
+because §4.1 is name syntax and not wire behaviour: the same instance name is used
+over unicast DNS and over mDNS alike. RFC 6763's wire-facing halves — §6.1's
+length limit and §6.4's key/value syntax — stay where the TXT record lives.
 
 ### The master file, and a test that passed twice without testing anything
 

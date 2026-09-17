@@ -5,12 +5,14 @@
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
 DNS/DNSNamePattern.cs	40	true-to-false	killed	pattern	
+DNS/DNSServiceInstanceName.cs	43	true-to-false	killed	instancename	
 DNS/DNSServiceName.cs	43	true-to-false	killed	names	
 DNS/DomainName.cs	41	true-to-false	killed	names	
 DNS/Helpers/DNSTools.cs	33	true-to-false	killed	dnstools	
 DNS/IDomainName.cs	40	true-to-false	killed	names	
 DNS/Helpers/DNSTools.cs	33	false-to-true	equivalent		the first argument of UTF8Encoding decides what GetPreamble() returns, and this encoding is only ever asked for GetString. The same pair as DNSServiceName.cs:181, and the same half of it matters: the second argument is what refuses a label whose octets are not UTF-8, and a test now pins that
 DNS/DNSNamePattern.cs	47	false-to-true	killed	pattern	
+DNS/DNSServiceInstanceName.cs	50	false-to-true	killed	instancename	
 DNS/DNSServiceName.cs	50	false-to-true	killed	names	
 DNS/DNSZoneFile.cs	123	false-to-true	killed	zonefile	
 DNS/DomainName.cs	48	false-to-true	killed	names	
@@ -23,11 +25,13 @@ DNS/DNSZoneFile.cs	181	false-to-true	killed	zonefile
 DNS/DomainName.cs	158	ge-to-greater	killed	names	
 DNS/DNSInfo.cs	319	equality-to-inequality	equivalent		the QR bit is read into a local that nothing reads back — it appears twice in the file, one of them in the licence header — so both readings assign a value nobody observes. Not checking it is conformant besides: RFC 5452 §9.1 enumerates what a resolver MUST match a response against, and the six are the addresses, the port, the ID, the name, the class and the type. QR is not among them
 DNS/DNSNamePattern.cs	218	false-to-true	killed	pattern	
+DNS/DNSServiceInstanceName.cs	175	false-to-true	killed	instancename	
 DNS/DNSZoneFile.cs	215	greater-to-ge	killed	zonefile	
 DNS/DomainName.cs	167	ge-to-greater	killed	names	
 DNS/Helpers/DNSTools.cs	224	ge-to-greater	killed	dnstools	
 DNS/DNSInfo.cs	321	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	231	equality-to-inequality	killed	pattern	
+DNS/DNSServiceInstanceName.cs	179	true-to-false	killed	instancename	
 DNS/DNSServiceName.cs	181	true-to-false	killed	names	
 DNS/DNSZoneFile.cs	229	false-to-true	killed	zonefile	
 DNS/DNSNamePattern.cs	234	false-to-true	killed	pattern	
@@ -38,28 +42,35 @@ DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	killed	dnstools	
 DNS/DNSInfo.cs	326	inequality-to-equality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	
+DNS/DNSServiceInstanceName.cs	194	equality-to-inequality	killed	instancename	
 DNS/DNSNamePattern.cs	279	true-to-false	killed	pattern	
+DNS/DNSServiceInstanceName.cs	197	false-to-true	killed	instancename	
 DNS/DNSServiceName.cs	194	false-to-true	killed	names	
 DNS/DNSZoneFile.cs	275	greater-to-ge	equivalent		line.Length > 0 before looking at line[0]. A line that is empty after the comment is stripped is skipped several lines earlier unless the parenthesis depth is non-zero, and depth is non-zero only when the builder already holds something — which is the other branch. The guard is real and the case it guards cannot arrive
 DNS/DomainName.cs	378	false-to-true	killed	names	
 DNS/DNSNamePattern.cs	329	false-to-true	killed	pattern	
+DNS/DNSServiceInstanceName.cs	200	logical-or-to-and	killed	instancename	
 DNS/DNSServiceName.cs	215	ge-to-greater	killed	names	
 DNS/DNSZoneFile.cs	289	greater-to-ge	equivalent		complete.Length > 0 before yielding a joined line. Reaching it means at least one non-empty append, so the condition is true either way
 DNS/Helpers/DNSTools.cs	314	less-to-less-or-equal	killed	dnstools	
 DNS/DNSNamePattern.cs	341	inequality-to-equality	killed	pattern	
+DNS/DNSServiceInstanceName.cs	200	equality-to-inequality	killed	instancename	
 DNS/DNSServiceName.cs	218	false-to-true	killed	names	
 DNS/DNSZoneFile.cs	294	greater-to-ge	equivalent		joined.Length > 0 for the group a missing ')' left open. When the builder is empty the mutant yields one more logical line, which is the empty string; the caller splits it into no tokens and moves on. No record, no error, no difference
 DNS/Helpers/DNSTools.cs	347	equality-to-inequality	killed	dnstools	
 DNS/DNSNamePattern.cs	342	false-to-true	killed	pattern	
+DNS/DNSServiceInstanceName.cs	200	le-to-less	killed	instancename	
 DNS/DNSServiceName.cs	230	false-to-true	killed	names	
 DNS/DNSZoneFile.cs	321	false-to-true	killed	zonefile	
 DNS/Helpers/DNSTools.cs	351	inequality-to-equality	killed	dnstools	
 DNS/DNSNamePattern.cs	347	false-to-true	equivalent		the left-most label of a parsed host name cannot be empty — DomainName refuses an empty label before Matches is ever reached — so this guard has nothing to guard against. The comment above it says as much: "the check costs nothing and this is the wrong place to find out"
+DNS/DNSServiceInstanceName.cs	203	false-to-true	killed	instancename	
 DNS/DNSServiceName.cs	245	false-to-true	killed	names	
 DNS/DNSZoneFile.cs	328	true-to-false	killed	zonefile	
 DNS/DomainName.cs	414	false-to-true	killed	names	
 DNS/Helpers/DNSTools.cs	368	less-to-less-or-equal	killed	dnstools	
 DNS/DNSNamePattern.cs	349	less-to-less-or-equal	killed	pattern	
+DNS/DNSServiceInstanceName.cs	213	false-to-true	equivalent		the refusal for a label String.Normalize cannot compose. It is unreachable: every path into TryNormalizeLabels runs DNSServiceName.TryParse or .Parse first, whose TryValidateLabels counts the label's octets with a UTF8Encoding built to throw on invalid ones — and the strings the two reject are the same strings, the unpaired surrogates. The protected labels constructor would reach it, and nothing derives from this type. The guard is right to be there and no test can make it fire
 DNS/DomainName.cs	420	greater-to-ge	superseded		the length check the sweep measured counted characters and was one too loose; finding 57 replaced it with one that counts the wire form of RFC 1035 §3.1. The rule did not go away with the line — it was re-measured where the fix put it (line 431, greater-to-ge) and killed there by two tests
 DNS/DNSNamePattern.cs	355	false-to-true	killed	pattern	
 DNS/DNSServiceName.cs	271	false-to-true	killed	names	
@@ -81,23 +92,28 @@ DNS/DNSNamePattern.cs	438	greater-to-ge	killed	pattern
 DNS/DNSServiceName.cs	311	ge-to-greater	killed	names	
 DNS/DNSInfo.cs	433	false-to-true	killed	dnsinfo	
 DNS/DNSNamePattern.cs	446	ge-to-greater	killed	pattern	
+DNS/DNSServiceInstanceName.cs	342	less-to-less-or-equal	killed	instancename	
 DNS/DNSServiceName.cs	345	le-to-less	killed	names	
 DNS/DomainName.cs	561	logical-and-to-or	killed	names	
 DNS/Helpers/DNSTools.cs	550	greater-to-ge	killed	dnstools	
 DNS/DNSInfo.cs	524	false-to-true	killed	dnsinfo	
 DNS/DomainName.cs	561	le-to-less	killed	names	
 DNS/DNSInfo.cs	525	false-to-true	killed	dnsinfo	
+DNS/DNSServiceInstanceName.cs	357	le-to-less	killed	instancename	
 DNS/DNSInfo.cs	526	false-to-true	killed	dnsinfo	
 DNS/DNSNamePattern.cs	503	logical-and-to-or	killed	pattern	
 DNS/DNSServiceName.cs	397	logical-or-to-and	equivalent		Labels.Count == 0 || Labels.All(label => label.Length == 0) — the two readings can only differ for a name that has labels and whose labels are all empty, because All is vacuously true over none. No such DNSServiceName can be built: TryParseLabels answers '.' with an empty list and refuses an empty label anywhere else, and TryValidateLabels refuses one on the FromLabels path too. DomainName reaches that state and its copy of the line was killed by the sweep; this one cannot
 DNS/DNSInfo.cs	527	false-to-true	killed	dnsinfo	
+DNS/DNSServiceInstanceName.cs	372	greater-to-ge	killed	instancename	
 DNS/DNSInfo.cs	532	false-to-true	killed	dnsinfo	
 DNS/DNSServiceName.cs	426	logical-and-to-or	killed	names	
+DNS/DNSServiceInstanceName.cs	387	ge-to-greater	killed	instancename	
 DNS/DNSServiceName.cs	426	le-to-less	killed	names	
 DNS/DNSInfo.cs	543	false-to-true	killed	dnsinfo	
 DNS/DomainName.cs	650	less-to-less-or-equal	killed	names	
 DNS/DNSInfo.cs	544	false-to-true	killed	dnsinfo	
 DNS/DNSInfo.cs	545	false-to-true	killed	dnsinfo	
+DNS/DNSServiceInstanceName.cs	455	logical-and-to-or	killed	instancename	
 DNS/DomainName.cs	665	le-to-less	killed	names	
 DNS/DNSInfo.cs	546	false-to-true	killed	dnsinfo	
 DNS/DomainName.cs	680	greater-to-ge	killed	names	

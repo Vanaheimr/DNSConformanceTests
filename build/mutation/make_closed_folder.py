@@ -37,6 +37,16 @@ CORE_KILLED = {
                                   422, 430, 438, 446, 503},
     },
 
+    # RFC 6763 §4.1/§4.1.1: the Service Instance Name — an instance label, the one
+    # restriction on what a person may write in it, and Net-Unicode. Fifteen of
+    # the sixteen; the type had no test of its own before this round.
+    "instancename": {
+
+        "DNS/DNSServiceInstanceName.cs": {43, 50, 175, 179, 194, 197, 200, 203,
+                                          342, 357, 372, 387, 455},
+
+    },
+
     # RFC 1035 §5.1: the master file format, and what it refuses — the directives,
     # the owner name a line does not state, and where a backslash stops a
     # semicolon or a parenthesis from meaning what it usually means.
@@ -86,6 +96,18 @@ CORE_KILLED = {
 }
 
 CORE_EQUIVALENT = {
+
+    "DNS/DNSServiceInstanceName.cs": {
+
+        213:
+            "the refusal for a label String.Normalize cannot compose. It is unreachable: every "
+            "path into TryNormalizeLabels runs DNSServiceName.TryParse or .Parse first, whose "
+            "TryValidateLabels counts the label's octets with a UTF8Encoding built to throw on "
+            "invalid ones — and the strings the two reject are the same strings, the unpaired "
+            "surrogates. The protected labels constructor would reach it, and nothing derives "
+            "from this type. The guard is right to be there and no test can make it fire",
+
+    },
 
     # All four are LogicalLines asking about a line that is empty at a point no
     # empty line can reach. depth only leaves zero on a line that has put a '('
