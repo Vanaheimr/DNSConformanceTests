@@ -284,6 +284,16 @@ TSIG_KILLED = {
 
     },
 
+    # RFC 2539 §2's length-prefixed Diffie-Hellman fields and RFC 2930 §4.1's
+    # XOR. Three refusals that each need their own shape of malformed RDATA to
+    # reach, the one length that is well formed and zero, and the operand that
+    # runs out first in every real exchange.
+    "tkey": {
+
+        "DNS/TSIG/TKEYExchange.cs": {198, 265, 290, 291, 297},
+
+    },
+
 }
 
 TSIG_EQUIVALENT = {

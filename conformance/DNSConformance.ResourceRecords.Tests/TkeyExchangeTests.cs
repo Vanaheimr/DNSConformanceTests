@@ -61,6 +61,50 @@ public class TkeyExchangeTests
 
     #endregion
 
+    #region A_Shared_Secret_Longer_Than_The_Digests_Keeps_Its_Length()
+
+    /// <summary>
+    /// RFC 2930 §4.1's formula XORs the DH value against two MD5 digests joined,
+    /// which is always 32 octets — and a real DH value is much longer than that:
+    /// the smallest modulus RFC 2539 contemplates gives 128. So the ordinary case
+    /// is the one where the right-hand operand runs out first, and §4.1 says what
+    /// happens then: the shorter is left-justified, its missing tail treated as
+    /// zero, and the result keeps the length of the longer.
+    ///
+    /// Past octet 32 the keying material is therefore the DH value unchanged,
+    /// which is what makes the tail checkable without recomputing anything.
+    /// </summary>
+    [Test]
+    [Property("RFC", "2930 §4.1")]
+    public void A_Shared_Secret_Longer_Than_The_Digests_Keeps_Its_Length()
+    {
+
+        // 128 octets: a 1024-bit modulus, the smallest that is any use.
+        var shared = new Byte[128];
+        for (var i = 0; i < shared.Length; i++)
+            shared[i] = (Byte) (i + 1);
+
+        var keying = TKEYExchange.DeriveKeyingMaterial(shared,
+                                                       Encoding.ASCII.GetBytes("query"),
+                                                       Encoding.ASCII.GetBytes("server"));
+
+        Assert.Multiple(() => {
+
+            Assert.That(keying, Has.Length.EqualTo(128),
+                        "the result is as long as the longer operand");
+
+            Assert.That(keying[32..], Is.EqualTo(shared[32..]),
+                        "and past the digests it is the DH value XORed with nothing");
+
+            Assert.That(keying[..32], Is.Not.EqualTo(shared[..32]),
+                        "while the first thirty-two octets did meet a digest");
+
+        });
+
+    }
+
+    #endregion
+
     #region Both_Sides_Derive_The_Same_Key()
 
     [Test]
@@ -222,6 +266,107 @@ public class TkeyExchangeTests
             Assert.That(TKEYExchange.TryDecodeDiffieHellmanKey([.. complete, 0x00], out _, out _, out _), Is.False,
                         "and neither must one with bytes left over — trailing data means the lengths lied");
 
+        });
+
+    }
+
+    #endregion
+
+    #region Rdata_Too_Short_To_Hold_A_Length_Prefix_Is_Rejected()
+
+    /// <summary>
+    /// RFC 2539 §2 length-prefixes each of the three values with two octets, so
+    /// the smallest thing that can be read at all is two octets. The cases above
+    /// all cut a value's *body* short; these cut the length itself, which is a
+    /// different failure and a different line.
+    /// </summary>
+    [Test]
+    [Property("RFC", "2539 §2")]
+    public void Rdata_Too_Short_To_Hold_A_Length_Prefix_Is_Rejected()
+    {
+
+        Assert.Multiple(() => {
+
+            Assert.That(TKEYExchange.TryDecodeDiffieHellmanKey([], out _, out _, out _), Is.False,
+                        "no octets is not a prime with a length");
+
+            Assert.That(TKEYExchange.TryDecodeDiffieHellmanKey([0x00], out _, out _, out _), Is.False,
+                        "and half a length prefix is not one either");
+
+            // The same cut, one field further in: prime and generator are whole
+            // and the public value is missing altogether. What makes this worth a
+            // case of its own is that the reader stops exactly at the end of the
+            // data, so the outer "did the lengths add up" check agrees with it and
+            // cannot be what refuses the message.
+            Byte[] noPublicValue = [0x00, 0x10, .. Convert.FromHexString("FFFFFFFFFFFFFFFFC90FDAA22168C234"),
+                                    0x00, 0x01, 0x02];
+
+            Assert.That(noPublicValue, Has.Length.EqualTo(21));
+
+            Assert.That(TKEYExchange.TryDecodeDiffieHellmanKey(noPublicValue, out _, out _, out _), Is.False,
+                        "a prime and a generator are not a Diffie-Hellman key");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Length_With_Nothing_Behind_It_Is_Rejected()
+
+    /// <summary>
+    /// The other end of the same idea: the length prefix is there, it is the last
+    /// thing in the RDATA, and it promises octets that are not. A reader that
+    /// took the promise would hand back a public value of null while saying it
+    /// had decoded one.
+    /// </summary>
+    [Test]
+    [Property("RFC", "2539 §2")]
+    public void A_Length_With_Nothing_Behind_It_Is_Rejected()
+    {
+
+        Byte[] promisesFive = [0x00, 0x10, .. Convert.FromHexString("FFFFFFFFFFFFFFFFC90FDAA22168C234"),
+                               0x00, 0x01, 0x02,
+                               0x00, 0x05];
+
+        Assert.That(TKEYExchange.TryDecodeDiffieHellmanKey(promisesFive, out _, out _, out var publicValue),
+                    Is.False,
+                    "five octets are promised and none follow");
+
+        Assert.That(publicValue, Is.Null,
+                    "and nothing is handed back that a caller might use");
+
+    }
+
+    #endregion
+
+    #region A_Value_Of_No_Octets_Is_Still_A_Value()
+
+    /// <summary>
+    /// RFC 2539 §2 gives each of the three values a length and sets no minimum,
+    /// so a length of zero is well formed: the field is present and empty. It is
+    /// the one input where the two guards in the reader disagree about what they
+    /// are for — there is room for the length octets and no body to fit — and a
+    /// reader that conflates them refuses a structure the format allows.
+    /// </summary>
+    [Test]
+    [Property("RFC", "2539 §2")]
+    public void A_Value_Of_No_Octets_Is_Still_A_Value()
+    {
+
+        Byte[] emptyPublicValue = [0x00, 0x10, .. Convert.FromHexString("FFFFFFFFFFFFFFFFC90FDAA22168C234"),
+                                   0x00, 0x01, 0x02,
+                                   0x00, 0x00];
+
+        Assert.That(TKEYExchange.TryDecodeDiffieHellmanKey(emptyPublicValue,
+                                                           out var prime, out var generator, out var publicValue),
+                    Is.True,
+                    "the length octets are there and they say zero");
+
+        Assert.Multiple(() => {
+            Assert.That(prime,       Has.Length.EqualTo(16));
+            Assert.That(generator,   Is.EqualTo(new Byte[] { 0x02 }));
+            Assert.That(publicValue, Is.Empty);
         });
 
     }

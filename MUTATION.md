@@ -30,7 +30,7 @@ cheapest test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **23 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **18 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -114,6 +114,51 @@ operator, which it cannot tell apart; they are recorded as SETUP-ERROR rather th
 counted either way.
 
 
+
+
+### Three refusals that look like one
+
+`TKEYExchange` reads RFC 2539 §2's Diffie-Hellman fields: three values, each with
+two octets of length in front of it. Its five gaps closed to four tests, and the
+work was not writing the tests — it was working out which malformed RDATA reaches
+which refusal, because the file already had tests for "truncated" and "well-known
+group index" and neither touched the lines in question.
+
+There are three ways the reader says no, and each needs its own shape:
+
+- **No room for the length octets.** Reached only by RDATA of nought or one
+  octets, or by a field that starts within one octet of the end. The existing
+  truncation test cuts a value's *body* short, which is a different line.
+- **A length with nothing behind it.** The prefix is present, it is the last
+  thing in the RDATA, and it promises octets that are not there.
+- **Lengths that do not add up**, which is the outer check and was already
+  covered.
+
+And the outer check is why two of those had survived a test that looked like it
+should have caught them: when the inner reader is made to lie, `offset` stops
+advancing, so `offset != RData.Length` usually notices and refuses anyway. The
+only inputs where a lie gets through are the ones where the reader stops exactly
+at the end of the data — which is what both new cases are built to do.
+
+The fourth test is the opposite: **a length of zero is well formed.** §2 sets no
+minimum, so a field that is present and empty is a field, and it is the single
+input where the reader's two guards disagree about their jobs — there is room for
+the length octets and no body to fit.
+
+### The operand that runs out first in every real exchange
+
+RFC 2930 §4.1 derives the keying material by XORing the DH value against two MD5
+digests joined, which is always 32 octets. A DH value is not: the smallest modulus
+RFC 2539 contemplates gives 128. So in every exchange that ever happens the
+right-hand operand runs out first, and §4.1 says what then — the shorter is
+left-justified, its missing tail treated as zero.
+
+Every test in the file used a 17-octet secret, which is shorter than the digests,
+so the branch that every real exchange takes was the one never taken. A 128-octet
+secret makes the tail of the keying material the DH value unchanged, which is
+checkable without recomputing anything.
+
+`TKEYExchange` is closed: five gaps, five killed.
 
 ### The front door
 
