@@ -31,7 +31,7 @@ cheapest test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **84 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **83 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -128,6 +128,60 @@ The row was corrected in `dnssec-pass1.tsv` and the file as it was measured is
 kept beside it as `dnssec-pass1.as-measured.tsv`, which is the same treatment the
 contaminated pass-2 file got in the records block. A result that is quietly
 rewritten is not a measurement any more.
+
+---
+
+
+### A test that proved the wrong thing
+
+`ChainValidationTests` had `Expired_Signature_Is_Bogus` and
+`Not_Yet_Valid_Signature_Is_Bogus`, both citing RFC 4034 §3.1.5, and the sweep
+could turn the window check into one that never fires without either of them
+noticing.
+
+Both build their case by rewriting the RRSIG's inception and expiration:
+
+```csharp
+var expired = Rewindow(signature, Now - 7200, Now - 3600);
+```
+
+§3.1.8 puts the RRSIG RDATA into the signed data, so rewriting the window
+breaks the signature as well. The record is then rejected for the other reason,
+and a validator that had stopped looking at the clock entirely would still call
+it Bogus. The test asserted the right verdict and demonstrated something
+narrower than it claimed — that a tampered record does not verify.
+
+The case that pins the check leaves the record exactly as BIND signed it and
+moves the clock instead:
+
+```csharp
+var pastExpiry = TimeSpan.FromSeconds(signature.SignatureExpiration - Now) + TimeSpan.FromHours(1);
+Timestamp.TravelForwardInTime(pastExpiry);
+```
+
+The signature still verifies — a signature does not know what time it is — and
+only the window says the answer is stale. That is exactly what §3.1.5 is for: a
+replayed answer from a zone that has since changed its mind carries perfectly
+good cryptography.
+
+### The four that need a seam Hermod has twice already
+
+The same line has three mutations and only one of them fell. The other two, and
+the two on its twin in the denial path, move the comparison by one second:
+
+```csharp
+if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
+```
+
+`now` comes from `Timestamp.Now` read inside `ValidateAsync`, so the second where
+`now` equals the inception can only be hit by racing the clock — and a test that
+is right 99 times in 100 is worse than no test.
+
+**Hermod has already solved this twice in the same library.**
+`TSIGSigner.Verify` takes `UInt64? Now = null` and `SIG0Signer.Verify` takes
+`DateTimeOffset? Now = null`, both for exactly this check and exactly this
+reason. The validator is the third of the three and the only one without it.
+
 
 ---
 

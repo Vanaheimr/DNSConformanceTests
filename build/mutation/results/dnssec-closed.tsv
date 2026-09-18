@@ -1,0 +1,7 @@
+# Gaps of the 'dnssec' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why
+DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	killed	windows	

@@ -1,5 +1,6 @@
 using NUnit.Framework;
 
+using org.GraphDefined.Vanaheimr.Illias;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
@@ -167,8 +168,14 @@ public class ChainValidationTests
     {
 
         // RFC 4034 §3.1.5: the signature is not valid after the expiration date.
-        // The crypto still checks out — only the clock says no — and that must
-        // still be Bogus, not Secure.
+        //
+        // What this case actually demonstrates is narrower than it looks, and the
+        // mutation sweep is what said so. Rewriting the window rewrites the RRSIG
+        // RDATA, and §3.1.8 puts that RDATA into the signed data — so the
+        // signature no longer verifies either, and a validator that had stopped
+        // checking the clock altogether would still call this Bogus for the other
+        // reason. The case below it moves the clock instead and leaves the record
+        // alone, which is the one that pins the check.
         var (rrset, signature) = SignedA();
 
         var expired   = Rewindow(signature, Now - 7200, Now - 3600);
@@ -179,6 +186,55 @@ public class ChainValidationTests
 
         Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
                     "a signature past its expiration must not validate");
+
+    }
+
+    #endregion
+
+    #region A_Signature_That_Still_Verifies_But_Has_Expired_Is_Bogus()
+
+    /// <summary>
+    /// The same rule, with nothing touched but the clock. The fixture's signature
+    /// is left exactly as BIND made it — it verifies, and it goes on verifying
+    /// forever, because a signature does not know what time it is. Only the
+    /// window says the answer is stale.
+    ///
+    /// That is the whole point of RFC 4034 §3.1.5: the expiration is not a
+    /// property of the cryptography, it is a separate check, and a validator that
+    /// skipped it would accept a replayed answer from a zone that has since
+    /// changed its mind. A test that edits the record cannot see the difference,
+    /// because editing the record breaks the signature too.
+    /// </summary>
+    [Test]
+    [Property("RFC", "4034 §3.1.5")]
+    public async Task A_Signature_That_Still_Verifies_But_Has_Expired_Is_Bogus()
+    {
+
+        var (rrset, signature) = SignedA();
+
+        Assert.That(signature.SignatureExpiration, Is.GreaterThan(Now),
+                    "the fixture has to be fresh for this to mean anything — " +
+                    "re-sign it with fixtures/zones/resign.sh");
+
+        // Far enough past the fixture's own expiry that no clock skew matters.
+        var pastExpiry = TimeSpan.FromSeconds(signature.SignatureExpiration - Now) + TimeSpan.FromHours(1);
+
+        Timestamp.TravelForwardInTime(pastExpiry);
+
+        try
+        {
+
+            var validator = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
+            var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
+
+            Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "the signature still verifies; the clock is the only thing that says no");
+
+        }
+        finally
+        {
+            Timestamp.Reset();
+        }
 
     }
 

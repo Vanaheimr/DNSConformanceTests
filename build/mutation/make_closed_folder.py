@@ -362,9 +362,30 @@ TSIG_EQUIVALENT = {
 TSIG_SUPERSEDED = {}
 
 
+# -------------------------------------------------------------------- dnssec
+
+DNSSEC_KILLED = {
+
+    # RFC 4034 section 3.1.5: the validity window is a check of its own, and not
+    # a property of the cryptography. Turning the or into an and makes the
+    # condition unsatisfiable, so every expired signature is accepted - which
+    # only a signature that still verifies can show.
+    "windows": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {(452, "logical-or-to-and")},
+    },
+
+}
+
+DNSSEC_EQUIVALENT = {}
+
+DNSSEC_SUPERSEDED = {}
+
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
+    "dnssec": (DNSSEC_KILLED, DNSSEC_EQUIVALENT, DNSSEC_SUPERSEDED),
 }
 
 
