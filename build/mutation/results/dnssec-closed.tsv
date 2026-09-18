@@ -4,11 +4,20 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	killed	trust-anchors	
+DNS/DNSSEC/DNSSECValidator.cs	237	greater-to-ge	killed	trust-anchors	
+DNS/DNSSEC/DNSSECValidator.cs	238	true-to-false	killed	trust-anchors	
+DNS/DNSSEC/DNSSECValidator.cs	259	logical-and-to-or	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	278	greater-to-ge	equivalent		CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and the same argument as 353 below, which is the point of listing both. A name whose hash equals an owner matches that record, and VerifyNSEC3 looks for a match before it looks for a cover, at the queried name and again at every ancestor on the way up. Nothing can be handed to FindCover whose hash equals an owner in the set
+DNS/DNSSEC/DNSSECValidator.cs	259	equality-to-inequality	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	279	less-to-less-or-equal	killed	nsec3-coverage	
+DNS/DNSSEC/DNSSECValidator.cs	260	equality-to-inequality	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	284	ge-to-greater	killed	nsec3-coverage	
+DNS/DNSSEC/DNSSECValidator.cs	293	ge-to-greater	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	286	logical-or-to-and	killed	nsec3-coverage	
+DNS/DNSSEC/DNSSECValidator.cs	297	true-to-false	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	287	logical-and-to-or	killed	nsec3-coverage	
+DNS/DNSSEC/DNSSECValidator.cs	326	false-to-true	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	332	less-to-less-or-equal	killed	nsec3-coverage	
 DNS/DNSSEC/DenialOfExistence.cs	353	greater-to-ge	equivalent		CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. The two readings differ only when the name equals the owner, and neither caller can put that case in front of it. For the queried name, VerifyNSEC's NODATA loop returns before Covers is reached whenever any record owns it. For the wildcard, the very next clause asks whether a record owns that name and answers the same way in the same iteration, so the || is true either way. The guard at the other end of the span has no such cover and was killed by a test
 DNS/DNSSEC/DenialOfExistence.cs	354	less-to-less-or-equal	killed	nsec-coverage	

@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **64 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **55 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,119 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### The set a resolver ends up believing in
+
+RFC 5011 is how a resolver's trust anchors change when nobody touches its
+configuration, and it has two halves that fail in opposite directions. §2.4.1: a
+new key is admitted only after thirty days of continuous presence, so that
+whoever can answer for a resolver for an afternoon cannot install one. §2.1: a
+revoked key is dropped at once and never admitted again, so that a key known to
+be compromised cannot be put back by republishing it without the bit.
+
+`ProbeForTrustAnchorUpdatesAsync` had ten gaps in it, and nine are closed.
+**Three were not about the
+anchors at all — they were about the `Boolean` the probe returns.** A caller
+writes its trust store out when it is told the set changed, so `modified = true`
+turned off loses a rollover at the next restart, and `if (removed > 0)` widened
+to `>= 0` has a file rewritten every time a stranger's revocation goes past.
+Eight tests already stood here and not one of them looked at the return value.
+
+Two more are the matching itself. The removal finds an anchor by tag **and**
+algorithm:
+
+```csharp
+a => (a.KeyTag == liveKeyTag || a.KeyTag == keyTag) &&
+      a.Algorithm == key.Algorithm
+```
+
+Turning that `&&` into `||` drops every anchor that merely shares the algorithm.
+For a resolver holding the root's KSK and the one being rolled in beside it, that
+is the whole store on one revocation. No test had a second anchor to lose, so a
+bystander is all it took — and the bystander is the assertion, not the key that
+was revoked.
+
+**And then the pair that needed the pending set to be visible at all.** The
+hold-down only applies to keys the resolver does not already trust, which it
+decides with the same tag-and-algorithm match:
+
+```csharp
+var isExisting = trustAnchors.Any(a => a.KeyTag    == keyTag &&
+                                       a.Algorithm == key.Algorithm);
+```
+
+Both mutations of that line are invisible in the answer. A resolver that failed
+to recognise a key it already trusts returns "nothing changed" — which is what a
+correct one returns — and leaves `TrustAnchors` exactly as long. The two readings
+differ in one place only: whether a hold-down was started. That is a month away
+in `TrustAnchors` and immediate in `PendingAnchors`, which Hermod exposes and
+which the fixture that was already here was already using. Both tests assert on
+it, and each kills a different half of the condition: the key that is already an
+anchor pins the `==`, and a key sharing a tag under another algorithm pins the
+`&&`.
+
+The last one is the `catch` around the whole probe. The stub could model a
+resolver that answers "I do not know" — `Unreachable` sets `IsValid` to false —
+but that is caught one line earlier, by the guard that reads the response. It had
+no way to model a transport that fails outright. One `Throws` flag, which returns
+a faulted task instead of an answer, and the `catch` has a test: a probe that
+learned nothing must report no change, or a caller persists a trust store built
+from an answer that never arrived.
+
+**The tenth gap needed a seam, and is the fourth place in this library to need
+the same one.**
+
+```csharp
+if (Timestamp.Now - pending.FirstSeen >= AddHoldDownTime)
+```
+
+`FirstSeen` is a clock reading taken at one probe and `Timestamp.Now` is another
+taken at the next, so the difference between them is the real time the two probes
+took plus whatever the test travelled. Moving the clock forward by exactly thirty
+days still leaves the milliseconds, and `>=` and `>` differ only at exact
+equality. No amount of travelling gets a test onto that instant, because the
+instant is defined by two readings the test does not make.
+
+`TSIGSigner.Verify` takes `UInt64? Now`, `SIG0Signer.Verify` takes
+`DateTimeOffset? Now`, and `ValidateAsync` gained one for the validity windows.
+`ProbeForTrustAnchorUpdatesAsync` is the fourth, and **one reading now serves the
+whole probe** — the hold-down that is being checked and the hold-down that starts
+in the same pass were two separate readings of `Timestamp.Now` before, which is a
+thirty-day interval measured from two different instants. A caller that names
+neither cannot stand on the boundary; a caller that names one stands on it
+exactly.
+
+With that, the boundary is an ordinary test: seen at `t`, refused at
+`t + 30 days - 1s`, admitted at `t + 30 days`. It moves no clock at all, so it
+also leaves nothing behind for whatever runs next — which the two hold-down tests
+beside it, which do travel, have to undo in a `finally`.
+
+Nine of the probe's ten gaps are closed. The tenth is `ConfigureAwait(false)`,
+which is not equivalent — it decides where a continuation resumes — but has no
+reading from a test host, which has no synchronization context for the two
+answers to differ about.
+
+### Eight tests that were already there
+
+`TrustAnchorRolloverTests` was not a new file. It had eight tests in it — the
+hold-down constant, a new KSK entering the hold-down instead of becoming an
+anchor, repeated sightings not shortening it, a pending key dropped when the zone
+stops publishing it, a ZSK never becoming a candidate, an unreachable root
+changing nothing, a revoked KSK removed, and a revoked key unable to come back —
+and this round began by writing a new fixture over the top of it.
+
+**Nothing downstream of a test file notices tests that stop existing.** The
+replacement was green, the mutation run reported a clean baseline, and six gaps
+fell exactly as predicted. The eight tests that went missing were not killing any
+of the mutants this round was aimed at, so not one number moved in the direction
+of the mistake. What caught it was reading `git diff --stat` before the commit
+and seeing 419 changed lines in a file that was supposed to be new.
+
+The round was redone from the file that was there. The six new tests are
+additions to it, in its own vocabulary — which is how the pending set came to be
+used above: the fixture had been reading it all along.
+
+---
 
 ### The two ends of a span that proves nothing is there
 

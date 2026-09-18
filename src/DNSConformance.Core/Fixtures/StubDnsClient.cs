@@ -31,6 +31,13 @@ public sealed class StubDnsClient : IDNSClient
     /// </summary>
     public Boolean Unreachable { get; init; }
 
+    /// <summary>
+    /// When set, every query comes back as a faulted task instead of a response
+    /// — a transport that failed outright, which is a different thing from a
+    /// resolver that answered "I do not know".
+    /// </summary>
+    public Boolean Throws { get; init; }
+
 
     /// <summary>
     /// Register the answer for one owner name and type. Returns this, for chaining.
@@ -94,7 +101,9 @@ public sealed class StubDnsClient : IDNSClient
                                Boolean?                             ForceUpdate        = false,
                                CancellationToken                    CancellationToken  = default)
 
-        => Task.FromResult(Build(DomainName.FullName, ResourceRecordTypes));
+        => Throws
+               ? Task.FromException<DNSInfo>(new IOException("the stub was told the transport is broken"))
+               : Task.FromResult(Build(DomainName.FullName, ResourceRecordTypes));
 
 
     public Task<DNSInfo> Query(DNSServiceName                       DNSServiceName,
@@ -104,7 +113,9 @@ public sealed class StubDnsClient : IDNSClient
                                Boolean?                             ForceUpdate        = false,
                                CancellationToken                    CancellationToken  = default)
 
-        => Task.FromResult(Build(DNSServiceName.FullName, ResourceRecordTypes));
+        => Throws
+               ? Task.FromException<DNSInfo>(new IOException("the stub was told the transport is broken"))
+               : Task.FromResult(Build(DNSServiceName.FullName, ResourceRecordTypes));
 
 
     public void Dispose()

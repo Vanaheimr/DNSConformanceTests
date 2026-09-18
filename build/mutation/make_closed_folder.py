@@ -404,6 +404,24 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {469, 871, 872, 896},
     },
 
+    # RFC 5011 sections 2.1 and 2.4.1: which keys a resolver comes to believe in
+    # when nobody touches its configuration. Three of the eight are the answer the
+    # probe returns rather than the anchors it holds - a caller writes its trust
+    # store out when told the set changed, so a probe that reports wrongly either
+    # loses a rollover or writes a file for nothing. The match at 259 and 260 is
+    # the one that needed the pending set to be visible at all: on a single probe
+    # both readings return the same answer and leave the same anchors, and differ
+    # only in whether a hold-down was started. 293 is the boundary of the hold-down
+    # itself, and it took a seam: FirstSeen is read at one probe and compared at
+    # the next, so no amount of travelling puts a test on the instant the interval
+    # closes. The probe now takes the same optional Now that TSIGSigner.Verify,
+    # SIG0Signer.Verify and ValidateAsync take, and one reading serves the whole
+    # pass. Its line was rewritten by that change, so it was re-run against the new
+    # text rather than the sweep's.
+    "trust-anchors": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {233, 237, 238, 259, 260, 293, 297, 326},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {
