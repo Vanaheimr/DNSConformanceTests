@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **55 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **49 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,64 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### The same four checks, written twice
+
+RFC 4035 §5.4 is one sentence long where it matters: "the resolver MUST
+authenticate the NSEC RRset". A denial of existence is two claims — the chain
+says the name is absent, the signature says the zone is the one saying so — and
+an unauthenticated proof is a proof an attacker can write.
+
+`ValidateDenialAsync` therefore repeats, on the authority section, every check
+`ValidateAsync` makes on the answer section: **the validity window, the key the
+signature names, the signature itself, and the chain up to an anchor.** Four
+rules, implemented a second time on their own lines. Six mutations sat on them
+and the suite watched none.
+
+Two of the four had already been answered on the other side of the house, and
+their twins fell to the same two ideas:
+
+- **The window** is the twin of the comparison in the answer path, and it wanted
+  the same `Now` parameter that one did. With the seam already in place, the four
+  ways to be wrong by one second are four assertions. It matters more here than on
+  the answer side, not less: an expired denial is a replay of "no such name" from
+  before the name existed, and it is the one replay that costs nothing to obtain
+  — every resolver on the internet has been handed one.
+- **The key lookup** is the twin of the one in the answer path, and it fell to
+  the same relabelled key: the tag covers the DNSKEY's flags, so the same key
+  material under a different SEP bit is the same key with a different tag. Publish
+  only that, anchor it with its own DS, and a validator matching on algorithm
+  alone verifies the NSEC chain and calls the denial Secure.
+
+**The other two are a shape the answer path does not have**, and they are the
+interesting half:
+
+```csharp
+if (sigResult   != DNSSECValidationResult.Secure) return sigResult;
+...
+if (chainResult != DNSSECValidationResult.Secure) return chainResult;
+```
+
+Inverting either turns "stop if this half failed" into "stop if this half
+passed". Each then reports Secure the moment its own check succeeds, and the
+rest of the method — including the part that asks whether the records prove
+anything — never runs.
+
+That is two separate fail-open attacks, and the tests are named after them rather
+than after the lines. One offers a **signature that proves nothing**: a single
+genuine NSEC from the fixture, with its genuine RRSIG, for a question it says
+nothing about. Every cryptographic check passes and the answer is still a lie —
+which is what replaying a real denial for a different name looks like. The other
+offers a **proof nobody vouches for**: the whole chain, proving exactly what was
+asked, under a trust anchor whose digest is not the key's. A well-formed proof
+from an unanchored zone must not come back Secure, or anyone able to sign a zone
+could deny any name in it.
+
+Both inversions fall to both tests, which is the useful part of the count: the
+two checks are independent, and the two failures are independent, and each test
+catches whichever early return it reaches first.
+
+---
 
 ### The set a resolver ends up believing in
 

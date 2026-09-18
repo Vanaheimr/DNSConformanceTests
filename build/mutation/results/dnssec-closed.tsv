@@ -29,6 +29,12 @@ DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	killed	windows
 DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	killed	windows	
 DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	killed	windows	
 DNS/DNSSEC/DNSSECValidator.cs	469	logical-and-to-or	killed	key-identity	
+DNS/DNSSEC/DNSSECValidator.cs	577	logical-or-to-and	killed	denial-signature	
+DNS/DNSSEC/DNSSECValidator.cs	577	less-to-less-or-equal	killed	denial-signature	
+DNS/DNSSEC/DNSSECValidator.cs	577	greater-to-ge	killed	denial-signature	
+DNS/DNSSEC/DNSSECValidator.cs	590	logical-and-to-or	killed	denial-signature	
+DNS/DNSSEC/DNSSECValidator.cs	597	inequality-to-equality	killed	denial-signature	
+DNS/DNSSEC/DNSSECValidator.cs	607	inequality-to-equality	killed	denial-signature	
 DNS/DNSSEC/DNSSECValidator.cs	871	logical-and-to-or	killed	key-identity	
 DNS/DNSSEC/DNSSECValidator.cs	871	equality-to-inequality	killed	key-identity	
 DNS/DNSSEC/DNSSECValidator.cs	872	equality-to-inequality	killed	key-identity	

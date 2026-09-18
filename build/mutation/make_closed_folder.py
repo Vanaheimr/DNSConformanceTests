@@ -437,6 +437,20 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {233, 237, 238, 259, 260, 293, 297, 326},
     },
 
+    # RFC 4035 section 5.4: "the resolver MUST authenticate the NSEC RRset". The
+    # denial path repeats, on the authority section, every check the answer path
+    # makes on the answer section - the validity window, the key the signature
+    # names, the signature, and the chain to an anchor - and none of the four was
+    # watched. 577 is the twin of 452 and fell to the seam that was added for it;
+    # 590 is the twin of 871/872 and fell to the same relabelled key. 597 and 607
+    # are the two early returns that keep the checks independent: inverted, each
+    # reports Secure the moment its own half passes, so a signature good enough
+    # for records that prove nothing, or a proof from a zone nobody vouches for,
+    # comes back as an authenticated denial.
+    "denial-signature": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {577, 590, 597, 607},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {
