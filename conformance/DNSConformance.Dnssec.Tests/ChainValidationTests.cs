@@ -240,6 +240,59 @@ public class ChainValidationTests
 
     #endregion
 
+    #region The_Validity_Window_Includes_Both_Of_Its_Own_Seconds()
+
+    /// <summary>
+    /// RFC 4034 §3.1.5: "The RRSIG record is valid from the Signature Inception
+    /// field's value until the Signature Expiration field's value" — from and
+    /// until, so both named seconds are inside the window and the ones either
+    /// side of them are not.
+    ///
+    /// Four assertions for four ways to be wrong by one second, which is what a
+    /// validator is wrong by when it uses the wrong comparison. None of them can
+    /// be written against a clock that keeps moving: the second in question lasts
+    /// a second, and a test that has to reach it before it passes is a test that
+    /// fails now and then for no reason. Saying when "now" is makes all four
+    /// exact — the same seam <c>TSIGSigner.Verify</c> and <c>SIG0Signer.Verify</c>
+    /// have carried all along.
+    /// </summary>
+    [Test]
+    [Property("RFC", "4034 §3.1.5")]
+    public async Task The_Validity_Window_Includes_Both_Of_Its_Own_Seconds()
+    {
+
+        var (rrset, signature) = SignedA();
+
+        var validator  = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
+        var response   = ResponseWith([.. rrset, signature]);
+
+        var inception  = DateTimeOffset.FromUnixTimeSeconds(signature.SignatureInception);
+        var expiration = DateTimeOffset.FromUnixTimeSeconds(signature.SignatureExpiration);
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await validator.ValidateAsync(response, inception),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the inception second is inside the window");
+
+            Assert.That(await validator.ValidateAsync(response, expiration),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "and so is the expiration second");
+
+            Assert.That(await validator.ValidateAsync(response, inception.AddSeconds(-1)),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "the second before the inception is not");
+
+            Assert.That(await validator.ValidateAsync(response, expiration.AddSeconds(1)),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "nor the second after the expiration");
+
+        });
+
+    }
+
+    #endregion
+
     #region Not_Yet_Valid_Signature_Is_Bogus()
 
     [Test]

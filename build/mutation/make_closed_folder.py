@@ -370,15 +370,30 @@ DNSSEC_KILLED = {
     # a property of the cryptography. Turning the or into an and makes the
     # condition unsatisfiable, so every expired signature is accepted - which
     # only a signature that still verifies can show.
+    # RFC 4034 section 3.1.5: the validity window is a check of its own and not a
+    # property of the cryptography. All three mutations of the answer-section
+    # check fall now - the or that makes the condition unsatisfiable, and the two
+    # comparisons that move a boundary by one second. The first needed a
+    # signature that still verifies; the other two needed the validator to be
+    # told when "now" is, which is the seam its two siblings already had.
     "windows": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {(452, "logical-or-to-and")},
+        "DNS/DNSSEC/DNSSECValidator.cs": {452},
     },
 
 }
 
 DNSSEC_EQUIVALENT = {}
 
-DNSSEC_SUPERSEDED = {}
+DNSSEC_SUPERSEDED = {
+
+    "DNS/DNSSEC/DNSSECValidator.cs": {
+        378: "the ConfigureAwait of the convenience overload, whose line was rewritten when "
+             "ValidateAsync gained its Now parameter. The mutation was of the kind no test can "
+             "observe anyway - a test host has no synchronization context for the two readings "
+             "to differ about - so nothing was lost with the line",
+    },
+
+}
 
 
 

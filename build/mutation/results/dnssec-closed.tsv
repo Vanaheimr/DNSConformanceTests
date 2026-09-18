@@ -4,4 +4,7 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/DNSSEC/DNSSECValidator.cs	378	false-to-true	superseded		the ConfigureAwait of the convenience overload, whose line was rewritten when ValidateAsync gained its Now parameter. The mutation was of the kind no test can observe anyway - a test host has no synchronization context for the two readings to differ about - so nothing was lost with the line
 DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	killed	windows	
+DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	killed	windows	
+DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	killed	windows	
