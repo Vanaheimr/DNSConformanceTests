@@ -30,7 +30,7 @@ cheapest test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **33 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **23 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -113,6 +113,55 @@ The two the harness refused are one line carrying two mutations of the same
 operator, which it cannot tell apart; they are recorded as SETUP-ERROR rather than
 counted either way.
 
+
+
+### The front door
+
+`TryStripTSIG` and `TryStripSIG0` run on whatever a peer sent, before a key is
+chosen and before a MAC is computed, and every verification path in the stack
+begins by calling one of them. Ten of their gaps fell to seven tests that do
+nothing but hand them messages which are not signed, in each of the ways a
+message can fail to be.
+
+Too short to hold RFC 1035 §4.1.1's header. A header whose ARCOUNT promises a
+record that is not there. A real signature with its last octets taken away.
+Octets after the last record, so the walk finishes somewhere other than where the
+message does. An OPT at the end, which is a record but not a signature. And a SIG
+whose Type Covered is not zero, which RFC 2931 §3 makes a signature over an RRset
+rather than over this message.
+
+Two of those came from getting it wrong first.
+
+**The ARCOUNT that lies does not reach the guard it looks like it should.** A
+twelve-octet header claiming one additional record sends `FindLastRecordOffset`
+walking off the end, where `ExtractName` throws — so the exception handler catches
+it and the `offset < 0` refusal three lines above is never reached. Reaching that
+one needs a walk that *finishes* and finishes in the wrong place, which is what
+trailing octets do. Two refusals that look like one, and only one message shape
+reaches each.
+
+**And a test whose name claimed more than it did.** It was called
+`A_Sig_Over_An_Rrset_Is_Not_A_Transaction_Signature` and it never built a SIG over
+an RRset — only unsigned messages, which the function refuses for a different
+reason. Rewriting the Type Covered field of a real SIG(0) from 0 to A is what
+makes the record still a signature, still last, and no longer about this message.
+
+### The guards that are belt and braces
+
+Most of what is left in this block is one shape repeated:
+
+```csharp
+if (!TryStripSIG0(SignedMessage, out var unsigned, out var sig) ||
+    sig is null || unsigned is null)
+```
+
+`TryStripSIG0` never returns true with either output null, so the two null checks
+cannot fire, and turning any one of those `||`s into an `&&` changes nothing a
+caller can see. The same pattern appears in both `Verify` overloads of each
+signer, in `CarriesBothTSIGAndSIG0`, and in `DNSTransactionSecurity` — which is
+most of the twenty-three still open. They are worth writing down as what they are
+rather than chased: defensive redundancy after a method whose contract already
+rules the case out.
 
 ### Four windows, and the second that was never on either side of them
 

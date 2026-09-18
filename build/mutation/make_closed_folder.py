@@ -272,6 +272,18 @@ TSIG_KILLED = {
 
     },
 
+    # RFC 8945 §5.1 and RFC 2931 §3/§3.2 — the front door. What the two strip
+    # functions say about a message before a key is chosen: too short to be a
+    # message, an ARCOUNT that lies, a record cut off, octets after the last
+    # record, something at the end that is not a signature, and a SIG that covers
+    # an RRset rather than this message.
+    "stripping": {
+
+        "DNS/TSIG/SIG0Signer.cs": {148, 283, 434, 439, 447, 456, 475},
+        "DNS/TSIG/TSIGSigner.cs": {103, 396, 412},
+
+    },
+
 }
 
 TSIG_EQUIVALENT = {
