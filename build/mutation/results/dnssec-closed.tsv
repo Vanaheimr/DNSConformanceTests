@@ -39,3 +39,8 @@ DNS/DNSSEC/DNSSECValidator.cs	871	logical-and-to-or	killed	key-identity
 DNS/DNSSEC/DNSSECValidator.cs	871	equality-to-inequality	killed	key-identity	
 DNS/DNSSEC/DNSSECValidator.cs	872	equality-to-inequality	killed	key-identity	
 DNS/DNSSEC/DNSSECValidator.cs	896	logical-and-to-or	killed	key-identity	
+DNS/DNSSEC/DNSSECValidator.cs	960	equality-to-inequality	killed	chain-walk	
+DNS/DNSSEC/DNSSECValidator.cs	963	equality-to-inequality	killed	chain-walk	
+DNS/DNSSEC/DNSSECValidator.cs	971	logical-and-to-or	killed	chain-walk	
+DNS/DNSSEC/DNSSECValidator.cs	971	equality-to-inequality	killed	chain-walk	
+DNS/DNSSEC/DNSSECValidator.cs	972	equality-to-inequality	killed	chain-walk	

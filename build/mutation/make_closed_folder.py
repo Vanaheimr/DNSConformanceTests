@@ -451,6 +451,18 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {577, 590, 597, 607},
     },
 
+    # RFC 4035 section 5.2: the step from one zone to the next. Every other test in
+    # the suite anchors the fixture zone with its own DS, which is the shortest
+    # chain there is - the first check inside the walk succeeds and the step is
+    # never taken. Anchoring one level above the fixture forces it: fetch the
+    # child's DS, verify the child's KSK against it, cross into the parent, and
+    # pick the parent key its DNSKEY signature names. 960 is which signature is
+    # read, 963 is what an unsigned parent means (Insecure, not Bogus), and
+    # 971/972 are the key it names.
+    "chain-walk": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {960, 963, 971, 972},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {

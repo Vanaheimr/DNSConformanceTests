@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **49 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **44 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,80 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### A step the suite never had to take
+
+RFC 4035 §5.2 is a move repeated: the DS in the parent authenticates the child's
+key, and the parent's key is authenticated the same way one level further up,
+until a key is reached that the resolver was configured to believe.
+
+**Every test in this suite anchored the fixture zone with its own DS**, which is
+the shortest chain there is. The first check inside `WalkChainOfTrust` succeeds
+and the step is never taken — so five mutations sat on the part that takes it,
+and every test this suite has over the chain of trust walked past all five.
+
+Anchoring one level *above* the fixture forces it. The child half stays genuine,
+BIND's signature over BIND's zone, verified before the walk is reached; only a
+parent zone above it is constructed, and the walk has to fetch the child's DS,
+verify the child's KSK against it, cross into the parent, and choose which of the
+parent's keys to carry up.
+
+Three tests: the step taken once and anchored above, an unsigned parent, and a
+parent publishing two keys. They pin **which signature the step reads** (the one
+over the DNSKEY RRset, not whichever RRSIG the message happens to carry), **what
+an unsigned parent means** — Insecure rather than Bogus, the same distinction
+RFC 4035 §4.3 draws and the same reasoning the file already applies to a DS RRset
+with no usable algorithm — and **which key the signature names**, by tag and
+algorithm together.
+
+**The third test was green and proved nothing, and only the mutation said so.**
+The decoy was published without the SEP bit, on the reasoning that it needed only
+the same algorithm to be picked by the wrong reading. It was picked — and then
+one line below the lookup the walk falls back to "whichever published key is a
+SEP of this algorithm", which is the ordinary way a zone's signing key is found
+from its zone-signing one. The fallback handed the right key straight back, the
+verdict never moved, and the test passed for a reason that had nothing to do with
+what it claimed. Giving the decoy the bit as well closes that door, and the
+mutation died.
+
+That is the second time this block has produced the same lesson from the opposite
+direction. In the key-identity round a second path was expected to rescue a wrong
+choice and did not, because the decoys carried the right digest. Here a second
+path was not expected to and did.
+
+**One gap in the walk stays open, and it is deliberate:**
+
+```csharp
+for (var depth = 0; depth < 20; depth++)
+```
+
+`<` against `<=` differs only for a delegation chain of exactly twenty-one zones.
+Such a chain is legal — RFC 1035 §2.3.4 caps a name at 255 octets, which leaves
+room for far more than twenty-one labels — so the mutation is reachable, and the
+two readings disagree about whether that chain validates or comes back
+Indeterminate.
+
+**They are both conformant, and the reason is a negative that had to be looked
+for rather than assumed.** The obvious move was to call this the same case as
+LOC's hemisphere boundary in the records block. It is not: that pair was
+eventually *decided*, because §5 of RFC 1876 prints the reference implementation
+and settles it, and the passage about it further down is kept as a warning
+against exactly this judgement — the prose had been read and the appendix had
+not.
+
+So the appendix was looked for. RFC 9364 is the DNSSEC BCP, whose job is to
+catalogue the whole series; it names no limit on the depth of a chain of trust,
+on the number of DS-to-DNSKEY steps, or on validator work, and cites nothing
+that does. A resolver that follows twenty is as correct as one that follows
+twenty-one, and a test would pin a number Hermod is free to change. **If the
+number is ever to be asserted, it should first become something a caller can
+read** — the move the hold-down constant already made, which is why
+`AddHoldDownTime` has a test and this does not.
+
+The two `ConfigureAwait(false)` gaps beside it stay open for the reason given
+elsewhere: not equivalent, but with no reading from a test host.
+
+---
 
 ### The same four checks, written twice
 
