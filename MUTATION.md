@@ -30,7 +30,7 @@ cheapest test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **18 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -115,6 +115,71 @@ counted either way.
 
 
 
+
+
+### Eighteen guards that cannot fire, and one that can
+
+What was left of the `tsig` block after the tests was almost all one shape:
+
+```csharp
+if (!TryStripSIG0(SignedMessage, out var unsigned, out var sig) ||
+    sig is null || unsigned is null)
+```
+
+Both strip functions set every output before their single `return true` and return
+false on every other path, so a null output alongside a true result cannot happen
+— which is exactly what the second and third terms test for. Whichever connective
+is changed, the expression agrees with the original on both of the two cases that
+can arrive. The same chain appears in both `Verify` overloads of each signer, in
+`BuildErrorResponse`, in `CarriesBothTSIGAndSIG0` and in
+`DNSTransactionSecurity`: thirteen mutants, one argument.
+
+Two more arguments cover the remaining five:
+
+- **`Message.Length < 12`**, three times. Twelve octets is a header and nothing
+  else, so with ARCOUNT zero there are no records to walk and with ARCOUNT set the
+  walk reads past the end and throws into the catch. Both readings answer false,
+  and the suite now sends exactly that message and asserts it.
+- **`offset < 0`**, twice. `FindLastRecordOffset` answers -1 or a position it took
+  at the start of a record, and no record begins before octet twelve — so zero is
+  not among its answers, and `<= 0` tests for a value that never arrives.
+
+**The nineteenth is not one of them**, and separating it out is the point of doing
+this by hand rather than by pattern:
+
+```csharp
+DomainName.ParseLenient(owner.Length == 0 ? "." : owner)
+```
+
+`DNSTools.ExtractName` returns `"."` for an empty name and never the empty string,
+so the condition is dead and the expression always yields `owner`. But the mutation
+inverts the condition rather than removing it, and the inverted version always
+yields `"."` — which differs for any SIG whose owner name is not the root. That is
+observable: `TryStripSIG0` hands the record back and `SIG.DomainName` is public.
+
+It is left open rather than called equivalent, because it is not. Nothing in
+Hermod reads that field, and RFC 2931 §3 puts the root there, so the only input
+that tells the two apart is one the RFC does not describe. The cleaner answer is
+that the ternary should go: it guards against something its own source cannot
+produce, and `TSIGSigner` at the identical spot has no such guard. That is a change
+to Hermod for tidiness rather than conformance, so it is recorded here and not
+made.
+
+### A silent ledger error, and the guard that now catches it
+
+The first attempt at this round put a second `"DNS/TSIG/TSIGSigner.cs"` key into
+the equivalence table. Python keeps the last of two identical keys and says
+nothing, so the earlier entry — the skew expression from the windows round —
+vanished, and the totals still added up: eighteen equivalents either way, because
+seventeen had just been added.
+
+What caught it was expecting a number. The round should have left one gap open and
+left two.
+
+`make_closed_folder.py` now refuses to write a ledger containing an entry that
+matches no gap in the sweep's own output. That catches a line number that has
+moved, a path spelled a shade differently, and a shadowed entry — all of which
+otherwise produce a plausible total and a quietly missing row.
 
 ### Three refusals that look like one
 

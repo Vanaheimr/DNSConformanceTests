@@ -298,14 +298,56 @@ TSIG_KILLED = {
 
 TSIG_EQUIVALENT = {
 
+    # The guard chains. Both strip functions set every out parameter before their
+    # single 'return true' and return false on every other path, so a null output
+    # alongside a true result cannot occur — which is what the second and third
+    # terms of each chain test for. Whichever of the connectives is changed, the
+    # expression agrees with the original on both of the two cases that can
+    # actually arrive. Defensive redundancy, not a gap.
+    "DNS/TSIG/DNSTransactionSecurity.cs": {
+        165: "TryStripTSIG(...) && withoutTSIG is not null — the second term cannot be false "
+             "when the first is true",
+        192: "TryStripSIG0(...) && withoutSIG0 is not null — the same, for the other kind",
+    },
+
     "DNS/TSIG/TSIGSigner.cs": {
+
         177: "now > tsig.TimeSigned, choosing which way round to subtract for the skew. At "
              "equality both readings give zero, because that is the one value where the two "
              "subtractions agree — and away from equality the condition already decides the "
              "same way",
+        148: "the !TryStripTSIG(...) term of Verify's chain. With || turned into && the "
+             "expression is (!Try && tsig is null) || unsigned is null, which answers as the "
+             "original does for both reachable cases: a failed strip leaves both outputs null "
+             "and a successful one leaves neither",
+        149: "the 'tsig is null' term of the same chain, with the same argument",
+        212: "the same chain again in BuildErrorResponse's sibling",
+        249: "SignedRequest.Length < 12 in BuildErrorResponse. At exactly twelve octets the "
+             "mutant returns null at once and the original walks one step further into "
+             "TryStripTSIG, which refuses a twelve-octet message for its own reasons and "
+             "returns null too",
+        255: "the !TryStripTSIG(...) term of BuildErrorResponse's chain",
+        256: "the 'unsigned is null' term of it",
+        395: "SignedMessage.Length < 12 in TryStripTSIG. Twelve octets is a header and nothing "
+             "else: with ARCOUNT zero the walk has no records to find and with ARCOUNT set the "
+             "walk reads past the end and throws into the catch. Both readings answer false",
+        411: "offset < 0 after FindLastRecordOffset. That method returns -1 or a position it "
+             "took at the start of a record, and the first record cannot begin before octet "
+             "twelve — so zero is not among its answers and <= 0 tests for a value that never "
+             "arrives",
+
     },
 
     "DNS/TSIG/SIG0Signer.cs": {
+
+        241: "the !TryStripSIG0(...) term of the multi-key Verify's chain",
+        306: "TryStripSIG0(...) && withoutSIG0 is not null in CarriesBothTSIGAndSIG0",
+        309: "TryStripTSIG(...) && withoutTSIG is not null in the same method",
+        335: "the !TryStripSIG0(...) term of the single-key Verify's chain",
+        336: "the 'sig is null' term of it",
+        433: "SignedMessage.Length < 12 in TryStripSIG0 — the same argument as TSIGSigner:395",
+        446: "offset < 0 in TryStripSIG0 — the same argument as TSIGSigner:411",
+
         527: "Request.Length > 0 before folding the request into the signed data. SIG(0) "
              "writes the request's octets and nothing else, so an empty request writes "
              "nothing under either reading. TSIGSigner's counterpart at line 337 looks "
@@ -379,6 +421,33 @@ def main():
                 why = keyed(superseded.get(rel, {}), ln, op)
                 if why:
                     rows.append((rel, str(ln), op, "superseded", "", why))
+
+    # A table entry that matched nothing is a mistake, and a silent one: a line
+    # number that no longer exists, a path spelled a shade differently, or an
+    # entry lost because a dict literal had the same key twice — which Python
+    # resolves by keeping the last and saying nothing. The count of what is left
+    # still adds up in every one of those cases, so it has to be checked here.
+    seen  = {(r[0], int(r[1])) for r in rows}
+    stray = []
+
+    for round_name, files in killed.items():
+        for rel, entries in files.items():
+            for entry in entries:
+                ln = entry[0] if isinstance(entry, tuple) else entry
+                if (rel, ln) not in seen:
+                    stray.append("killed/%s %s:%s" % (round_name, rel, ln))
+
+    for table, what in ((equivalent, "equivalent"), (superseded, "superseded")):
+        for rel, entries in table.items():
+            for entry in entries:
+                ln = entry[0] if isinstance(entry, tuple) else entry
+                if (rel, ln) not in seen:
+                    stray.append("%s %s:%s" % (what, rel, ln))
+
+    if stray:
+        sys.exit("these ledger entries match no gap in %s-classified.tsv:" % name
+                 + chr(10) + "  " + (chr(10) + "  ").join(sorted(stray)))
+
 
     with io.open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write("# Gaps of the '%s' block that are no longer gaps, keyed to the same\n" % name)

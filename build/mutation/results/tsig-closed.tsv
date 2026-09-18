@@ -7,20 +7,37 @@
 DNS/TSIG/SIG0Signer.cs	148	less-to-less-or-equal	killed	stripping	
 DNS/TSIG/TKEYExchange.cs	198	false-to-true	killed	tkey	
 DNS/TSIG/TSIGSigner.cs	103	less-to-less-or-equal	killed	stripping	
+DNS/TSIG/SIG0Signer.cs	241	logical-or-to-and	equivalent		the !TryStripSIG0(...) term of the multi-key Verify's chain
 DNS/TSIG/TSIGAlgorithms.cs	86	logical-or-to-and	killed	windows	
+DNS/TSIG/TSIGSigner.cs	148	logical-or-to-and	equivalent		the !TryStripTSIG(...) term of Verify's chain. With || turned into && the expression is (!Try && tsig is null) || unsigned is null, which answers as the original does for both reachable cases: a failed strip leaves both outputs null and a successful one leaves neither
+DNS/TSIG/DNSTransactionSecurity.cs	165	logical-and-to-or	equivalent		TryStripTSIG(...) && withoutTSIG is not null — the second term cannot be false when the first is true
+DNS/TSIG/TSIGSigner.cs	149	logical-or-to-and	equivalent		the 'tsig is null' term of the same chain, with the same argument
 DNS/TSIG/SIG0Signer.cs	283	logical-and-to-or	killed	stripping	
 DNS/TSIG/TSIGSigner.cs	177	greater-to-ge	equivalent		now > tsig.TimeSigned, choosing which way round to subtract for the skew. At equality both readings give zero, because that is the one value where the two subtractions agree — and away from equality the condition already decides the same way
+DNS/TSIG/DNSTransactionSecurity.cs	192	logical-and-to-or	equivalent		TryStripSIG0(...) && withoutSIG0 is not null — the same, for the other kind
+DNS/TSIG/SIG0Signer.cs	306	logical-and-to-or	equivalent		TryStripSIG0(...) && withoutSIG0 is not null in CarriesBothTSIGAndSIG0
 DNS/TSIG/TSIGSigner.cs	181	greater-to-ge	killed	windows	
+DNS/TSIG/SIG0Signer.cs	309	logical-and-to-or	equivalent		TryStripTSIG(...) && withoutTSIG is not null in the same method
+DNS/TSIG/TSIGSigner.cs	212	logical-or-to-and	equivalent		the same chain again in BuildErrorResponse's sibling
+DNS/TSIG/SIG0Signer.cs	335	logical-or-to-and	equivalent		the !TryStripSIG0(...) term of the single-key Verify's chain
+DNS/TSIG/TSIGSigner.cs	249	less-to-less-or-equal	equivalent		SignedRequest.Length < 12 in BuildErrorResponse. At exactly twelve octets the mutant returns null at once and the original walks one step further into TryStripTSIG, which refuses a twelve-octet message for its own reasons and returns null too
+DNS/TSIG/SIG0Signer.cs	336	logical-or-to-and	equivalent		the 'sig is null' term of it
 DNS/TSIG/TKEYExchange.cs	265	less-to-less-or-equal	killed	tkey	
+DNS/TSIG/TSIGSigner.cs	255	logical-or-to-and	equivalent		the !TryStripTSIG(...) term of BuildErrorResponse's chain
 DNS/TSIG/TKEYExchange.cs	290	greater-to-ge	killed	tkey	
+DNS/TSIG/TSIGSigner.cs	256	logical-or-to-and	equivalent		the 'unsigned is null' term of it
 DNS/TSIG/SIG0Signer.cs	398	less-to-less-or-equal	killed	windows	
 DNS/TSIG/TKEYExchange.cs	291	false-to-true	killed	tkey	
 DNS/TSIG/TSIGSigner.cs	337	greater-to-ge	killed	windows	
 DNS/TSIG/SIG0Signer.cs	398	greater-to-ge	killed	windows	
+DNS/TSIG/TSIGSigner.cs	395	less-to-less-or-equal	equivalent		SignedMessage.Length < 12 in TryStripTSIG. Twelve octets is a header and nothing else: with ARCOUNT zero the walk has no records to find and with ARCOUNT set the walk reads past the end and throws into the catch. Both readings answer false
+DNS/TSIG/SIG0Signer.cs	433	less-to-less-or-equal	equivalent		SignedMessage.Length < 12 in TryStripSIG0 — the same argument as TSIGSigner:395
 DNS/TSIG/TKEYExchange.cs	297	false-to-true	killed	tkey	
 DNS/TSIG/TSIGSigner.cs	396	false-to-true	killed	stripping	
 DNS/TSIG/SIG0Signer.cs	434	false-to-true	killed	stripping	
 DNS/TSIG/SIG0Signer.cs	439	false-to-true	killed	stripping	
+DNS/TSIG/TSIGSigner.cs	411	less-to-less-or-equal	equivalent		offset < 0 after FindLastRecordOffset. That method returns -1 or a position it took at the start of a record, and the first record cannot begin before octet twelve — so zero is not among its answers and <= 0 tests for a value that never arrives
+DNS/TSIG/SIG0Signer.cs	446	less-to-less-or-equal	equivalent		offset < 0 in TryStripSIG0 — the same argument as TSIGSigner:411
 DNS/TSIG/TSIGSigner.cs	412	false-to-true	killed	stripping	
 DNS/TSIG/SIG0Signer.cs	447	false-to-true	killed	stripping	
 DNS/TSIG/SIG0Signer.cs	456	false-to-true	killed	stripping	
