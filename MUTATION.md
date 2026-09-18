@@ -14,24 +14,25 @@ whether something *ever* happened.
 
 Mutation testing asks the question directly. Change one thing in the code under
 test — flip a comparison, invert a condition, make a rejection succeed — rebuild,
-and run the suite. If no test fails, nothing in 1096 tests is watching that
-line.
+and run the suite. If no test fails, nothing in the suite is watching that line.
+The count that belongs here is the one in README's status line, which moves every
+round; naming it twice only guarantees one of the two goes stale.
 
 ---
 
-## Six blocks, two measured
+## Seven blocks, four measured
 
-The DNS code lives in six folders and the sweep was pointed at one of them. That
-was not a judgement about the other five — it was where the work started, and
-saying so is the difference between a measurement and a claim. The map, with the
-cheapest test project that exercises each:
+The DNS code lives in seven folders and the sweep started with one of them. That
+was not a judgement about the others — it was where the work began, and saying so
+is the difference between a measurement and a claim. The map, with the cheapest
+test project that exercises each:
 
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **69 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **64 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -163,6 +164,35 @@ record owns the name, and for the wildcard the very next clause asks whether a
 record owns it and answers the same way in the same iteration. The guard at the
 *other* end of the same span has no such cover, which is why one of the pair was
 killed by a test and the other written down.
+
+
+### A key that verifies the signature and is not the one it named
+
+RFC 4034 Appendix B computes the key tag by adding up the DNSKEY's RDATA, and
+§5.1 says plainly that it "is not a unique identifier". So every lookup in a
+validator matches on tag *and* algorithm, and RFC 4035 §5.3.1 makes it a MUST:
+the RRSIG's algorithm and key tag "MUST match the owner name, algorithm, and key
+tag for some DNSKEY RR in the zone's apex DNSKEY RRset".
+
+Testing that needs a key which would verify the signature and is not the one the
+signature named — otherwise "looked the key up properly" and "found something
+that worked" cannot be told apart. **The tag covers the flags**, so the same key
+material under a different SEP bit is the same key with a different tag. The zone
+publishes only that, and a validator matching on algorithm alone finds it,
+verifies, and reports Secure.
+
+The trust anchors one level up work the same way, and the decoys there are the
+part worth keeping: each carries the **right digest** for a key it does not name.
+A wrongly chosen anchor would otherwise be caught by the digest check behind the
+lookup, and the test would pass without saying anything about the lookup. With
+the digest right, only the tag and the algorithm stand between the decoy and a
+Secure verdict.
+
+That is also where the reasoning went wrong on the way. Having written the decoys
+for exactly that reason, I then talked myself out of expecting them to work — on
+the grounds that the KSK path below would catch what the first loop missed. It
+would have, for an anchor with the wrong digest. Five mutations fell where one was
+predicted.
 
 ### The same five shapes, in the hash domain
 

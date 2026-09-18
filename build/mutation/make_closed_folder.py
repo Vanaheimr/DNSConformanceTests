@@ -395,6 +395,15 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DenialOfExistence.cs": {279, 284, 286, 287, 332},
     },
 
+    # RFC 4035 section 5.3.1 and RFC 4034 section 5.1: the key tag is a checksum
+    # and not an identifier, so a signature and a trust anchor each name their key
+    # by tag *and* algorithm. The tag covers the DNSKEY's flags, which is what
+    # makes it possible to offer a validator a key that will verify a signature
+    # and is not the one the signature named.
+    "key-identity": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {469, 871, 872, 896},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {

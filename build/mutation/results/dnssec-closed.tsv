@@ -19,3 +19,8 @@ DNS/DNSSEC/DenialOfExistence.cs	359	logical-and-to-or	killed	nsec-coverage
 DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	killed	windows	
 DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	killed	windows	
 DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	killed	windows	
+DNS/DNSSEC/DNSSECValidator.cs	469	logical-and-to-or	killed	key-identity	
+DNS/DNSSEC/DNSSECValidator.cs	871	logical-and-to-or	killed	key-identity	
+DNS/DNSSEC/DNSSECValidator.cs	871	equality-to-inequality	killed	key-identity	
+DNS/DNSSEC/DNSSECValidator.cs	872	equality-to-inequality	killed	key-identity	
+DNS/DNSSEC/DNSSECValidator.cs	896	logical-and-to-or	killed	key-identity	
