@@ -387,11 +387,25 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DenialOfExistence.cs": {354, 357, 358, 359},
     },
 
+    # RFC 5155 sections 7.2 and 8.4: the same span arithmetic a second time, in
+    # the hash domain. Four of its five, the same four - and 332 with them, the
+    # loop in CompareHashes, which reads one octet past the end of the shorter
+    # hash as soon as anything compares two of equal length.
+    "nsec3-coverage": {
+        "DNS/DNSSEC/DenialOfExistence.cs": {279, 284, 286, 287, 332},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {
 
     "DNS/DNSSEC/DenialOfExistence.cs": {
+
+        278: "CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and "
+             "the same argument as 353 below, which is the point of listing both. A name whose "
+             "hash equals an owner matches that record, and VerifyNSEC3 looks for a match before "
+             "it looks for a cover, at the queried name and again at every ancestor on the way "
+             "up. Nothing can be handed to FindCover whose hash equals an owner in the set",
 
         353: "CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. "
              "The two readings differ only when the name equals the owner, and neither caller "

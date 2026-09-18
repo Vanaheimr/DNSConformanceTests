@@ -31,7 +31,7 @@ cheapest test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **75 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **69 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -164,9 +164,34 @@ record owns it and answers the same way in the same iteration. The guard at the
 *other* end of the same span has no such cover, which is why one of the pair was
 killed by a test and the other written down.
 
-**The same five shapes exist a second time in this file**, in the NSEC3 half,
-against hashes rather than names. Those five are still open: building an NSEC3
-chain by hand means computing the hashes, which is the next round's work.
+### The same five shapes, in the hash domain
+
+The NSEC3 half of the same file is the same arithmetic written a second time,
+against hashes instead of names, and it came out the same way: four killed and
+one unreachable, the same four and the same one.
+
+The chains are built by hand, which for NSEC3 means computing the hashes — RFC
+5155 §5's H(name) with the suite's own SHA-1, so a record can be given a span
+that ends exactly on the hash of the name being asked about. BIND produces no
+such chain, which is why the fixture-based tests could not reach these.
+
+**The unreachable one is unreachable for the same reason as its twin**, and that
+is what makes the pair worth having: a name whose hash equals an owner *matches*
+that record, and `VerifyNSEC3` looks for a match before it looks for a cover —
+at the queried name and again at every ancestor on the way up. Nothing can be
+handed to `FindCover` whose hash equals an owner in the set. The guard at the
+other end of the span has no such cover, in both halves.
+
+One kill was not predicted, and working out why is worth more than the kill.
+`CompareHashes` walks to the length of the shorter hash and returns at the first
+octet that differs. Moving the loop's bound by one reads past the end of the
+array — but only when the walk gets that far, which means only when every octet
+matched, which means only when the two hashes are *equal*.
+
+There is exactly one place that compares a hash with itself: the chain of a
+single record, whose next hashed owner name is its own owner. The test written
+for the wrap detection is the only one in the suite that ever asks that question,
+and it took this line down as a by-product.
 
 ### A test that proved the wrong thing
 
