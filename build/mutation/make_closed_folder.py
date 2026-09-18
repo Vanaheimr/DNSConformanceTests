@@ -380,9 +380,30 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {452},
     },
 
+    # RFC 4034 section 4.1.3 and RFC 4035 section 5.4: the span an NSEC covers is
+    # open at both ends, and the last record of a zone wraps. Four of the five;
+    # the fifth is below.
+    "nsec-coverage": {
+        "DNS/DNSSEC/DenialOfExistence.cs": {354, 357, 358, 359},
+    },
+
 }
 
-DNSSEC_EQUIVALENT = {}
+DNSSEC_EQUIVALENT = {
+
+    "DNS/DNSSEC/DenialOfExistence.cs": {
+
+        353: "CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. "
+             "The two readings differ only when the name equals the owner, and neither caller "
+             "can put that case in front of it. For the queried name, VerifyNSEC's NODATA loop "
+             "returns before Covers is reached whenever any record owns it. For the wildcard, "
+             "the very next clause asks whether a record owns that name and answers the same "
+             "way in the same iteration, so the || is true either way. The guard at the other "
+             "end of the span has no such cover and was killed by a test",
+
+    },
+
+}
 
 DNSSEC_SUPERSEDED = {
 

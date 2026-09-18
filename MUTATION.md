@@ -31,7 +31,7 @@ cheapest test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **83 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **75 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -131,6 +131,42 @@ rewritten is not a measurement any more.
 
 ---
 
+
+
+### The two ends of a span that proves nothing is there
+
+An NSEC says "between my owner name and my next name there is nothing". Both of
+those names exist — they are owner names in the chain — so the span is open at
+both ends, and RFC 4034 §4.1.3 adds that the last record of a zone points back at
+the apex, so that one record's span wraps around the end of the ordering.
+
+Five mutations sat on those four lines. Four of them fell to five tests built
+from NSEC records made by hand, because a signer will never produce the shapes
+that matter: a query landing exactly on a boundary, a span running off the end of
+the zone, and a chain of one record whose next name is its own owner.
+
+- **The next name is not denied.** It is the next owner in the chain, and a span
+  that reached it would be proof that a name the zone lists is missing — which is
+  the proof an attacker wants for a name they removed.
+- **A name past both ends is not denied.** Wanting only one of the two ends would
+  let the first record of a zone deny everything after it.
+- **The last record wraps**, and a name sorting after the zone's last name is
+  denied by it. Treating that record like the others leaves a zone unable to deny
+  anything past its end.
+- **A chain of one record wraps onto itself.** Owner equal to next is still a
+  wrap; reading equality as "no wrap" makes the span empty and denies nothing.
+
+The fifth is the lower end, and it is genuinely unreachable. The two readings
+differ only when the queried name equals the owner, and neither caller can put
+that case in front of it: `VerifyNSEC`'s NODATA loop returns first whenever a
+record owns the name, and for the wildcard the very next clause asks whether a
+record owns it and answers the same way in the same iteration. The guard at the
+*other* end of the same span has no such cover, which is why one of the pair was
+killed by a test and the other written down.
+
+**The same five shapes exist a second time in this file**, in the NSEC3 half,
+against hashes rather than names. Those five are still open: building an NSEC3
+chain by hand means computing the hashes, which is the next round's work.
 
 ### A test that proved the wrong thing
 

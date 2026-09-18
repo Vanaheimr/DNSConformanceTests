@@ -4,7 +4,12 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/DNSSEC/DenialOfExistence.cs	353	greater-to-ge	equivalent		CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. The two readings differ only when the name equals the owner, and neither caller can put that case in front of it. For the queried name, VerifyNSEC's NODATA loop returns before Covers is reached whenever any record owns it. For the wildcard, the very next clause asks whether a record owns that name and answers the same way in the same iteration, so the || is true either way. The guard at the other end of the span has no such cover and was killed by a test
+DNS/DNSSEC/DenialOfExistence.cs	354	less-to-less-or-equal	killed	nsec-coverage	
 DNS/DNSSEC/DNSSECValidator.cs	378	false-to-true	superseded		the ConfigureAwait of the convenience overload, whose line was rewritten when ValidateAsync gained its Now parameter. The mutation was of the kind no test can observe anyway - a test host has no synchronization context for the two readings to differ about - so nothing was lost with the line
+DNS/DNSSEC/DenialOfExistence.cs	357	ge-to-greater	killed	nsec-coverage	
+DNS/DNSSEC/DenialOfExistence.cs	358	logical-or-to-and	killed	nsec-coverage	
+DNS/DNSSEC/DenialOfExistence.cs	359	logical-and-to-or	killed	nsec-coverage	
 DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	killed	windows	
 DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	killed	windows	
 DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	killed	windows	
