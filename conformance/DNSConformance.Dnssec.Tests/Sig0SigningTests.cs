@@ -831,6 +831,88 @@ public class Sig0SigningTests
 
     #endregion
 
+    #region A_Sig0_Whose_Owner_Name_Is_Not_Root_Is_Still_A_Sig0()
+
+    /// <summary>
+    /// RFC 2931 §3: "For all SIG(0) RRs, the owner name, class, TTL, and original
+    /// TTL, are meaningless", and the root owner a signer writes is a SHOULD —
+    /// "to conserve space, the owner name SHOULD be root (a single zero octet)".
+    ///
+    /// <para>
+    /// So a peer may put a real name there, and a verifier that treated the
+    /// recommendation as a requirement would refuse a message it has no grounds
+    /// to refuse. Rewriting the owner cannot break the signature either, because
+    /// §3.1 signs the message *without* the SIG record — the owner octets are not
+    /// in the digest. Both halves are asserted here: the verdict does not move,
+    /// and the name handed back is the one that was on the wire rather than the
+    /// root that was expected.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "2931 §3")]
+    public void A_Sig0_Whose_Owner_Name_Is_Not_Root_Is_Still_A_Sig0()
+    {
+
+        using var rsa = RSA.Create(2048);
+
+        var key      = KEY.FromPublicKey(SignerName, AlgorithmRSASHA256, rsa);
+        var query    = Query();
+        var signed   = SIG0Signer.Sign(query, SignerName, AlgorithmRSASHA256, rsa, key.KeyTag);
+
+        var renamed  = WithSig0Owner(signed, "sig.conformance.test");
+
+        Assert.That(SIG0Signer.TryStripSIG0(renamed, out var unsigned, out var record), Is.True,
+                    "a non-root owner is a legal SIG(0)");
+
+        Assert.Multiple(() => {
+
+            Assert.That(record!.DomainName.FullName.TrimEnd('.'),
+                        Is.EqualTo("sig.conformance.test"),
+                        "the owner that was on the wire, not the root that was expected");
+
+            Assert.That(unsigned, Is.EqualTo(query).AsCollection,
+                        "and the message underneath is untouched by the rename");
+
+            Assert.That(SIG0Signer.Verify(renamed, key).IsValid, Is.True,
+                        "§3.1 signs the message without the SIG record, so the owner is not in the digest");
+
+        });
+
+    }
+
+    /// <summary>
+    /// Replace the SIG(0)'s owner name. A signer writes a single zero octet
+    /// there, so the record begins one octet before its type — and the message
+    /// underneath ends exactly where the record begins, which is what
+    /// <c>TryStripSIG0</c> hands back.
+    /// </summary>
+    private static Byte[] WithSig0Owner(Byte[] Signed, String Owner)
+    {
+
+        if (!SIG0Signer.TryStripSIG0(Signed, out var before, out _) || before is null)
+            throw new ArgumentException("not a signed message", nameof(Signed));
+
+        var offset = before.Length;
+
+        if (Signed[offset] != 0x00)
+            throw new ArgumentException("the SIG(0) owner is not the single zero octet", nameof(Signed));
+
+        var name = new List<Byte>();
+
+        foreach (var label in Owner.TrimEnd('.').Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            name.Add((Byte) label.Length);
+            name.AddRange(System.Text.Encoding.ASCII.GetBytes(label));
+        }
+
+        name.Add(0x00);
+
+        return [.. Signed[..offset], .. name, .. Signed[(offset + 1)..]];
+
+    }
+
+    #endregion
+
     #region Stripping_The_Sig0_Restores_The_Message_That_Was_Signed()
 
     [Test]

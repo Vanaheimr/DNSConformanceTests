@@ -31,7 +31,7 @@ test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **55 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
@@ -475,26 +475,48 @@ Two more arguments cover the remaining five:
   at the start of a record, and no record begins before octet twelve — so zero is
   not among its answers, and `<= 0` tests for a value that never arrives.
 
-**The nineteenth is not one of them**, and separating it out is the point of doing
-this by hand rather than by pattern:
+**The nineteenth was not one of them**, and separating it out is the point of
+doing this by hand rather than by pattern:
 
 ```csharp
 DomainName.ParseLenient(owner.Length == 0 ? "." : owner)
 ```
 
-`DNSTools.ExtractName` returns `"."` for an empty name and never the empty string,
-so the condition is dead and the expression always yields `owner`. But the mutation
-inverts the condition rather than removing it, and the inverted version always
-yields `"."` — which differs for any SIG whose owner name is not the root. That is
-observable: `TryStripSIG0` hands the record back and `SIG.DomainName` is public.
+`DNSTools.ExtractName` ends on `String.IsNullOrEmpty(result) ? "." : result` and
+never hands back an empty string, so the condition is dead and the expression
+always yields `owner`. But the mutation inverts the condition rather than removing
+it, and the inverted version always yields `"."` — which differs for any SIG whose
+owner name is not the root. That is observable: `TryStripSIG0` hands the record
+back and `SIG.DomainName` is public.
 
-It is left open rather than called equivalent, because it is not. Nothing in
-Hermod reads that field, and RFC 2931 §3 puts the root there, so the only input
-that tells the two apart is one the RFC does not describe. The cleaner answer is
-that the ternary should go: it guards against something its own source cannot
-produce, and `TSIGSigner` at the identical spot has no such guard. That is a change
-to Hermod for tidiness rather than conformance, so it is recorded here and not
-made.
+So it was left open rather than called equivalent, with the note that the ternary
+should go. **That note got the RFC wrong**, and the correction is the reason this
+was worth doing by hand twice. It said "RFC 2931 §3 puts the root there, so the
+only input that tells the two apart is one the RFC does not describe". §3 does not
+put the root there. It says:
+
+> For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
+> meaningless.
+
+and then that the owner name **SHOULD** be root, "to conserve space". A SHOULD over
+a field the same sentence calls meaningless is about as far from a requirement as
+a specification goes — a peer may write a real name there, and a verifier that
+refused it, or quietly replaced it, would be wrong about a message it has no
+grounds to be wrong about.
+
+That makes it a conformance question after all, and it is now answered by a test
+rather than by an argument: a signed query whose SIG(0) owner is rewritten from
+the root to a real name is still stripped, still carries that name back, and still
+verifies — §3.1 signs the message *without* the SIG record, so the owner octets are
+not in the digest and the rename cannot move the verdict. That test kills the
+mutation.
+
+The dead branch then went, after the behaviour it was standing in front of had
+been pinned and not before. Its line is gone and nothing mutable is left on it,
+which is the third state the ledger has: `superseded`.
+
+**The `tsig` block is closed.** 94 mutants, 40 real gaps: 20 killed by a test, 19
+unreachable and written down, 1 whose line a change removed.
 
 ### A silent ledger error, and the guard that now catches it
 

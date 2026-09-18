@@ -359,7 +359,22 @@ TSIG_EQUIVALENT = {
 
 }
 
-TSIG_SUPERSEDED = {}
+TSIG_SUPERSEDED = {
+
+    "DNS/TSIG/SIG0Signer.cs": {
+        459: "the owner.Length == 0 test in TryStripSIG0's ternary, whose true branch no "
+             "caller could reach: DNSTools.ExtractName ends on String.IsNullOrEmpty(result) "
+             "? \".\" : result and never hands back an empty string, so the guard answered "
+             "for a case that does not arrive. The mutation was not equivalent - inverting "
+             "it gave every SIG(0) the root as its owner name, and RFC 2931 section 3 "
+             "allows a real one there, calling the field meaningless and the root a SHOULD. "
+             "So the behaviour was pinned first, by a test that reads back a SIG(0) whose "
+             "owner is not root and watches the verdict not move, and the dead branch was "
+             "removed after. The line the verdict was measured on is gone and nothing "
+             "mutable is left on it",
+    },
+
+}
 
 
 # -------------------------------------------------------------------- dnssec
