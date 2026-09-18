@@ -31,10 +31,10 @@ cheapest test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **84 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | not measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -55,6 +55,79 @@ the mutant. `core` counts 479 today rather than the 478 it was measured at, whic
 is not an error: finding 57's fix and the compression-table fix each added a
 comparison. The measured figure stays, because it is what was measured.
 
+
+
+---
+
+## The result: DNSSEC
+
+Measured against Hermod **`53f20591`**, `libs/Hermod/Hermod/DNS/DNSSEC/**`, judged
+in pass 1 by Dnssec and in pass 2 by the remaining seven projects.
+
+| | |
+|---|---:|
+| mutants | 227 |
+| not viable (would not compile) | 35 |
+| killed by Dnssec | 102 |
+| killed by another project | **0** |
+| survived everywhere | 85 |
+| refused by the harness | 5 |
+| real gaps | **84** |
+
+**Pass 2 bought nothing here, and that is the finding about the shape of the
+suite.** For `tsig` it caught 21 of 63 survivors, because transaction security is
+something every other part of the stack touches. DNSSEC is touched by exactly one
+project, so a mutation the DNSSEC tests miss is a mutation nothing sees. There is
+no second opinion available for this code.
+
+Where the 84 are:
+
+| file | gaps | what it is |
+|---|---:|---|
+| `DNSSECValidator.cs` | 47 | the chain of trust: RRSIG, DS, the walk, RFC 5011 |
+| `DenialOfExistence.cs` | 19 | NSEC and NSEC3 proofs |
+| `DNSSECZoneSigner.cs` | 10 | what a signed zone is made of |
+| `DNSSECSigning.cs` | 3 | the algorithms |
+| `DNSSECCanonical.cs`, `DNSSECSigningKey.cs` | 4 | canonical form, key handling |
+
+Fifty-seven of them are branches, which is the highest proportion of any block so
+far. This is code that decides, and half of what it decides is unwatched.
+
+### A rule the triage was missing, again
+
+The classifier calls a parameter default noise, because most of them are: a
+default is usually the usual value, and changing it changes nothing about what
+the code can do. Two in this block are not.
+
+```csharp
+public sealed record NSEC3Parameters(Byte[]   Salt,
+                                     UInt16   Iterations   = 0,
+                                     Boolean  OptOut       = false)
+```
+
+RFC 5155 §6's opt-out leaves insecure delegations out of the NSEC3 chain. As a
+default it decides what every zone signed without an opinion proves — and the
+mutation that flips it survives the whole suite. The other is
+`DNSSECSigningKey.Generate`'s `KeySigningKey = false`: a key made without an
+opinion is a zone signing key, and the two sit at different places in the chain.
+
+These are listed by name in `classify_folder.py` rather than matched, because no
+pattern can tell "the usual value" from "the safe value" — the name can, and a
+rule that cannot be written down should not be pretended into a regex. The list
+is the second exception the triage has needed, after the `[NotNullWhen]` one, and
+both were found the same way: by reading what the sweep had thrown away.
+
+### One verdict the harness could not read
+
+Pass 1 reported `DNSSECZoneSigner.cs:34` as PARSE-ERROR — the test run produced no
+summary line it could parse, which is not a verdict either way. It was re-run on
+its own: the mutant builds, the suite runs, 256 pass and nothing fails. The
+verdict is SURVIVED and the first attempt was a hiccup in a forty-four-minute run.
+
+The row was corrected in `dnssec-pass1.tsv` and the file as it was measured is
+kept beside it as `dnssec-pass1.as-measured.tsv`, which is the same treatment the
+contaminated pass-2 file got in the records block. A result that is quietly
+rewritten is not a measurement any more.
 
 ---
 

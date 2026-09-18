@@ -36,6 +36,23 @@ REGION    = re.compile(r"^#(region|endregion)")
 # watching the mutation survive anyway.
 ATTRIBUTE = re.compile(r"^\[|\[(NotNullWhen|MaybeNullWhen|DoesNotReturnIf)\(")
 DEFAULT   = re.compile(r"^(Boolean|String|Int32|UInt16|UInt32|UInt64|Byte|TimeSpan|DNSQueryClasses)\s+\w+\s*=")
+# ...but a default is only noise when it is a convention. Some of them are policy:
+# flipping one changes what every caller that did not choose gets, and nothing
+# about the line says which kind it is - the name does. These are listed rather
+# than matched, because no pattern can tell "the usual value" from "the safe
+# value", and a rule that cannot be written down should not be pretended into a
+# regex.
+POLICY_DEFAULTS = {
+    # RFC 5155 section 6: opt-out leaves insecure delegations out of the NSEC3
+    # chain. As a default it decides what every zone signed without an opinion
+    # proves.
+    ("DNS/DNSSEC/DNSSECZoneSigner.cs", "OptOut"),
+    # A key generated without an opinion is a zone signing key, not a key
+    # signing key - the two sit at different places in the chain of trust.
+    ("DNS/DNSSEC/DNSSECSigningKey.cs", "KeySigningKey"),
+}
+
+
 REJECTION = re.compile(r"\breturn\s+(false|null)\s*;")
 BOUNDARY  = ("less-to-less-or-equal", "greater-to-ge", "le-to-less", "ge-to-greater")
 
@@ -85,7 +102,9 @@ def main():
         if ATTRIBUTE.search(text):
             return "noise-attribute", text
         if DEFAULT.match(text):
-            return "noise-default", text
+            name = text.split("=")[0].split()[-1]
+            if (rel, name) not in POLICY_DEFAULTS:
+                return "noise-default", text
         if REJECTION.search(text):
             return "rejection", text
         if op in BOUNDARY:
