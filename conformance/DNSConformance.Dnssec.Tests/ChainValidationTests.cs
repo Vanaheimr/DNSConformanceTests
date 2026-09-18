@@ -84,6 +84,29 @@ public class ChainValidationTests
            );
 
 
+    /// <summary>
+    /// The same RRSIG under a different algorithm number. Everything else about
+    /// it — the signed data it covers, the octets of the signature — is
+    /// untouched, so the number is the only thing that can change the answer.
+    /// </summary>
+    private static RRSIG Reassign(RRSIG Signature, Byte Algorithm)
+
+        => new(
+               DomainName.Parse(Signature.DomainName.FullName.TrimEnd('.')),
+               Signature.Class,
+               Signature.TimeToLive,
+               Signature.TypeCovered,
+               Algorithm,
+               Signature.Labels,
+               Signature.OriginalTTL,
+               Signature.SignatureExpiration,
+               Signature.SignatureInception,
+               Signature.KeyTag,
+               DomainName.Parse(Signature.SignerName.FullName.TrimEnd('.')),
+               Signature.Signature
+           );
+
+
     private static UInt32 Now
         => (UInt32) DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -235,6 +258,72 @@ public class ChainValidationTests
         {
             Timestamp.Reset();
         }
+
+    }
+
+    #endregion
+
+    #region A_Signature_Whose_Algorithm_May_Not_Be_Used_Is_Not_Secure()
+
+    /// <summary>
+    /// RFC 8624 §3.1 marks RSAMD5 (1), DSA (3) and DSA-NSEC3-SHA1 (6) **MUST
+    /// NOT** in its DNSSEC Validation column. <c>SignatureAlgorithmMatrixTests</c>
+    /// pins that at the verifier; this pins what it means for the answer.
+    ///
+    /// <para>
+    /// The signature here is BIND's own, over BIND's own RRset, relabelled as
+    /// algorithm 1 and offered with a key that claims the same number. Under
+    /// algorithm 8 it verifies. The verdict must not be Secure, and no amount of
+    /// the cryptography being fine may make it so — which is the case worth
+    /// pinning, because a validator that reached for "does this verify" before
+    /// "am I allowed to use this" would answer Secure with a clear conscience.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Which</b> not-Secure verdict is a question the RFCs leave open, and the
+    /// assertion is deliberately loose because of it. Hermod answers Bogus, by way
+    /// of <c>ValidateRRSig</c> returning Bogus for "did not verify". There is a
+    /// reading that says Insecure: RFC 6840 §5.2 requires a DS of an unusable
+    /// algorithm to be disregarded and the delegation treated as unsigned, RFC
+    /// 8624's own introduction says "the effect of using an unknown DNSKEY
+    /// algorithm is that the zone is treated as insecure", and Hermod already
+    /// applies that reasoning one layer down in <c>HasUsableDelegationSigner</c>.
+    /// Neither RFC states the rule for an RRSIG, so this asserts only the half
+    /// that is not in doubt.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "8624 §3.1")]
+    public void A_Signature_Whose_Algorithm_May_Not_Be_Used_Is_Not_Secure()
+    {
+
+        var (rrset, signature) = SignedA();
+
+        var signing    = zone.KeyFor(signature)!;
+
+        var forbidden  = Reassign(signature, 1);
+
+        var claiming   = new DNSKEY(DomainName.Parse("dnssec.test"),
+                                    signing.Class,
+                                    signing.TimeToLive,
+                                    signing.Flags,
+                                    signing.Protocol,
+                                    1,
+                                    signing.PublicKey);
+
+        var validator  = new DNSSECValidator(new StubDnsClient());
+
+        Assert.Multiple(() => {
+
+            Assert.That(validator.ValidateRRSig(rrset, signature, signing),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the same records and the same octets, under the number they were made with");
+
+            Assert.That(validator.ValidateRRSig(rrset, forbidden, claiming),
+                        Is.Not.EqualTo(DNSSECValidationResult.Secure),
+                        "and under a number RFC 8624 §3.1 forbids, the same signature earns nothing");
+
+        });
 
     }
 

@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using NUnit.Framework;
 
 using org.GraphDefined.Vanaheimr.Hermod;
@@ -52,6 +55,122 @@ public class SignatureAlgorithmMatrixTests
 
     #endregion
 
+
+    #region The algorithm number is a decision, not a label
+
+    /// <summary>
+    /// The octets a validator would be asked to check, and a signature over them
+    /// that really does verify — under the algorithm it was made with.
+    /// </summary>
+    private static (Byte[] PublicKey, Byte[] Data, Byte[] Signature) RsaSha256Material(RSA Key)
+    {
+
+        var data = Encoding.ASCII.GetBytes("the octets a validator would be asked to check");
+
+        return (DNSSECSigning.EncodePublicKey(8, Key),
+                data,
+                Key.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+
+    }
+
+    #endregion
+
+    #region An_Algorithm_RFC_8624_Forbids_Does_Not_Verify(...)
+
+    /// <summary>
+    /// RFC 8624 §3.1's table has two columns, and the tests above cover one of
+    /// them. This is the other: the algorithms whose **DNSSEC Validation** column
+    /// reads MUST NOT.
+    ///
+    /// <list type="bullet">
+    ///   <item>1, RSAMD5 — MUST NOT</item>
+    ///   <item>3, DSA — MUST NOT</item>
+    ///   <item>6, DSA-NSEC3-SHA1 — MUST NOT</item>
+    /// </list>
+    ///
+    /// <para>
+    /// The construction is the sharp one, because "returns false" is what a
+    /// broken verifier returns too. The key, the data and the signature are the
+    /// same three in both assertions, and the signature genuinely verifies: only
+    /// the algorithm number changes between the control and the case. So the
+    /// refusal is the number being forbidden and nothing else — and RSAMD5 in
+    /// particular carries its key in the same RFC 3110 form as RSASHA256, so
+    /// there is not even an encoding to hide behind.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "8624 §3.1")]
+    [TestCase((Byte)  1, TestName = "1, RSAMD5")]
+    [TestCase((Byte)  3, TestName = "3, DSA")]
+    [TestCase((Byte)  6, TestName = "6, DSA-NSEC3-SHA1")]
+    public void An_Algorithm_RFC_8624_Forbids_Does_Not_Verify(Byte Algorithm)
+    {
+
+        using var rsa = RSA.Create(2048);
+
+        var (publicKey, data, signature) = RsaSha256Material(rsa);
+
+        Assert.Multiple(() => {
+
+            Assert.That(DNSSECValidator.VerifySignature(8, publicKey, data, signature),
+                        Is.True,
+                        "the control: under the algorithm it was made with, this signature verifies");
+
+            Assert.That(DNSSECValidator.VerifySignature(Algorithm, publicKey, data, signature),
+                        Is.False,
+                        "and under one RFC 8624 §3.1 forbids for validation, the same signature must not");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Number_No_Algorithm_Is_Assigned_To_Does_Not_Verify(...)
+
+    /// <summary>
+    /// The same question for the numbers that name nothing: reserved (0),
+    /// unassigned, and the two private-use ranges of RFC 4034 Appendix A.1.
+    ///
+    /// <para>
+    /// A validator that treated an unrecognised number as "verified" would accept
+    /// any octets at all as a signature, because the attacker chooses the number.
+    /// That is the whole of the property, and it is the one place in this file
+    /// where the answer must not depend on cryptography working.
+    /// </para>
+    ///
+    /// <para>
+    /// 17 is in the list on purpose: it is unassigned today and may not be
+    /// tomorrow. If IANA assigns it and Hermod implements it, this case fails and
+    /// asks to be moved to the matrix above, which is the right way round.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4034 App. A.1")]
+    [TestCase((Byte)   0, TestName = "0, reserved")]
+    [TestCase((Byte)   2, TestName = "2, Diffie-Hellman, not a signature algorithm")]
+    [TestCase((Byte)   4, TestName = "4, reserved")]
+    [TestCase((Byte)   9, TestName = "9, reserved")]
+    [TestCase((Byte)  11, TestName = "11, reserved")]
+    [TestCase((Byte)  17, TestName = "17, unassigned")]
+    [TestCase((Byte) 100, TestName = "100, unassigned")]
+    [TestCase((Byte) 253, TestName = "253, private algorithm")]
+    [TestCase((Byte) 254, TestName = "254, private OID")]
+    [TestCase((Byte) 255, TestName = "255, reserved")]
+    public void A_Number_No_Algorithm_Is_Assigned_To_Does_Not_Verify(Byte Algorithm)
+    {
+
+        using var rsa = RSA.Create(2048);
+
+        var (publicKey, data, signature) = RsaSha256Material(rsa);
+
+        Assert.That(DNSSECValidator.VerifySignature(Algorithm, publicKey, data, signature),
+                    Is.False,
+                    "a number nothing is assigned to cannot be a way to have a signature accepted");
+
+    }
+
+    #endregion
 
     #region Zone_Is_Signed_With_The_Expected_Algorithm(...)
 

@@ -463,6 +463,15 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {960, 963, 971, 972},
     },
 
+    # RFC 8624 section 3.1's DNSSEC Validation column, which is the half of that
+    # table the suite had never read: 1 (RSAMD5), 3 (DSA) and 6 (DSA-NSEC3-SHA1)
+    # are MUST NOT, and the numbers IANA has assigned nothing to are nothing at
+    # all. The default arm of the algorithm switch answering true would let an
+    # attacker choose the number and have any octets accepted as a signature.
+    "algorithm-numbers": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {1042},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {

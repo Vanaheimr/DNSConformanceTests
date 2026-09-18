@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **44 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **43 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,55 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### The other column of the table
+
+One line, and the suite had read half of RFC 8624 §3.1 to get there.
+
+```csharp
+// Unknown algorithm
+_  => false
+```
+
+`SignatureAlgorithmMatrixTests` takes every algorithm that table asks a validator
+to implement and drives it against a zone BIND signed with it. That is the
+**DNSSEC Signing** column and the implemented half of **DNSSEC Validation**. The
+same table has rows whose validation column reads **MUST NOT** — 1 (RSAMD5),
+3 (DSA), 6 (DSA-NSEC3-SHA1) — and beyond the table are the numbers IANA has
+assigned nothing to, including the two private-use ranges of RFC 4034 Appendix
+A.1.
+
+Nothing watched the arm that answers for all of them. Flipped to `true`, **the
+attacker picks the number**: a signature under algorithm 100 is any octets at all,
+and they verify.
+
+The construction is the sharp one, because "returns false" is also what a broken
+verifier returns. The key, the data and the signature are the same three in the
+control and in the case, and the signature genuinely verifies under the number it
+was made with. Only the number changes. RSAMD5 makes the point best: it carries
+its key in the same RFC 3110 form as RSASHA256, so there is not even an encoding
+to hide behind — the refusal is the number being forbidden and nothing else.
+
+**Which verdict a forbidden algorithm earns is a question the RFCs leave open**,
+and the test says so rather than settling it. Hermod answers Bogus, because
+`ValidateRRSig` returns Bogus for "did not verify" and this arrives as a failure
+to verify. There is a reading that says Insecure, and it is not a weak one: RFC
+6840 §5.2 requires a DS of an unusable algorithm to be disregarded and the
+delegation "treated as if it were unsigned", RFC 8624's own introduction says
+"the effect of using an unknown DNSKEY algorithm is that the zone is treated as
+insecure", and **Hermod already applies exactly that reasoning one layer down**,
+in `HasUsableDelegationSigner`, with a comment about the day a child moves to an
+algorithm this code has not learned yet being "precisely when the answer must not
+be an outage".
+
+Neither RFC states the rule for an RRSIG, so the assertion is deliberately loose
+— not Secure, without naming which of the other three — and the reasoning is
+written into the test rather than into a finding. A validator answering Bogus
+where Insecure was meant takes a zone off the internet for its users; that is
+worth recording, and it is not worth claiming as a deviation from a rule nobody
+wrote.
+
+---
 
 ### A step the suite never had to take
 

@@ -44,3 +44,4 @@ DNS/DNSSEC/DNSSECValidator.cs	963	equality-to-inequality	killed	chain-walk
 DNS/DNSSEC/DNSSECValidator.cs	971	logical-and-to-or	killed	chain-walk	
 DNS/DNSSEC/DNSSECValidator.cs	971	equality-to-inequality	killed	chain-walk	
 DNS/DNSSEC/DNSSECValidator.cs	972	equality-to-inequality	killed	chain-walk	
+DNS/DNSSEC/DNSSECValidator.cs	1042	false-to-true	killed	algorithm-numbers	
