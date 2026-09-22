@@ -329,6 +329,109 @@ public class ChainValidationTests
 
     #endregion
 
+    #region A_Negative_Answer_Is_Only_Checked_Against_What_Was_Asked()
+
+    /// <summary>
+    /// The answer section of a negative response is empty by definition, so the
+    /// validator has to decide, before it has seen a signature, whether to look
+    /// in the authority section instead. Two things have to hold: a proof has to
+    /// be there, and the question has to be known — because a proof is a
+    /// statement about one name and one type, and there is nothing to check it
+    /// against otherwise.
+    ///
+    /// <para>
+    /// Either condition alone is not enough, and the two ways of getting that
+    /// wrong fail differently. Without a question, the denial path has no name to
+    /// verify and the records prove nothing that can be checked. Without records,
+    /// there is no proof to check at all, and the answer is unsigned or stripped
+    /// depending on the anchors — which is the decision one branch further down,
+    /// not this one.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4035 §5.4")]
+    public async Task A_Negative_Answer_Is_Only_Checked_Against_What_Was_Asked()
+    {
+
+        var validator = new DNSSECValidator(new StubDnsClient());
+
+        var withProof = new DNSInfo(Origin, 0, true, false, true, false,
+                                    DNSResponseCodes.NameError,
+                                    [],
+                                    [new NSEC(DomainName.Parse("b.example."),
+                                              DNSQueryClasses.IN,
+                                              TimeSpan.FromHours(1),
+                                              DomainName.Parse("d.example."),
+                                              [])],
+                                    [],
+                                    true, false, TimeSpan.FromSeconds(5), TimeSpan.Zero);
+
+        var noProof   = new DNSInfo(Origin, 0, true, false, true, false,
+                                    DNSResponseCodes.NameError,
+                                    [], [], [],
+                                    true, false, TimeSpan.FromSeconds(5), TimeSpan.Zero);
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await validator.ValidateAsync(withProof, Question: null),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "records that deny a name nobody named cannot be checked against anything");
+
+            Assert.That(await validator.ValidateAsync(noProof,
+                                                      (DomainName.Parse("c.example."), DNSResourceRecordTypes.A)),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "and a question with no proof beside it is an unsigned zone, not a broken one");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Signature_Covers_One_Rrset_And_Not_Every_Record_Of_Its_Type()
+
+    /// <summary>
+    /// RFC 4034 §3: an RRSIG covers "the RRset" — one owner name and one type
+    /// together. Gathering by type alone folds every record of that type in the
+    /// message into the signed data, and the signature then fails over octets its
+    /// signer never saw.
+    ///
+    /// <para>
+    /// The consequence is not a theoretical one. An attacker who can add a record
+    /// to an answer cannot forge a signature, but under that reading they would
+    /// not need to: adding one unsigned A record beside a signed one would make
+    /// the genuine answer fail to validate, which is a denial of service against
+    /// every signed name.
+    /// </para>
+    ///
+    /// <para>
+    /// The intruder here carries no signature of its own, which is left alone on
+    /// purpose — the validator checks the signatures it is given rather than
+    /// demanding one per record, and that is a separate question from this one.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4034 §3")]
+    public async Task A_Signature_Covers_One_Rrset_And_Not_Every_Record_Of_Its_Type()
+    {
+
+        var (rrset, signature) = SignedA();
+
+        var intruder  = new A(DomainName.Parse("b.dnssec.test"),
+                              DNSQueryClasses.IN,
+                              TimeSpan.FromHours(1),
+                              IPv4Address.Parse("192.0.2.66"));
+
+        var validator = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
+
+        Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, intruder, signature])),
+                    Is.EqualTo(DNSSECValidationResult.Secure),
+                    "another name's record of the same type is not part of this RRset");
+
+    }
+
+    #endregion
+
     #region The_Validity_Window_Includes_Both_Of_Its_Own_Seconds()
 
     /// <summary>

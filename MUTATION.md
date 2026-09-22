@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **23 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **15 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,70 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### Two readings that fail in opposite directions
+
+What was left of the validator once the chain, the denial path and the probe had
+been taken: the anchor set, the RRset an RRSIG covers, and the arithmetic above
+the root.
+
+**The anchor set is two public lines and one private predicate**, and between
+them they decide whether a name is inside the island of trust at all. That
+decision is what turns a missing signature into a verdict: RFC 4035 §4.3
+separates Bogus from Insecure, and the separation is not about the answer but
+about whether the resolver had grounds to expect a signature. An answer with no
+proof from a zone under an anchor is what stripping the records looks like; the
+same message from outside every anchor is an unsigned zone going about its
+business.
+
+`CoveredByATrustAnchor` had two mutations, and **they fail in opposite
+directions**:
+
+```csharp
+return anchorName.Length == 0 ||
+       name.Equals  (anchorName, ...) ||
+       name.EndsWith("." + anchorName, ...);
+```
+
+Inverting the first test makes **every** name covered by any anchor at all, so
+every unsigned zone becomes a forgery. Turning the first `||` into an `&&` makes
+a **root anchor cover nothing** — and the root anchor is the one a resolver
+actually ships with. The empty name there is not a name that fails to match; it
+is the one that matches all of them. Three anchor sets and the same empty answer
+pin all of it, including the "at or above" that has to include "at": an anchor
+for exactly the queried name covers it, and a validator looking only for a strict
+suffix would stop trusting the very zone it was handed an anchor for.
+
+The removal API is the same identity rule one place further out. RFC 4034 §5.1's
+"not a unique identifier" is why every lookup in this library matches on tag
+*and* algorithm, and `RemoveTrustAnchor` is where a caller asks for that match by
+hand. Matching on either half would retire one key by removing every anchor that
+shares its algorithm — for a resolver holding the root's current and incoming
+keys, the whole store.
+
+**An RRSIG covers one RRset**, which RFC 4034 §3 means as one owner name and one
+type together. Gathered by type alone, every record of that type in the message
+joins the signed data and the signature fails over octets its signer never saw.
+The consequence is not theoretical: an attacker who cannot forge a signature
+would not need to, because adding one unsigned A record beside a signed one would
+make the genuine answer fail to validate.
+
+**And the root has no parent.** The walk asks each parent for the current zone's
+DS, and above the root there is nobody to ask, so a chain that climbs all the way
+up without meeting a configured anchor has ended and ended in failure. Read as
+its own parent, the root does not send the walk into a loop — the depth limit
+never comes into it. It asks the root for the root's own DS, gets no answer, and
+reports the delegation unsigned, turning "this chain reaches no anchor I hold"
+into "this zone is not signed". Three zones are needed to show it, because the
+walk has to take the step twice.
+
+**One more equivalent, and it is the line directly below the one just closed.**
+`dotIndex < 0` answers `"."` for a zone of one label; `<=` would also answer it
+when the first dot is at index 0. The string being tested is `Zone.TrimEnd('.')`,
+and a name beginning with a dot has an empty leading label — which a
+`DomainName` cannot hold and which trimming the other end cannot produce.
+
+---
 
 ### The reasoning around a span, rather than the span itself
 

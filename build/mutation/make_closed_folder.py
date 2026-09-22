@@ -502,9 +502,36 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DenialOfExistence.cs": {118, 119, 212, 218, 308},
     },
 
+    # What was left of the validator once the chain, the denial path and the probe
+    # were done. 357 is the manual removal API, which has to mean the same by "this
+    # key" as every other lookup does - tag and algorithm together, or retiring one
+    # key takes every anchor sharing its algorithm. 523 is what the anchor set is
+    # taken to cover, and its two mutations fail in opposite directions: one makes
+    # every name covered, the other makes a root anchor cover nothing, which is the
+    # one anchor a resolver actually ships with. 407 is the pair of conditions for
+    # entering the denial path at all - there has to be a proof, and there has to
+    # be a question to check it against. 442 is the RRset an RRSIG covers, one
+    # owner name and one type rather than every record of that type in the message.
+    # 1254 is the root having no parent: read otherwise, the walk asks the root for
+    # its own delegation and calls the chain unsigned rather than broken.
+    "validator-rest": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {357, 407, 442, 523, 1254},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {
+
+    "DNS/DNSSEC/DNSSECValidator.cs": {
+
+        1259: "dotIndex < 0 in GetParentZone, which answers '.' for a zone of one label. "
+              "The two readings differ only when the first dot is at index 0, and the "
+              "string tested is Zone.TrimEnd('.') - a name that begins with a dot has an "
+              "empty leading label, which DomainName cannot hold and trimming the other "
+              "end cannot produce. The line above it, which the same round closed, is "
+              "what stops the root before this is reached at all",
+
+    },
 
     "DNS/DNSSEC/DNSSECZoneSigner.cs": {
 

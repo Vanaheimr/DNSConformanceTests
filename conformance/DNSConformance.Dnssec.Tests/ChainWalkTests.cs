@@ -142,6 +142,31 @@ public class ChainWalkTests
                Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
                Answer("test",        DNSResourceRecordTypes.DNSKEY, ParentDnskeyAnswer);
 
+    /// <summary>A key of the root zone, for the step above the parent.</summary>
+    private static DNSKEY RootKey(Byte Filler)
+        => new (DomainName.ParseLenient("."),
+                DNSQueryClasses.IN,
+                TimeSpan.FromDays(1),
+                (UInt16) (ZoneKey | SEP),
+                3,
+                RSASHA256,
+                [.. Enumerable.Repeat(Filler, 64)]);
+
+    /// <summary>The root's signature over its own DNSKEY RRset.</summary>
+    private static RRSIG RootSignatureNaming(DNSKEY Key)
+        => new (DomainName.ParseLenient("."),
+                DNSQueryClasses.IN,
+                TimeSpan.FromDays(1),
+                DNSResourceRecordTypes.DNSKEY,
+                Key.Algorithm,
+                0,
+                86400,
+                (UInt32) DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds(),
+                (UInt32) DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds(),
+                DNSSECValidator.ComputeKeyTag(Key),
+                DomainName.ParseLenient("."),
+                [.. Enumerable.Repeat((Byte) 0x5A, 64)]);
+
     private (List<IDNSResourceRecord> RRset, RRSIG Signature) SignedA()
         => (zone.RRset("a.dnssec.test", DNSResourceRecordTypes.A),
             zone.SignatureFor("a.dnssec.test", DNSResourceRecordTypes.A)!);
@@ -158,6 +183,55 @@ public class ChainWalkTests
 
     #endregion
 
+
+    #region The_Root_Has_No_Parent_To_Step_Into()
+
+    /// <summary>
+    /// The walk stops when it runs out of zones. Every step asks the parent for
+    /// the current zone's DS, and above the root there is no parent to ask — so
+    /// a chain that climbs all the way up without meeting a configured anchor has
+    /// ended, and ended in failure.
+    ///
+    /// <para>
+    /// Reading the root as its own parent does not loop forever, which is why the
+    /// depth limit is not what catches it. It asks the root for the root's own DS,
+    /// gets no answer, and reports the delegation unsigned — turning "this chain
+    /// reaches no anchor I hold" into "this zone is not signed", which is the
+    /// difference between refusing an answer and accepting it.
+    /// </para>
+    ///
+    /// <para>
+    /// Three zones are needed to get there, because the walk has to take the step
+    /// twice: out of the fixture into its parent, and out of the parent into the
+    /// root.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task The_Root_Has_No_Parent_To_Step_Into()
+    {
+
+        var parent    = ParentKey(0x55);
+        var root      = RootKey(0x66);
+
+        var resolver  = new StubDnsClient().
+                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
+                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
+                            Answer("test",        DNSResourceRecordTypes.DNSKEY, parent,
+                                                                                 SignatureNaming(parent, DNSResourceRecordTypes.DNSKEY)).
+                            Answer("test",        DNSResourceRecordTypes.DS,     DelegationSignerFor(parent)).
+                            Answer(".",           DNSResourceRecordTypes.DNSKEY, root,
+                                                                                 RootSignatureNaming(root));
+
+        // No anchor anywhere: the chain is signed the whole way up and reaches
+        // nothing this resolver was configured to believe.
+        var result    = await Validate(resolver);
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "the walk ran out of zones rather than asking the root for its own delegation");
+
+    }
+
+    #endregion
 
     #region The_Walk_Crosses_Into_The_Parent_And_Anchors_There()
 
