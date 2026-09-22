@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **15 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,63 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### The three files nothing else had reached
+
+Six gaps in three small files, none of which any other round had gone near, and
+the last of the block that a test can take.
+
+**A DNSKEY's RDATA is a public key.** RFC 4034 §2.1 says so, and every reader of
+one holds nothing else: a validator learns keys off the wire and never sees a
+private half. Asking a key object for its private parameters is not a milder
+request that merely returns more — a key that has only the public half refuses
+it outright. So an encoder written that way works perfectly in the signer's own
+process, where the key was just generated, and throws in **every validator that
+ever reads a DNSKEY back**. Two lines, one for RSA and one for ECDSA, and the
+test strips both keys to their public parameters and asserts the encoding is
+unchanged.
+
+**RFC 3110 §2's exponent length has a boundary nobody reaches.** One octet when
+it fits, otherwise a zero octet and a two-octet length — so 255 octets is the
+last exponent written the short way. Real keys use 65537, three octets, which is
+why the comment beside the code already said the long form "is exactly why
+implementations get it wrong".
+
+Getting there needed a key object that holds parameters and nothing else. Windows
+CNG refuses to import a 255-octet exponent at all — *Unknown error
+(0xc1000001)* — and it is right to refuse, because no such key is usable. But
+the question is what the **encoder** writes when handed one, and §2 answers that
+whether or not a platform will hold the key. A four-line `RSA` subclass returns
+the parameters it was given and refuses the private half, which reaches the
+boundary and, as a by-product, is also a key with no private half at all.
+
+**Two names carry a labels field of zero** (RFC 4034 §3.1.3 counts neither the
+root's null label nor a leading asterisk): the root apex, which has no labels,
+and a name synthesised from the root zone's own wildcard `*.`, whose asterisk is
+the one label there was. RFC 4035 §5.3.2 reconstructs the signed name from that
+count, and the two must not be reconstructed the same way — one is signed under
+its own name and the other under `*.`. A reconstruction that confused them would
+hand the verifier octets the signer never hashed, and would do it only for the
+root zone, which is the one zone every validator has an anchor for.
+
+**The canonical comparison runs out of octets on exactly two inputs**: when one
+RDATA is a prefix of another, and when two are equal. RFC 4034 §6.3 puts the
+shorter first and calls the equal pair equal, and those are the only two cases
+where the loop reaches its bound rather than returning early — so a bound one
+step too far reads off the end of the array there and nowhere else. Both
+functions are public and pure, and neither had a test of its own: they were
+reached only through a signature that verified or did not, which says nothing
+about why.
+
+**And a CDS RRset of two records is a rollover, not a contradiction.** RFC 8078
+§4's delete signal is one record and nothing beside it, which is why a sentinel
+standing next to ordinary records is refused — but the refusal has to be about
+the sentinel and not about the count. §3's algorithm rollover has the child
+publish a DS for the old key and the new one at once, and a parent that read
+"more than one record" as the contradiction would refuse every rollover it was
+asked to make.
+
+---
 
 ### Two readings that fail in opposite directions
 

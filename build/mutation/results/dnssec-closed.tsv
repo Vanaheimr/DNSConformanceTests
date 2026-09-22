@@ -4,15 +4,21 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/DNSSEC/CDSAcceptance.cs	134	greater-to-ge	killed	encoders-and-counts	
+DNS/DNSSEC/DNSSECCanonical.cs	140	logical-and-to-or	killed	encoders-and-counts	
+DNS/DNSSEC/DNSSECSigning.cs	289	false-to-true	killed	encoders-and-counts	
 DNS/DNSSEC/DNSSECSigningKey.cs	64	inequality-to-equality	killed	signer	
 DNS/DNSSEC/DNSSECZoneSigner.cs	34	false-to-true	killed	signer	
 DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	equivalent		nsecs.Length > 0 before handing the records to VerifyNSEC. The line is only reached when there is no NSEC3 either, so the mutation calls VerifyNSEC with an empty array - where the NODATA loop has nothing to iterate and every Records.Any(...) is false, so it returns NotProven. That is the same answer as the line below, which is what runs otherwise
+DNS/DNSSEC/DNSSECSigning.cs	300	le-to-less	killed	encoders-and-counts	
 DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	killed	trust-anchors	
 DNS/DNSSEC/DNSSECZoneSigner.cs	173	equality-to-inequality	killed	signer	
 DNS/DNSSEC/DenialOfExistence.cs	118	logical-and-to-or	killed	denial-proofs	
+DNS/DNSSEC/DNSSECSigning.cs	323	false-to-true	killed	encoders-and-counts	
 DNS/DNSSEC/DNSSECSigningKey.cs	96	false-to-true	killed	signer	
 DNS/DNSSEC/DNSSECZoneSigner.cs	204	false-to-true	killed	signer	
 DNS/DNSSEC/DenialOfExistence.cs	119	logical-and-to-or	killed	denial-proofs	
+DNS/DNSSEC/DNSSECCanonical.cs	200	less-to-less-or-equal	killed	encoders-and-counts	
 DNS/DNSSEC/DNSSECValidator.cs	237	greater-to-ge	killed	trust-anchors	
 DNS/DNSSEC/DNSSECZoneSigner.cs	207	logical-or-to-and	killed	signer	
 DNS/DNSSEC/DenialOfExistence.cs	212	le-to-less	killed	denial-proofs	

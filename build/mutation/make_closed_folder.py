@@ -518,6 +518,24 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {357, 407, 442, 523, 1254},
     },
 
+    # The three files nothing else had reached. 289 and 323 are ExportParameters
+    # (false): a DNSKEY's RDATA is a public key and every reader of one holds
+    # nothing else, so asking for the private half works in the signer's own
+    # process and throws in every validator. 300 is RFC 3110 section 2's boundary,
+    # 255 octets of exponent being the last written the short way - reachable only
+    # through a key object that holds parameters and nothing else, because the
+    # platform's own RSA refuses to import one and is right to. 140 is the two
+    # names that both carry a labels field of zero, the root apex and the root's
+    # own wildcard, which must not be reconstructed the same way. 200 is the
+    # comparison loop's bound, which overruns exactly when one RDATA is a prefix
+    # of another or the two are equal. 134 is RFC 8078 section 3's rollover: two
+    # ordinary CDS records are the expected case, not a contradiction.
+    "encoders-and-counts": {
+        "DNS/DNSSEC/DNSSECSigning.cs":   {289, 300, 323},
+        "DNS/DNSSEC/DNSSECCanonical.cs": {140, 200},
+        "DNS/DNSSEC/CDSAcceptance.cs":   {134},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {

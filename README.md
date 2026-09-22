@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-22): 1438 ✅ · 0 ❌ · 37 skips** — four
+**Current verified status on Windows (2026-09-22): 1443 ✅ · 0 ❌ · 37 skips** — four
 platform-specific, and thirty-three that need a Docker daemon which was not
 running when this was measured. The last measurement that had it up was
 1455 ✅ · 0 ❌ · 4 skips on 2026-09-18, six tests ago.

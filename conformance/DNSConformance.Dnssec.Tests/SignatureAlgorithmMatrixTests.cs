@@ -56,6 +56,127 @@ public class SignatureAlgorithmMatrixTests
     #endregion
 
 
+    #region Encoding_A_Dnskey_Needs_Only_The_Public_Half()
+
+    /// <summary>
+    /// RFC 4034 §2.1: a DNSKEY's RDATA is a public key. Every reader of one holds
+    /// nothing else — a validator learns keys off the wire and never sees a
+    /// private half — so the encoder has to work from the public parameters
+    /// alone.
+    ///
+    /// <para>
+    /// Asking a key object for its private parameters is not a milder request
+    /// that merely returns more: a key that has only the public half refuses it
+    /// outright. An encoder written that way works perfectly in the signer's own
+    /// process, where the key was just generated, and throws in every validator
+    /// that ever reads a DNSKEY back.
+    /// </para>
+    ///
+    /// <para>
+    /// The keys here are stripped by exporting their public parameters and
+    /// importing those into a fresh object, which is what a key read off the wire
+    /// amounts to. The encoding is asserted to be the same as the full key's,
+    /// because the point is that the private half was never needed.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4034 §2.1")]
+    public void Encoding_A_Dnskey_Needs_Only_The_Public_Half()
+    {
+
+        using var rsa          = RSA.Create(2048);
+        using var rsaPublic    = RSA.Create();
+        rsaPublic.ImportParameters(rsa.ExportParameters(false));
+
+        using var ecdsa        = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var ecdsaPublic  = ECDsa.Create(ecdsa.ExportParameters(false));
+
+        Assert.Multiple(() => {
+
+            Assert.That(DNSSECSigning.EncodePublicKey(8, rsaPublic),
+                        Is.EqualTo(DNSSECSigning.EncodePublicKey(8, rsa)).AsCollection,
+                        "RFC 3110's exponent and modulus are both public");
+
+            Assert.That(DNSSECSigning.EncodePublicKey(13, ecdsaPublic),
+                        Is.EqualTo(DNSSECSigning.EncodePublicKey(13, ecdsa)).AsCollection,
+                        "and RFC 6605's curve point is the public point");
+
+        });
+
+    }
+
+    #endregion
+
+    #region An_Exponent_Of_Exactly_255_Octets_Uses_The_Short_Form()
+
+    /// <summary>
+    /// A key that holds nothing but the parameters it was handed. Windows CNG
+    /// refuses to import a 255-octet exponent outright — "Unknown error
+    /// (0xc1000001)" — and it is right to: no such key is usable. But the
+    /// question here is what the *encoder* writes when it is given one, and RFC
+    /// 3110 §2 answers that whether or not a platform will hold the key.
+    /// </summary>
+    private sealed class ParametersOnlyRsa(RSAParameters Parameters) : RSA
+    {
+        public override RSAParameters ExportParameters(Boolean IncludePrivateParameters)
+            => IncludePrivateParameters
+                   ? throw new CryptographicException("This key holds only its public half.")
+                   : Parameters;
+
+        public override void ImportParameters(RSAParameters Parameters)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// RFC 3110 §2: the exponent length is "one octet" when it fits in one, and
+    /// otherwise "a zero octet followed by a two octet" length. One octet holds
+    /// 255, so an exponent of exactly 255 octets is the last one written the
+    /// short way — and the first place an implementation gets it wrong.
+    ///
+    /// <para>
+    /// No real key is anywhere near it: the exponent is almost always 65537,
+    /// three octets, which is why the boundary goes unexercised and why the
+    /// comment beside the code says as much. Reaching it takes a key object that
+    /// holds parameters and nothing else, because the platform's own RSA refuses
+    /// to import one — and refusing is the correct thing for it to do. What is
+    /// under test is the encoding rule, not the key.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "3110 §2")]
+    public void An_Exponent_Of_Exactly_255_Octets_Uses_The_Short_Form()
+    {
+
+        var exponent       = new Byte[255];
+        exponent[0]        = 0x01;
+        exponent[^1]       = 0x01;
+
+        var modulus        = new Byte[256];
+        modulus[0]         = 0xC0;
+        modulus[^1]        = 0x01;
+
+        using var wide     = new ParametersOnlyRsa(new RSAParameters { Modulus = modulus, Exponent = exponent });
+        using var ordinary = RSA.Create(2048);
+
+        var encoded        = DNSSECSigning.EncodePublicKey(8, wide);
+
+        Assert.Multiple(() => {
+
+            Assert.That(encoded[0], Is.EqualTo((Byte) 255),
+                        "255 octets still fit in the one-octet form, which is the form §2 says to use");
+
+            Assert.That(encoded, Has.Length.EqualTo(1 + 255 + 256),
+                        "so there is no zero octet and no two-octet length in front of them");
+
+            Assert.That(DNSSECSigning.EncodePublicKey(8, ordinary)[0], Is.EqualTo((Byte) 3),
+                        "the control: an ordinary exponent of 65537 is three octets, written the same way");
+
+        });
+
+    }
+
+    #endregion
+
     #region The algorithm number is a decision, not a label
 
     /// <summary>

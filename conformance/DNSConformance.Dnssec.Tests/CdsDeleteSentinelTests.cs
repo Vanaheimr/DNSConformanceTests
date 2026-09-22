@@ -316,6 +316,47 @@ public class CdsDeleteSentinelTests
                 [1, 2, 3]);
 
 
+    #region A_Cds_Rrset_Of_Several_Records_Is_Not_A_Delete_Signal()
+
+    /// <summary>
+    /// RFC 8078 §4's delete signal is "a single CDS record" and nothing beside
+    /// it, which is why a sentinel standing next to ordinary records is refused.
+    /// The refusal has to be about the sentinel, though, and not about the count.
+    ///
+    /// <para>
+    /// A child publishing two CDS records is the ordinary case, not the odd one:
+    /// RFC 8078 §3's algorithm rollover has the child publish a DS for the old
+    /// key and the new one at the same time, and the parent is expected to
+    /// install both. A parent that read "more than one record" as the
+    /// contradiction would refuse every rollover it was asked to make.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "8078 §3")]
+    public void A_Cds_Rrset_Of_Several_Records_Is_Not_A_Delete_Signal()
+    {
+
+        var (key, ds) = TrustedKeyPair();
+
+        var first     = new CDS(Child, DNSQueryClasses.IN, Ttl, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest);
+        var second    = new CDS(Child, DNSQueryClasses.IN, Ttl, (UInt16) (ds.KeyTag + 1), ds.Algorithm, ds.DigestType,
+                                [.. ds.Digest.Select(b => (Byte) (b ^ 0x5A))]);
+
+        Assert.Multiple(() => {
+
+            Assert.That(first.IsDeleteSentinel,  Is.False, "neither record is the sentinel");
+            Assert.That(second.IsDeleteSentinel, Is.False);
+
+            Assert.That(CDSAcceptance.Evaluate(Child, [ first, second ], [ SignatureBy(key) ], [ key ], [ ds ]),
+                        Is.EqualTo(CDSAcceptanceResult.Accepted),
+                        "two ordinary CDS records are a rollover, not a contradiction");
+
+        });
+
+    }
+
+    #endregion
+
     #region A_Sentinel_Signed_By_A_Trusted_Key_Is_Accepted()
 
     [Test]
