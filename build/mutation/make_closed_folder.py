@@ -488,6 +488,20 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECSigningKey.cs":  {64, 96},
     },
 
+    # RFC 5155 section 8.2 and RFC 4035 section 5.4: the reasoning around a span
+    # rather than the span itself. 118 and 119 are the parameter set a record has
+    # to share to be part of this chain at all - a zone mid re-signing publishes
+    # two, and a record of the old one is hashed by a different function. 308 is
+    # the difference between "no hash" and "the empty hash", which read the second
+    # way makes one record cover every name in the zone. 218 is the second half of
+    # an NXDOMAIN proof, without which a covered name may still be answerable by a
+    # wildcard. 212 is the walk that looks for that wildcard reaching the root: a
+    # one-label query has exactly one wildcard to deny and it is the root's own,
+    # so a walk one step short can never prove a TLD absent.
+    "denial-proofs": {
+        "DNS/DNSSEC/DenialOfExistence.cs": {118, 119, 212, 218, 308},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {
@@ -508,6 +522,20 @@ DNSSEC_EQUIVALENT = {
     },
 
     "DNS/DNSSEC/DenialOfExistence.cs": {
+
+        97:  "nsecs.Length > 0 before handing the records to VerifyNSEC. The line is only "
+             "reached when there is no NSEC3 either, so the mutation calls VerifyNSEC with "
+             "an empty array - where the NODATA loop has nothing to iterate and every "
+             "Records.Any(...) is false, so it returns NotProven. That is the same answer "
+             "as the line below, which is what runs otherwise",
+
+        334: "Left[i] < Right[i] ? -1 : 1, which sits inside if (Left[i] != Right[i]). The "
+             "two readings differ only when the two octets are equal, and the guard one "
+             "line above is exactly the statement that they are not. The same shape as 401 "
+             "below, in the hash domain instead of the name domain",
+
+        401: "comparison < 0 ? -1 : 1, inside if (comparison != 0). The same argument as "
+             "334: the value that separates < from <= is the one the guard above excludes",
 
         278: "CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and "
              "the same argument as 353 below, which is the point of listing both. A name whose "

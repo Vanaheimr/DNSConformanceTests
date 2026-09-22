@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **31 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **23 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,63 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### The reasoning around a span, rather than the span itself
+
+Two earlier rounds took the arithmetic of a single record: strictly above the
+owner, strictly below the next, and the last record of a chain wrapping. What was
+left is everything around it — which records may be put together into one proof,
+and how many names a proof has to deny before it is one.
+
+**Which records.** RFC 5155 §8.2: a validator "MUST ignore NSEC3 RRs with ...
+different values" for hash algorithm, iterations or salt. A zone being re-signed
+publishes two chains at once, and a record of the old one is hashed by a
+different function — its spans are about a different space. The decoy that shows
+this is the shape that matters: **its owner name is the hash of the queried name
+under the reference record's salt**, so it looks like a match, while its own salt
+field says it was computed under another. One decoy kills both halves of the
+comparison, because it shares the algorithm and the iteration count and differs
+only in the salt.
+
+**And what counts as a record at all.** An NSEC3's owner name is the base32hex of
+a hash (RFC 5155 §3); a record whose leftmost label is missing carries none.
+`Base32HexDecode("")` answers with an empty array rather than refusing, so "no
+hash" and "the empty hash" are one keystroke apart — and the empty hash is the
+lowest value there is. A record reaching from it to the highest covers the whole
+space: **one record proving the absence of every name in the zone.**
+
+**How many names.** RFC 4035 §5.4 makes an NXDOMAIN proof two statements. The
+first says the name is not in the zone; the second says no wildcard could have
+synthesised it. A validator that stopped after the first would refuse answers the
+zone is willing to give, and one that accepted any record at all as the second —
+which is what inverting the wildcard match does — would prove NXDOMAIN from half
+the evidence.
+
+**The last one is the one worth having for its own sake.** The walk that looks
+for the wildcard climbs from the queried name towards the root, and its bound is
+`skip <= labels.Length`. Shortened to `<`, a **one-label query runs no iterations
+at all** — and a one-label query is a top-level domain. The root zone's NXDOMAIN
+is the most-answered negative response there is, and its wildcard is the root's
+own `*.`, reached at the first step of the walk and only there. So the test for
+that bound is not a boundary exercise; it is "a TLD that does not exist is denied
+by the root", which any resolver does thousands of times a day.
+
+**Three gaps here are equivalent, and all three arguments are one line.**
+
+```csharp
+if (Left[i] != Right[i])
+    return Left[i] < Right[i] ? -1 : 1;
+```
+
+The value that separates `<` from `<=` is exactly the one the guard above
+excludes — twice, once in the hash domain and once in the name domain, the same
+two comparison helpers that have now produced a killed mutant and an equivalent
+one apiece. The third is `nsecs.Length > 0`, which is reached only when there is
+no NSEC3 either: widened, it hands `VerifyNSEC` an empty array, where the NODATA
+loop has nothing to iterate and every `Any(...)` is false. It returns NotProven,
+which is the answer the next line gives anyway.
+
+---
 
 ### The zone where the records are not the zone's
 
