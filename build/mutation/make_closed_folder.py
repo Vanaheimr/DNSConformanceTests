@@ -472,9 +472,40 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {1042},
     },
 
+    # RFC 4035 section 2.2 at a delegation, and RFC 4034 section 2.1.1 above it.
+    # A delegation is the one place where the records present are not the zone's
+    # own: the NS RRset is authoritative in the child and the glue is a copy of
+    # the child's addresses, so neither is signed here, while the DS and the
+    # denial record at the delegation point are the parent's and are. Every
+    # existing test of the signer ran against a zone with no delegations in it.
+    # The key half is the same story one level up: the SEP bit is the whole of
+    # the two roles, it decides which key signs the DNSKEY RRset (RFC 4035
+    # section 5.2, because that is the key a DS covers), and every other test
+    # generated its key with KeySigningKey: true and stopped there. 34 is opt-out
+    # as a default rather than a choice.
+    "signer": {
+        "DNS/DNSSEC/DNSSECZoneSigner.cs":  {34, 173, 204, 207, 208, 238},
+        "DNS/DNSSEC/DNSSECSigningKey.cs":  {64, 96},
+    },
+
 }
 
 DNSSEC_EQUIVALENT = {
+
+    "DNS/DNSSEC/DNSSECZoneSigner.cs": {
+
+        381: "the belt in front of the empty-non-terminal walk, whose every escape the "
+             "braces two lines below already catch. All three mutations of it were run "
+             "and all three survived, and the argument is that they must. dot <= 0 "
+             "differs only for a name beginning with a dot, which a DomainName cannot "
+             "hold and which stripping a label cannot produce. The other two let the "
+             "walk take one more step, and that step either leaves the name unchanged "
+             "(no dot) or empties it (the dot is last) - after which the very next "
+             "line, name == Apex or name not ending in '.' + Apex, breaks before "
+             "owners.Add is reached. The set of empty non-terminals is the same under "
+             "all three readings",
+
+    },
 
     "DNS/DNSSEC/DenialOfExistence.cs": {
 

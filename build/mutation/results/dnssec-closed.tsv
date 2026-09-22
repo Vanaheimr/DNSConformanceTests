@@ -4,18 +4,30 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/DNSSEC/DNSSECSigningKey.cs	64	inequality-to-equality	killed	signer	
+DNS/DNSSEC/DNSSECZoneSigner.cs	34	false-to-true	killed	signer	
 DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	173	equality-to-inequality	killed	signer	
+DNS/DNSSEC/DNSSECSigningKey.cs	96	false-to-true	killed	signer	
+DNS/DNSSEC/DNSSECZoneSigner.cs	204	false-to-true	killed	signer	
 DNS/DNSSEC/DNSSECValidator.cs	237	greater-to-ge	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	207	logical-or-to-and	killed	signer	
 DNS/DNSSEC/DNSSECValidator.cs	238	true-to-false	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	207	equality-to-inequality	killed	signer	
 DNS/DNSSEC/DNSSECValidator.cs	259	logical-and-to-or	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	208	equality-to-inequality	killed	signer	
 DNS/DNSSEC/DenialOfExistence.cs	278	greater-to-ge	equivalent		CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and the same argument as 353 below, which is the point of listing both. A name whose hash equals an owner matches that record, and VerifyNSEC3 looks for a match before it looks for a cover, at the queried name and again at every ancestor on the way up. Nothing can be handed to FindCover whose hash equals an owner in the set
 DNS/DNSSEC/DNSSECValidator.cs	259	equality-to-inequality	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	238	equality-to-inequality	killed	signer	
 DNS/DNSSEC/DenialOfExistence.cs	279	less-to-less-or-equal	killed	nsec3-coverage	
 DNS/DNSSEC/DNSSECValidator.cs	260	equality-to-inequality	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	381	logical-or-to-and	equivalent		the belt in front of the empty-non-terminal walk, whose every escape the braces two lines below already catch. All three mutations of it were run and all three survived, and the argument is that they must. dot <= 0 differs only for a name beginning with a dot, which a DomainName cannot hold and which stripping a label cannot produce. The other two let the walk take one more step, and that step either leaves the name unchanged (no dot) or empties it (the dot is last) - after which the very next line, name == Apex or name not ending in '.' + Apex, breaks before owners.Add is reached. The set of empty non-terminals is the same under all three readings
 DNS/DNSSEC/DenialOfExistence.cs	284	ge-to-greater	killed	nsec3-coverage	
 DNS/DNSSEC/DNSSECValidator.cs	293	ge-to-greater	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	381	less-to-less-or-equal	equivalent		the belt in front of the empty-non-terminal walk, whose every escape the braces two lines below already catch. All three mutations of it were run and all three survived, and the argument is that they must. dot <= 0 differs only for a name beginning with a dot, which a DomainName cannot hold and which stripping a label cannot produce. The other two let the walk take one more step, and that step either leaves the name unchanged (no dot) or empties it (the dot is last) - after which the very next line, name == Apex or name not ending in '.' + Apex, breaks before owners.Add is reached. The set of empty non-terminals is the same under all three readings
 DNS/DNSSEC/DenialOfExistence.cs	286	logical-or-to-and	killed	nsec3-coverage	
 DNS/DNSSEC/DNSSECValidator.cs	297	true-to-false	killed	trust-anchors	
+DNS/DNSSEC/DNSSECZoneSigner.cs	381	ge-to-greater	equivalent		the belt in front of the empty-non-terminal walk, whose every escape the braces two lines below already catch. All three mutations of it were run and all three survived, and the argument is that they must. dot <= 0 differs only for a name beginning with a dot, which a DomainName cannot hold and which stripping a label cannot produce. The other two let the walk take one more step, and that step either leaves the name unchanged (no dot) or empties it (the dot is last) - after which the very next line, name == Apex or name not ending in '.' + Apex, breaks before owners.Add is reached. The set of empty non-terminals is the same under all three readings
 DNS/DNSSEC/DenialOfExistence.cs	287	logical-and-to-or	killed	nsec3-coverage	
 DNS/DNSSEC/DNSSECValidator.cs	326	false-to-true	killed	trust-anchors	
 DNS/DNSSEC/DenialOfExistence.cs	332	less-to-less-or-equal	killed	nsec3-coverage	

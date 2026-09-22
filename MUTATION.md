@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **43 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **31 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | not measured |
@@ -133,6 +133,72 @@ rewritten is not a measurement any more.
 ---
 
 
+
+### The zone where the records are not the zone's
+
+Every test the suite had of the signer ran against a zone with no delegations in
+it. `Every_Authoritative_Rrset_Is_Signed` says so in its own failure message
+— "a zone with no delegations" — and that is exactly the shape in which the
+question does not arise.
+
+A delegation is the one place where the records present are not the zone's own
+data. RFC 4035 §2.2 is explicit: an RRSIG **MUST NOT** be generated for a
+delegation's NS RRset or for glue, because the NS RRset is authoritative in the
+*child* and the glue is a copy of the child's addresses kept so the child can be
+reached. The DS is the exception in the other direction — the parent's statement
+about the child's key — and so is the NSEC or NSEC3 at the delegation point,
+which is what proves what the parent does and does not delegate.
+
+Four mutations sat on that one expression, and each of the four is one way for it
+to be wrong: sign the child's NS RRset, sign the glue, stop signing the DS, stop
+signing the denial record. **A signer with any of them produces a zone that looks
+signed.** The one that stops signing the DS breaks every chain of trust through
+the zone; the ones that sign the child's records make signatures the parent has
+no right to make.
+
+All four are asserted in one test, with a control, because separately each would
+also pass against a signer that signed nothing at all.
+
+**And the same story one level up, where a key gets its job.** The two DNSSEC key
+roles are a convention built on one bit: RFC 4034 §2.1.1 puts the Zone Key flag
+at bit 7 and RFC 3757's Secure Entry Point flag at bit 15, which on the wire
+makes a zone-signing key 256 and a key-signing key 257. The consequence is RFC
+4035 §5.2: a validator authenticates the DNSKEY RRset with the DS from the
+parent, and the DS covers the key-signing key — so the DNSKEY RRset has to be
+signed by *that* key or the chain does not close.
+
+Every other test of the signer generated its key with `KeySigningKey: true` and
+stopped there, so the bit's reading, its default, and the split it drives were
+all unwatched. Four more mutations: invert the reading, default to "key-signing",
+swap which key signs what, and drop the fallback for a zone keyed with only one
+of the two roles. That last one is the sharpest — a zone with no key-signing key
+is unusual and legal, and RFC 4035 §2.2's requirement that the apex DNSKEY RRset
+be signed does not soften for it.
+
+The flag test asserts the numbers 256 and 257 rather than the property alone,
+because **a reading of the bit that is inverted in both directions at once is
+self-consistent**: the key would report the role it was asked for while
+publishing the other one to the internet.
+
+**Three gaps in the signer are equivalent, and this time the argument is a
+proof rather than a search.** The walk that enumerates empty non-terminals opens
+with a guard:
+
+```csharp
+if (dot < 0 || dot + 1 >= name.Length)
+    break;
+```
+
+and two lines below it are the ones the comment there calls "belt as well as
+braces". The braces are what make the belt unobservable. `dot <= 0` differs only
+for a name beginning with a dot, which a `DomainName` cannot hold and which
+stripping a label cannot produce. The other two let the walk take one more step,
+and that step either leaves the name unchanged (no dot in it) or empties it (the
+dot is last) — after which `name == Apex`, or `name` not ending in `"." + Apex`,
+breaks before `owners.Add` is reached. The set of empty non-terminals is the same
+under all three readings, and all three were run to confirm it.
+
+---
 
 ### The other column of the table
 
