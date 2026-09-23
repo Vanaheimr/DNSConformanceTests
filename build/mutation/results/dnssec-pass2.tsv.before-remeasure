@@ -5,16 +5,16 @@ DNS/DNSSEC/DNSSECSigningKey.cs	64	inequality-to-equality	SURVIVED-EVERYWHERE
 DNS/DNSSEC/DNSSECValidator.cs	195	false-to-true	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECZoneSigner.cs	34	false-to-true	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 332 failed; measured at cc8323d5, not at this block's sweep revision	0
+DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	SETUP-ERROR	2 mutations of that operator on the line
 DNS/DNSSEC/DNSSECSigning.cs	300	le-to-less	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECSigningKey.cs	84	false-to-true	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECZoneSigner.cs	173	equality-to-inequality	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DenialOfExistence.cs	118	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 332 failed; measured at cc8323d5, not at this block's sweep revision	1
+DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	SETUP-ERROR	2 mutations of that operator on the line
 DNS/DNSSEC/DNSSECSigning.cs	323	false-to-true	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECSigningKey.cs	96	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	233	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 332 failed; measured at cc8323d5, not at this block's sweep revision, where the line is 243	1
+DNS/DNSSEC/DNSSECValidator.cs	233	equality-to-inequality	SETUP-ERROR	2 mutations of that operator on the line
 DNS/DNSSEC/DNSSECZoneSigner.cs	204	false-to-true	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DenialOfExistence.cs	119	logical-and-to-or	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECCanonical.cs	200	less-to-less-or-equal	SURVIVED-EVERYWHERE	
@@ -43,9 +43,9 @@ DNS/DNSSEC/DNSSECValidator.cs	326	false-to-true	SURVIVED-EVERYWHERE
 DNS/DNSSEC/DenialOfExistence.cs	308	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECValidator.cs	357	logical-and-to-or	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DenialOfExistence.cs	332	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 332 failed; measured at cc8323d5, not at this block's sweep revision, where the line is 367	0
+DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	SETUP-ERROR	2 mutations of that operator on the line
 DNS/DNSSEC/DenialOfExistence.cs	334	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 332 failed; measured at cc8323d5, not at this block's sweep revision, where the line is 367	1
+DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	SETUP-ERROR	2 mutations of that operator on the line
 DNS/DNSSEC/DenialOfExistence.cs	353	greater-to-ge	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DNSSECValidator.cs	357	greater-to-ge	SURVIVED-EVERYWHERE	
 DNS/DNSSEC/DenialOfExistence.cs	354	less-to-less-or-equal	SURVIVED-EVERYWHERE	

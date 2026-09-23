@@ -87,6 +87,3 @@ DNS/DNSSEC/DNSSECValidator.cs	972	equality-to-inequality	branch	key.Algorithm   
 DNS/DNSSEC/DNSSECValidator.cs	1042	false-to-true	branch	_  => false
 DNS/DNSSEC/DNSSECValidator.cs	1254	logical-or-to-and	branch	if (String.IsNullOrEmpty(normalized) || normalized == ".")
 DNS/DNSSEC/DNSSECValidator.cs	1259	less-to-less-or-equal	boundary	if (dotIndex < 0)
-DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	unmeasured-refused	if (labels.Length == 1 && labels[0].Length == 0)
-DNS/DNSSEC/DNSSECValidator.cs	233	equality-to-inequality	unmeasured-refused	a => (a.KeyTag == liveKeyTag || a.KeyTag == keyTag) &&
-DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	unmeasured-refused	=> trustAnchors.RemoveAll(a => a.KeyTag == KeyTag && a.Algorithm == Algorithm) > 0;

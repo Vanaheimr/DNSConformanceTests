@@ -85,7 +85,7 @@ DNS/DNSPacket.cs	372	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 2 of 81
 DNS/DNSQuestion.cs	227	logical-and-to-or	SURVIVED-EVERYWHERE	
 DNS/DNSServiceInstanceName.cs	189	false-to-true	SURVIVED-EVERYWHERE	
 DNS/DNSServiceName.cs	184	true-to-false	SURVIVED-EVERYWHERE	
-DNS/DNSZoneFile.cs	270	equality-to-inequality	SURVIVED-EVERYWHERE	measured at cc8323d5, not at this block's sweep revision	0
+DNS/DNSZoneFile.cs	270	equality-to-inequality	SETUP-ERROR	3 mutations of that operator on the line
 DNS/DomainName.cs	372	true-to-false	SURVIVED-EVERYWHERE	
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	SURVIVED-EVERYWHERE	
 DNS/DNSInfo.cs	326	inequality-to-equality	SURVIVED-EVERYWHERE	
@@ -94,7 +94,7 @@ DNS/DNSPacket.cs	381	greater-to-ge	KILLED-ELSEWHERE	WireFormat: 2 of 81 failed
 DNS/DNSQuestion.cs	229	logical-and-to-or	SURVIVED-EVERYWHERE	
 DNS/DNSServiceInstanceName.cs	194	equality-to-inequality	SURVIVED-EVERYWHERE	
 DNS/DNSServiceName.cs	185	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSZoneFile.cs	270	equality-to-inequality	SURVIVED-EVERYWHERE	measured at cc8323d5, not at this block's sweep revision	1
+DNS/DNSZoneFile.cs	270	equality-to-inequality	SETUP-ERROR	3 mutations of that operator on the line
 DNS/DomainName.cs	373	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Helpers/DNSTools.cs	273	equality-to-inequality	KILLED-ELSEWHERE	WireFormat: 1 of 81 failed
 DNS/DNSInfo.cs	331	inequality-to-equality	KILLED-ELSEWHERE	Client: 4 of 89 failed

@@ -45,6 +45,7 @@ DNS/DNSZoneFile.cs	259	false-to-true	equivalent		the initial value of ownerOmitt
 DNS/DNSInfo.cs	323	equality-to-inequality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	259	false-to-true	killed	pattern	
 DNS/DNSQuestion.cs	227	logical-and-to-or	killed	question	
+DNS/DNSZoneFile.cs	270	equality-to-inequality	equivalent		depth == 0 && joined.Length == 0 && line.Trim().Length == 0, the early continue for a blank line - in two of its three readings. The line below it, if (complete.Length > 0) yield return ..., already refuses to emit an empty record, so the continue is a shortcut and not a guard: a blank line that falls past it is appended, produces an empty complete, and is dropped there instead. The only state it skips setting is ownerOmitted and startedAt, and the next line that actually starts a record sets both again, because joined is empty by then. The third reading, which skips NON-blank lines, is the one that fails a test
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	killed	dnstools	
 DNS/DNSInfo.cs	326	inequality-to-equality	killed	dnsinfo	
 DNS/DNSNamePattern.cs	268	false-to-true	killed	pattern	

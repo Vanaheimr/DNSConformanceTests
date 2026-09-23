@@ -1,10 +1,10 @@
-DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	SURVIVED-EVERYWHERE	measured at cc8323d5, not at this block's sweep revision	0
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	SETUP-ERROR	2 mutations of that operator on the line
 DNS/TSIG/SIG0Signer.cs	148	less-to-less-or-equal	SURVIVED-EVERYWHERE	
 DNS/TSIG/SIG0VerificationResult.cs	93	false-to-true	KILLED-ELSEWHERE	Dnssec: 8 of 251 failed
 DNS/TSIG/TKEYExchange.cs	198	false-to-true	SURVIVED-EVERYWHERE	
 DNS/TSIG/TSIGAlgorithms.cs	84	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 251 failed
 DNS/TSIG/TSIGSigner.cs	103	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	SURVIVED-EVERYWHERE	measured at cc8323d5, not at this block's sweep revision	1
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	SETUP-ERROR	2 mutations of that operator on the line
 DNS/TSIG/SIG0Signer.cs	241	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/TSIG/TKEYExchange.cs	204	false-to-true	KILLED-ELSEWHERE	ResourceRecords: 1 of 454 failed
 DNS/TSIG/TSIGAlgorithms.cs	86	logical-or-to-and	SURVIVED-EVERYWHERE	

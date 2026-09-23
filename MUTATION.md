@@ -30,9 +30,9 @@ test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed**, 1 never measured |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed**, 1 never measured |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **63 open**, 1 never measured |
@@ -59,6 +59,83 @@ comparison. The measured figure stays, because it is what was measured.
 
 
 ---
+
+---
+
+## The five that had fallen out
+
+Four blocks had been reported closed while carrying a line that had never been
+answered. The [guards section](#four-ways-to-mistake-the-machine-for-the-code)
+says how they got there: `(file, line, operator)` named more than one mutant,
+pass 2 refused what it could not tell apart, and the triage read only
+`SURVIVED-EVERYWHERE`, so the refusal left no trace at all.
+
+They are measured here at **`cc8323d5`** rather than at the revisions their blocks
+were swept on, because that is where the code is: two have moved and one has been
+rewritten around. The anchor text locates them and is checked on arrival, every
+occurrence of the operator is planted rather than the first, and the bench is four
+projects, because these lines belong to three different blocks and a gap is a gap
+only when nothing anywhere notices.
+
+**Seven of the eleven were already dead.** Not by anything done for them — by
+tests written in the rounds that came *after* the original sweep, for lines
+beside them. `DNSSECCanonical.cs`'s root shortcut, both readings of the revoked
+key's tag comparison, both of `RemoveTrustAnchor`'s: all closed by the
+`encoders-and-counts`, `trust-anchors` and `validator-rest` rounds, and nobody
+knew, because the lines were not in the file those rounds read.
+
+**Three predictions were wrong, all in the same direction.** Two of the canonical
+form's readings and both of the validator's were argued here as probably
+unreachable before the run, on the grounds that only the root or only a
+single-label name could reach them. They were already covered. That is the whole
+case for measuring rather than reasoning, and it is worth more than the four
+predictions that came out.
+
+Of the four that survive:
+
+`DNSZoneFile.cs:270` keeps two of its three readings, and they are equivalent for
+a reason that is visible four lines below them:
+
+```csharp
+if (depth == 0 && joined.Length == 0 && line.Trim().Length == 0)
+    continue;                                  // the shortcut
+...
+if (complete.Length > 0)                       // the guard
+    yield return (complete, ownerOmitted, startedAt);
+```
+
+The second test already refuses to emit an empty record, so the first is a
+shortcut and not a guard: a blank line that falls past it is appended, makes an
+empty `complete`, and is dropped there instead. The only state the shortcut skips
+setting is `ownerOmitted` and `startedAt`, and the next line that actually starts
+a record sets both again, because `joined` is empty by then. The third reading —
+the one that would skip *non-blank* lines — fails twenty-six tests.
+
+`DNSTransactionSecurity.cs:73` keeps both of its readings and stays **open**.
+`IsActive` has no caller: not in Hermod's DNS code, not in this suite. It is
+public API with no consumer, which is the same case as `InMemoryDNSZone.Remove`
+and the five server options — a real mutation in code a black-box conformance
+suite has no standing to judge. So the `tsig` block stops being closed, on one
+line, for a reason written down rather than rounded away.
+
+### A guard that could not see what Python had thrown away
+
+Recording the first of these cost an hour, because the entry went into a second
+`"DNS/DNSZoneFile.cs"` block in a table that already had one. Python keeps the
+last of two identical keys and says nothing, so the entry was gone before
+anything could look at it — and the stray-entry check at the bottom of
+`make_closed_folder.py` cannot help, because it can only test entries that
+survived. Its own comment names this failure as something that had happened
+before.
+
+The file now parses itself before it does anything else, walks every `dict`
+literal and refuses to run on a repeated key. Self-tested by planting one:
+
+```
+the same key appears twice in a ledger table, so Python kept only the last of them:
+  line 142: 'DNS/DNSZoneFile.cs'
+```
+
 
 ## The result: the server
 

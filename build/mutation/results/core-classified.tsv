@@ -71,6 +71,7 @@ DNS/DNSNamePattern.cs	259	false-to-true	rejection	return false;
 DNS/DNSQuestion.cs	227	logical-and-to-or	branch	=> DNSQuestion is not null &&
 DNS/DNSServiceInstanceName.cs	189	false-to-true	noise-attribute	[NotNullWhen(false)] out String?   ErrorResponse)
 DNS/DNSServiceName.cs	184	true-to-false	noise-attribute	[NotNullWhen(true)]  out String[]?   Labels,
+DNS/DNSZoneFile.cs	270	equality-to-inequality	branch	if (depth == 0 && joined.Length == 0 && line.Trim().Length == 0)
 DNS/DomainName.cs	372	true-to-false	noise-attribute	[NotNullWhen(true)]  out DomainName?  DomainName,
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	boundary	if (lengthByte > 63)
 DNS/DNSInfo.cs	326	inequality-to-equality	branch	var RA               = (Byte3 & 0x80) != 0;
@@ -205,4 +206,3 @@ DNS/DNSInfo.cs	577	false-to-true	branch	false,
 DNS/DNSServiceName.cs	561	ge-to-greater	boundary	=> DNSService1.CompareTo(DNSService2) >= 0;
 DNS/DNSServiceName.cs	567	greater-to-ge	noise-region	#region IComparable<DNSService> Members
 DNS/DNSServiceName.cs	606	greater-to-ge	noise-region	#region IEquatable<DNSService> Members
-DNS/DNSZoneFile.cs	270	equality-to-inequality	unmeasured-refused	if (depth == 0 && joined.Length == 0 && line.Trim().Length == 0)

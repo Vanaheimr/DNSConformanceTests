@@ -2,6 +2,7 @@
 # classified against Hermod 53f20591 — the revision the sweep measured.
 # Line numbers move; this file does not.
 # file	line	operator	kind	source
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	branch	=> TSIGKey is not null || SIG0Key is not null || SIG0ServerKeys.Any();
 DNS/TSIG/SIG0Signer.cs	148	less-to-less-or-equal	boundary	if (Message.Length < 12)
 DNS/TSIG/TKEYExchange.cs	198	false-to-true	rejection	return false;
 DNS/TSIG/TSIGSigner.cs	103	less-to-less-or-equal	boundary	if (Message.Length < 12)
@@ -42,4 +43,3 @@ DNS/TSIG/SIG0Signer.cs	456	false-to-true	rejection	return false;
 DNS/TSIG/SIG0Signer.cs	459	equality-to-inequality	branch	DomainName.ParseLenient(owner.Length == 0 ? "." : owner),
 DNS/TSIG/SIG0Signer.cs	475	false-to-true	rejection	return false;
 DNS/TSIG/SIG0Signer.cs	527	greater-to-ge	boundary	if (Request is not null && Request.Length > 0)
-DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	unmeasured-refused	=> TSIGKey is not null || SIG0Key is not null || SIG0ServerKeys.Any();

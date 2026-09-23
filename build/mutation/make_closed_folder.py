@@ -138,6 +138,16 @@ CORE_EQUIVALENT = {
     # the line is not blank.
     "DNS/DNSZoneFile.cs": {
 
+        270: "depth == 0 && joined.Length == 0 && line.Trim().Length == 0, the early "
+             "continue for a blank line - in two of its three readings. The line below it, "
+             "if (complete.Length > 0) yield return ..., already refuses to emit an empty "
+             "record, so the continue is a shortcut and not a guard: a blank line that "
+             "falls past it is appended, produces an empty complete, and is dropped there "
+             "instead. The only state it skips setting is ownerOmitted and startedAt, and "
+             "the next line that actually starts a record sets both again, because joined "
+             "is empty by then. The third reading, which skips NON-blank lines, is the one "
+             "that fails a test",
+
         259:
             "the initial value of ownerOmitted. Every line that is not skipped passes through "
             "the branch that assigns it, and both yields are downstream of that branch, so "
@@ -885,6 +895,36 @@ LEDGERS = {
 }
 
 
+
+def no_duplicate_keys():
+    """A dict literal with the same key twice keeps the last and says nothing.
+
+    That is how a ledger entry disappears: written into a second block for a file
+    the table already had, discarded by Python before anything could check it, and
+    invisible to the stray-entry test below — which can only look at entries that
+    survived. It has now happened twice. Reading this file's own source is the only
+    place the two spellings are still both present.
+    """
+
+    import ast
+
+    tree      = ast.parse(io.open(__file__, encoding="utf-8").read())
+    duplicate = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            seen = set()
+            for key in node.keys:
+                if isinstance(key, ast.Constant):
+                    if key.value in seen:
+                        duplicate.append("line %d: %r" % (key.lineno, key.value))
+                    seen.add(key.value)
+
+    if duplicate:
+        sys.exit("the same key appears twice in a ledger table, so Python kept only the "
+                 "last of them:" + chr(10) + "  " + (chr(10) + "  ").join(duplicate))
+
+
 def listed(entries, line, operator):
     """A line may carry more than one mutation, and they need not share a verdict:
     where they do not, the entry names the operator as well."""
@@ -899,6 +939,8 @@ def main():
 
     if len(sys.argv) < 2 or sys.argv[1] not in BLOCKS:
         sys.exit("usage: make_closed_folder.py <%s>" % "|".join(sorted(BLOCKS)))
+
+    no_duplicate_keys()
 
     name = sys.argv[1]
     if name not in LEDGERS:
