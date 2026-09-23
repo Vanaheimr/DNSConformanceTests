@@ -592,6 +592,54 @@ public class SignedZoneServingTests
 
     #endregion
 
+    #region Denial_Records_Are_Withheld_On_Every_Other_Answer_Too()
+
+    [Test]
+    [Property("RFC", "4035 §3.2.1")]
+    public async Task Denial_Records_Are_Withheld_On_Every_Other_Answer_Too()
+    {
+
+        // §3.2.1 does not single out "no such name": a server answering a query
+        // with the DO bit clear "MUST NOT perform any of the additional
+        // processing described below", whatever the answer turns out to be. An
+        // authoritative server reaches that rule from four directions and the
+        // test above only walks one of them, so the other three carried the same
+        // gate and nothing watching it.
+        var wildcardAnswer  = await Ask(nsecServer, $"anything.wild.{NsecZone}.", RawDnsType.A,   DnssecOK: false);
+        var wildcardNoData  = await Ask(nsecServer, $"anything.wild.{NsecZone}.", RawDnsType.TXT, DnssecOK: false);
+        var noData          = await Ask(nsecServer, $"a.{NsecZone}.",             RawDnsType.TXT, DnssecOK: false);
+
+        Assert.Multiple(() => {
+
+            // A wildcard answer. The NSEC that would prove the queried name
+            // absent — the record that makes the synthesis believable — is
+            // exactly what an unaware client did not ask for.
+            Assert.That(wildcardAnswer.RCode,   Is.Zero);
+            Assert.That(wildcardAnswer.Answers, Is.Not.Empty, "the wildcard still answers");
+            Assert.That(wildcardAnswer.Authorities.Any(rr => rr.Type == RawDnsType.NSEC),  Is.False,
+                        "but nothing proves it to a client that cannot check the proof");
+            Assert.That(wildcardAnswer.Answers.Any(rr => rr.Type == RawDnsType.RRSIG),     Is.False);
+
+            // A wildcard that matched but holds no such type.
+            Assert.That(wildcardNoData.RCode,   Is.Zero);
+            Assert.That(wildcardNoData.Answers, Is.Empty);
+            Assert.That(wildcardNoData.Authorities.Any(rr => rr.Type == RawDnsType.NSEC),  Is.False);
+            Assert.That(wildcardNoData.Authorities.Any(rr => rr.Type == RawDnsType.SOA),   Is.True,
+                        "the SOA stays: RFC 2308 wants it for negative caching either way");
+
+            // And the plain one: the name is there, the type is not.
+            Assert.That(noData.RCode,   Is.Zero);
+            Assert.That(noData.Answers, Is.Empty);
+            Assert.That(noData.Authorities.Any(rr => rr.Type == RawDnsType.NSEC),  Is.False);
+            Assert.That(noData.Authorities.Any(rr => rr.Type == RawDnsType.RRSIG), Is.False);
+            Assert.That(noData.Authorities.Any(rr => rr.Type == RawDnsType.SOA),   Is.True);
+
+        });
+
+    }
+
+    #endregion
+
     #region Dnskey_Rrset_Is_Served_With_Its_Signature()
 
     [Test]

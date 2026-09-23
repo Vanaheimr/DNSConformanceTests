@@ -632,6 +632,18 @@ SERVER_KILLED = {
         "DNS/Server/ZoneDenialOfExistence.cs": {311, 443, 597},
     },
 
+    # RFC 4035 section 3.2.1 gates every answer a signed zone gives, not only
+    # "no such name" - the existing test walked one of the four paths an
+    # authoritative server reaches it from. Section 3.1.4 wants a referral to a
+    # signed child to carry "both the DS RRset and its associated RRSIG RR(s)",
+    # and a referral that drops the signature works for everyone who is not
+    # validating. RFC 6672 section 2.3 allows a DNAME beside an NS RRset at the
+    # zone apex and nowhere else, which makes it the last candidate the walk up
+    # from QNAME considers - and the only one a bound a step short can lose.
+    "signed-answers-and-the-apex": {
+        "DNS/Server/InMemoryDNSZone.cs": {672, 684, 718, 754, 984},
+    },
+
 }
 
 
@@ -684,6 +696,18 @@ SERVER_EQUIVALENT = {
              "record. Collect drops the duplicate, so the response is identical whichever "
              "way the comparison reads. The NSEC branch has no matching call to fall back "
              "on, which is why the same mutation is a gap there and not here",
+
+    },
+
+    "DNS/Server/InMemoryDNSZone.cs": {
+
+        489: "signingKeys is null || !SignaturesExpireAt.HasValue. The two are assigned "
+             "once each, six lines apart in Sign and with no path between them that can "
+             "fail, so they are null together and set together - and where the two "
+             "operands always agree, or and and cannot",
+        894: "return Records.Length > 0 in TryGetRecords. Add never creates an empty "
+             "list, and Remove drops the key as soon as its list empties, so a "
+             "TryGetValue that succeeded has found records",
 
     },
 

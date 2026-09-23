@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **100 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **93 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,85 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### The bit that gates three other answers, a bare DS, and the last candidate of a walk
+
+Fourteen gaps in `InMemoryDNSZone.cs`. Five fall.
+
+**Three of them were one line written three times.**
+
+```csharp
+if (DNSSECOK && Zone.Denial is not null)
+```
+
+An authoritative server arrives at RFC 4035 §3.2.1 from four directions — a
+wildcard answer, a wildcard holding no such type, a plain NODATA, and "no such
+name" — and the same gate stands at each. One test covered it, asking
+`zz.dnssec.test.` with the DO bit clear, which is the fourth. The other three
+carried the identical condition with nothing watching it. §3.2.1 does not single
+out the NXDOMAIN case: a server answering a query with the bit clear *"MUST NOT
+perform any of the additional processing described below"*, whatever the answer
+turns out to be.
+
+**A referral that works perfectly for everyone who is not checking.** §3.1.4
+leaves no room: *"the name server MUST return both the DS RRset and its
+associated RRSIG RR(s) in the Authority section along with the NS RRset"*. The
+call is `WithSignatures(delegationSigners, atDelegation, true)`, and read as
+`false` the DS goes out bare. The delegation still works, the child still
+answers, every name under it resolves — for anyone not validating. A resolver
+that *is* validating holds a DS it cannot believe, and the correct response to
+that is to call the whole child Bogus. The failure is invisible exactly until it
+matters.
+
+That test writes its zone out record by record, signature included. Nothing in it
+verifies the signature — selecting and sending it is the server's whole job here
+— and a fabricated one keeps the test independent of which key material happens
+to be on disk this month.
+
+**And the last candidate of a walk.** RFC 6672 §2.3 lets a DNAME share an owner
+name with an NS RRset in exactly one place: *"DNAME RRs MUST NOT appear at the
+same owner name as an NS RR unless the owner name is the zone apex."* Every DNAME
+in this suite sat below the apex, which is the ordinary case and also the easy
+one — the walk up from QNAME finds it with labels to spare. At the apex it is the
+**last** candidate that walk will ever consider, so `labels.Length - skip >=
+apexDepth` read as `>` loses it and nothing else. A zone whose entire purpose is
+to mirror a name space somewhere else then answers as though the DNAME were not
+there, for every name it holds.
+
+The same section draws the other line — *"such a DNAME cannot be used to mirror a
+zone completely, as it does not mirror the zone apex"* — so the second test asks
+the apex for itself and gets its SOA. A walk that started one step too *high*
+would pass the first test and fail that one.
+
+### Nine that stay, and only two of them equivalent
+
+**Two are provably the same value.** `489` is
+`signingKeys is null || !SignaturesExpireAt.HasValue`, and the two fields are
+assigned once each, six lines apart inside `Sign`, with no path between them that
+can fail — so they are null together and set together, and where both operands
+always agree, `||` and `&&` cannot. `894` is `return Records.Length > 0`, where
+`Add` never creates an empty list and `Remove` drops the key the moment its list
+empties: a `TryGetValue` that succeeded has found records.
+
+**Seven are not equivalent, and six of those are not this suite's to close.**
+They sit in `Remove(DomainName, Type?, Class?)`, and the mutations are real
+enough — `&&` read as `||` removes records matching the type *or* the class
+rather than both, and `==` read as `!=` removes everything except what was named,
+which is a zone quietly destroying itself. None of it is reachable. Hermod
+answers every opcode but zero with NOTIMP, so there is no RFC 2136 dynamic update
+and no query that edits a zone; nothing in Hermod's own DNS code calls `Remove`;
+and neither does this suite. It is public API with no consumer, and a black-box
+conformance suite has no specification to hold it to. Writing tests for it would
+be writing Hermod's unit tests inside a suite that exists to do something else.
+They stay open, and the reason is written here rather than hidden in a ledger
+entry claiming they are equivalent.
+
+The seventh is `SignaturesExpireAt.Value - DateTime.UtcNow > Before`, one more
+for the list of **boundaries that need a seam**. An RRSIG's expiration is a
+whole number of seconds and `UtcNow` is not, so the one instant where the two
+readings differ cannot be reached from outside. Only a `Now` parameter makes it
+reachable, which is what the four in the DNSSEC block are waiting for and what
+Hermod has twice accepted on request.
 
 ### A zone that holds nothing but its own apex
 
