@@ -101,6 +101,75 @@ public class ServerCnameTests
 
     #endregion
 
+    #region Query_For_The_Cname_Type_Stops_At_The_First_Link()
+
+    [Test]
+    [Property("RFC", "1034 §3.6.2")]
+    public async Task Query_For_The_Cname_Type_Stops_At_The_First_Link()
+    {
+
+        // §3.6.2 states the restart rule and then takes one thing back out of it:
+        // "The one exception to this rule is that queries which match the CNAME
+        // type are not restarted."
+        //
+        // The test above asks the same question of `alias`, whose target holds no
+        // CNAME of its own — so a server that wrongly restarted would look for a
+        // CNAME at `a`, find none, and return the same single record. The rule
+        // only becomes visible one link further along, where restarting has
+        // somewhere to go: `alias2` points at `alias`, which points at `a`.
+        var response = await AskAsync(0xC008, ZoneFixtures.CNameAlias2, RawDnsType.CNAME);
+
+        var cnames   = response.Answers.Where(rr => rr.Type == RawDnsType.CNAME).ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode, Is.Zero);
+
+            Assert.That(cnames, Has.Length.EqualTo(1),
+                        "a CNAME query is answered by the CNAME at the name, not by the chain below it");
+
+            Assert.That(cnames[0].Name.Canonical,
+                        Is.EqualTo(ZoneFixtures.CNameAlias2.TrimEnd('.')),
+                        "and it is the one owned by the queried name");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Query_For_Any_At_A_Chained_Alias_Does_Not_Walk_The_Chain()
+
+    [Test]
+    [Property("RFC", "1034 §3.6.2")]
+    public async Task Query_For_Any_At_A_Chained_Alias_Does_Not_Walk_The_Chain()
+    {
+
+        // The other half of the same exception. ANY asks for what is *at* the
+        // node, and the node's data already includes its CNAME — there is nothing
+        // the restart could add that the answer does not already carry, and a
+        // server that restarted anyway would report names the querier did not ask
+        // about.
+        var response = await AskAsync(0xC009, ZoneFixtures.CNameAlias2, RawDnsType.ANY);
+
+        var cnames   = response.Answers.Where(rr => rr.Type == RawDnsType.CNAME).ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode, Is.Zero);
+
+            Assert.That(cnames, Is.Not.Empty, "the node's own CNAME is what ANY finds there");
+
+            Assert.That(cnames.Select(rr => rr.Name.Canonical),
+                        Is.All.EqualTo(ZoneFixtures.CNameAlias2.TrimEnd('.')),
+                        "and nothing owned by a name further down the chain");
+
+        });
+
+    }
+
+    #endregion
+
     #region Alias_Node_Carries_No_Data_Of_Its_Own()
 
     [Test]

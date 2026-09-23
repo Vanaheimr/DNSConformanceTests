@@ -124,6 +124,50 @@ public class ServerRobustnessTests
 
     #endregion
 
+    #region A_Bare_Header_Is_Still_Answered()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public async Task A_Bare_Header_Is_Still_Answered()
+    {
+
+        // Twelve octets exactly: a header claiming one question, and nothing
+        // behind it. That is the shortest message a server can answer at all —
+        // the transaction id lives in the first two octets, and everything needed
+        // to reply is present however mangled the rest would have been.
+        //
+        // The test above sends a header *plus* a fragment of a name, so it stays
+        // clear of the edge. One octet of slack in the length check here is the
+        // difference between a FORMERR and silence, and silence is what a client
+        // reads as "server unreachable" — it retries, backs off, and tries the
+        // next name server, when the truth is that its own query was malformed.
+        var request = new RawDnsWriter().
+                          Header(0x2009, RawDnsFlags.RD, 1, 0, 0, 0).
+                          ToArray();
+
+        Assert.That(request, Has.Length.EqualTo(12), "the fixture must sit exactly on the edge");
+
+        var raw = await RawDnsProbe.UdpAsync(server.UdpPort, request, TimeSpan.FromSeconds(2));
+
+        await AssertServerStillHealthy("a bare twelve-octet header");
+
+        Assert.That(raw, Is.Not.Null,
+                    "a header is enough to answer; a shorter message is not, and this one is not shorter");
+
+        var response = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode,          Is.EqualTo(1),      "FORMERR");
+            Assert.That(response.QR,             Is.True,            "and it is a response");
+            Assert.That(response.Id,             Is.EqualTo(0x2009), "carrying the id it was asked with");
+
+        });
+
+    }
+
+    #endregion
+
     #region Request_With_Absurd_Counts_Does_Not_Break_The_Server()
 
     [Test]

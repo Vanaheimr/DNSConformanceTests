@@ -644,6 +644,18 @@ SERVER_KILLED = {
         "DNS/Server/InMemoryDNSZone.cs": {672, 684, 718, 754, 984},
     },
 
+    # RFC 6891 section 6.2.3 calls the advertised size "the largest UDP payload
+    # that can be reassembled and delivered", so a message of exactly that many
+    # octets belongs on the inside of the limit - and the limit is consulted once
+    # for the whole answer and again for each shortened one on the way down.
+    # Section 6.1.1 has no exception for a response that had to shed everything:
+    # the OPT is not an answer record and is not what had to go. And RFC 1035
+    # section 4.1.1's header is twelve octets, which is the shortest message a
+    # server can answer at all, because the transaction id is in the first two.
+    "sizes-and-edges": {
+        "DNS/Server/DNSMessagePipeline.cs": {150, 594, 602, 623},
+    },
+
 }
 
 
@@ -708,6 +720,38 @@ SERVER_EQUIVALENT = {
         894: "return Records.Length > 0 in TryGetRecords. Add never creates an empty "
              "list, and Remove drops the key as soon as its list empties, so a "
              "TryGetValue that succeeded has found records",
+
+    },
+
+    "DNS/Server/AuthoritativeDNSRequestHandler.cs": {
+
+        188: "the return false of HasValidServerCookie when no cookie secret is set. Its "
+             "one caller opens with DNSCookieSecret is not null, so the method never runs "
+             "in the state this line answers for",
+        237: "the CNAME-and-ANY guard of FollowCanonicalNames, which is called only where "
+             "the store answered NoData - and a node holding a CNAME answers Found to a "
+             "query for CNAME or for ANY. The guard is right, says why in its own comment, "
+             "and cannot be reached",
+
+    },
+
+    "DNS/Server/DNSMessagePipeline.cs": {
+
+        # The guard chains, as in the tsig block - checked again for these call
+        # sites rather than carried over. TryStripTSIG and TryStripSIG0 each have
+        # exactly one `return true`, with every out parameter set above it, and
+        # return false with both null on every other path. So a null output beside
+        # a true result cannot arise, which is what the second and third terms of
+        # each chain test for, and the expression agrees with the original on both
+        # of the two cases that can actually happen.
+        349: "!TryStripTSIG(...) || unsigned is null - the second term cannot be true "
+             "when the first is false",
+        350: "unsigned is null || tsig is null, the same chain one term along",
+        418: "!TryStripSIG0(...) || unsigned is null - the same, for the other kind",
+
+        471: "the twelve-octet floor of BuildNotAuthorizedResponse. It answers a request "
+             "whose signature did not verify, so the request carried a TSIG or a SIG(0) "
+             "and is an order of magnitude longer than the header it is measured against",
 
     },
 

@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **93 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **83 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,112 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### Four edges, and eighteen lines that say why they cannot move
+
+Two files and twenty-two gaps. Four fall, and how the other eighteen divide is
+the more useful half.
+
+**The edge of the requestor's buffer, which is consulted twice.** RFC 6891 §6.2.3
+calls the advertised payload size *"the number of octets of the largest UDP
+payload that can be reassembled and delivered in the requestor's network stack"*.
+A message of exactly that many octets is therefore one the requestor can take:
+the boundary belongs on the inside. The server checks it once for the whole
+answer and again for each shortened one it tries on the way down, and both
+checks were unwatched.
+
+The suite already asked whether an oversized answer gets truncated. That question
+is satisfied by a response of *any* size as long as TC is set, so it said nothing
+about where the edge is.
+
+The new tests compute no sizes at all. They ask once to learn what the server
+produces, then ask again advertising exactly that many octets — so the assertion
+holds whatever the records encode to, and no arithmetic in the test file can
+drift away from the wire.
+
+**And what survives the shedding.** §6.1.1 has no exception for the case where
+nothing could be kept:
+
+```csharp
+for (var count = answers.Length - 1; count >= 0; count--)
+{
+    ...                                   // AdditionalRRs: responseOPT
+    if (bytes.Length <= limit) return bytes;
+}
+return Serialize(new DNSResponse(..., AnswerRRs: [], AdditionalRRs: []));
+```
+
+Read the bound as `count > 0` and the loop never tries the empty answer, so a
+single oversized record falls past it into the return below — which drops the OPT
+record with everything else. The difference is not "fewer answers". It is an EDNS
+response that stops being one: a truncated reply without an OPT tells the client
+the server does not speak EDNS, and the retry may then be made without it, taking
+the DO bit with it.
+
+**And twelve octets.** RFC 1035 §4.1.1's header is twelve octets, which is the
+shortest message that can be answered at all — the transaction id is in the first
+two, and the reply needs nothing else. One octet of slack in `if
+(RequestBytes.Length < 12)` turns a FORMERR into silence, and silence is what a
+client reads as *server unreachable*: it retries, backs off, and moves to the
+next name server, when the truth was that its own query was malformed. The
+existing test for a truncated request sends a header **plus** a fragment of a
+name, so it stays clear of the edge.
+
+### The handler, where nothing fell and that is the answer
+
+Eight gaps in `AuthoritativeDNSRequestHandler.cs`, no kills, and three different
+reasons.
+
+**Two are dead code.** `HasValidServerCookie`'s `return false` for a server with
+no cookie secret has one caller, whose condition opens with
+`DNSCookieSecret is not null` — the line answers for a state the method is never
+in. And `FollowCanonicalNames` returns early for QTYPE CNAME and ANY, but it is
+called only where the store answered `NoData`, and a node holding a CNAME answers
+`Found` to a query for CNAME or ANY. The guard is correct, its own comment says
+why, and it cannot be reached.
+
+**Two are limits no specification names.** The CNAME chain stops at sixteen and
+the DNAME redirection at sixteen; read as seventeen, both still terminate and
+both are still conformant. RFC 1034 §4.3.2 warns that a chain may loop and gives
+no number, and RFC 6672 §2.2 calls *"fairly lengthy valid chains of DNAME RRs"*
+legitimate. Same category as `DNSSECValidator.cs:863`.
+
+**Four are `ConfigureAwait(false)`**, which joins the eight already open in the
+DNSSEC block: not equivalent, and with no reading a test host can take, because
+there is no synchronization context there for the two to differ about.
+
+**A prediction was wrong here, in the same way as the last one.** `237` was
+expected to fall to the two new CNAME tests. It did not, and the reason was four
+lines away in a *different method*: the caller. The round before that, `371`
+survived because the answer lived in a call made before it. Reading a function
+without reading its call sites has now produced two wrong predictions in two
+rounds, from opposite directions.
+
+The two tests stay regardless. RFC 1034 §3.6.2 states the restart rule and then
+takes one case back out of it — *"The one exception to this rule is that queries
+which match the CNAME type are not restarted"* — and the existing test asked that
+of `alias`, whose target holds no CNAME. A server that wrongly restarted would
+look for a CNAME at the target, find none, and return the same single record. The
+rule was being tested at the one name where it cannot show.
+
+### One `||` whose two halves disagree
+
+`DNSMessagePipeline.cs:419` carries the same operator twice and gets no ledger
+entry, because its two mutants have different answers:
+
+```csharp
+if (!SIG0Signer.TryStripSIG0(Buffer, out var unsigned, out var sig) ||
+    unsigned is null || sig is null || !sig.IsTransactionSignature)
+```
+
+`TryStripSIG0` has one `return true` with both outputs set above it, so the null
+terms cannot decide anything and turning the first `||` into `&&` changes nothing
+that can arrive. Turning the second one into `&&` drops
+`!sig.IsTransactionSignature` from the expression entirely — and a SIG record
+whose type covered is not zero, which RFC 2931 §3 says is not a transaction
+signature at all, would then be sent to verification instead of served as the
+unsigned request it is. One dead guard and one real gap under one key. It stays
+open until the second has a test; closing it now would close both.
 
 ### The bit that gates three other answers, a bare DS, and the last candidate of a walk
 
@@ -1914,6 +2020,26 @@ sweep or in an earlier hand-written one:
   `build=False, refreshed=False, 0 failures` on all seven projects, which reads
   exactly like a broken bench. A control has to be verified before it is trusted,
   like anything else.
+
+- **The project tree is not touched while a verification is running.** Not a
+  guard but a rule the guards cannot cover: a sweep builds the whole solution for
+  every mutant, and a test file added mid-run that does not compile produces a
+  genuine `error CS` — which is exactly what the build guard reads as *the
+  mutant's fault*. Every remaining line would be filed as not viable, and the one
+  check able to notice would agree that it should be. This happened during the
+  handler round; the file was pulled back out before the next build, and it did
+  not in fact compile.
+
+- **A verification leaves the last mutant in the build output.** Each mutant is
+  restored in source, but the newest compiled assembly is the one built *with* it
+  — nothing rebuilds afterwards. A suite run started straight after a sweep is
+  therefore measuring a mutant, and the STALE-BINARY guard does not cover this: it
+  watches the assembly within a run, not what is left lying about after one. It
+  cost a diagnosis here. The last mutant of the pipeline round was the one turning
+  a truncation bound from <= into <, a whole server suite was run against it, and
+  the test that then failed was the very test written to catch that mutation —
+  which reads exactly like a broken test. Rebuild before believing a suite run
+  that follows a sweep.
 
 ### Four ways to mistake the machine for the code
 
