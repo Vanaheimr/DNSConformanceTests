@@ -656,6 +656,17 @@ SERVER_KILLED = {
         "DNS/Server/DNSMessagePipeline.cs": {150, 594, 602, 623},
     },
 
+    # RFC 9110 section 12.4.2: "a value of 0 means 'not acceptable'", so naming
+    # application/dns-message with q=0 names the only media type this server has
+    # in order to exclude it - a refusal written as a mention, which anything
+    # comparing media types alone reads as the opposite. And a DNS message is at
+    # most 65535 octets because that is what RFC 1035 section 4.2.2's length
+    # prefix can count, which makes 65535 the largest one allowed rather than the
+    # first one too many.
+    "doh-media-type-and-size": {
+        "DNS/Server/DNSOverHTTPSResource.cs": {318, 494, 495},
+    },
+
 }
 
 
@@ -761,6 +772,43 @@ SERVER_EQUIVALENT = {
         471: "the twelve-octet floor of BuildNotAuthorizedResponse. It answers a request "
              "whose signature did not verify, so the request carried a TSIG or a SIG(0) "
              "and is an order of magnitude longer than the header it is measured against",
+
+    },
+
+    "DNS/Server/DNSOverHTTPSResource.cs": {
+
+        312: "queryBytes is null || queryBytes.Length == 0 for a POST body. The HTTP layer "
+             "hands an empty array and never a null, so the first term is dead; and the "
+             "second is redundant with the parser below, which refuses a nought-octet "
+             "message anyway. Both readings answer 400, by different routes",
+        556: "soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive. Where the two are "
+             "equal the branches return the same number, which is the only case the "
+             "comparison could be changed about",
+
+    },
+
+    "DNS/Server/DNSOverHTTPSServer.cs": {
+
+        313: "Request.HTTPMethod == POST, guarding the body read. The comment above it warns "
+             "that asking a GET for its body would wait for octets never promised - and it "
+             "would not: with no Content-Length the read returns at once, and for a POST the "
+             "body is already materialised by the time this runs. The guard is belt and "
+             "braces against a hazard this stack does not have",
+
+    },
+
+    "DNS/Server/DNSOverHTTP2Server.cs": {
+
+        463: "IsHEAD: false on the 'not an HTTP method this server knows' reply. HTTPMethod."
+             "TryParse returns null only for a name that violates RFC 9110 section 9.1's "
+             "token syntax - an unknown but well-formed name becomes a new HTTPMethod - and "
+             "a :method pseudo-header that breaks the token rules is refused by the client "
+             "stack before it reaches a socket",
+        470: "target.IndexOf('?') is var mark && mark >= 0. The two readings differ only for "
+             "a :path that begins with the question mark, and HTTP/2 origin-form requires it "
+             "to begin with a slash",
+        531: "IsHEAD: false on the 500. Reaching it needs the handler to throw, which a "
+             "well-formed request cannot arrange from outside",
 
     },
 

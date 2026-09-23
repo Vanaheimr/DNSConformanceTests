@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **82 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **73 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,75 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### A media type named in order to exclude it
+
+Twenty-three gaps across the three DoH files. Three fall, and two of them are the
+same sentence of RFC 9110:
+
+> a value of 0 means "not acceptable"
+
+`application/dns-message;q=0` names the one media type this server has, in order
+to rule it out. It is a refusal written as a mention, and to anything that
+compares media types and stops there it looks exactly like a request for that
+type. The `AcceptsDNSMessages` check reads the quality first and says so in its
+own comment, and both halves of that check — the comparison and the `return
+false` under it — were unwatched.
+
+**The existing test aims one step short.** It sends `Accept: application/json`,
+which is refused before the quality is ever consulted: the type simply is not the
+one on offer. §12.4.2's case is the other one, where the type *is* on offer and
+the field withdraws it.
+
+The third is the ceiling. A DNS message is at most 65535 octets, because that is
+what RFC 1035 §4.2.2's two-octet length prefix can count — so 65535 is the
+largest one allowed rather than the first one too many, and a comparison one step
+out refuses the largest message a client may legitimately send.
+
+**Only the inside of that boundary can be asked for.** One octet more never
+reaches the check at all: the HTTP layer declines the body and resets the
+connection — `ENHANCE_YOUR_CALM` over h2 — so the 413 the resource would generate
+is written for a request that cannot arrive. The test says so, and asks for the
+half that can be wrong in a way anyone would notice.
+
+### Twenty that stay, and two tests that closed nothing
+
+Two of the four predictions came out. The other two are worth more than the two
+that did.
+
+**A test can assert the right status for the wrong reason.** The empty-POST test
+asks for 400 and gets 400 — with the mutation in place as well, by a different
+route. The HTTP layer hands an empty array and never a null, so the first half of
+`queryBytes is null || queryBytes.Length == 0` is dead, and the second is
+redundant with the parser below, which refuses a nought-octet message anyway. The
+test states something true and cannot tell the two paths apart, which is not the
+same as stating nothing.
+
+**And a 405 is not always the same 405.** The other test sends a PUT and asks for
+a body with the refusal, which is RFC 9110 §15.5.6 and §6.4.1 and which nothing
+had asked for. It killed nothing, because the line it was aimed at answers a
+different case: `'{methodText}' is not an HTTP method this server knows` fires
+where `HTTPMethod.TryParse` returns null, and that happens only for a name that
+breaks §9.1's token syntax — an unknown but well-formed name becomes a new
+`HTTPMethod` and is refused further along as a method this *resource* does not
+allow. A `:method` that breaks the token rules is refused by the client stack
+before it reaches a socket. The branch is unreachable from any client this suite
+can drive; the test stays, because what it asserts is true and was untested.
+
+The rest divide as before. Six more are unreachable guards — the body-read guard
+whose comment warns of a wait that cannot happen, a `:path` beginning with a
+question mark where HTTP/2 requires a slash, the 500 path, and the SOA minimum
+whose two branches return the same number where the comparison could differ.
+Seven are `ConfigureAwait(false)`. Six are options of the embedded HTTP server —
+`AutoStart`, `DisableMaintenanceTasks`, certificate revocation — which no
+specification about DNS constrains, and which are the same case as
+`InMemoryDNSZone.Remove`: real mutations in code this suite has no standing to
+judge.
+
+The last is `ServeHTTP11ViaALPN && certificate is not null`, and it is open for a
+third reason again: the DoH fixture does not offer that switch, so both readings
+build the same renderer. Reaching it means new fixture surface for a behaviour no
+RFC asks for, which is a decision rather than an omission.
 
 ### A conditional that was a comment, and the first open finding
 

@@ -561,6 +561,39 @@ public class DohServerTests
 
     #endregion
 
+    #region A_405_Says_Why_And_Not_Only_That()
+
+    [Test]
+    [Property("RFC", "9110 §15.5.6")]
+    public async Task A_405_Says_Why_And_Not_Only_That()
+    {
+
+        // The test above asks for the Allow field, which is the machine-readable
+        // half. This asks for the other one: a 405 is a response like any other
+        // and carries content unless the request was a HEAD, and RFC 9110 §6.4.1
+        // is what makes that the only exception — "the HEAD method is identical
+        // to GET except that the server MUST NOT send content in the response".
+        //
+        // A server that suppressed the content of every 405 would look correct to
+        // anything reading status lines and headers, and would leave a person
+        // holding a curl transcript with nothing in it.
+        await using var server = await StartServerAsync();
+
+        var result = await RawDoHProbe.SendRawAsync(HttpMethod.Put, server.Url, HTTPClient: server.Http);
+
+        Assert.Multiple(() => {
+
+            Assert.That(result.Status, Is.EqualTo(405), () => RawDoHProbe.Describe(result));
+
+            Assert.That(result.Body, Is.Not.Empty,
+                        () => "a 405 to a PUT is not a HEAD response: " + RawDoHProbe.Describe(result));
+
+        });
+
+    }
+
+    #endregion
+
     #region Server_Refuses_An_Accept_That_Rules_Out_The_Only_Media_Type()
 
     [Test]
@@ -584,6 +617,96 @@ public class DohServerTests
                            );
 
         Assert.That(result.Status, Is.EqualTo(406), () => RawDoHProbe.Describe(result));
+
+    }
+
+    #endregion
+
+    #region Server_Refuses_The_Only_Media_Type_When_It_Is_Named_To_Exclude_It()
+
+    [Test]
+    [Property("RFC", "9110 §12.4.2")]
+    [Property("RFC", "8484 §4.2.1")]
+    public async Task Server_Refuses_The_Only_Media_Type_When_It_Is_Named_To_Exclude_It()
+    {
+
+        // RFC 9110 §12.4.2 on the quality value: "a value of 0 means 'not
+        // acceptable'". So `application/dns-message;q=0` names the one media type
+        // this server has — in order to rule it out. The field is a refusal
+        // written as a mention, and the two look identical to anything that only
+        // compares media types.
+        //
+        // The test above sends `application/json`, which is refused a step
+        // earlier: the type simply is not the one on offer, and the quality is
+        // never consulted. This is the case that reaches it.
+        await using var server = await StartServerAsync();
+
+        var result = await RawDoHProbe.PostAsync(
+                               server.Url,
+                               RawDnsWriter.Query(0x4061, ZoneFixtures.AName, RawDnsType.A),
+                               Accept: "application/dns-message;q=0",
+                               HTTPClient: server.Http
+                           );
+
+        Assert.That(result.Status, Is.EqualTo(406),
+                    () => "naming the type with q=0 excludes it: " + RawDoHProbe.Describe(result));
+
+    }
+
+    #endregion
+
+    #region Server_Refuses_A_Post_That_Carries_No_Body()
+
+    [Test]
+    [Property("RFC", "8484 §4.1")]
+    public async Task Server_Refuses_A_Post_That_Carries_No_Body()
+    {
+
+        // §4.1: "When using the POST method, the DNS query is included as the
+        //  message body of the HTTP request". A POST with the right media type
+        // and nothing in it has announced a DNS message and sent none, which is
+        // a malformed request rather than an empty question — and the difference
+        // matters, because zero octets parse into a header that is simply absent
+        // rather than into anything a server could answer.
+        await using var server = await StartServerAsync();
+
+        var result = await RawDoHProbe.PostAsync(
+                               server.Url,
+                               [],
+                               HTTPClient: server.Http
+                           );
+
+        Assert.That(result.Status, Is.EqualTo(400), () => RawDoHProbe.Describe(result));
+
+    }
+
+    #endregion
+
+    #region The_Largest_Message_Allowed_Is_Allowed()
+
+    [Test]
+    [Property("RFC", "8484 §6")]
+    public async Task The_Largest_Message_Allowed_Is_Allowed()
+    {
+
+        // A DNS message is at most 65535 octets, because that is what the
+        // two-octet length prefix of RFC 1035 §4.2.2 can count. The resource
+        // measures the body against that ceiling before parsing anything, so
+        // what these octets contain does not matter — only how many there are.
+        //
+        // Only the inside of the boundary can be asked for here. One octet more
+        // never reaches this check: the HTTP layer refuses to take the body at
+        // all and resets the connection, so the 413 the resource would generate
+        // is written for a request that cannot arrive. Which leaves the half that
+        // can be wrong in a way anyone would notice — the largest message a
+        // client is allowed to send being refused as one too large.
+        await using var server = await StartServerAsync();
+
+        var atTheLimit = await RawDoHProbe.PostAsync(server.Url, new Byte[65535], HTTPClient: server.Http);
+
+        Assert.That(atTheLimit.Status, Is.Not.EqualTo(413),
+                    () => "65535 octets is the largest message, not the first one too large: "
+                          + RawDoHProbe.Describe(atTheLimit));
 
     }
 
