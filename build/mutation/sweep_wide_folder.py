@@ -27,7 +27,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from sweep_folder import (BLOCKS, SRCROOT, ROOT, project, assembly, read, write,
-                          run, TIMEOUT, TIMED_OUT)
+                          run, TIMEOUT, TIMED_OUT, BUILD_FLAGS)
 
 # Every conformance project that needs neither Docker nor WSL. The interop lane
 # is left out on purpose: its judges live outside this machine's control, and a
@@ -62,8 +62,8 @@ def build_all():
     seven `dotnet build` invocations cost fourteen seconds more than one over
     the solution — measured, not assumed. Over a few hundred survivors that is
     an hour of the run spent starting the same tool again."""
-    return run(["dotnet", "build", os.path.join(ROOT, "DNSConformanceTests.slnx"),
-                "-v", "q", "--nologo"])
+    return run(["dotnet", "build", os.path.join(ROOT, "DNSConformanceTests.slnx")]
+               + BUILD_FLAGS)
 
 
 def run_tests(proj, timeout=1800):
@@ -95,11 +95,19 @@ def main():
     if not os.path.exists(pass1):
         sys.exit("no first pass to read: " + pass1)
 
-    survivors = []
+    # Counted over every row, not just the surviving ones: at LOC.cs:487 the
+    # survivors are candidates 0, 1 and 3, and counting survivors alone would
+    # send the third re-plant at candidate 2 - the one a test kills.
+    survivors, tally = [], {}
     for line in io.open(pass1, encoding="utf-8"):
         p = line.rstrip("\n").split("\t")
-        if len(p) >= 4 and p[3] in ("SURVIVED", "TIMED-OUT"):
-            survivors.append((p[0], int(p[1]), p[2]))
+        if len(p) < 4:
+            continue
+        key = (p[0], int(p[1]), p[2])
+        k   = int(p[5]) if len(p) >= 6 else tally.get(key, 0)
+        tally[key] = tally.get(key, 0) + 1
+        if p[3] in ("SURVIVED", "TIMED-OUT"):
+            survivors.append((p[0], int(p[1]), p[2], k))
 
     # Round-robin over the files rather than straight down the list. Pass 1
     # orders by file, so a straight read spends its first hour on one of them
@@ -116,12 +124,20 @@ def main():
                 interleaved.append(by_file[rel].pop(0))
     survivors = interleaved
 
-    done = set()
-    if os.path.exists(results):
-        for line in io.open(results, encoding="utf-8"):
+    def load_done(path):
+        found, tally = set(), {}
+        if not os.path.exists(path):
+            return found
+        for line in io.open(path, encoding="utf-8"):
             p = line.rstrip("\n").split("\t")
             if len(p) >= 3:
-                done.add((p[0], p[1], p[2]))
+                key = (p[0], p[1], p[2])
+                k   = p[5] if len(p) >= 6 else str(tally.get(key, 0))
+                tally[key] = tally.get(key, 0) + 1
+                found.add(key + (k,))
+        return found
+
+    done = load_done(results)
 
     print("block      %s" % name)
     print("bench      %s" % ", ".join(bench))
@@ -158,9 +174,16 @@ def main():
 
     print()
 
+    # A line can carry the same operator more than once, so (file, line,
+    # operator) names several mutants and not one. The occurrence index is what
+    # tells them apart: pass 2 needs it to re-plant the one that survived, and a
+    # resumed run needs it to tell the third occurrence from the first.
+    nth = [0]
+
     def record(rel, line_no, op, verdict, detail):
         with io.open(results, "a", encoding="utf-8") as f:
-            f.write("%s\t%s\t%s\t%s\t%s\n" % (rel, line_no, op, verdict, detail))
+            f.write("%s\t%s\t%s\t%s\t%s\t%d\n"
+                    % (rel, line_no, op, verdict, detail, nth[0]))
 
     import genmut
 
@@ -168,9 +191,11 @@ def main():
     counts  = {}
     ran     = 0
 
-    for rel, line_no, op in survivors:
+    for rel, line_no, op, occurrence in survivors:
 
-        if (rel, str(line_no), op) in done:
+        nth[0] = occurrence
+
+        if (rel, str(line_no), op, str(occurrence)) in done:
             continue
 
         if limit and ran >= limit:
@@ -184,11 +209,18 @@ def main():
 
         candidates = [m for m in genmut.mutants_for(path, rel)
                       if m[1] == line_no and m[2] == op]
-        if len(candidates) != 1:
-            record(rel, line_no, op, "SETUP-ERROR", "%d mutations of that operator on the line" % len(candidates))
+
+        # Not "there must be exactly one". There may be several, and the index
+        # says which. A count that no longer reaches it means the line changed
+        # under the measurement, and that is worth stopping on rather than
+        # planting whichever mutant happens to be first.
+        if occurrence >= len(candidates):
+            record(rel, line_no, op, "SETUP-ERROR",
+                   "occurrence %d of %d - the line no longer generates it"
+                   % (occurrence + 1, len(candidates)))
             continue
 
-        mutated = candidates[0][4]
+        mutated = candidates[occurrence][4]
 
         try:
 

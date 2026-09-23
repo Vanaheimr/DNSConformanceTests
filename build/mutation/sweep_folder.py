@@ -136,8 +136,15 @@ def run(cmd, timeout=1800):
         return subprocess.CompletedProcess(cmd, TIMED_OUT, out, err)
 
 
+# -nodeReuse:false is not a speed setting. MSBuild's reusable nodes outlive the
+# build that started them and keep handles on the assemblies they wrote, and a
+# sweep runs hundreds of builds against the same output paths. One node that does
+# not let go breaks every build after it.
+BUILD_FLAGS = ["-v", "q", "--nologo", "-nodeReuse:false"]
+
+
 def build(proj):
-    return run(["dotnet", "build", proj, "-v", "q", "--nologo"])
+    return run(["dotnet", "build", proj] + BUILD_FLAGS)
 
 
 def run_tests(proj, timeout=1800):
@@ -244,26 +251,47 @@ def main():
 
     mutants = mutants_in(block)
 
-    done = set()
-    if os.path.exists(results):
-        for line in io.open(results, encoding="utf-8"):
+    def load_done(path):
+        found, tally = set(), {}
+        if not os.path.exists(path):
+            return found
+        for line in io.open(path, encoding="utf-8"):
             p = line.rstrip("\n").split("\t")
             if len(p) >= 3:
-                done.add((p[0], p[1], p[2]))
+                key = (p[0], p[1], p[2])
+                k   = p[5] if len(p) >= 6 else str(tally.get(key, 0))
+                tally[key] = tally.get(key, 0) + 1
+                found.add(key + (k,))
+        return found
+
+    done = load_done(results)
 
     print("%d mutants, %d already recorded\n" % (len(mutants), len(done)), flush=True)
 
+    # A line can carry the same operator more than once, so (file, line,
+    # operator) names several mutants and not one. The occurrence index is what
+    # tells them apart: pass 2 needs it to re-plant the one that survived, and a
+    # resumed run needs it to tell the third occurrence from the first.
+    nth = [0]
+
     def record(rel, line_no, op, verdict, detail):
         with io.open(results, "a", encoding="utf-8") as f:
-            f.write("%s\t%s\t%s\t%s\t%s\n" % (rel, line_no, op, verdict, detail))
+            f.write("%s\t%s\t%s\t%s\t%s\t%d\n"
+                    % (rel, line_no, op, verdict, detail, nth[0]))
 
     started = time.time()
     counts  = {}
     ran     = 0
 
+    counted = {}
+
     for n, (rel, line_no, op, original, mutated) in enumerate(mutants, start=1):
 
-        if (rel, str(line_no), op) in done:
+        key      = (rel, str(line_no), op)
+        nth[0]   = counted.get(key, 0)
+        counted[key] = nth[0] + 1
+
+        if key + (str(nth[0]),) in done:
             continue
 
         if limit and ran >= limit:

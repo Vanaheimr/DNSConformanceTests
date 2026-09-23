@@ -111,17 +111,44 @@ def main():
             return "boundary", text
         return "branch", text
 
-    seen, rows = set(), []
+    # A verdict pass 2 could not reach is an open question, not a non-entry.
+    # Reading only SURVIVED-EVERYWHERE made a line the machine failed to measure
+    # indistinguishable from a line the suite covers, and that silence is how
+    # five lines in blocks reported closed were never looked at.
+    UNMEASURED = {
+        "TIMED-OUT":    "unmeasured-timeout",
+        "SETUP-ERROR":  "unmeasured-refused",
+        "PARSE-ERROR":  "unmeasured-noanswer",
+        "STALE-BINARY": "unmeasured-stale",
+    }
 
+    entries = []
     for line in io.open(src, encoding="utf-8"):
         p = line.rstrip("\n").split("\t")
-        if len(p) >= 4 and p[3] == "SURVIVED-EVERYWHERE":
+        if len(p) >= 4:
+            entries.append(p)
+
+    seen, rows = set(), []
+
+    # The measured ones first, so a key that got an answer keeps it even when
+    # another row for the same key was refused.
+    for p in entries:
+        if p[3] == "SURVIVED-EVERYWHERE":
             key = (p[0], p[1], p[2])
             if key in seen:
                 continue
             seen.add(key)
             kind, text = classify(p[0], int(p[1]), p[2])
             rows.append((p[0], p[1], p[2], kind, text))
+
+    for p in entries:
+        if p[3] in UNMEASURED:
+            key = (p[0], p[1], p[2])
+            if key in seen:
+                continue
+            seen.add(key)
+            _, text = classify(p[0], int(p[1]), p[2])
+            rows.append((p[0], p[1], p[2], UNMEASURED[p[3]], text))
 
     with io.open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write("# Every mutant of the '%s' block that survived every project,\n" % name)
@@ -139,8 +166,18 @@ def main():
     print("revision  %s" % revision)
     print("wrote %s" % out)
     for kind, n in sorted(kinds.items(), key=lambda kv: -kv[1]):
-        print("  %-18s %4d" % (kind, n))
-    print("  %-18s %4d" % ("real gaps", sum(n for k, n in kinds.items() if not k.startswith("noise"))))
+        print("  %-20s %4d" % (kind, n))
+
+    unmeasured = sum(n for k, n in kinds.items() if k.startswith("unmeasured"))
+    print("  %-20s %4d" % ("real gaps",
+                           sum(n for k, n in kinds.items()
+                               if not k.startswith("noise")
+                               and not k.startswith("unmeasured"))))
+    if unmeasured:
+        print("")
+        print("  %d of these carry no verdict at all - the run refused them or" % unmeasured)
+        print("  never finished on them. They are neither killed nor survived,")
+        print("  and no test can be argued from this file alone. Re-measure.")
 
 
 if __name__ == "__main__":

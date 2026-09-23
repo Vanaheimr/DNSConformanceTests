@@ -42,3 +42,4 @@ DNS/TSIG/SIG0Signer.cs	456	false-to-true	rejection	return false;
 DNS/TSIG/SIG0Signer.cs	459	equality-to-inequality	branch	DomainName.ParseLenient(owner.Length == 0 ? "." : owner),
 DNS/TSIG/SIG0Signer.cs	475	false-to-true	rejection	return false;
 DNS/TSIG/SIG0Signer.cs	527	greater-to-ge	boundary	if (Request is not null && Request.Length > 0)
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	unmeasured-refused	=> TSIGKey is not null || SIG0Key is not null || SIG0ServerKeys.Any();
