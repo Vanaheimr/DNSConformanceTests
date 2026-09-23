@@ -4,9 +4,13 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/Server/DNSCookies.cs	159	logical-or-to-and	killed	cookie-window-and-lengths	
 DNS/Server/DNSMessagePipeline.cs	150	less-to-less-or-equal	killed	sizes-and-edges	
 DNS/Server/AuthoritativeDNSRequestHandler.cs	188	false-to-true	equivalent		the return false of HasValidServerCookie when no cookie secret is set. Its one caller opens with DNSCookieSecret is not null, so the method never runs in the state this line answers for
+DNS/Server/DNSCookies.cs	160	logical-or-to-and	equivalent		ClientCookie.Length != 8 || ServerCookie[0] != Version, the second connective of the validator's guard chain. The version octet is inside the eight octets the keyed hash is computed over, so a cookie whose version is wrong has a MAC that cannot match - the explicit check decides nothing the comparison below does not decide again, and nobody without the secret can make the two disagree
 DNS/Server/AuthoritativeDNSRequestHandler.cs	237	logical-or-to-and	equivalent		the CNAME-and-ANY guard of FollowCanonicalNames, which is called only where the store answered NoData - and a node holding a CNAME answers Found to a query for CNAME or for ANY. The guard is right, says why in its own comment, and cannot be reached
+DNS/Server/DNSCookies.cs	181	greater-to-ge	killed	cookie-window-and-lengths	
+DNS/Server/DNSCookies.cs	182	less-to-less-or-equal	killed	cookie-window-and-lengths	
 DNS/Server/ZoneDenialOfExistence.cs	306	greater-to-ge	equivalent		above = CompareCanonical(Name, owner) > 0, where Name is a name the zone does not hold and owner is one it does
 DNS/Server/DNSMessagePipeline.cs	349	logical-or-to-and	equivalent		!TryStripTSIG(...) || unsigned is null - the second term cannot be true when the first is false
 DNS/Server/DNSOverHTTPSServer.cs	313	equality-to-inequality	equivalent		Request.HTTPMethod == POST, guarding the body read. The comment above it warns that asking a GET for its body would wait for octets never promised - and it would not: with no Content-Length the read returns at once, and for a POST the body is already materialised by the time this runs. The guard is belt and braces against a hazard this stack does not have

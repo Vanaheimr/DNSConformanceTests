@@ -667,6 +667,18 @@ SERVER_KILLED = {
         "DNS/Server/DNSOverHTTPSResource.cs": {318, 494, 495},
     },
 
+    # RFC 9018 section 4.3: a server "SHOULD allow cookies within a 1-hour period
+    # in the past and a 5-minute period into the future" - a period OF an hour, so
+    # a cookie exactly that old is inside it and one exactly five minutes ahead is
+    # too. Both edges belong to the window. And RFC 7873 section 4.2 gives the
+    # server cookie "a variable length, from 8 to 32 octets", so every legal
+    # length arrives whatever this server mints; the ones it does not mint have to
+    # be turned away by their length, with a timestamp current enough that nothing
+    # else turns them away first.
+    "cookie-window-and-lengths": {
+        "DNS/Server/DNSCookies.cs": {159, 181, 182},
+    },
+
 }
 
 
@@ -794,6 +806,16 @@ SERVER_EQUIVALENT = {
              "would not: with no Content-Length the read returns at once, and for a POST the "
              "body is already materialised by the time this runs. The guard is belt and "
              "braces against a hazard this stack does not have",
+
+    },
+
+    "DNS/Server/DNSCookies.cs": {
+
+        160: "ClientCookie.Length != 8 || ServerCookie[0] != Version, the second connective "
+             "of the validator's guard chain. The version octet is inside the eight octets "
+             "the keyed hash is computed over, so a cookie whose version is wrong has a MAC "
+             "that cannot match - the explicit check decides nothing the comparison below "
+             "does not decide again, and nobody without the secret can make the two disagree",
 
     },
 

@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **73 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **69 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,59 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### Both edges of a window, and a length that was never the one deciding
+
+Nine gaps in the two smallest files left. Three fall, all in `DNSCookies.cs`, and
+the five in `DNSServerOptions.cs` are open for a reason worth naming.
+
+RFC 9018 §4.3 sizes the replay window: a server *"SHOULD allow cookies within a
+1-hour period in the past and a 5-minute period into the future"*. A period **of**
+an hour — so a cookie exactly an hour old is inside it, and one exactly five
+minutes ahead is too. Both edges belong to the window, and a comparison one step
+out shortens it by a second at each end.
+
+That one is asked of the function directly, which is a departure from the house
+rule and so gets its reason written down. The seam is already there — `Create`
+and `Validate` both take the moment to use — the running server takes its clock
+from the wall, and what is measured is a window against the timestamp *inside* the
+cookie. From outside the edge cannot be reached at all. What the test asserts is
+the window, not the keyed hash beneath it; the hash is what the tests around it
+exercise, over the wire, against a cookie this process did not make.
+
+**The length check took two attempts, and the first one is the lesson.** RFC 7873
+§4.2 gives the Server Cookie *"a variable length, from 8 to 32 octets"*, so a
+COOKIE option of 16 to 40 is well formed whatever a server mints. Hermod mints
+sixteen. Every other legal length arrives and has to be turned away as a cookie
+that does not check out — not as a malformed option, which is the other side of a
+line the existing length test already covers with 7, 9, 15 and 41 octets of
+*option*, none of which reach the validator at all.
+
+The first version of the test sent those lengths as octets of zero, and the
+mutant survived it. A cookie of zeros carries a timestamp of zero, so the replay
+window rejected it fifty-six years late and the length never became the check
+that mattered. The timestamp is in the clear and an attacker sets it freely, so
+the test now sets it too — and with the window satisfied, a nine-octet server
+cookie carries the mutant past the length check and into a read off the end of
+the array.
+
+Both of those were predictions that came out wrong in the same round, and neither
+was about the RFC: the first missed which check fires first, the second missed
+which of two guards the version octet belongs to. `160` stays, because the
+version is inside the eight octets the hash is computed over — a cookie with the
+wrong version has a MAC that cannot match, so the explicit check decides nothing
+the comparison below it does not decide again.
+
+**And the five options.** `EnableUDPUnicast`, `EnableUDPMulticast`,
+`EnableTCPUnicast`, `EnableTLSUnicast`, `UseCompression` — every one a real
+mutation, and none of them reachable, because every fixture that builds a
+`DNSServer` states all five. The suite always has an opinion, so the defaults
+never apply. Reaching them means a fixture that deliberately withholds one, which
+is a decision about what this suite should assert rather than an omission.
+
+Worth one line while passing, and not acted on: **`EnableUDPMulticast` defaults to
+true**, so a server built with no opinion joins a multicast group. No RFC forbids
+it and nothing here asserts it either way.
 
 ### A media type named in order to exclude it
 

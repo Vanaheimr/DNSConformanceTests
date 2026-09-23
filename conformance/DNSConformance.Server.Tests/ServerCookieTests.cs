@@ -311,6 +311,118 @@ public class ServerCookieTests
 
     #endregion
 
+    #region A_Server_Cookie_Of_A_Length_This_Server_Never_Issues()
+
+    [TestCase( 9, TestName = "Unfamiliar_server_cookie_length__nine")]
+    [TestCase(15, TestName = "Unfamiliar_server_cookie_length__fifteen")]
+    [TestCase(32, TestName = "Unfamiliar_server_cookie_length__the_maximum")]
+    [Property("RFC", "7873 §5.2, §4.2")]
+    public async Task A_Server_Cookie_Of_A_Length_This_Server_Never_Issues(Int32 ServerCookieLength)
+    {
+
+        // §4.2 gives the Server Cookie "a variable length, from 8 to 32 octets",
+        // so a COOKIE option of 16 to 40 is well formed whatever this server
+        // happens to mint. Hermod mints sixteen. Every other legal length still
+        // arrives, still has to be looked at, and still has to be turned away —
+        // as a cookie that does not check out, not as a malformed option.
+        //
+        // The length test above stays on the other side of that line: 7, 9, 15
+        // and 41 octets of COOKIE are illegal *options* and never reach the
+        // validator. These are legal options carrying a server cookie the
+        // validator has no shape for, which is where the length is read at all.
+        //
+        // The first octet is the version this server writes and octets 4 to 8 are
+        // a current timestamp, because both of those are in the clear and an
+        // attacker can set them. Without them the cookie is turned away by the
+        // version or by the replay window long before anyone looks at how long it
+        // is, and the length check is never the one that has to hold.
+        await using var server = await ServerAsync(RequireCookies: true);
+
+        var issued        = (UInt32) DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var serverCookie  = new Byte[ServerCookieLength];
+        serverCookie[0]   = 1;
+        serverCookie[4]   = (Byte) (issued >> 24);
+        serverCookie[5]   = (Byte) (issued >> 16);
+        serverCookie[6]   = (Byte) (issued >>  8);
+        serverCookie[7]   = (Byte)  issued;
+
+        var response      = await Ask(
+                                server,
+                                QueryWithRawCookie([.. ClientCookie(0x22), .. serverCookie])
+                            );
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.CombinedRcode, Is.EqualTo(23),
+                        $"a {ServerCookieLength}-octet server cookie is legal and unrecognised: BADCOOKIE");
+
+            Assert.That(CookieOf(response)?.Server, Is.Not.Null,
+                        "§5.2.3 — and the reply offers one this server would recognise");
+
+        });
+
+    }
+
+    #endregion
+
+    #region The_Replay_Window_Holds_Both_Of_Its_Own_Edges()
+
+    [Test]
+    [Property("RFC", "9018 §4.3")]
+    public void The_Replay_Window_Holds_Both_Of_Its_Own_Edges()
+    {
+
+        // RFC 9018 §4.3: "The DNS server SHOULD allow cookies within a 1-hour
+        //  period in the past and a 5-minute period into the future to allow
+        //  operation of low-volume clients and some limited time skew between the
+        //  DNS servers in the anycast set."
+        //
+        // A period *of* one hour, so a cookie exactly one hour old is inside it,
+        // and one exactly five minutes ahead is too. Both edges belong to the
+        // window; a comparison one step out shortens it by a second at each end,
+        // which no exchange would ever notice and no test could catch by asking
+        // a running server — the server takes its clock from the wall, and this
+        // window is measured from the timestamp inside the cookie.
+        //
+        // So this one is asked of the function directly, because the seam for it
+        // is already there: both Create and Validate take the moment to use. What
+        // is asserted here is the window, not the keyed hash beneath it — the
+        // hash is what the tests above exercise, over the wire, against a cookie
+        // this process did not make.
+        var client   = ClientCookie(0x33);
+        var address  = IPv4Address.Parse("192.0.2.1");
+        var now      = DateTimeOffset.UtcNow;
+
+        Boolean Accepts(TimeSpan Age)
+            => DNSCookies.Validate(
+                   DNSCookies.Create(client, address, Secret, Timestamp: now - Age),
+                   client,
+                   address,
+                   Secret,
+                   Now:        now,
+                   Validity:   TimeSpan.FromHours(1),
+                   ClockSkew:  TimeSpan.FromMinutes(5)
+               );
+
+        Assert.Multiple(() => {
+
+            Assert.That(Accepts(TimeSpan.FromHours(1)),                Is.True,
+                        "an hour old is within an hour");
+            Assert.That(Accepts(TimeSpan.FromHours(1).Add(TimeSpan.FromSeconds(1))), Is.False,
+                        "a second past the hour is not");
+
+            Assert.That(Accepts(TimeSpan.FromMinutes(-5)),             Is.True,
+                        "five minutes ahead is within five minutes of skew");
+            Assert.That(Accepts(TimeSpan.FromMinutes(-5).Add(TimeSpan.FromSeconds(-1))), Is.False,
+                        "a second further ahead is not");
+
+        });
+
+    }
+
+    #endregion
+
     #region A_Query_Without_A_Cookie_Is_Served_And_Answered_Without_One()
 
     [Test]
