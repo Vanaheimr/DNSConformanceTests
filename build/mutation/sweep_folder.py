@@ -25,6 +25,7 @@ rerun skips what is already recorded.
 import io
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -75,17 +76,67 @@ FAILED = re.compile(r"(?:Fehler|Failed):\s*(\d+)")
 TOTAL  = re.compile(r"(?:gesamt|total):\s*(\d+)", re.IGNORECASE)
 
 
+# A verdict of its own, because a mutant can make the judge run forever rather
+# than fail: DNSServer's bind loop is `for (var attempt = 1; ; attempt++)` and
+# its only way out is a flag, so setting that flag true is a viable mutant that
+# no amount of waiting will resolve.
+TIMEOUT = object()
+
+# A return code no build and no test run produces.
+TIMED_OUT = -9
+
+
+def kill_tree(ProcessId):
+    """Windows does not take a process's children down with it, and `dotnet
+    test` leaves a testhost behind that inherited the pipe. Killing only the
+    child therefore leaves the wait afterwards blocked on a pipe nobody will
+    close - which is how a thirty-minute timeout became five and a half hours."""
+
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(ProcessId)],
+                       capture_output=True)
+    else:
+        os.killpg(os.getpgid(ProcessId), signal.SIGKILL)
+
+
 def run(cmd, timeout=1800):
-    return subprocess.run(cmd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=timeout)
+
+    proc = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace")
+
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+
+    except subprocess.TimeoutExpired:
+
+        kill_tree(proc.pid)
+
+        try:
+            out, err = proc.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            out, err = "", ""
+
+        return subprocess.CompletedProcess(cmd, TIMED_OUT, out, err)
 
 
 def build(proj):
     return run(["dotnet", "build", proj, "-v", "q", "--nologo"])
 
 
-def run_tests(proj):
-    out = run(["dotnet", "test", proj, "--no-build", "-v", "q", "--nologo"]).stdout or ""
+def run_tests(proj, timeout=1800):
+
+    result = run(["dotnet", "test", proj, "--no-build", "-v", "q", "--nologo"],
+                 timeout=timeout)
+
+    if result.returncode == TIMED_OUT:
+        return TIMEOUT
+
+    out  = result.stdout or ""
     f, t = FAILED.search(out), TOTAL.search(out)
     return (int(f.group(1)), int(t.group(1))) if f and t else None
 
@@ -158,14 +209,26 @@ def main():
     if b.returncode != 0:
         sys.exit("baseline build failed:\n" + (b.stdout or "")[-2000:])
 
+    measured = time.time()
     baseline = run_tests(proj)
+    seconds  = time.time() - measured
+
+    if baseline is TIMEOUT:
+        sys.exit("baseline: the judge did not finish at all")
     if baseline is None:
         sys.exit("baseline: could not parse the test summary")
     if baseline[0] != 0:
         sys.exit("baseline is not clean: %d of %d failed" % baseline)
 
     expected = baseline[1]
-    print("baseline: %d tests, 0 failures\n" % expected, flush=True)
+
+    # A mutant that hangs should cost a couple of minutes, not half an hour.
+    # The clean run is the measure of what "far too long" means for this judge,
+    # and ten times it leaves room for one that is merely slow.
+    test_timeout = max(120, int(seconds * 10))
+
+    print("baseline: %d tests, 0 failures in %.0f s (a mutant gets %d s)\n"
+          % (expected, seconds, test_timeout), flush=True)
 
     mutants = mutants_in(block)
 
@@ -229,7 +292,14 @@ def main():
                 counts["STALE-BINARY"] = counts.get("STALE-BINARY", 0) + 1
                 continue
 
-            counted = run_tests(proj)
+            counted = run_tests(proj, timeout=test_timeout)
+
+            if counted is TIMEOUT:
+                record(rel, line_no, op, "TIMED-OUT",
+                       "the judge was still running after %d s" % test_timeout)
+                counts["TIMED-OUT"] = counts.get("TIMED-OUT", 0) + 1
+                continue
+
             if counted is None:
                 record(rel, line_no, op, "PARSE-ERROR", "no summary line")
                 counts["PARSE-ERROR"] = counts.get("PARSE-ERROR", 0) + 1
