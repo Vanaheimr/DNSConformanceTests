@@ -53,6 +53,17 @@ POLICY_DEFAULTS = {
 }
 
 
+# `await x.ConfigureAwait(false)` read as `true` is a real change and an
+# invisible one: a test host has no synchronization context, so both
+# continuations go to the thread pool and nothing here can tell them apart. The
+# difference lives in a UI or classic ASP.NET host, which this suite does not
+# build and has no reason to. Not noise - this is code - and not a gap either,
+# because no test written for a DNS conformance suite will ever close one. See
+# MUTATION.md for what does judge them.
+# Without the leading dot: where the awaited expression spans lines, the dot
+# sits at the end of the previous one and the call stands alone on this.
+CONFIGURE_AWAIT = re.compile(r"ConfigureAwait\(false\)")
+
 REJECTION = re.compile(r"\breturn\s+(false|null)\s*;")
 BOUNDARY  = ("less-to-less-or-equal", "greater-to-ge", "le-to-less", "ge-to-greater")
 
@@ -97,6 +108,8 @@ def main():
 
     def classify(rel, line_no, op):
         text = snapshot(rel)[line_no - 1].strip()
+        if op == "false-to-true" and CONFIGURE_AWAIT.search(text):
+            return "host-only", text
         if REGION.match(text):
             return "noise-region", text
         if ATTRIBUTE.search(text):
@@ -172,7 +185,8 @@ def main():
     print("  %-20s %4d" % ("real gaps",
                            sum(n for k, n in kinds.items()
                                if not k.startswith("noise")
-                               and not k.startswith("unmeasured"))))
+                               and not k.startswith("unmeasured")
+                               and k != "host-only")))
     if unmeasured:
         print("")
         print("  %d of these carry no verdict at all - the run refused them or" % unmeasured)

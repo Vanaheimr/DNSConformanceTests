@@ -190,11 +190,12 @@ CORE_EQUIVALENT = {
             "asks for one more read of zero octets, which returns zero and breaks out of the "
             "loop on the next line — the same octets, one wasted call",
 
-        469:
-            "ConfigureAwait(false) on the two-octet length prefix of a TCP or TLS message. It "
-            "chooses which context the continuation resumes on, and a test host has no "
-            "synchronization context for the two readings to differ about. It is a rule about "
-            "library code, not a rule about DNS",
+        # A ConfigureAwait entry stood here, and another in the core table. Both had
+        # worked out on their own that a test host has no synchronization context
+        # for the two readings to differ about, one block at a time and years
+        # apart in reading order. The triage now names the whole class - see
+        # host-only in classify_folder.py - so the individual arguments are gone
+        # and the general one is written once.
 
     },
 
@@ -613,10 +614,6 @@ DNSSEC_EQUIVALENT = {
 DNSSEC_SUPERSEDED = {
 
     "DNS/DNSSEC/DNSSECValidator.cs": {
-        378: "the ConfigureAwait of the convenience overload, whose line was rewritten when "
-             "ValidateAsync gained its Now parameter. The mutation was of the kind no test can "
-             "observe anyway - a test host has no synchronization context for the two readings "
-             "to differ about - so nothing was lost with the line",
     },
 
 }
@@ -969,7 +966,10 @@ def main():
         # then match every operator on its line. Three of these sit on lines that
         # already carry an entry for a different operator, and would have been
         # recorded as killed by a round that never saw them.
-        if len(p) < 5 or p[3].startswith("noise") or p[3].startswith("unmeasured"):
+        if (len(p) < 5
+                or p[3].startswith("noise")
+                or p[3].startswith("unmeasured")
+                or p[3] == "host-only"):
             continue
 
         rel, ln, op = p[0], int(p[1]), p[2]

@@ -134,7 +134,7 @@ DNS/DomainName.cs	468	false-to-true	rejection	return false;
 DNS/DNSNamePattern.cs	430	le-to-less	boundary	=> DNSNamePattern1.CompareTo(DNSNamePattern2) <= 0;
 DNS/DNSServiceInstanceName.cs	313	inequality-to-equality	noise-region	#region Operator != (DNSServiceInstance1, DNSServiceInstance2)
 DNS/DomainName.cs	500	false-to-true	rejection	return false;
-DNS/Helpers/DNSTools.cs	469	false-to-true	branch	).ConfigureAwait(false);
+DNS/Helpers/DNSTools.cs	469	false-to-true	host-only	).ConfigureAwait(false);
 DNS/DNSNamePattern.cs	438	greater-to-ge	boundary	=> DNSNamePattern1.CompareTo(DNSNamePattern2) > 0;
 DNS/DNSServiceInstanceName.cs	331	less-to-less-or-equal	noise-region	#region Operator <  (DNSServiceInstance1, DNSServiceInstance2)
 DNS/DNSServiceName.cs	311	ge-to-greater	boundary	for (var i = Index - 1; i >= 0 && Text[i] == '\\'; i--)

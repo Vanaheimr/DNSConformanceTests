@@ -96,7 +96,6 @@ DNS/DNSNamePattern.cs	422	less-to-less-or-equal	killed	pattern
 DNS/DomainName.cs	468	false-to-true	equivalent		the refusal belonging to that unreachable hyphen check
 DNS/DNSNamePattern.cs	430	le-to-less	killed	pattern	
 DNS/DomainName.cs	500	false-to-true	killed	names	
-DNS/Helpers/DNSTools.cs	469	false-to-true	equivalent		ConfigureAwait(false) on the two-octet length prefix of a TCP or TLS message. It chooses which context the continuation resumes on, and a test host has no synchronization context for the two readings to differ about. It is a rule about library code, not a rule about DNS
 DNS/DNSNamePattern.cs	438	greater-to-ge	killed	pattern	
 DNS/DNSServiceName.cs	311	ge-to-greater	killed	names	
 DNS/DNSInfo.cs	433	false-to-true	killed	dnsinfo	

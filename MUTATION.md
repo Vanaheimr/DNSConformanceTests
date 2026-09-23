@@ -32,10 +32,10 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **63 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -61,6 +61,75 @@ comparison. The measured figure stays, because it is what was measured.
 ---
 
 ---
+
+---
+
+## The thirty-nine that no test host can see
+
+`await x.ConfigureAwait(false)` says: do not resume on the caller's
+synchronization context. Read as `true` it says the opposite, and the two
+programs differ — in a UI application or classic ASP.NET, where library code that
+captures a context can deadlock the caller that is waiting on it.
+
+A test host has no synchronization context. Both continuations go to the thread
+pool, and from here the two readings are **indistinguishable, which is not the
+same as equivalent**. Thirty-nine of these sit across the measured blocks, and
+not one of them is work waiting to be done: no test written for a DNS conformance
+suite will ever close one.
+
+Counting them as open gaps said the opposite for months. Rounding them into
+`noise` would have said they are not code, which they are. So they now have a
+kind of their own — `host-only` — printed on its own line and mistaken for
+neither.
+
+| block | real gaps | of those open | host-only |
+|---|---:|---:|---:|
+| `records` | 240 | 0 | — |
+| `core` | 132 | 0 | 1 |
+| `dnssec` | 75 | **1** | 9 |
+| `tsig` | 41 | **1** | — |
+| `server` | 86 | **34** | 29 |
+
+The DNSSEC block had been carrying **nine** open lines for months. Eight were
+these. What is actually left there is one: the depth limit of the chain walk,
+where both readings are conformant because no RFC names a limit.
+
+**The argument had already been written twice before it had a name.** One entry
+in the core ledger and one in the DNSSEC ledger had each worked out, separately,
+that *a test host has no synchronization context for the two readings to differ
+about* — and one of them added *it is a rule about library code, not a rule about
+DNS*. Both are gone now, replaced by the class. Two arguments reached the same
+place from different blocks, which is usually the sign that the thing wants a
+name.
+
+### What does judge them, and what it would say
+
+The property is real and the instrument for it is a static one, not a test:
+**CA2007** flags every `await` in library code that does not say which context it
+wants. It is not enabled here — no `.editorconfig`, no analyzer configuration,
+no mention of the rule anywhere in the tree.
+
+Which matters, because the convention is not actually held. Counting textually
+across `Hermod/DNS`, of roughly **258 awaits about 70 carry no `ConfigureAwait`
+at all**:
+
+```
+DNSClient.cs:873        await raceCTS.CancelAsync();
+DNSHTTPSClient.cs:649   var response = await client.ConnectAsync();
+DNSHTTPSClient.cs:1708  await base.DisposeAsync();
+DNSTCPClient.cs:345     await Log(…);
+```
+
+So the thirty-nine lines the sweep kept pointing at were pointing at something —
+just not at anything a test could reach. The question they raise is not *does a
+test notice `false` versus `true`* but *is the library consistent about it*, and
+the answer today is no, in about a quarter of its awaits.
+
+Turning CA2007 on is a change to Hermod and would produce a warning at each of
+those places, so it is not made here. It is written down because the alternative
+is thirty-nine lines that look like unfinished work for ever, and a real question
+that nothing in this repository was ever going to ask.
+
 
 ## The five that had fallen out
 

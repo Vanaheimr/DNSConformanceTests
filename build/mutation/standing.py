@@ -50,9 +50,11 @@ def main():
     # it reads "no test watches this line", when what happened is that nobody
     # has looked yet.
     real       = [r for r in survivors if not r[3].startswith("noise")
-                                       and not r[3].startswith("unmeasured")]
+                                       and not r[3].startswith("unmeasured")
+                                       and r[3] != "host-only"]
     noise      = [r for r in survivors if r[3].startswith("noise")]
     unmeasured = [r for r in survivors if r[3].startswith("unmeasured")]
+    hostOnly   = [r for r in survivors if r[3] == "host-only"]
 
     done  = {(r[0], r[1], r[2]): r[3] for r in closed}
 
@@ -73,6 +75,9 @@ def main():
     if unmeasured:
         print("  never measured             %4d   (the harness refused them or never finished)"
               % len(unmeasured))
+    if hostOnly:
+        print("  host-only                  %4d   (ConfigureAwait: no test host sees the difference)"
+              % len(hostOnly))
     print()
     print("  closed by a test           %4d" % killed)
     print("  declared equivalent        %4d" % equivalent)
