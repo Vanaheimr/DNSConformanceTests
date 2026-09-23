@@ -20,7 +20,7 @@ round; naming it twice only guarantees one of the two goes stale.
 
 ---
 
-## Seven blocks, four measured
+## Seven blocks, five measured
 
 The DNS code lives in seven folders and the sweep started with one of them. That
 was not a judgement about the others — it was where the work began, and saying so
@@ -30,12 +30,12 @@ test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed**, 1 never measured |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **closed**, 1 never measured |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | not measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **115 open**, 4 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -57,6 +57,145 @@ is not an error: finding 57's fix and the compression-table fix each added a
 comparison. The measured figure stays, because it is what was measured.
 
 
+
+---
+
+## The result: the server
+
+Measured against Hermod **`cc8323d5`**, `libs/Hermod/Hermod/DNS/Server/**`, judged
+in pass 1 by Server and in pass 2 by the remaining seven projects.
+
+| | |
+|---|---:|
+| mutants | 361 |
+| not viable (would not compile) | 63 |
+| killed by Server | 106 |
+| killed by another project | 69 |
+| survived everywhere | 122 |
+| never finished | 1 |
+| real gaps | **115** |
+
+**Pass 2 earned its keep here, where for DNSSEC it bought nothing.** It caught 69
+of the 195 survivors handed to it — better than one in three, against 21 of 63 for
+`tsig` and none at all for `dnssec`. The difference is how many projects touch the
+folder. Everything that speaks to a server runs through `DNS/Server`, so a
+mutation the Server tests miss has seven more chances to be seen; DNSSEC has
+exactly one judge and there is no second opinion to be had.
+
+Where the 115 are:
+
+| file | gaps | what it is |
+|---|---:|---|
+| `DNSServer.cs` | 36 | the listeners: binding, the transports, the sockets |
+| `ZoneDenialOfExistence.cs` | 15 | what an authoritative server proves absent |
+| `InMemoryDNSZone.cs` | 14 | the zone itself: lookup, wildcard, referral |
+| `DNSOverHTTPSServer.cs`, `DNSOverHTTP2Server.cs`, `DNSOverHTTPSResource.cs` | 23 | DoH |
+| `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
+| `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
+| `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### Four mutants with no verdict, and what three of them turned out to be
+
+Four came back TIMED-OUT rather than killed or survived. A mutant gets ten times
+the clean run here, which is 120 s, and none of the four finished in it. A
+timeout is a statement about the instrument, so each was planted by hand and one
+test class — twelve tests, 144 ms clean — was run on its own:
+
+| | with the mutant |
+|---|---|
+| `DNSServer.cs:374` `==`→`!=` | **12 of 12 failed**, 2 m 5 s |
+| `DNSServer.cs:427` `==`→`!=` | **12 of 12 failed**, 2 m 5 s |
+| `DNSServer.cs:718` `==`→`!=` | **12 of 12 failed**, 2 m 5 s |
+| `DNSServer.cs:297` `false`→`true` | **still running after 600 s** |
+
+Three of them are kills the harness could not afford to wait for. Each makes
+every bind throw, and the fixture answers a server that publishes no endpoint by
+waiting five seconds and trying again — about ten seconds per test before it
+gives up, which over the project's 140 tests is some twenty minutes against a
+bound of two. The suite is red the whole way. It is simply never asked. Their
+rows are corrected to KILLED, and `server-pass1.tsv.before-timeout-recheck`
+keeps what was measured — the same treatment `DNSSECZoneSigner.cs:34`'s
+PARSE-ERROR got, for the same reason.
+
+The fourth is a different animal and keeps its TIMED-OUT, which is the true
+verdict:
+
+```csharp
+for (var attempt = 1; ; attempt++)
+{
+    var bound  = new List<T>();
+    var retry  = false;              // planted as true
+    ...
+    if (!retry) { ...; return bound; }
+    foreach (var listener in bound) Release(listener);
+}
+```
+
+With `retry` stuck true the loop binds every endpoint, releases them all and
+starts again, for ever, at full speed and with real socket calls. It runs inside
+a background listener task and reads no cancellation token, so `Stop()` cannot
+reach it: every fixture that gives up leaves one more of them spinning. Nothing
+on Hermod's public surface reports this — `listenerTasks` is private, `Start()`
+returns successfully with every listener doomed, and a caller can only infer the
+failure from an endpoint that never appears, which is what the fixture's own
+comment already says it has to do.
+
+**And that the loop terminates at all is not visible from the loop.** `for (;;)`
+is bounded only because `retry` is set in exactly one place — an exception filter
+three levels down that also tests `attempt < attempts`. It is correct. A reader
+has to go and find that out.
+
+One more went the other way, and it is the reason to check both directions.
+`DNSServer.cs:330`'s `&&`→`||` also timed out in pass 1, and pass 2 then gave it
+SURVIVED-EVERYWHERE — which says the other seven projects miss it and says
+nothing at all about the block's own judge. Run on its own it passes 12 of 12 in
+132 ms: the filter it guards needs a `SocketException` before it is reached at
+all, so pass 1's timeout was a hiccup and not a slow red. Corrected to SURVIVED,
+and it stays a gap.
+
+### A default is noise when nothing on the wire reaches it
+
+The triage calls a parameter default noise. The DNSSEC block needed an exception
+for two of them, which are listed by name because no pattern can tell "the usual
+value" from "the safe value". This block has four, and the interesting part is
+that **none** of them needed the exception — for two different reasons, and the
+difference is worth more than the verdict.
+
+```csharp
+Boolean  DNSSECOK            = false,     // IDNSZoneStore.cs:182, InMemoryDNSZone.cs:510
+Boolean  ServeHTTP11ViaALPN  = true,      // DNSOverHTTP2Server.cs:271
+Boolean  RequireDNSCookies   = false)     // AuthoritativeDNSRequestHandler.cs:90
+```
+
+The first three are unreachable. Every caller of `Lookup` passes `DNSSECOK`
+explicitly — the handler computes it from the request's DO bit, per RFC 4035
+§3.2.1, and the suite's one direct caller writes `DNSSECOK: true` — so the
+default sits on no path that a wire test can travel. The ALPN one is sharper
+still: the **same** default one overload up, at `DNSOverHTTP2Server.cs:191`, is
+killed by SecureTransports. The policy is pinned; line 271 only repeats it for a
+convenience overload nothing in the suite calls.
+
+`RequireDNSCookies` is reachable and still not policy. Six fixture sites do
+construct the handler with the default, but the branch it guards has four
+conjuncts:
+
+```csharp
+if (DNSCookieSecret is not null &&
+    RequireDNSCookies           &&
+    ReadRequestCookie(Request) is not null &&
+    !HasValidServerCookie(Request))
+```
+
+and none of those six sets a cookie secret, so the branch is dead whichever way
+the flag reads. The two tests that do exercise it pass the flag explicitly. And
+RFC 7873 §5.2.3 leaves the choice to the server: nothing in the specification
+says the default must be permissive, which is what separates this from RFC 5155
+§6's opt-out, where the default decides what every zone proves.
+
+So the rule the two blocks together give is not "defaults are noise" and not
+"defaults are policy". **A default is noise when no wire path reaches it, or when
+no RFC constrains it. It is policy when the suite's own fixtures run on it and a
+specification has something to say about which way it should read.**
 
 ---
 
@@ -1606,6 +1745,55 @@ sweep or in an earlier hand-written one:
   `build=False, refreshed=False, 0 failures` on all seven projects, which reads
   exactly like a broken bench. A control has to be verified before it is trusted,
   like anything else.
+
+### Four ways to mistake the machine for the code
+
+The four guards above watch the code under test. The four below watch the
+harness, and every one of them was added after it had already produced a wrong
+number. They are one defect wearing four coats: **a statement the machine could
+not make was recorded as a statement about the code.**
+
+- **A mutant that never finishes is not a mutant that survives.**
+  `subprocess.run(timeout=)` kills only the child, and `dotnet test` leaves a
+  `testhost.exe` holding the inherited pipe, so the `communicate()` after the
+  kill blocks for ever. One mutant in `DNSServer.cs` turned a thirty-minute
+  bound into five and a half hours. The runner now kills the whole process tree,
+  takes its bound from the measured baseline rather than a constant, and records
+  `TIMED-OUT`, which is a verdict about neither the code nor the test.
+
+- **A build that fails without a compiler error is not an unviable mutant.**
+  `build().returncode != 0` was read as "the compiler rejected this mutation",
+  and a locked output file reads identically. After one test run came back
+  without a summary line, the server block's second pass wrote **179 consecutive
+  lines** as "not a viable mutant" — every one of which had built in pass 1 and
+  builds today. Both passes now look for `: error CS####` in the output and stop
+  the run when there is none, because a sweep that cannot build produces
+  something worse than nothing: plausible rows.
+
+  What most likely locked it: MSBuild's reusable nodes. Fifteen of them were
+  alive when the pass finished, started hours apart, each holding handles on
+  assemblies it had written. Every build the sweep runs now passes
+  `-nodeReuse:false`, which is not a speed setting.
+
+- **A verdict the harness could not reach is not a non-entry.** The triage read
+  only `SURVIVED-EVERYWHERE`, so every refusal and every timeout fell out of it
+  silently, and a line the machine failed to measure looked exactly like a line
+  the suite covers. Five such lines sat in four blocks reported closed. They are
+  now `unmeasured-*` kinds, which count as neither gaps nor noise, and a block
+  that carries one does not print "nothing is left".
+
+- **A claim about one mutant is not a claim about its line.** `(file, line,
+  operator)` never named a single mutant — a line can carry the same operator
+  more than once — and neither the results file nor the ledger said so. Pass 2
+  could not tell which occurrence had survived and refused; worse, ledger
+  entries may be bare line numbers, so regenerating the closed files would have
+  recorded three of the newly visible lines as *killed by rounds that never saw
+  them*. The occurrence index is now written as a sixth column, and a line with
+  no verdict is skipped before ledger matching.
+
+  This is the one that matters most. The other three hide a question. This one
+  manufactures an answer, in the file whose whole job is to record what was
+  actually checked.
 
 ---
 

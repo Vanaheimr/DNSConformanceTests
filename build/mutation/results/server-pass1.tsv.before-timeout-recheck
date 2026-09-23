@@ -15,21 +15,21 @@ DNS/Server/DNSServer.cs	314	equality-to-inequality	KILLED	4 of 140 failed
 DNS/Server/DNSServer.cs	318	logical-or-to-and	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	318	equality-to-inequality	KILLED	1 of 140 failed
 DNS/Server/DNSServer.cs	319	equality-to-inequality	KILLED	1 of 140 failed
-DNS/Server/DNSServer.cs	330	logical-and-to-or	SURVIVED	0 of 12 failed in ServerWildcardTests, run on its own: the filter it guards needs a SocketException to be reached at all
+DNS/Server/DNSServer.cs	330	logical-and-to-or	TIMED-OUT	the judge was still running after 157 s
 DNS/Server/DNSServer.cs	330	equality-to-inequality	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	331	logical-and-to-or	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	332	less-to-less-or-equal	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	341	true-to-false	SURVIVED	0 of 140 failed
-DNS/Server/DNSServer.cs	374	equality-to-inequality	KILLED	12 of 12 failed in ServerWildcardTests, run on its own: the whole project needs ~20 min to go red here and the bound is 120 s
+DNS/Server/DNSServer.cs	374	equality-to-inequality	TIMED-OUT	the judge was still running after 157 s
 DNS/Server/DNSServer.cs	378	logical-and-to-or	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	378	less-to-less-or-equal	SURVIVED	0 of 140 failed
-DNS/Server/DNSServer.cs	427	equality-to-inequality	KILLED	12 of 12 failed in ServerWildcardTests, run on its own: the whole project needs ~20 min to go red here and the bound is 120 s
+DNS/Server/DNSServer.cs	427	equality-to-inequality	TIMED-OUT	the judge was still running after 157 s
 DNS/Server/DNSServer.cs	428	false-to-true	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	551	false-to-true	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	596	false-to-true	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	598	true-to-false	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	645	false-to-true	SURVIVED	0 of 140 failed
-DNS/Server/DNSServer.cs	718	equality-to-inequality	KILLED	12 of 12 failed in ServerWildcardTests, run on its own: the whole project needs ~20 min to go red here and the bound is 120 s
+DNS/Server/DNSServer.cs	718	equality-to-inequality	TIMED-OUT	the judge was still running after 157 s
 DNS/Server/DNSServer.cs	719	false-to-true	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	802	false-to-true	SURVIVED	0 of 140 failed
 DNS/Server/DNSServer.cs	861	false-to-true	SURVIVED	0 of 140 failed

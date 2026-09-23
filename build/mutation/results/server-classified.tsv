@@ -124,6 +124,3 @@ DNS/Server/DNSServer.cs	1486	false-to-true	branch	await http2UnicastListener.Sto
 DNS/Server/DNSServer.cs	1497	false-to-true	branch	ConfigureAwait(false);
 DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	branch	unsigned is null || sig is null || !sig.IsTransactionSignature)
 DNS/Server/DNSServer.cs	297	false-to-true	unmeasured-timeout	var retry  = false;
-DNS/Server/DNSServer.cs	374	equality-to-inequality	unmeasured-timeout	if (bound.Count == 0)
-DNS/Server/DNSServer.cs	427	equality-to-inequality	unmeasured-timeout	if (endPoint.AddressFamily == AddressFamily.InterNetworkV6)
-DNS/Server/DNSServer.cs	718	equality-to-inequality	unmeasured-timeout	if (endPoint.AddressFamily == AddressFamily.InterNetworkV6)

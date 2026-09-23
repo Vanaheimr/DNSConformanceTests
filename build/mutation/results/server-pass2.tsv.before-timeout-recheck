@@ -76,6 +76,7 @@ DNS/Server/DNSMessagePipeline.cs	374	equality-to-inequality	SURVIVED-EVERYWHERE
 DNS/Server/DNSOverHTTP2Server.cs	470	logical-and-to-or	KILLED-ELSEWHERE	SecureTransports: 24 of 156 failed
 DNS/Server/DNSOverHTTPSResource.cs	277	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 10 of 156 failed
 DNS/Server/DNSOverHTTPSServer.cs	328	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Server/DNSServer.cs	374	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s
 DNS/Server/InMemoryDNSZone.cs	264	equality-to-inequality	SURVIVED-EVERYWHERE	
 DNS/Server/ZoneDenialOfExistence.cs	313	logical-or-to-and	KILLED-ELSEWHERE	Dnssec: 2 of 326 failed
 DNS/Server/AuthoritativeDNSRequestHandler.cs	383	true-to-false	KILLED-ELSEWHERE	Dnssec: 17 of 326 failed
@@ -95,6 +96,7 @@ DNS/Server/ZoneDenialOfExistence.cs	333	logical-or-to-and	SURVIVED-EVERYWHERE
 DNS/Server/AuthoritativeDNSRequestHandler.cs	415	ge-to-greater	SURVIVED-EVERYWHERE	
 DNS/Server/DNSOverHTTP2Server.cs	510	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 15 of 156 failed
 DNS/Server/DNSOverHTTPSResource.cs	304	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 40 of 156 failed
+DNS/Server/DNSServer.cs	427	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s
 DNS/Server/InMemoryDNSZone.cs	490	false-to-true	KILLED-ELSEWHERE	Dnssec: 1 of 326 failed
 DNS/Server/ZoneDenialOfExistence.cs	352	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/AuthoritativeDNSRequestHandler.cs	478	false-to-true	SURVIVED-EVERYWHERE	
@@ -125,6 +127,7 @@ DNS/Server/InMemoryDNSZone.cs	507	false-to-true	SURVIVED-EVERYWHERE
 DNS/Server/ZoneDenialOfExistence.cs	374	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 4 of 326 failed
 DNS/Server/DNSMessagePipeline.cs	623	le-to-less	SURVIVED-EVERYWHERE	
 DNS/Server/DNSOverHTTPSResource.cs	494	le-to-less	SURVIVED-EVERYWHERE	
+DNS/Server/DNSServer.cs	718	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s
 DNS/Server/InMemoryDNSZone.cs	510	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Server/ZoneDenialOfExistence.cs	424	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/DNSMessagePipeline.cs	650	true-to-false	KILLED-ELSEWHERE	Dnssec: 4 of 326 failed
