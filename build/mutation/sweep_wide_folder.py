@@ -26,7 +26,8 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from sweep_folder import BLOCKS, SRCROOT, ROOT, project, assembly, read, write
+from sweep_folder import (BLOCKS, SRCROOT, ROOT, project, assembly, read, write,
+                          run, TIMEOUT, TIMED_OUT)
 
 # Every conformance project that needs neither Docker nor WSL. The interop lane
 # is left out on purpose: its judges live outside this machine's control, and a
@@ -35,12 +36,19 @@ BENCH = ["WireFormat", "Edns", "Dnssec", "Server", "Client", "SecureTransports",
          "Multicast", "ResourceRecords"]
 
 FAILED = re.compile(r"(?:Fehler|Failed):\s*(\d+)")
+
+# The one thing that tells "the compiler rejected this mutant" apart from "this
+# machine could not build at all". Without it a locked output file, a wedged
+# test host or a full disk is recorded as a property of the code - which is how
+# 179 lines that had already built in pass 1 came to be filed as not viable.
+COMPILER_ERROR = re.compile(r": error CS[0-9]+", re.IGNORECASE)
+
+
+def not_the_mutants_fault(Result):
+    """True when a build failed for a reason the mutation cannot explain."""
+    return COMPILER_ERROR.search((Result.stdout or "") + (Result.stderr or "")) is None
+
 TOTAL  = re.compile(r"(?:gesamt|total):\s*(\d+)", re.IGNORECASE)
-
-
-def run(cmd, timeout=1800):
-    return subprocess.run(cmd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=timeout)
 
 
 def build(proj):
@@ -58,8 +66,15 @@ def build_all():
                 "-v", "q", "--nologo"])
 
 
-def run_tests(proj):
-    out = run(["dotnet", "test", proj, "--no-build", "-v", "q", "--nologo"]).stdout or ""
+def run_tests(proj, timeout=1800):
+
+    result = run(["dotnet", "test", proj, "--no-build", "-v", "q", "--nologo"],
+                 timeout=timeout)
+
+    if result.returncode == TIMED_OUT:
+        return TIMEOUT
+
+    out  = result.stdout or ""
     f, t = FAILED.search(out), TOTAL.search(out)
     return (int(f.group(1)), int(t.group(1))) if f and t else None
 
@@ -83,7 +98,7 @@ def main():
     survivors = []
     for line in io.open(pass1, encoding="utf-8"):
         p = line.rstrip("\n").split("\t")
-        if len(p) >= 4 and p[3] == "SURVIVED":
+        if len(p) >= 4 and p[3] in ("SURVIVED", "TIMED-OUT"):
             survivors.append((p[0], int(p[1]), p[2]))
 
     # Round-robin over the files rather than straight down the list. Pass 1
@@ -118,13 +133,29 @@ def main():
         sys.exit("baseline build of the solution failed")
 
     expected = {}
+    caps     = {}
+
     for b in bench:
-        proj = project(b)
-        counted = run_tests(proj)
-        if counted is None or counted[0] != 0:
+
+        proj     = project(b)
+
+        measured = time.time()
+        counted  = run_tests(proj)
+        seconds  = time.time() - measured
+
+        if counted is TIMEOUT or counted is None or counted[0] != 0:
             sys.exit("baseline is not clean for %s: %s" % (b, counted))
+
         expected[b] = counted[1]
-        print("  baseline %-18s %4d tests" % (b, counted[1]), flush=True)
+
+        # Each project gets its own bound, ten times its clean run. Without one
+        # a single mutant that spins costs thirty minutes per project rather
+        # than per pass.
+        caps[b] = max(120, int(seconds * 10))
+
+        print("  baseline %-18s %4d tests in %3.0f s (a mutant gets %d s)"
+              % (b, counted[1], seconds, caps[b]), flush=True)
+
     print()
 
     def record(rel, line_no, op, verdict, detail):
@@ -175,7 +206,17 @@ def main():
             # and the remaining builds would cost a minute each to confirm it.
             before = {b: os.path.getmtime(assembly(b)) for b in bench}
 
-            if build_all().returncode != 0:
+            built = build_all()
+
+            if built.returncode != 0:
+
+                if not_the_mutants_fault(built):
+                    sys.exit(("the build failed with no compiler error in it, so this "
+                              "is the machine and not the mutant. Stopping rather than "
+                              "recording %s:%d as not viable:" + chr(10) + chr(10) + "%s")
+                             % (rel, line_no,
+                                ((built.stdout or "") + (built.stderr or ""))[-3000:]))
+
                 record(rel, line_no, op, "BUILD-FAILED", "not a viable mutant")
                 counts["BUILD-FAILED"] = counts.get("BUILD-FAILED", 0) + 1
                 continue
@@ -191,7 +232,13 @@ def main():
 
                 proj = project(b)
 
-                counted = run_tests(proj)
+                counted = run_tests(proj, timeout=caps[b])
+
+                if counted is TIMEOUT:
+                    verdict = "TIMED-OUT"
+                    detail  = "%s was still running after %d s" % (b, caps[b])
+                    break
+
                 if counted is None:
                     verdict, detail = "PARSE-ERROR", "no summary line from %s" % b
                     break

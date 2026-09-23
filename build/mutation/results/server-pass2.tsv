@@ -1,0 +1,11 @@
+DNS/Server/AuthoritativeDNSRequestHandler.cs	90	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Server/DNSCookies.cs	159	logical-or-to-and	SURVIVED-EVERYWHERE	
+DNS/Server/DNSMessagePipeline.cs	150	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/Server/DNSOverHTTP2Server.cs	158	logical-and-to-or	KILLED-ELSEWHERE	SecureTransports: 32 of 156 failed
+DNS/Server/DNSOverHTTPSResource.cs	217	inequality-to-equality	KILLED-ELSEWHERE	SecureTransports: 54 of 156 failed
+DNS/Server/DNSOverHTTPSServer.cs	184	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Server/DNSServer.cs	290	equality-to-inequality	SURVIVED-EVERYWHERE	
+DNS/Server/DNSServerOptions.cs	37	true-to-false	SURVIVED-EVERYWHERE	
+DNS/Server/IDNSZoneStore.cs	182	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Server/InMemoryDNSZone.cs	129	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 326 failed
+DNS/Server/ZoneDenialOfExistence.cs	68	greater-to-ge	KILLED-ELSEWHERE	Dnssec: 3 of 326 failed

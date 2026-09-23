@@ -73,6 +73,18 @@ BLOCKS = {
 }
 
 FAILED = re.compile(r"(?:Fehler|Failed):\s*(\d+)")
+
+# The one thing that tells "the compiler rejected this mutant" apart from "this
+# machine could not build at all". Without it a locked output file, a wedged
+# test host or a full disk is recorded as a property of the code - which is how
+# 179 lines that had already built in pass 1 came to be filed as not viable.
+COMPILER_ERROR = re.compile(r": error CS[0-9]+", re.IGNORECASE)
+
+
+def not_the_mutants_fault(Result):
+    """True when a build failed for a reason the mutation cannot explain."""
+    return COMPILER_ERROR.search((Result.stdout or "") + (Result.stderr or "")) is None
+
 TOTAL  = re.compile(r"(?:gesamt|total):\s*(\d+)", re.IGNORECASE)
 
 
@@ -282,7 +294,17 @@ def main():
 
             before = os.path.getmtime(dll)
 
-            if build(proj).returncode != 0:
+            built = build(proj)
+
+            if built.returncode != 0:
+
+                if not_the_mutants_fault(built):
+                    sys.exit(("the build failed with no compiler error in it, so this "
+                              "is the machine and not the mutant. Stopping rather than "
+                              "recording %s:%d as not viable:" + chr(10) + chr(10) + "%s")
+                             % (rel, line_no,
+                                ((built.stdout or "") + (built.stderr or ""))[-3000:]))
+
                 record(rel, line_no, op, "BUILD-FAILED", "not a viable mutant")
                 counts["BUILD-FAILED"] = counts.get("BUILD-FAILED", 0) + 1
                 continue
