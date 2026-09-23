@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **115 open**, 4 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **100 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,96 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### A zone that holds nothing but its own apex
+
+Fifteen gaps in `ZoneDenialOfExistence.cs`, and the file turns on one sentence of
+RFC 4034 §4.1.1: *the value of the Next Domain Name field in the last NSEC record
+in the zone is the name of the zone apex*. A zone with one name has one NSEC,
+which is therefore both the first and the last — so its next name is its own
+owner, and the span it describes is everything below the apex rather than an
+interval inside it.
+
+```csharp
+var above = CompareCanonical(Name, owner) > 0;
+var below = CompareCanonical(Name, next)  < 0;
+var wraps = CompareCanonical(owner, next) >= 0;
+
+if (wraps ? (above || below) : (above && below))
+    return nsec;
+```
+
+Read `wraps` as `>` instead of `>=` and a chain of one record stops wrapping.
+Every name below the apex is then neither strictly after the owner nor strictly
+before the next, the covering search finds nothing, and the NXDOMAIN goes out
+with no proof at all — which a validating resolver has to treat as Bogus rather
+than as absent. Every other test here works with chains of three names or more,
+where owner and next always differ. That is why nothing noticed.
+
+This is not a contrived zone. It is what a signer produces for an empty one: a
+name held away from the world, or a zone that has just been created.
+
+The test writes the zone out record by record rather than signing it, which buys
+two things. The NSEC is *stated* rather than produced, so what is measured is the
+server's selection of it and nothing else. And with no RRSIG travelling beside
+it, the duplicate check in `Collect` has nothing to hide behind: in an apex-only
+zone the two halves of §3.1.3.2 — that the name is absent, and that no wildcard
+could have answered — resolve to the same single record, and the RFC asks for it
+once. The NSEC3 hash is computed in the test too, for the reason the rest of this
+file already gives: a test that hashed the way the server hashes would agree with
+it where both were wrong.
+
+Three of the fifteen fall. The wrap at 311, the duplicate check at 597, and the
+hash comparison at 443 — that last one only in the NSEC3 zone. `CompareHashes`
+walks the shorter of the two arrays and answers by length if it reaches the end;
+two identical twenty-octet hashes are the only call where it *does* reach the
+end, and a bound one too generous reads past it.
+
+**The fourth prediction was wrong, and that is the part worth keeping.** `371` is
+the NSEC3 twin of `311`, the same mutation on the same expression one screen
+down, and it was expected to die with it. It survived. The NSEC3 form of
+`ForNameError` asks for a *matching* record before it asks for any covering one:
+
+```csharp
+Collect(proof, MatchingNSEC3(closestEncloser));
+Collect(proof, CoveringNSEC3(NextCloser(QName, closestEncloser)));
+Collect(proof, CoveringNSEC3(Wildcard(closestEncloser)));
+```
+
+In a one-record zone the record the covering calls would return is the record the
+matching call already returned, and `Collect` drops the duplicate. The answer is
+identical whether the wrap works or not. The NSEC branch two screens up has no
+matching call — only two covering ones — so the same mutation empties the proof
+there. **Same operator, same expression, same zone, opposite verdicts**, and the
+difference is four lines away in a different method. Reading the two as
+symmetrical because they look symmetrical is what the measurement caught.
+
+### The twelve that stay, and why they are three different things
+
+Twelve equivalences in one file is more than any round so far, which is reason to
+separate them rather than wave at them.
+
+**Two compute the same value.** `445` is `Left[i] < Right[i] ? -1 : 1` under an
+`if` that has already established the two differ, and less-than cannot disagree
+with less-or-equal where equality is excluded. `565` is
+`Skip >= Labels.Length ? "." : String.Join('.', Labels.Skip(Skip)) + "."`, where
+at equality the second branch joins nothing and appends the dot — which is the
+dot the first branch returns.
+
+**Eight guard a state no caller produces.** Every call of `CoveringNSEC` and
+`CoveringNSEC3` passes a name the zone does not hold; that is what those calls
+are *for*. So a name equal to an owner, or to a next name, never arrives, and the
+strictness of the comparison is never consulted — `306`, `307`, `369`, `370`.
+RFC 4034 §4.1.3 wants it strict all the same: a name equal to an owner is
+*matched*, not covered, and proving it absent would be proving a lie. `333`,
+`352` and `424` guard nulls their callers cannot pass, and `528` tests whether
+QNAME is its own closest provable encloser, which a name that exists cannot be.
+Right, and unreachable — the same category as the eighteen guards in the `tsig`
+block.
+
+**Two are shadowed by a path that supplies the same answer.** `371` above, and
+`466`, whose walk loses exactly the apex candidate and whose `return` below the
+loop is the apex.
 
 ### Four mutants with no verdict, and what three of them turned out to be
 

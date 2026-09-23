@@ -613,10 +613,92 @@ DNSSEC_SUPERSEDED = {
 
 
 
+
+
+# ---------------------------------------------------------------------------
+#  server
+# ---------------------------------------------------------------------------
+
+SERVER_KILLED = {
+
+    # RFC 4034 section 4.1.1: the last NSEC of a zone names the apex, so a zone
+    # holding nothing but its apex has one NSEC whose next name is its own
+    # owner. Its span is then everything below the apex rather than an interval
+    # inside it, and a reading that wants "after the owner AND before the next"
+    # answers no for every name there is. The NSEC3 chain has the same shape and
+    # one failure more: owner and next being the same twenty octets is the only
+    # call where the hash comparison runs to the end of both arrays.
+    "apex-only-zone": {
+        "DNS/Server/ZoneDenialOfExistence.cs": {311, 443, 597},
+    },
+
+}
+
+
+SERVER_EQUIVALENT = {
+
+    "DNS/Server/ZoneDenialOfExistence.cs": {
+
+        # The two branches compute the same value.
+        445: "Left[i] < Right[i] ? -1 : 1, under an if that has already established "
+             "Left[i] != Right[i]. Less-than and less-or-equal cannot disagree where "
+             "equality is excluded",
+        565: "Skip >= Labels.Length ? \".\" : String.Join('.', Labels.Skip(Skip)) + \".\". "
+             "At equality the other branch joins nothing and appends the dot, which is "
+             "the same dot the first branch returns",
+
+        # Guards against a state no caller produces. Every call of CoveringNSEC and
+        # CoveringNSEC3 passes a name that does not exist in the zone - that is what
+        # the callers are for - so a name equal to an owner or to a next name never
+        # arrives, and the strictness of the comparison is never consulted. RFC 4034
+        # section 4.1.3 wants it strict: a name equal to an owner is matched rather
+        # than covered, and proving it absent would be proving a lie. The guard is
+        # right and unreachable, which is the same category as the eighteen in the
+        # tsig block.
+        306: "above = CompareCanonical(Name, owner) > 0, where Name is a name the zone "
+             "does not hold and owner is one it does",
+        307: "below = CompareCanonical(Name, next) < 0 - next is the next existing name, "
+             "so the same argument",
+        369: "the NSEC3 twin of 306, over hashes",
+        370: "the NSEC3 twin of 307",
+
+        333: "Name is null || nsec3Parameters is null in MatchingNSEC3. Its three callers "
+             "pass a name they have already checked, and with no parameters HashOf returns "
+             "null on the next line anyway",
+        352: "the same guard in CoveringNSEC3. Name can be null here - NextCloser returns "
+             "null when QNAME is the encloser - but HashOf answers null for that too",
+        424: "label is null || label.Length == 0 in OwnerHashOf. Split always yields at "
+             "least one element, so FirstOrDefault over it is never null and only the "
+             "length test can fire",
+        528: "qnameLabels.Length <= encloserLabels.Length in NextCloser. The closest "
+             "provable encloser is an ancestor of QNAME and never QNAME itself, because "
+             "a name with a matching NSEC3 is a name that exists",
+
+        # The mutation removes a path whose answer another path supplies.
+        466: "the bound of ClosestEncloser's walk. Stopping one candidate short loses "
+             "exactly the apex, and the return below the loop is the apex",
+        371: "the NSEC3 wrap, and NOT for the reason its NSEC twin at 311 dies. The two "
+             "readings differ only when owner and next are the same hash, which needs a "
+             "chain of one record - and every NSEC3 proof that asks for a covering record "
+             "has already asked for a matching one, which in such a zone is that same "
+             "record. Collect drops the duplicate, so the response is identical whichever "
+             "way the comparison reads. The NSEC branch has no matching call to fall back "
+             "on, which is why the same mutation is a gap there and not here",
+
+    },
+
+}
+
+
+SERVER_SUPERSEDED = {}
+
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
     "dnssec": (DNSSEC_KILLED, DNSSEC_EQUIVALENT, DNSSEC_SUPERSEDED),
+    "server": (SERVER_KILLED, SERVER_EQUIVALENT, SERVER_SUPERSEDED),
 }
 
 
