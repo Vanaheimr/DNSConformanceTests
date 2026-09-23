@@ -679,6 +679,21 @@ SERVER_KILLED = {
         "DNS/Server/DNSCookies.cs": {159, 181, 182},
     },
 
+    # RFC 2931 section 3 identifies the whole mechanism by one field: a SIG(0) is
+    # "identified by having a 'type covered' field of zero". A SIG record with any
+    # other value is an ordinary RFC 2535 signature over an RRset that happens to
+    # travel in the additional section - it authenticates nothing about the
+    # request, so the request is unsigned and has to be served as one.
+    #
+    # The line carries the same operator twice and the two mutants disagree. The
+    # first connective guards a null TryStripSIG0 cannot produce and stays; the
+    # second drops the type-covered test itself, and that one now fails a test.
+    # The ledger keys on (file, line, operator) and cannot say "one of two", so
+    # the line is recorded here and MUTATION.md carries which half is which.
+    "the-sig-that-is-not-a-signature": {
+        "DNS/Server/DNSMessagePipeline.cs": {419},
+    },
+
 }
 
 
@@ -806,6 +821,27 @@ SERVER_EQUIVALENT = {
              "would not: with no Content-Length the read returns at once, and for a POST the "
              "body is already materialised by the time this runs. The guard is belt and "
              "braces against a hazard this stack does not have",
+
+    },
+
+    "DNS/Server/DNSServer.cs": {
+
+        1062: "length > sharedBuffer.Length, guarding the framed TCP read. The buffer comes "
+              "from ArrayPool.Shared.Rent(UInt16.MaxValue), which allocates at least that "
+              "much and in practice the next power of two, while length is a UInt16 and "
+              "cannot exceed 65535. The comparison is never true, and the mutant is true "
+              "only where the buffer is exactly 65535 - a size the shared pool's buckets do "
+              "not produce. A guard that cannot fire either way",
+
+        428:  "listener.Client.DualMode = false on the UDP side. Its own comment says why: "
+              "with the IPv4 listener actually bound, IPv4 datagrams go to the IPv4 socket "
+              "and the flag is never consulted. It states the intent and guards the degraded "
+              "case where the second bind is removed",
+        719:  "the same flag on the TCP side, for the same reason",
+
+        378:  "bound.Count < endPoints.Count && !portChosenBySystem, which guards a "
+              "logger.LogWarning and nothing else. Both mutations of the line change which "
+              "runs are logged about, and nothing that reaches a socket",
 
     },
 

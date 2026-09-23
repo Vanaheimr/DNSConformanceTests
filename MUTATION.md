@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **69 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **63 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,59 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### A SIG that covers a type, and a file that answers nothing
+
+RFC 2931 §3 identifies the whole mechanism by a single field: a SIG(0) is
+*"identified by having a 'type covered' field of zero"*. A SIG record with any
+other value is an ordinary RFC 2535 signature over an RRset, travelling in the
+additional section where a transaction signature would sit. It authenticates
+nothing about the request, so the request is unsigned and has to be served as
+one — and a server that fed it to verification instead would refuse an ordinary
+message on the strength of a record the sender is entitled to include.
+
+The test signs a query properly and then changes that one field, locating it
+through the suite's own parser rather than by counting octets. The signature
+stops matching, which is the point: nothing may look at it.
+
+`DNSMessagePipeline.cs:419` carries the same operator twice and the two mutants
+now have different answers, which is what was predicted and is why the line was
+left open two rounds ago rather than claimed as equivalent. The first connective
+guards a null `TryStripSIG0` cannot produce and stays. The second is the
+type-covered test itself, and it is now dead. The ledger keys on file, line and
+operator and cannot say *one of two*, so the line is filed under the round that
+closed half of it and this paragraph carries which half.
+
+### DNSServer.cs, where a black-box suite has nothing to say
+
+Thirty-six gaps, half of them `ConfigureAwait(false)`, and of the other eighteen
+**not one is closeable by a test from outside**. That is not a failure of imagination; it is what the file is.
+
+Five are equivalent outright. `length > sharedBuffer.Length` cannot fire in
+either reading: the buffer comes from `ArrayPool.Shared.Rent(UInt16.MaxValue)`,
+which allocates at least that much and in practice the next power of two, while
+`length` is a `UInt16`. The two `DualMode = false` lines say in their own comments
+that they are unobservable while the IPv4 listener is bound, which the round on
+the four timeouts had already confirmed from the other direction. And the two
+mutations of `bound.Count < endPoints.Count && !portChosenBySystem` change which
+runs write a warning to the log and nothing that reaches a socket.
+
+The remaining thirteen are real mutations that this suite cannot reach, and each
+for a different reason, which is the interesting part:
+
+| | |
+|---|---|
+| the bind retry policy — six lines | reachable only through a port race, and a race is not a test |
+| the "no IPv6 on this host" filter | needs a host without IPv6 |
+| two multicast socket options | the multicast listener is switched off in every fixture |
+| `leaveInnerStreamOpen` | a resource lifetime, visible only through exhaustion |
+| a zero `TCPReadTimeout` | a configuration nothing sets |
+| the two DoH port-collision tests | start-up validation, and no RFC says what a server does when two of its own listeners want one port |
+
+A conformance suite judges what comes back on the wire. This file decides how the
+socket that carries it was opened, and almost nothing about that survives the
+journey to an answer. Naming that is worth more than thirteen tests that would
+each assert a configuration this suite chose itself.
 
 ### Both edges of a window, and a length that was never the one deciding
 

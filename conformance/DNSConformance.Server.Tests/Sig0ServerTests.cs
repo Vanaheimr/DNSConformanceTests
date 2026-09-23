@@ -353,6 +353,62 @@ public class Sig0ServerTests
 
     #endregion
 
+    #region A_Sig_That_Covers_A_Type_Is_Not_A_Transaction_Signature()
+
+    [Test]
+    [Property("RFC", "2931 §3")]
+    public async Task A_Sig_That_Covers_A_Type_Is_Not_A_Transaction_Signature()
+    {
+
+        // §3 identifies the whole mechanism by one field: a SIG(0) is
+        // "identified by having a 'type covered' field of zero". A SIG record
+        // with any other value is an ordinary RFC 2535 signature over an RRset
+        // that happens to be travelling in the additional section — not a
+        // transaction signature, and not something the request is authenticated
+        // by.
+        //
+        // So a query carrying one is an *unsigned* query and has to be served as
+        // one. A server that fed it to verification instead would refuse a
+        // perfectly ordinary message, and would do it on the strength of a record
+        // the sender is entitled to include.
+        var key = SIG0Key.Generate(ClientName);
+
+        await using var server = await ServerAsync(key);
+
+        // Signed properly first, so everything about the record is well formed —
+        // then the one field that decides what kind of record it is, is changed.
+        // The signature no longer matches, which is the point: nothing may look
+        // at it.
+        var signed   = SIG0Signer.Sign(RawDnsWriter.Query(0x2931, ZoneFixtures.AName, RawDnsType.A), key);
+        var located  = RawDnsReader.Parse(signed).Additionals.
+                           FirstOrDefault(rr => rr.Type == SigType);
+
+        Assert.That(located, Is.Not.Null, "the fixture must actually carry a SIG record");
+
+        // RFC 2535 §4.1: the type covered is the first two octets of the RDATA.
+        signed[located!.RdataOffset]     = 0;
+        signed[located!.RdataOffset + 1] = 1;          // A
+
+        var raw      = await RawDnsProbe.UdpAsync(server.UdpPort, signed);
+
+        Assert.That(raw, Is.Not.Null, "an unsigned query is answered");
+
+        var response = RawDnsReader.Parse(raw!);
+
+        Assert.Multiple(() => {
+
+            Assert.That(response.RCode,   Is.Zero,
+                        "a SIG that covers type A authenticates nothing, so nothing failed to authenticate");
+
+            Assert.That(response.Answers, Is.Not.Empty,
+                        "and the question is answered like any other unsigned one");
+
+        });
+
+    }
+
+    #endregion
+
     #region A_Configured_Server_Signs_Its_Reply_And_Binds_It_To_The_Query()
 
     [Test]
