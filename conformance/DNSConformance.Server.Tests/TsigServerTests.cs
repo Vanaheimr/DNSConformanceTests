@@ -245,4 +245,116 @@ public class TsigServerTests
 
     #endregion
 
+    #region A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not()
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "8945 §5.2.3")]
+    [Property("RFC", "8945 §5.3.2")]
+    public async Task A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not()
+    {
+
+        // Two refusals that look identical from the header — both NOTAUTH, both
+        // empty — and which §5 requires the server to treat oppositely.
+        //
+        // §5.2.3: "A response indicating a BADTIME error MUST be signed by the
+        // same key as the request", with the server's own clock in Other Data so
+        // the sender can resynchronise and try again. The server has already
+        // authenticated the message by then; only the clock was wrong.
+        //
+        // §5.3.2, the other way: "When a server detects an error relating to the
+        // key or MAC in the incoming request, the server SHOULD send back an
+        // unsigned error message ... It MUST NOT send back a signed error
+        // message." There is nothing it could honestly sign with.
+        //
+        // Both refusals are already tested for their RCODE, which is the half
+        // they agree on. Nothing looked inside the TSIG, where they must differ.
+        await using var server = await SignedServerAsync();
+
+        var stale      = TSIGSigner.Sign(
+                             RawDnsWriter.Query(0x7A19, ZoneFixtures.AName, RawDnsType.A),
+                             Key(),
+                             TimeSigned: (UInt64) DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds());
+
+        var impostor   = new TSIGKey(DomainName.Parse("server-key."),
+                                     Convert.FromBase64String("d3Jvbmctc2VjcmV0LXRoYXQtaXMtbm90LXRoZS1yaWdodC1vbmU="));
+
+        var forged     = TSIGSigner.Sign(
+                             RawDnsWriter.Query(0x7A1A, ZoneFixtures.AName, RawDnsType.A),
+                             impostor);
+
+        var badTime    = TsigOf(await AskRaw(server, stale),  "the stale request");
+        var badSig     = TsigOf(await AskRaw(server, forged), "the forged request");
+
+        Assert.Multiple(() => {
+
+            Assert.That(badTime.Error,     Is.EqualTo(18), "BADTIME");
+            Assert.That(badTime.MacSize,   Is.GreaterThan(0),
+                        "§5.2.3 — a BADTIME reply is signed, or the sender cannot trust the clock it is given");
+            Assert.That(badTime.OtherLen,  Is.EqualTo(6),
+                        "and carries the server's time as a 48-bit integer");
+
+            Assert.That(badSig.Error,      Is.EqualTo(16), "BADSIG");
+            Assert.That(badSig.MacSize,    Is.Zero,
+                        "§5.3.2 — a key or MAC failure MUST NOT be answered with a signed message");
+
+        });
+
+    }
+
+    #endregion
+
+    #region Small independent helpers
+
+    private static async Task<RawDnsMessage> AskRaw(HermodServerFixture Server, Byte[] Query)
+    {
+
+        var raw = await RawDnsProbe.UdpAsync(Server.UdpPort, Query);
+
+        Assert.That(raw, Is.Not.Null, "§5.2 wants an answer, not silence");
+
+        return RawDnsReader.Parse(raw!);
+
+    }
+
+    /// <summary>
+    /// The three fields of a TSIG RDATA this test cares about (RFC 8945 §4.2),
+    /// read here rather than with Hermod's own parser: the point is what went out
+    /// on the wire, and a reader that shared the writer's mistakes would agree
+    /// with them.
+    /// </summary>
+    /// <remarks>
+    /// Layout after the algorithm name, which §4.2 says is never compressed:
+    /// Time Signed (6), Fudge (2), MAC Size (2), MAC, Original ID (2),
+    /// Error (2), Other Len (2), Other Data.
+    /// </remarks>
+    private static (UInt16 Error, Int32 MacSize, Int32 OtherLen) TsigOf(RawDnsMessage  Response,
+                                                                       String         Because)
+    {
+
+        var record = Response.Additionals.SingleOrDefault(rr => rr.Type == RawDnsType.TSIG);
+
+        Assert.That(record, Is.Not.Null, $"{Because} must be answered with a TSIG of its own");
+
+        var data   = record!.Rdata;
+        var offset = 0;
+
+        while (offset < data.Length && data[offset] != 0)     // the algorithm name
+            offset += data[offset] + 1;
+
+        offset += 1;
+        offset += 6 + 2;                                      // time signed, fudge
+
+        var macSize = (data[offset] << 8) | data[offset + 1];
+        offset += 2 + macSize + 2;                            // mac, original id
+
+        var error    = (UInt16) ((data[offset] << 8) | data[offset + 1]);
+        var otherLen = (data[offset + 2] << 8) | data[offset + 3];
+
+        return (error, macSize, otherLen);
+
+    }
+
+    #endregion
+
 }

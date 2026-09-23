@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **9 open**, 3 never measured |
 | `client` | `DNS/Client` | Client | 558 | not measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
-| `server` | `DNS/Server` | Server | 361 | measured, **83 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 361 | measured, **82 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
 second look before anyone reads a number off it: its judge has **four tests** for
@@ -93,6 +93,50 @@ Where the 115 are:
 | `DNSMessagePipeline.cs` | 10 | what a message meets on the way in and out |
 | `AuthoritativeDNSRequestHandler.cs` | 8 | the answer itself |
 | `DNSServerOptions.cs`, `DNSCookies.cs` | 9 | the options, and cookies |
+
+### A conditional that was a comment, and the first open finding
+
+`DNSMessagePipeline.cs:374` looked like the most careful line in the file:
+
+```csharp
+ErrorResponse = TSIGSigner.BuildErrorResponse(
+                    Buffer,
+                    result.Error,
+                    result.Error == TSIGSigner.BADTIME ? key : null
+                );
+```
+
+RFC 8945 draws a sharp line there. §5.2.3: *"A response indicating a BADTIME
+error MUST be signed by the same key as the request"*, with the server's clock
+in Other Data so the sender can resynchronise. §5.3.2, for the other failures:
+the server *"MUST NOT send back a signed error message"*. Two refusals that must
+differ, and one conditional that appears to make them differ.
+
+The mutation survived, and following that led to the answer: `BuildErrorResponse`
+builds every refusal with `MAC: []` and `OtherData: []`, unconditionally. The key
+reaches the record's owner name and algorithm and stops. When it is null the
+fallback constructs an equivalent key from the request's own TSIG, so **both
+readings of that conditional emit identical bytes**. The line states an intention
+the code below it does not carry out.
+
+So the mutant is equivalent — and its ledger entry says when it stops being so.
+The moment a BADTIME reply is signed, the two readings differ, and the test
+written for the finding kills the mutation. An equivalence that expires is worth
+more written down than a gap left open.
+
+**And this is [finding 58](FINDINGS.md), the first to land open.** The existing
+tests asked both refusals for their RCODE, which is the half they agree on;
+nothing looked inside the TSIG, where §5 requires them to disagree. Hermod
+answers BADTIME unsigned and with no server time, so a client with a drifting
+clock is told what is wrong and not what to correct it to — and an unsigned
+refusal can be forged by anyone able to send a packet, which is the class of
+attack TSIG exists to close. The BADSIG half is already right.
+
+Per [PLAN.md §9](PLAN.md) the test stays red as the tracking signal. It carries
+the `KnownIssue` category, and the sweep now excludes that category: a test that
+fails for a documented reason fails for the mutant and the clean tree alike, so
+while it is open it can detect nothing, and leaving it in would have stopped
+every future run at `baseline is not clean`.
 
 ### Four edges, and eighteen lines that say why they cannot move
 

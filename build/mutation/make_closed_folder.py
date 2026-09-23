@@ -749,6 +749,15 @@ SERVER_EQUIVALENT = {
         350: "unsigned is null || tsig is null, the same chain one term along",
         418: "!TryStripSIG0(...) || unsigned is null - the same, for the other kind",
 
+        374: "result.Error == BADTIME ? key : null, and equivalent only because of what "
+             "BuildErrorResponse does with that key: nothing. It builds every refusal with "
+             "MAC: [] and OtherData: [], so the argument reaches the record owner name and "
+             "stops there - and when it is null the fallback makes an equivalent key out of "
+             "the request TSIG, so both readings emit the same bytes. THIS ENTRY EXPIRES "
+             "WITH FINDING 58: once a BADTIME reply is signed as RFC 8945 section 5.2.3 "
+             "requires, the two readings differ and the test written for that finding kills "
+             "this mutation",
+
         471: "the twelve-octet floor of BuildNotAuthorizedResponse. It answers a request "
              "whose signature did not verify, so the request carried a TSIG or a SIG(0) "
              "and is an order of magnitude longer than the header it is measured against",

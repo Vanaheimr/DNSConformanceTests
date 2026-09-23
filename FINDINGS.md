@@ -73,10 +73,14 @@ what is queued, what is out of scope — are not here at all; they live in
 | 55 | A signature said which type it covered, in a spelling nothing else reads | Medium | 4034 §3.2, 3597 §5 | ✅ fixed |
 | 56 | A backslash in a zone file arrived as a backslash | **High** | 1035 §5.1 | ✅ fixed |
 | 57 | A wildcard name was measured two octets short | Low | 1035 §2.3.4, 4592 §2.1.1 | ✅ fixed |
+| 58 | A BADTIME refusal carries neither a signature nor the time | **High** | 8945 §5.2.3, §5.3.2 | ⏳ **open** |
 
-The Status column is uniform by design. It says nothing today, and that is the
-point — it is where a future finding lands as **open**, with its test left red
-as the tracking signal ([PLAN.md §9](PLAN.md)).
+The Status column was uniform until finding 58, which is the first to land
+**open** — documented here, with its test left red as the tracking signal that
+[PLAN.md §9](PLAN.md) asks for. The test carries the `KnownIssue` category, which
+is what tells a red suite apart from a red *new* suite, and which the mutation
+sweep leaves out: a test that fails for a documented reason fails for the mutant
+and the clean tree alike, so it can detect nothing while it is open.
 
 Most of them were found *after* the first eight were fixed, by tests written to
 deepen areas the suite had already reported green. That is the argument for the
@@ -3177,6 +3181,87 @@ Found by the mutation sweep of the core block. The length comparison was one of
 the ninety-one open gaps, and the test written to pin it — a name of exactly 255
 octets accepted, one of 256 refused — asked the same question of a wildcard as a
 matter of course. Pinned by `NameSyntaxAndLimitTests`.
+
+---
+
+---
+
+## 58 — A BADTIME refusal carries neither a signature nor the time
+
+RFC 8945 §5.2.3 gives a server two obligations in one breath. The first:
+
+> A response indicating a BADTIME error MUST be signed by the same key as the
+> request.
+
+and the second, in the same section: the Other Data field carries the server's
+current time as an unsigned 48-bit integer, with Other Len set to 6.
+
+Both exist for one purpose. A sender whose clock has drifted cannot tell a wrong
+clock from a wrong key, and cannot correct either without being told which. The
+*signed* BADTIME says "your message authenticated; only your clock is off", and
+the time in Other Data is the value needed to try again.
+
+§5.3.2 draws the opposite line for the other failures:
+
+> When a server detects an error relating to the key or MAC in the incoming
+> request, the server SHOULD send back an unsigned error message (MAC Size == 0
+> and empty MAC). It MUST NOT send back a signed error message.
+
+So the two kinds of refusal are required to differ. Hermod's differ only in the
+error code: `TSIGSigner.BuildErrorResponse` builds every one of them the same
+way.
+
+```csharp
+var record = BuildTSIGRecord(errorKey,
+                             tsig.TimeSigned,
+                             tsig.Fudge,
+                             MAC:         [],
+                             OriginalID:  tsig.OriginalID,
+                             Error:       Error,
+                             OtherData:   []);
+```
+
+`MAC: []` and `OtherData: []` are unconditional. The key the caller takes care to
+supply —
+
+```csharp
+ErrorResponse = TSIGSigner.BuildErrorResponse(
+                    Buffer,
+                    result.Error,
+                    result.Error == TSIGSigner.BADTIME ? key : null
+                );
+```
+
+— reaches only as far as `errorKey`, which gives the record its owner name and
+algorithm. It never signs anything. And when it is null, the fallback builds an
+equivalent key out of the request's own TSIG, so both branches of that
+conditional emit identical bytes.
+
+**That is how this was found.** A mutation turning the `==` into `!=` survived
+the entire suite, which is exactly what a value that reaches nothing observable
+must do. The line looked like a careful distinction and was a comment.
+
+Two consequences, and the second is the worse one.
+
+A client with a skewed clock is told BADTIME and is not told the time, so the
+resynchronisation §5.2.3 describes cannot happen — the sender has no way to
+learn the offset and will fail the same way on every retry.
+
+And because the refusal is unsigned, anyone who can send a packet can forge it.
+An off-path attacker who knows or guesses that an exchange is in flight can
+answer BADTIME and have it abandoned, without holding the key. Refusing a signed
+exchange on the say-so of an unauthenticated packet is the class of attack TSIG
+exists to close.
+
+**Repro**: `TsigServerTests.A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not`
+— the same test asserts the other half, that BADSIG stays unsigned, which Hermod
+already does correctly.
+
+**Suggested fix**: `BuildErrorResponse` uses the key it is already handed. For
+BADTIME it writes the server's current time into Other Data as six octets with
+Other Len 6, and computes the MAC over the response with the same machinery
+`Sign` already has. Every other error keeps the empty MAC it has now, which
+§5.3.2 requires.
 
 ---
 

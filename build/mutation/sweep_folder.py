@@ -146,10 +146,18 @@ BUILD_FLAGS = ["-v", "q", "--nologo", "-nodeReuse:false"]
 def build(proj):
     return run(["dotnet", "build", proj] + BUILD_FLAGS)
 
+# A test that is red for a documented reason cannot serve as a detector: it fails
+# for the mutant and for the clean tree alike. TestCategories.KnownIssue marks
+# exactly those - an RFC requirement Hermod is known to violate, with an entry in
+# FINDINGS.md and the test left red as the tracking signal PLAN.md section 9 asks
+# for. The sweep leaves them out so that a documented deviation and a broken
+# bench do not look the same from here.
+KNOWN_ISSUE = ["--filter", "TestCategory!=KnownIssue"]
+
 
 def run_tests(proj, timeout=1800):
 
-    result = run(["dotnet", "test", proj, "--no-build", "-v", "q", "--nologo"],
+    result = run(["dotnet", "test", proj, "--no-build", "-v", "q", "--nologo"] + KNOWN_ISSUE,
                  timeout=timeout)
 
     if result.returncode == TIMED_OUT:
