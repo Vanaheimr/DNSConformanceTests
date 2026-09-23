@@ -45,8 +45,14 @@ def main():
     survivors = rows(CLASSIFIED)
     closed    = rows(CLOSED)
 
-    real  = [r for r in survivors if not r[3].startswith("noise")]
-    noise = [r for r in survivors if r[3].startswith("noise")]
+    # A verdict the harness could not reach is neither a gap nor noise. It is
+    # an unanswered question, and counting it as either one hides it: as a gap
+    # it reads "no test watches this line", when what happened is that nobody
+    # has looked yet.
+    real       = [r for r in survivors if not r[3].startswith("noise")
+                                       and not r[3].startswith("unmeasured")]
+    noise      = [r for r in survivors if r[3].startswith("noise")]
+    unmeasured = [r for r in survivors if r[3].startswith("unmeasured")]
 
     done  = {(r[0], r[1], r[2]): r[3] for r in closed}
 
@@ -64,6 +70,9 @@ def main():
     print()
     print("  survivors of the sweep     %4d   (%d of them not really code)" % (len(survivors), len(noise)))
     print("  real gaps                  %4d" % len(real))
+    if unmeasured:
+        print("  never measured             %4d   (the harness refused them or never finished)"
+              % len(unmeasured))
     print()
     print("  closed by a test           %4d" % killed)
     print("  declared equivalent        %4d" % equivalent)
@@ -71,7 +80,13 @@ def main():
     print("  still open                 %4d" % still_open)
     print()
 
-    if still_open == 0:
+    if unmeasured:
+        print("  These carry no verdict and are not counted above:")
+        for r in unmeasured:
+            print("    %s:%s  %s  (%s)" % (r[0], r[1], r[2], r[3]))
+        print()
+
+    if still_open == 0 and not unmeasured:
         print("  Nothing is left. Every mutant this sweep could not kill has since been")
         print("  killed, shown unreachable, or had its line replaced by a fix.")
         print()

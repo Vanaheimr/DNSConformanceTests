@@ -655,7 +655,14 @@ def main():
             continue
 
         p = line.rstrip("\n").split("\t")
-        if len(p) < 5 or p[3].startswith("noise"):
+
+        # Noise is not a gap. Neither is a line the harness never managed to
+        # measure - and that one has to be skipped here rather than merely left
+        # unclosed, because a ledger entry may be a bare line number and would
+        # then match every operator on its line. Three of these sit on lines that
+        # already carry an entry for a different operator, and would have been
+        # recorded as killed by a round that never saw them.
+        if len(p) < 5 or p[3].startswith("noise") or p[3].startswith("unmeasured"):
             continue
 
         rel, ln, op = p[0], int(p[1]), p[2]

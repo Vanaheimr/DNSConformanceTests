@@ -1,0 +1,129 @@
+# Every mutant of the 'server' block that survived every project,
+# classified against Hermod cc8323d5 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source
+DNS/Server/AuthoritativeDNSRequestHandler.cs	90	false-to-true	noise-default	Boolean        RequireDNSCookies    = false)
+DNS/Server/DNSCookies.cs	159	logical-or-to-and	branch	if (ServerCookie.Length != ServerCookieSize ||
+DNS/Server/DNSMessagePipeline.cs	150	less-to-less-or-equal	boundary	if (RequestBytes.Length < 12)
+DNS/Server/DNSOverHTTPSServer.cs	184	false-to-true	branch	Boolean?             AutoStart          = false)
+DNS/Server/DNSServer.cs	290	equality-to-inequality	branch	var portChosenBySystem = LocalSocket.Port.ToUInt16() == 0;
+DNS/Server/DNSServerOptions.cs	37	true-to-false	branch	public Boolean   EnableUDPUnicast       { get; init; } = true;
+DNS/Server/IDNSZoneStore.cs	182	false-to-true	noise-default	Boolean            DNSSECOK            = false,
+DNS/Server/AuthoritativeDNSRequestHandler.cs	188	false-to-true	rejection	return false;
+DNS/Server/DNSCookies.cs	160	logical-or-to-and	branch	ClientCookie.Length != 8                ||
+DNS/Server/DNSMessagePipeline.cs	202	true-to-false	noise-region	#region SerializeMessageResponse (Response, Request, Context, HonorRequestorPayloadSize = true)
+DNS/Server/DNSOverHTTPSServer.cs	205	false-to-true	branch	CheckCertificateRevocation: false,
+DNS/Server/DNSServerOptions.cs	39	true-to-false	branch	public Boolean   EnableUDPMulticast     { get; init; } = true;
+DNS/Server/AuthoritativeDNSRequestHandler.cs	237	logical-or-to-and	branch	if (Question.QueryType == DNSResourceRecordTypes.CNAME ||
+DNS/Server/DNSCookies.cs	181	greater-to-ge	boundary	if (age >  (Int32) (Validity  ?? DefaultValidity). TotalSeconds ||
+DNS/Server/DNSOverHTTP2Server.cs	222	logical-and-to-or	branch	this.http11Renderer  = ServeHTTP11ViaALPN && certificate is not null
+DNS/Server/DNSOverHTTPSServer.cs	211	true-to-false	branch	DisableMaintenanceTasks:    true,
+DNS/Server/DNSServer.cs	318	logical-or-to-and	branch	catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressFamilyNotSupported ||
+DNS/Server/DNSServerOptions.cs	41	true-to-false	branch	public Boolean   EnableTCPUnicast       { get; init; } = true;
+DNS/Server/AuthoritativeDNSRequestHandler.cs	251	less-to-less-or-equal	boundary	for (var depth = 0; depth < MaxCanonicalNameChainLength; depth++)
+DNS/Server/DNSCookies.cs	182	less-to-less-or-equal	boundary	age < -(Int32) (ClockSkew ?? DefaultClockSkew).TotalSeconds)
+DNS/Server/DNSOverHTTP2Server.cs	271	true-to-false	noise-default	Boolean              ServeHTTP11ViaALPN   = true)
+DNS/Server/DNSOverHTTPSServer.cs	215	true-to-false	branch	DisableWardenTasks:         true,
+DNS/Server/DNSServer.cs	330	logical-and-to-or	branch	catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressAlreadyInUse &&
+DNS/Server/DNSServerOptions.cs	43	false-to-true	branch	public Boolean   EnableTLSUnicast       { get; init; } = false;
+DNS/Server/AuthoritativeDNSRequestHandler.cs	262	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSOverHTTP2Server.cs	328	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/DNSOverHTTPSServer.cs	220	false-to-true	branch	AutoStart:                  false,
+DNS/Server/DNSServer.cs	330	equality-to-inequality	branch	catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressAlreadyInUse &&
+DNS/Server/InMemoryDNSZone.cs	263	logical-and-to-or	branch	(!ResourceRecordType.HasValue || resourceRecord.Type  == ResourceRecordType.Value) &&
+DNS/Server/AuthoritativeDNSRequestHandler.cs	288	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSOverHTTP2Server.cs	358	false-to-true	branch	await http2Server.StopAsync().ConfigureAwait(false);
+DNS/Server/DNSOverHTTPSServer.cs	242	false-to-true	branch	if (AutoStart ?? false)
+DNS/Server/DNSServer.cs	331	logical-and-to-or	branch	portChosenBySystem &&
+DNS/Server/DNSServerOptions.cs	155	false-to-true	branch	public Boolean   UseCompression         { get; init; } = false;
+DNS/Server/InMemoryDNSZone.cs	263	logical-or-to-and	branch	(!ResourceRecordType.HasValue || resourceRecord.Type  == ResourceRecordType.Value) &&
+DNS/Server/ZoneDenialOfExistence.cs	306	greater-to-ge	boundary	var above = DenialOfExistenceValidator.CompareCanonical(Name, owner) > 0;
+DNS/Server/DNSMessagePipeline.cs	349	logical-or-to-and	branch	if (!TSIGSigner.TryStripTSIG(Buffer, out var unsigned, out var tsig) ||
+DNS/Server/DNSOverHTTP2Server.cs	371	false-to-true	branch	await listenerTask.ConfigureAwait(false);
+DNS/Server/DNSOverHTTPSServer.cs	313	equality-to-inequality	branch	if (Request.HTTPMethod == HTTPMethod.POST)
+DNS/Server/DNSServer.cs	332	less-to-less-or-equal	boundary	attempt < attempts)
+DNS/Server/InMemoryDNSZone.cs	263	equality-to-inequality	branch	(!ResourceRecordType.HasValue || resourceRecord.Type  == ResourceRecordType.Value) &&
+DNS/Server/ZoneDenialOfExistence.cs	307	less-to-less-or-equal	boundary	var below = DenialOfExistenceValidator.CompareCanonical(Name, next)  < 0;
+DNS/Server/DNSMessagePipeline.cs	350	logical-or-to-and	branch	unsigned is null || tsig is null)
+DNS/Server/DNSOverHTTP2Server.cs	463	false-to-true	branch	IsHEAD: false
+DNS/Server/DNSOverHTTPSServer.cs	314	false-to-true	branch	await Request.TryReadHTTPBodyStreamAsync(CancellationToken).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	341	true-to-false	branch	retry = true;
+DNS/Server/InMemoryDNSZone.cs	264	logical-or-to-and	branch	(!QueryClass.        HasValue || resourceRecord.Class == QueryClass.        Value)
+DNS/Server/ZoneDenialOfExistence.cs	311	ge-to-greater	boundary	var wraps = DenialOfExistenceValidator.CompareCanonical(owner, next) >= 0;
+DNS/Server/DNSMessagePipeline.cs	374	equality-to-inequality	branch	result.Error == TSIGSigner.BADTIME ? key : null
+DNS/Server/DNSOverHTTPSServer.cs	328	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/InMemoryDNSZone.cs	264	equality-to-inequality	branch	(!QueryClass.        HasValue || resourceRecord.Class == QueryClass.        Value)
+DNS/Server/DNSOverHTTP2Server.cs	470	ge-to-greater	boundary	var pathText    = target.IndexOf('?') is var mark && mark >= 0
+DNS/Server/DNSServer.cs	378	logical-and-to-or	branch	if (bound.Count < endPoints.Count && !portChosenBySystem)
+DNS/Server/InMemoryDNSZone.cs	267	equality-to-inequality	branch	if (existingRecords.Count == 0)
+DNS/Server/AuthoritativeDNSRequestHandler.cs	397	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/DNSMessagePipeline.cs	418	logical-or-to-and	branch	if (!SIG0Signer.TryStripSIG0(Buffer, out var unsigned, out var sig) ||
+DNS/Server/DNSOverHTTP2Server.cs	486	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	378	less-to-less-or-equal	boundary	if (bound.Count < endPoints.Count && !portChosenBySystem)
+DNS/Server/InMemoryDNSZone.cs	489	logical-or-to-and	branch	if (signingKeys is null || !SignaturesExpireAt.HasValue)
+DNS/Server/ZoneDenialOfExistence.cs	333	logical-or-to-and	branch	if (Name is null || nsec3Parameters is null)
+DNS/Server/AuthoritativeDNSRequestHandler.cs	415	ge-to-greater	boundary	if (dname is null || redirection >= MaxRedirectionChainLength)
+DNS/Server/ZoneDenialOfExistence.cs	352	logical-or-to-and	branch	if (Name is null || nsec3Parameters is null)
+DNS/Server/AuthoritativeDNSRequestHandler.cs	478	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSOverHTTP2Server.cs	531	false-to-true	branch	IsHEAD: false
+DNS/Server/DNSOverHTTPSResource.cs	312	logical-or-to-and	branch	if (queryBytes is null || queryBytes.Length == 0)
+DNS/Server/DNSServer.cs	428	false-to-true	branch	listener.Client.DualMode = false;
+DNS/Server/ZoneDenialOfExistence.cs	369	greater-to-ge	boundary	var above = CompareHashes(hash, owner) > 0;
+DNS/Server/DNSMessagePipeline.cs	471	less-to-less-or-equal	boundary	if (Request.Length < 12)
+DNS/Server/DNSServer.cs	551	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/InMemoryDNSZone.cs	493	greater-to-ge	boundary	SignaturesExpireAt.Value - DateTime.UtcNow > Before)
+DNS/Server/ZoneDenialOfExistence.cs	370	less-to-less-or-equal	boundary	var below = CompareHashes(hash, next)  < 0;
+DNS/Server/DNSOverHTTPSResource.cs	318	greater-to-ge	boundary	if (queryBytes.Length > (Int32) MaxDNSMessageSize)
+DNS/Server/DNSServer.cs	596	false-to-true	branch	ExclusiveAddressUse = false
+DNS/Server/ZoneDenialOfExistence.cs	371	ge-to-greater	boundary	var wraps = CompareHashes(owner, next) >= 0;
+DNS/Server/DNSMessagePipeline.cs	594	le-to-less	boundary	if (full.Length <= limit)
+DNS/Server/DNSOverHTTPSResource.cs	379	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	598	true-to-false	branch	udpMulticastListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+DNS/Server/DNSMessagePipeline.cs	602	ge-to-greater	boundary	for (var count = answers.Length - 1; count >= 0; count--)
+DNS/Server/DNSServer.cs	645	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/InMemoryDNSZone.cs	507	false-to-true	noise-region	#region Lookup(Question, DNSSECOK = false, CancellationToken = default)
+DNS/Server/DNSMessagePipeline.cs	623	le-to-less	boundary	if (bytes.Length <= limit)
+DNS/Server/DNSOverHTTPSResource.cs	494	le-to-less	boundary	if (AcceptType.Quality <= 0)
+DNS/Server/InMemoryDNSZone.cs	510	false-to-true	noise-default	Boolean            DNSSECOK            = false,
+DNS/Server/ZoneDenialOfExistence.cs	424	logical-or-to-and	branch	if (label is null || label.Length == 0)
+DNS/Server/DNSOverHTTPSResource.cs	495	false-to-true	rejection	return false;
+DNS/Server/DNSServer.cs	719	false-to-true	branch	tcpListener.Server.DualMode = false;
+DNS/Server/InMemoryDNSZone.cs	672	logical-and-to-or	branch	if (DNSSECOK && Zone.Denial is not null)
+DNS/Server/DNSServer.cs	802	false-to-true	branch	).ConfigureAwait(false),
+DNS/Server/InMemoryDNSZone.cs	684	logical-and-to-or	branch	if (DNSSECOK && Zone.Denial is not null)
+DNS/Server/ZoneDenialOfExistence.cs	443	less-to-less-or-equal	boundary	for (var i = 0; i < shared; i++)
+DNS/Server/DNSServer.cs	861	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	937	false-to-true	branch	).ConfigureAwait(false),
+DNS/Server/InMemoryDNSZone.cs	718	logical-and-to-or	branch	if (DNSSECOK && Zone.Denial is not null)
+DNS/Server/ZoneDenialOfExistence.cs	445	less-to-less-or-equal	boundary	return Left[i] < Right[i] ? -1 : 1;
+DNS/Server/DNSServer.cs	986	false-to-true	branch	leaveInnerStreamOpen: false,
+DNS/Server/ZoneDenialOfExistence.cs	466	ge-to-greater	boundary	for (var skip = 1; labels.Length - skip >= apex; skip++)
+DNS/Server/DNSServer.cs	1001	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1009	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/InMemoryDNSZone.cs	754	true-to-false	branch	authority.AddRange(WithSignatures(delegationSigners, atDelegation, true));
+DNS/Server/ZoneDenialOfExistence.cs	528	le-to-less	boundary	if (qnameLabels.Length <= encloserLabels.Length)
+DNS/Server/DNSServer.cs	1044	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/DNSOverHTTPSResource.cs	556	less-to-less-or-equal	boundary	return soa.Minimum < soa.TimeToLive
+DNS/Server/DNSServer.cs	1062	greater-to-ge	boundary	if (length > sharedBuffer.Length)
+DNS/Server/DNSServer.cs	1066	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/ZoneDenialOfExistence.cs	565	ge-to-greater	boundary	=> Skip >= Labels.Length
+DNS/Server/DNSServer.cs	1104	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1151	greater-to-ge	boundary	if (Options.TCPReadTimeout > TimeSpan.Zero)
+DNS/Server/ZoneDenialOfExistence.cs	597	equality-to-inequality	branch	if (Proof.Any(existing => existing.Type == Record.Type &&
+DNS/Server/DNSServer.cs	1162	false-to-true	branch	).ConfigureAwait(false);
+DNS/Server/InMemoryDNSZone.cs	894	greater-to-ge	boundary	return Records.Length > 0;
+DNS/Server/DNSServer.cs	1244	false-to-true	branch	await dohServer.Start().ConfigureAwait(false);
+DNS/Server/InMemoryDNSZone.cs	984	ge-to-greater	boundary	for (var skip = 1; labels.Length - skip >= apexDepth; skip++)
+DNS/Server/DNSServer.cs	1330	false-to-true	branch	await doh2Server.Start().ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1389	equality-to-inequality	branch	Options.HTTPSUnicastSocket.Port == Options.HTTP2UnicastSocket.Port &&
+DNS/Server/DNSServer.cs	1390	inequality-to-equality	branch	Options.HTTPSUnicastSocket.Port != IPPort.Zero)
+DNS/Server/DNSServer.cs	1418	false-to-true	branch	await StartHTTPSUnicastAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1421	false-to-true	branch	await StartHTTP2UnicastAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1474	false-to-true	branch	await httpsUnicastListener.Stop().ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1486	false-to-true	branch	await http2UnicastListener.Stop().ConfigureAwait(false);
+DNS/Server/DNSServer.cs	1497	false-to-true	branch	ConfigureAwait(false);
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	branch	unsigned is null || sig is null || !sig.IsTransactionSignature)
+DNS/Server/DNSServer.cs	297	false-to-true	unmeasured-timeout	var retry  = false;
+DNS/Server/DNSServer.cs	374	equality-to-inequality	unmeasured-timeout	if (bound.Count == 0)
+DNS/Server/DNSServer.cs	427	equality-to-inequality	unmeasured-timeout	if (endPoint.AddressFamily == AddressFamily.InterNetworkV6)
+DNS/Server/DNSServer.cs	718	equality-to-inequality	unmeasured-timeout	if (endPoint.AddressFamily == AddressFamily.InterNetworkV6)

@@ -28,7 +28,6 @@ DNS/Server/DNSOverHTTPSServer.cs	211	true-to-false	SURVIVED-EVERYWHERE
 DNS/Server/DNSServer.cs	318	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/DNSServerOptions.cs	41	true-to-false	SURVIVED-EVERYWHERE	
 DNS/Server/InMemoryDNSZone.cs	171	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 5 of 326 failed
-DNS/Server/ZoneDenialOfExistence.cs	74	greater-to-ge	SETUP-ERROR	2 mutations of that operator on the line
 DNS/Server/AuthoritativeDNSRequestHandler.cs	251	less-to-less-or-equal	SURVIVED-EVERYWHERE	
 DNS/Server/DNSCookies.cs	182	less-to-less-or-equal	SURVIVED-EVERYWHERE	
 DNS/Server/DNSMessagePipeline.cs	259	logical-or-to-and	KILLED-ELSEWHERE	SecureTransports: 2 of 156 failed
@@ -38,7 +37,6 @@ DNS/Server/DNSOverHTTPSServer.cs	215	true-to-false	SURVIVED-EVERYWHERE
 DNS/Server/DNSServer.cs	330	logical-and-to-or	SURVIVED-EVERYWHERE	
 DNS/Server/DNSServerOptions.cs	43	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Server/InMemoryDNSZone.cs	172	inequality-to-equality	KILLED-ELSEWHERE	Dnssec: 4 of 326 failed
-DNS/Server/ZoneDenialOfExistence.cs	74	greater-to-ge	SETUP-ERROR	2 mutations of that operator on the line
 DNS/Server/AuthoritativeDNSRequestHandler.cs	262	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Server/DNSMessagePipeline.cs	278	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 6 of 156 failed
 DNS/Server/DNSOverHTTP2Server.cs	328	false-to-true	SURVIVED-EVERYWHERE	
@@ -96,14 +94,12 @@ DNS/Server/DNSServer.cs	378	less-to-less-or-equal	SURVIVED-EVERYWHERE
 DNS/Server/InMemoryDNSZone.cs	489	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/ZoneDenialOfExistence.cs	333	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/AuthoritativeDNSRequestHandler.cs	415	ge-to-greater	SURVIVED-EVERYWHERE	
-DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	SETUP-ERROR	2 mutations of that operator on the line
 DNS/Server/DNSOverHTTP2Server.cs	510	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 15 of 156 failed
 DNS/Server/DNSOverHTTPSResource.cs	304	equality-to-inequality	KILLED-ELSEWHERE	SecureTransports: 40 of 156 failed
 DNS/Server/DNSServer.cs	427	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s
 DNS/Server/InMemoryDNSZone.cs	490	false-to-true	KILLED-ELSEWHERE	Dnssec: 1 of 326 failed
 DNS/Server/ZoneDenialOfExistence.cs	352	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/AuthoritativeDNSRequestHandler.cs	478	false-to-true	SURVIVED-EVERYWHERE	
-DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	SETUP-ERROR	2 mutations of that operator on the line
 DNS/Server/DNSOverHTTP2Server.cs	531	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Server/DNSOverHTTPSResource.cs	312	logical-or-to-and	SURVIVED-EVERYWHERE	
 DNS/Server/DNSServer.cs	428	false-to-true	SURVIVED-EVERYWHERE	
@@ -193,3 +189,7 @@ DNS/Server/DNSServer.cs	1421	false-to-true	SURVIVED-EVERYWHERE
 DNS/Server/DNSServer.cs	1474	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Server/DNSServer.cs	1486	false-to-true	SURVIVED-EVERYWHERE	
 DNS/Server/DNSServer.cs	1497	false-to-true	SURVIVED-EVERYWHERE	
+DNS/Server/ZoneDenialOfExistence.cs	74	greater-to-ge	KILLED-ELSEWHERE	Dnssec: 1 of 326 failed	0
+DNS/Server/ZoneDenialOfExistence.cs	74	greater-to-ge	KILLED-ELSEWHERE	Dnssec: 1 of 326 failed	1
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	SURVIVED-EVERYWHERE		1
