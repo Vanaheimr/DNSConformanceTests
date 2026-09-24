@@ -291,13 +291,16 @@ def main():
     counts  = {}
     ran     = 0
 
-    counted = {}
+    # Not "counted": the loop below already uses that name for what the test run
+    # answered, and the second mutant then asks a tuple for .get. Which is what
+    # happened, and what running the thing said and reading it had not.
+    occurrences = {}
 
     for n, (rel, line_no, op, original, mutated) in enumerate(mutants, start=1):
 
-        key      = (rel, str(line_no), op)
-        nth[0]   = counted.get(key, 0)
-        counted[key] = nth[0] + 1
+        key               = (rel, str(line_no), op)
+        nth[0]            = occurrences.get(key, 0)
+        occurrences[key]  = nth[0] + 1
 
         if key + (str(nth[0]),) in done:
             continue

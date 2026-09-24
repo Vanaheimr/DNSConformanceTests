@@ -1,0 +1,13 @@
+DNS/Client/DNSClient.cs	61	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	78	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	84	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	89	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	109	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	141	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	166	true-to-false	KILLED	1 of 97 failed	0
+DNS/Client/DNSClient.cs	185	true-to-false	SURVIVED	0 of 97 failed	0
+DNS/Client/DNSClient.cs	197	true-to-false	SURVIVED	0 of 97 failed	0
+DNS/Client/DNSClient.cs	218	true-to-false	SURVIVED	0 of 97 failed	0
+DNS/Client/DNSClient.cs	227	greater-to-ge	BUILD-FAILED	not a viable mutant	0
+DNS/Client/DNSClient.cs	230	true-to-false	SURVIVED	0 of 97 failed	0
+DNS/Client/DNSClient.cs	250	true-to-false	SURVIVED	0 of 97 failed	0

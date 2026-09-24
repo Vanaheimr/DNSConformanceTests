@@ -2395,6 +2395,20 @@ sweep or in an earlier hand-written one:
   handler round; the file was pulled back out before the next build, and it did
   not in fact compile.
 
+- **A patch applied to two files is two patches, and the one that was not run is
+  not tested.** The occurrence index went into both sweepers at once. Pass 2 was
+  exercised the same afternoon, re-measuring two refused lines, and worked. Pass 1
+  was not run for another six commits — and died on its eighth mutant, because the
+  counter had been named `counted`, which that loop already uses for what the test
+  run answered. The seventh mutant was the first to reach a test; the eighth asked
+  a tuple for `.get`.
+
+  Nothing was measured wrongly, because nothing was measured: no pass 1 ran in
+  between. But the harness's main entry point was broken for six commits while its
+  other half was demonstrably fine, and reading the patch is what failed to notice.
+  The self-test that settles it is not "does it start" — it is six mutants
+  beginning at the mutant that crashed.
+
 - **A verification leaves the last mutant in the build output.** Each mutant is
   restored in source, but the newest compiled assembly is the one built *with* it
   — nothing rebuilds afterwards. A suite run started straight after a sweep is
