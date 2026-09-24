@@ -3265,6 +3265,111 @@ Other Len 6, and computes the MAC over the response with the same machinery
 
 ---
 
+## 59 — A name goes undefended for the one second after it is announced
+
+RFC 6762 §6 rate-limits multicast, and writes its exception into the middle of
+the sentence:
+
+> To protect the network against excessive packet flooding due to software bugs
+> or malicious attack, a Multicast DNS responder MUST NOT (except in the one
+> special case of answering probe queries) multicast a record on a given
+> interface until at least one second has elapsed since the last time that
+> record was multicast on that particular interface.
+
+§8.1 says why the parenthesis is there. It is not an afterthought; the whole
+probing design is built around it:
+
+> Because of the mDNS multicast rate-limiting rules, the probes SHOULD be sent
+> as "QU" questions with the unicast-response bit set, to allow a defending host
+> to respond immediately via unicast, instead of potentially having to wait
+> before replying via multicast.
+
+and
+
+> it is important that when a device receives a probe query for a name that it
+> is currently using, it SHOULD generate its response to defend that name
+> immediately and send it as quickly as possible.
+
+So there are two ways a defence escapes the one-second wait: the prober sets QU
+and gets a unicast answer, or the prober does not and the responder multicasts
+anyway under the exemption. Hermod has the first and not the second.
+
+`SendResponseAsync` applies the limit to every response that is not unicast:
+
+```csharp
+if (!Unicast)
+{
+
+    var now = TimeProvider.GetUtcNow();
+
+    lock (stateLock)
+    {
+
+        answers = [.. answers.Where(record => !lastMulticast.TryGetValue(record.RecordKey(), out var last) ||
+                                              now - last >= Options.MinRecordMulticastInterval)];
+
+        if (answers.Count == 0)
+            return;
+```
+
+Whether the query was a probe is known one frame up — `HandleQueryAsync` tests
+exactly that before anything else:
+
+```csharp
+if (Query.Authorities.Count > 0)
+    await HandleProbeAsync(Query, Datagram, CancellationToken).ConfigureAwait(false);
+```
+
+and does not pass it on. `SendResponseAsync` has no way to apply an exemption it
+is never told about, so the filter empties the answer list and the early `return`
+makes the responder silent rather than late.
+
+The window is not hypothetical, and it is not small. `AnnounceAsync` stamps every
+record it sends:
+
+```csharp
+foreach (var record in Records)
+    lastMulticast[record.RecordKey()] = now;
+```
+
+Publishing announces, so a freshly published name is unanswerable by multicast
+for the next second — and the second after a host announces itself is precisely
+when a neighbour that just woke on the same link is probing.
+
+**Why the existing tests do not see it.** Hermod's own prober always sets the
+unicast bit:
+
+```csharp
+new MulticastDNSQuestion(name, DNSResourceRecordTypes.Any, UnicastResponseRequested: true)
+```
+
+which takes the `!Unicast` branch out of the path. Hermod against Hermod never
+reaches the case. §8.1 makes QU a SHOULD, so a conforming implementation on the
+other side of the link is free to omit it, and then this is the path.
+
+**That is how this was found.** Not from a surviving mutant — the block has never
+been measured. From reading §6 with the parenthesis taken seriously, asking what
+in the code implements it, and finding that the answer was nothing.
+
+The consequence is the failure mode probing exists to prevent: the prober sees no
+conflicting response, concludes the name is free, and takes a name that is in
+use. Both hosts then answer for it. Being stricter than a MUST NOT permits is
+what causes it, which is why the exception was written into the rule rather than
+left to judgement.
+
+**Repro**:
+`MulticastResponderConformanceTests.A_Probe_Without_The_Unicast_Bit_Is_Still_Defended`.
+Its control, `A_Probe_With_The_Unicast_Bit_Is_Defended_By_Unicast`, passes — the
+defence works; only the exemption is missing.
+
+**Suggested fix**: `HandleQueryAsync` already computes whether the query carries
+authorities. Hand that down to `SendResponseAsync` and let it skip the
+`lastMulticast` filter for those responses, exactly as §6 words it. The stamping
+should stay, so an ordinary answer for the same record is still rate-limited
+afterwards.
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
