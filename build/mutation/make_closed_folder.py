@@ -987,10 +987,54 @@ CLIENT_KILLED = {
         "DNS/Client/DNSHTTPSClient.cs": {834, 958},
     },
 
+    # Which datagrams a UDP client may act on, and what it says when it never
+    # asked. UdpClientBehaviorTests already covered the spoofing case RFC 5452
+    # section 4.2 is written for; these cover the empty query, the five fields of
+    # the answer it synthesizes, and how the question section is written.
+    #
+    # 266/267/269/274/275 are five of the six fields at the empty-name site. The
+    # sixth is 268, RecursionDesired, which stays open as part of finding 60 - the
+    # same literal as the three sites in DNSClient, and this file's other
+    # synthesis site writes the opposite literal for the same field.
+    #
+    # 317 is Serialize(ms, UseCompression: false). Two types at one name make two
+    # questions, so the second name is a candidate for the pointer RFC 1035
+    # section 4.1.4 describes - legal on paper, and nothing sends it. Whether the
+    # flag reached the question section at all was unknown until the mutant was
+    # planted: it does, and the test catches it.
+    #
+    # 282 was on the open list and is not here: the current suite already kills it
+    # (16 of 117 tests fail when `Count == 0` becomes `!= 0`, because every query
+    # with explicit types turns into an ANY query). It is recorded below rather
+    # than in this round, because no test was written for it - the sweep's verdict
+    # simply predates the tests that catch it.
+    "which-datagrams-a-udp-client-may-act-on": {
+        "DNS/Client/DNSUDPClient.cs": {266, 267, 269, 274, 275, 282, 317},
+    },
+
 }
 
 
 CLIENT_EQUIVALENT = {
+
+    "DNS/Client/DNSUDPClient.cs": {
+
+        386: "received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the "
+             "RFC 5452 section 4.2 pre-filter on an incoming datagram. Both of its mutants "
+             "survive, and for one reason: the transaction id is checked twice and both "
+             "checks react the same way. Whatever gets past this guard reaches "
+             "DNSInfo.ReadResponse, which compares the id again and returns Invalid when it "
+             "differs - and the caller answers `if (!response.IsValid) continue;`, which is "
+             "the same `continue` this guard would have taken. Turning the || into && makes "
+             "the pre-filter a no-op for any datagram of two octets or more, and moving the "
+             "< to <= changes only where a two-octet datagram is dropped. Neither changes "
+             "what the client does or how long it waits; the difference is one parse and one "
+             "log line. Written as a property worth having rather than a redundancy: the "
+             "file's own comment says the check and the reaction have to be decided "
+             "together, and it decides them twice the same way. "
+             "UdpDatagramAcceptanceTests asserts the behaviour both readings produce",
+
+    },
 
     "DNS/Client/DNSHTTPSClient.cs": {
 

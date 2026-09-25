@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **216 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **207 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
@@ -98,7 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
-| `client` | 245 | **216** | 68 |
+| `client` | 245 | **207** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -241,6 +241,57 @@ Six lines got no verdict: five timed out and one produced no summary line. All
 six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
 282/387/587 — which is where a mutant that moves a deadline or a retry bound
 would be expected to hang rather than answer.
+
+### A check made twice, and a verdict that had gone stale
+
+`DNSUDPClient`, three tests, seven mutants closed and two shown equivalent — and
+the round began by measuring instead of writing, which is what made it short.
+
+**The first thing planted was a mutant a test already existed for.**
+`UdpClientBehaviorTests.Spoofed_Response_Does_Not_Kill_The_Pending_Query` asserts
+RFC 5452 §4.2 exactly: a wrong-ID datagram is ignored and the genuine reply still
+awaited. Turning the `||` of the ID guard into `&&` makes that guard a no-op for
+any datagram of two octets or more — and the test stays green.
+
+It stays green because the ID is checked **twice**. Whatever gets past the
+pre-filter reaches `DNSInfo.ReadResponse`, which compares the ID again and returns
+`Invalid`, and the caller answers `if (!response.IsValid) continue;` — the same
+`continue` the pre-filter would have taken. Moving the `<` to `<=` likewise changes
+only *where* a two-octet datagram is dropped. Neither changes what the client does
+or how long it waits: the difference is one parse and one log line.
+
+So both of line 386's mutants are equivalent, and the reason is a property worth
+having rather than a redundancy to trim. The file's own comment says the check and
+the reaction have to be decided together — and it decides them twice, the same way
+both times. `UdpDatagramAcceptanceTests` asserts the behaviour both readings
+produce: a two-octet datagram carrying a matching transaction ID must not end the
+query. Three of the four attributes RFC 5452 §9.1 wants matched are not merely
+wrong in such a datagram but absent, and the one that is present is the one
+sixteen guessable bits long.
+
+**And line 282 was not a gap at all.** `resourceRecordTypes.Count == 0` guards the
+default to ANY, and planting `!= 0` fails sixteen of the suite's tests, because
+every query with explicit types turns into an ANY query. The sweep recorded it
+surviving, and the sweep was right when it ran: the tests that catch it were
+written afterwards, several of them in the rounds above. **A verdict has a date**,
+and for a block still being worked, an open row can mean "nobody has closed this"
+or "nobody has re-measured". Planting first tells them apart for the price of one
+build, which is cheaper than the test it saves writing.
+
+The rest is the empty-query answer. `DNSServiceName.IsNullOrEmpty()` treats null as
+empty, so the site is reachable, and five of its six fields go down the way the
+three sites in `DNSClient` did — AA and RA by §4.1.1, the others pinned as
+behaviour. The sixth is 268, `RecursionDesired`, and it stays open as **finding
+60**, which turns out to be five sites and not three: `DNSUDPClient` has two of its
+own, and they write *opposite* literals for the same field. One of them is wrong
+for every call, and there is no call for which both are right — which is the
+clearest evidence available that no value was ever chosen.
+
+Line 317 is `Serialize(ms, UseCompression: false)`. Two types at one name make two
+questions, so the second name is a candidate for the pointer RFC 1035 §4.1.4
+describes — legal on paper, and nothing sends it. Whether the flag reached the
+question section at all was genuinely unknown before the mutant was planted. It
+does, and the test catches it.
 
 ### Where 2xx ends, and a boundary a stricter rule already covers
 

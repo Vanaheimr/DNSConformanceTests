@@ -3432,16 +3432,30 @@ recorded at all because a field named after a request that does not reflect the
 request is wrong in the plainest possible way, and because it cost a literal to
 write and costs a parameter name to fix.
 
+**It is not three sites but five.** `DNSUDPClient` has two of its own — an empty
+query name, and a socket whose address family the host refuses — and they do the
+same thing with the same field. One writes `RecursionDesired: true`, the other
+writes `RecursionDesired: false`, so the two synthesized answers of a single file
+disagree with each other about what the caller asked for. Neither consults the
+parameter either. That the literals differ at all is the clearest sign available
+that no value was ever chosen: one of them is wrong for every call, and there is
+no call for which both are right.
+
+The five other fields at the UDP sites are closed by
+`UdpDatagramAcceptanceTests`, which asserts them and leaves this one alone
+precisely because asserting it would be asserting the defect.
+
 **Repro**:
 `SynthesizedAnswerTests.A_Synthesized_Answer_Reports_The_Recursion_That_Was_Asked_For`
 — the same fixture's other two tests assert the five fields that are right, at
-the two sites a black-box test can reach.
+the two sites in `DNSClient` a black-box test can reach.
 
-**Suggested fix**: each of the three sites takes the value the method was called
-with, the same way the outgoing query does. The third site is the one that
-cannot be reached from here at all, because it needs every server query to throw
-rather than time out; it should change with the others rather than be left as
-the only one still holding a literal.
+**Suggested fix**: each of the five sites takes the value the method was called
+with, the same way the outgoing query does. Two of them cannot be reached from
+here at all — one needs every server query to throw rather than time out, the
+other needs the host to refuse the socket's address family — and they should
+change with the rest rather than be left as the only ones still holding a
+literal.
 
 ---
 
