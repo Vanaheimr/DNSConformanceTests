@@ -235,7 +235,7 @@ public class CacheBoundaryTests
 
         Assert.Multiple(() => {
 
-            Assert.That(served.Answers.Count(), Is.EqualTo(1),
+            Assert.That(served!.Answers.Count(), Is.EqualTo(1),
                         "§3.2.1: a zero TTL record can only be used for the transaction in " +
                         "progress, and should not be cached");
 
@@ -263,7 +263,7 @@ public class CacheBoundaryTests
                   new MX(DomainName.Parse("live.example."), DNSQueryClasses.IN, TimeSpan.FromHours(1), 10, DomainName.Parse("mail.example.")));
 
         Assert.That(cache.TryGetDNSInfo(name, out var served), Is.True);
-        Assert.That(served.Answers.Count(), Is.EqualTo(2), "nothing here has expired");
+        Assert.That(served!.Answers.Count(), Is.EqualTo(2), "nothing here has expired");
 
     }
 
@@ -288,7 +288,7 @@ public class CacheBoundaryTests
 
         Assert.Multiple(() => {
 
-            Assert.That(served.Authorities.Count(), Is.EqualTo(0),
+            Assert.That(served!.Authorities.Count(), Is.EqualTo(0),
                         "§4.1.3: the zero-TTL authority must not be served from the cache");
 
             Assert.That(served.Answers.Count(), Is.EqualTo(1),
@@ -313,7 +313,7 @@ public class CacheBoundaryTests
                        Authorities: [ new NS(DomainName.Parse("example."),          DNSQueryClasses.IN, TimeSpan.FromHours(1), DomainName.Parse("ns1.example.")) ]));
 
         Assert.That(cache.TryGetDNSInfo(name, out var served), Is.True);
-        Assert.That(served.Authorities.Count(), Is.EqualTo(1), "nothing here has expired");
+        Assert.That(served!.Authorities.Count(), Is.EqualTo(1), "nothing here has expired");
 
     }
 

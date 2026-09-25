@@ -12,6 +12,16 @@ DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	killed	the-cache-read-by-itse
 DNS/Client/Cache/DNSCache.cs	671	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	702	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	745	le-to-less	killed	the-cache-read-by-itself	
+DNS/Client/DNSClient.cs	519	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	520	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	522	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	527	true-to-false	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	528	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	671	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	672	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	674	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	679	true-to-false	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	680	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	889	logical-and-to-or	killed	following-an-alias-and-asking-again	
 DNS/Client/DNSClient.cs	890	logical-and-to-or	killed	following-an-alias-and-asking-again	
 DNS/Client/DNSClient.cs	901	logical-and-to-or	killed	following-an-alias-and-asking-again	

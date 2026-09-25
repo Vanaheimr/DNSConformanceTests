@@ -75,6 +75,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 57 | A wildcard name was measured two octets short | Low | 1035 §2.3.4, 4592 §2.1.1 | ✅ fixed |
 | 58 | A BADTIME refusal carries neither a signature nor the time | **High** | 8945 §5.2.3, §5.3.2 | ⏳ **open** |
 | 59 | A name goes undefended for the one second after it is announced | Medium | 6762 §6, §8.1 | ⏳ **open** |
+| 60 | A synthesized answer reports recursion that was never asked for | Low | 1035 §4.1.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3368,6 +3369,79 @@ authorities. Hand that down to `SendResponseAsync` and let it skip the
 `lastMulticast` filter for those responses, exactly as §6 words it. The stamping
 should stay, so an ordinary answer for the same record is still rate-limited
 afterwards.
+
+---
+
+## 60 — A synthesized answer reports recursion that was never asked for
+
+Three places in `DNSClient` return a `DNSInfo` without any server having
+answered: when no DNS servers are configured, when a cached NSEC already proves
+the name absent (RFC 8198), and when every server query threw. Each builds the
+object by hand, and each writes the same literal:
+
+```csharp
+QueryId:                0,
+IsAuthoritativeAnswer:  false,
+IsTruncated:            false,
+RecursionDesired:       true,
+RecursionAvailable:     false,
+```
+
+Five of those six are right, and two of them are right for a reason RFC 1035
+§4.1.1 states. AA "specifies that the responding name server is an authority for
+the domain name in question section"; RA "denotes whether recursive query
+support is available in the name server". No name server responded, so there is
+nothing to be an authority and nothing to offer recursion, and `false` is the
+only honest value for either.
+
+The sixth is a literal where a variable belongs. §4.1.1 on RD: "this bit may be
+set in a query and is copied into the response." Hermod's own field is named
+`RecursionRequested`, which says the same thing in different words — it records
+what the caller asked for. The caller's value is a parameter of the very method
+these sites sit in:
+
+```csharp
+public async Task<DNSInfo> Query(DNSServiceName                       DNSServiceName,
+                                 IEnumerable<DNSResourceRecordTypes>  ResourceRecordTypes,
+                                 TimeSpan?                            Timeout             = null,
+                                 Boolean?                             RecursionDesired    = true,
+```
+
+and forty lines further down the same method uses it properly, for the query
+that does go out:
+
+```csharp
+this.RecursionDesired ?? RecursionDesired ?? true,
+```
+
+So a caller that asks with recursion switched off and gets one of these three
+answers is told that recursion was requested. The client is misreporting its own
+input, about the one thing in the whole exchange it knows for certain.
+
+**That is how this was found.** Not from a failure — nothing fails. The three
+sites carry eighteen mutants between them, one per field, and the sweep reported
+every one of them as surviving. Eighteen values that no test reads is the same
+observation as "nobody has ever looked at what these answers say", and looking
+is what turned one of the eighteen up.
+
+The consequence is small and entirely in the caller's hands: nothing about
+resolution changes, and no packet is different. What changes is what a caller
+reconstructing the exchange is told — a log line, a diagnostic, a test that
+asserts the resolver did what it was told. Recorded as Low for that reason, and
+recorded at all because a field named after a request that does not reflect the
+request is wrong in the plainest possible way, and because it cost a literal to
+write and costs a parameter name to fix.
+
+**Repro**:
+`SynthesizedAnswerTests.A_Synthesized_Answer_Reports_The_Recursion_That_Was_Asked_For`
+— the same fixture's other two tests assert the five fields that are right, at
+the two sites a black-box test can reach.
+
+**Suggested fix**: each of the three sites takes the value the method was called
+with, the same way the outgoing query does. The third site is the one that
+cannot be reached from here at all, because it needs every server query to throw
+rather than time out; it should change with the others rather than be left as
+the only one still holding a literal.
 
 ---
 

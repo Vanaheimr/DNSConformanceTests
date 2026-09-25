@@ -940,6 +940,32 @@ CLIENT_KILLED = {
         "DNS/Client/DNSClient.cs": {889, 890, 901, 980, 1549},
     },
 
+    # Three places in DNSClient hand back a DNSInfo that no server sent: no
+    # servers configured, a cached NSEC already proving the name absent
+    # (RFC 8198), and every server query having thrown. Each writes the header
+    # fields by hand, and the sweep reported all eighteen of them surviving -
+    # which is the same observation as "nobody has ever read what these answers
+    # say".
+    #
+    # RFC 1035 section 4.1.1 settles two of the six wherever the message came
+    # from. AA "specifies that the responding name server is an authority for
+    # the domain name in question section", RA "denotes whether recursive query
+    # support is available in the name server", and no name server responded, so
+    # there is nothing to be an authority and nothing to offer recursion.
+    #
+    # Ten of twelve at the two reachable sites. The two that stay open are the
+    # RecursionDesired literals on 521 and 673: they are finding 60, the test for
+    # them is red, and a KnownIssue test is excluded from the sweep and therefore
+    # closes nothing. Recording them here would be recording the fix rather than
+    # the measurement.
+    #
+    # The third site (1040-1049) is not reachable from a black-box test at all:
+    # it needs every server query to throw rather than time out, and a timeout
+    # produces a DNSInfo. Its six stay open with that reason.
+    "answers-no-server-sent": {
+        "DNS/Client/DNSClient.cs": {519, 520, 522, 527, 528, 671, 672, 674, 679, 680},
+    },
+
 }
 
 
