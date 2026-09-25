@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **245 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **216 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
@@ -98,7 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
-| `client` | 245 | **245** | 68 |
+| `client` | 245 | **216** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -242,6 +242,204 @@ six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
 282/387/587 — which is where a mutant that moves a deadline or a retry bound
 would be expected to hang rather than answer.
 
+### Where 2xx ends, and a boundary a stricter rule already covers
+
+`DNSHTTPSClient`, four tests, three mutants closed and one shown equivalent.
+
+RFC 8484 §4.2.1 ties a DNS response to the status *class* rather than to one code:
+
+> A successful HTTP response with a 2xx status code [...] is used for any valid
+> DNS response, regardless of the DNS response code.
+
+One sentence, two rules, and a client can break them in opposite directions. A
+**300** carrying a perfectly good DNS answer has to be refused on the status
+alone — §5 adds that a DoH client should "use the same semantic processing of
+non-successful HTTP status codes as other HTTP clients", and for those a 3xx is a
+redirection, never a payload. A **203** has to be accepted, which is the whole
+reason the sentence says 2xx and not 200: RFC 9110 §15.3.4 gives 203 to a payload
+a proxy has transformed, and the resolver behind that proxy still answered.
+
+Testing either needed a status code the suite's own DoH server could not send, so
+`ScriptedDoHServer` gained a `StatusCode` property — the way `StrictContentType`
+and `JSONResponse` were added before it. `SecureTransports` drives the same server
+and its 164 tests are unchanged.
+
+**One line's three mutants die three different deaths.** Line 834 decides two
+things at once: the JSON API's `?type=` holds one value, so two types need two
+requests, while a question section holds as many as it likes. One mutant fails
+the test. The other two do not survive either, and the reason is worth keeping:
+`QueryHTTPMultiTypeJSONAsync` calls `QueryHTTP` once per type, and `QueryHTTP` is
+the method holding the guard — so a guard that fires on a *single* type recurses
+into itself without bound. Both `>= 1` and `||` make a one-type JSON query fan out
+to itself, the stack overflows, and the test host dies. **A dead process is not a
+failed assertion**, and the sweep reads it as `PARSE-ERROR` and would file it as
+unmeasured forever. It is recorded as closed with the mechanism named, because a
+program that does not terminate is caught by any test at all.
+
+#### A test written backwards, and the guard it made unreachable
+
+`body.Length < 12` guards the response body, and twelve octets is a whole DNS
+message — RFC 1035 §4.1.1 gives the header exactly that size. So the first version
+of the test asserted that a bare header is *read*, and expected the NXDOMAIN those
+twelve octets carried.
+
+It is refused instead, and correctly. A twelve-octet body has QDCOUNT zero, and
+RFC 5452 §9.1 has a resolver match a response to "Query ID, Query name, Query
+type, Query class". With no question section there is nothing to match. **Being
+well-formed is not the same as being an answer to this question.**
+
+Which settles the guard as well: its boundary cannot be reached from outside at
+all. At exactly twelve the stricter rule behind it refuses the same message, and
+the two readings differ only in whether `Invalid` or `Failed` says so — and those
+two agree on the response code, on `IsValid`, on `IsTimeout` and on every empty
+section. Equivalent, with that reason, and the test became the rule that makes it
+unreachable.
+
+Reading the failure was its own mistake. `Assert.Multiple` reported both
+assertions and the output was cut before the second, which made the result look
+like a third code path rather than plain `DNSInfo.Invalid`. One diagnostic line
+settled it in one run — which is the cheaper move than a third read of the source,
+and it took two reads to remember that.
+
+### Eighteen fields nobody had read
+
+Three places in `DNSClient` hand back a `DNSInfo` that no server sent: no servers
+configured, a cached NSEC already proving the name absent (RFC 8198), and every
+server query having thrown. Each builds the object by hand, and the sweep reported
+**all eighteen of their fields surviving** — which is the same observation as
+nobody ever having read what these answers say.
+
+RFC 1035 §4.1.1 settles two of the six wherever the message came from. AA
+"specifies that the responding name server is an authority for the domain name in
+question section"; RA "denotes whether recursive query support is available in the
+name server". No name server responded, so there is nothing to be an authority and
+nothing to offer recursion, and `false` is the only honest value for either. The
+other three — TC, `IsTimeout`, `IsValid` — are pinned as behaviour and say so where
+they appear: the last two are Hermod's vocabulary, not the RFC's.
+
+Ten of twelve, at the two sites a black-box test can reach. The third needs every
+server query to *throw* rather than time out, and a timeout produces a `DNSInfo`,
+so its six stay open with that written down rather than guessed at.
+
+The sixth field is **finding 60**: a literal where a variable belongs. §4.1.1 on
+RD — "this bit may be set in a query and is copied into the response" — and
+Hermod's own field is named `RecursionRequested`, which says the same in different
+words. All three sites write `RecursionDesired: true` while the caller's value sits
+in a parameter of the very method they are in, and forty lines further down that
+same method uses it properly for the query that does go out. A caller asking with
+recursion off is told recursion was requested: the client misreporting the one
+thing in the exchange it knows for certain.
+
+Its test is red and carries `KnownIssue`, which is **why lines 521 and 673 stay out
+of the ledger**. The sweep excludes red tests, so a `KnownIssue` test closes
+nothing; recording them would be recording the fix rather than the measurement.
+
+#### A mutant that outlived its own run
+
+After the verification script planted its twelve mutants it restored the sources
+and did not rebuild, so the build output still held the last one — line 680,
+`IsTimeout: true` at the NSEC site. Three consecutive full suite runs then
+reported the same failure at exactly that field, which read as a deterministic
+interaction and was a stale binary judging itself.
+
+That is worth setting beside the flake in the round below, because from the
+outside the two look identical and are not. Four hundred milliseconds of margin
+was a real timing fault *in the test*; this was a correct test reading a poisoned
+*binary*. The first is fixed by removing the clock, the second by rebuilding, and
+telling them apart needed the diagnostic that made the difference disappear.
+`sweep_folder.py` prints "sources restored and rebuilt" for precisely this reason;
+the verification scripts do it now too.
+
+### Following an alias, and the guard that only one query can see
+
+`DNameFollowingTests` covered the DNAME half of the chase in detail — which names
+a DNAME rewrites and which it must leave alone. The CNAME half had **nothing**:
+whether an alias is followed, whether the record at the end of the chain reaches
+the caller, whether a query for the alias itself stops where RFC 1034 §3.6.2 stops
+it, and how often a client asks again after SERVFAIL.
+
+| line | what it decides |
+|---:|---|
+| 1549 | the retry loop runs while `attempts <= MaxRetries`, so `MaxRetries + 1` questions |
+| 889 | a client told not to follow asks once and returns the alias |
+| 890 | and a response that is not NOERROR is not a chain to walk |
+| 901 | the guard that declines to chase when the caller asked for the alias |
+| 980 | both mutants: the record at the end must reach the caller, and an NXDOMAIN carrying the CNAMEs that led to the absent name is a denial showing its working |
+
+The retry count is countable because **SERVFAIL is an answer rather than silence**:
+nothing at the transport retransmits, so every datagram was that loop's decision.
+It is taken at two settings, because one number is equally consistent with a loop
+that ignores `MaxRetries` and happens to agree at the default. RFC 2308 §2.1
+describes the NXDOMAIN-with-CNAMEs packet that 980 turns on.
+
+**The test written for 901 did not kill 901.** Asking for CNAME is stopped twice
+over: the outer guard declines to chase, and even without it the answer *is* a
+CNAME, so the inner `hasRequestedType` test sees the type that was asked for and
+stops anyway. The mutant is invisible there. It shows only under ANY, where a
+CNAME is not "of type ANY", nothing downstream notices, and the chase runs —
+turning "everything here" into "everything somewhere else". The test that catches
+it asks ANY at an alias and counts one question. Written down because the first
+version was green, plausible, and evidence of nothing.
+
+1489 stays open and out of the ledger: it is the retry inside the cookie-rejection
+path, no test here reaches it, and it was planted and seen to survive rather than
+assumed.
+
+### The cache read by itself, and four hundred milliseconds that were not margin
+
+`DNSCache` is the one cluster in this block a black-box suite has an unobstructed
+claim on: a cache has inputs and outputs, needs no network, and the class is fully
+public.
+
+`CacheExpiryTests` records in its own comments why the scripted-server route
+cannot reach the read filter — the cache both filters expired records on read
+**and** sweeps them on a timer, either of which produces the same answer from
+outside, so a mutation of one is covered by the other. Building the cache with an
+hour between sweeps leaves the filter as the only thing that can reply. That one
+line of setup is what turned five lines from unreachable into measured:
+
+| line | what it decides |
+|---:|---|
+| 702 | the root is among the zones an unqualified name is tried against — RFC 8198's own headline case, since the root zone is NSEC-signed |
+| 745 | one NSEC whose next name is its own owner is a zone holding nothing but its apex (RFC 4034 §4.1.1); that equality is the only place the wrap rule is decided by one |
+| 671 | a refetched NSEC must replace the range it supersedes, or the wider stale gap goes on denying names that now exist |
+| 518 | an expired answer must not be served beside a live one, both mutants |
+| 519 | and the same for an authority record |
+
+Line 572 goes down equivalent rather than open: `soa.Minimum < soa.TimeToLive ?
+soa.Minimum : soa.TimeToLive` is RFC 2308 §5's minimum written as a conditional,
+and the mutant moves the comparison to `<=`, which changes only the case where the
+two fields are equal — where both arms return the same number. The test for the
+rule is there and checks it from both sides, which is worth having and is not what
+closes the line.
+
+Line 671 is closed on two different grounds, because the ledger keys on `(file,
+line)` and cannot say "one of the two". Its `logical-or-to-and` is what the
+replacement test kills. Its `le-to-less` is a different thing and no test reaches
+it: `e.Expiry <= now` against `<` differs only when a stored expiry equals, to the
+tick, a `Timestamp.Now` read at a later call than the one that computed it. Killed
+and unreachable, on one line.
+
+#### The clock that had to come out
+
+Two of these were first written with a one-second TTL and a wait of 1400 ms. The
+authority one then failed twice in a full suite run and passed on the third: four
+hundred milliseconds is not margin when ninety other tests are holding sockets
+open, and **a test that answers differently depending on what ran beside it is not
+evidence about the code**.
+
+So the clock came out entirely. RFC 1035 §3.2.1 and §4.1.3 both say of the TTL
+field: "Zero values are interpreted to mean that the RR can only be used for the
+transaction in progress, and should not be cached." A zero-TTL record reaches its
+end of life at the instant it is constructed, so it is already past by the time
+anything reads it — no waiting, no margin, and a stronger statement than the
+original: not "this expired in time" but "this may not be served from a cache at
+all". Each now has a live control beside it, because "one answer came back" is
+otherwise equally consistent with a cache that only ever returns one.
+
+RFC 2181 §8 was the first citation reached for the zero-TTL rule and does not
+contain it. It was checked before it was written down.
+
 ### The prediction that was wrong, and what being wrong said
 
 Pass 2 put the 393 survivors and the 5 timeouts to the other seven projects in
@@ -269,9 +467,22 @@ the bench being independent**, measured from the other side.
 That has a consequence for the 245 gaps below, and it is a question rather than an
 answer: a suite that deliberately does not use Hermod's client may not be able to
 close gaps in it at all from here. The lane that could is `interop`, which drives
-Hermod against BIND and `dig` — 93 tests across four projects, none of which run
-while Docker is down. Which of the 245 are structural in that sense is not known
-yet, and the first cluster worked will start to say.
+Hermod against foreign servers and `dig` — four projects and 131 tests, of which
+98 run today and 33 skip. Which of the 245 are structural in that sense is not
+known yet, and the first cluster worked will start to say.
+
+The 33 were put down here as "none of which run while Docker is down", which was
+wrong twice over and worth correcting rather than quietly fixing. The daemon is
+up — 26.1.5 inside the Debian WSL instance, which is exactly where the tests look
+for it, since they reach it through `Wsl.Run(..., asRoot: true)` rather than
+through a Windows client. What is missing is the **images**: `cznic/knot`,
+`coredns/coredns`, `mvance/unbound` and `zonemaster/cli`, together 185 MiB
+compressed. Every one of the 33 skips says so in its own message, and
+`ForeignServerFixture` deliberately does not pull on demand — "a test run that
+quietly downloads a hundred megabytes is a test run whose first failure is a
+timeout somewhere unrelated". The diagnosis had come from running `docker info`
+in a Windows shell that has no `docker` client at all, and reading "command not
+found" as "daemon down".
 
 ### 245 real gaps, and the one that vanished
 
