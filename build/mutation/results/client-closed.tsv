@@ -8,7 +8,10 @@ DNS/Client/Cache/DNSCache.cs	518	logical-or-to-and	killed	the-cache-read-by-itse
 DNS/Client/Cache/DNSCache.cs	518	inequality-to-equality	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	519	inequality-to-equality	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	572	less-to-less-or-equal	equivalent		soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a minimum written as a conditional. RFC 2308 section 5 asks for exactly that: the negative TTL comes from 'the minimum of the MINIMUM field of the SOA record and the TTL of the SOA itself'. The mutant moves the comparison to <=, which changes only the case where the two fields are equal - and there both arms return the same value. Not a boundary that is hard to reach: a boundary on which the two programs compute the same number. The test for the rule is in CacheBoundaryTests and checks it from both sides, which is worth having and is not what closes this line
+DNS/Client/DNSHTTPSClient.cs	834	logical-and-to-or	killed	what-a-doh-client-may-read	
+DNS/Client/DNSHTTPSClient.cs	834	equality-to-inequality	killed	what-a-doh-client-may-read	
 DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	killed	the-cache-read-by-itself	
+DNS/Client/DNSHTTPSClient.cs	834	greater-to-ge	killed	what-a-doh-client-may-read	
 DNS/Client/Cache/DNSCache.cs	671	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	702	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	745	le-to-less	killed	the-cache-read-by-itself	
@@ -17,6 +20,8 @@ DNS/Client/DNSClient.cs	520	false-to-true	killed	answers-no-server-sent
 DNS/Client/DNSClient.cs	522	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	527	true-to-false	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	528	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSHTTPSClient.cs	958	ge-to-greater	killed	what-a-doh-client-may-read	
+DNS/Client/DNSHTTPSClient.cs	1027	less-to-less-or-equal	equivalent		body.Length < 12, the minimum-length guard on a DoH response body. RFC 1035 section 4.1.1 makes the header exactly twelve octets, so twelve is the smallest whole message and the guard is written correctly - but its boundary cannot be reached from outside, because a stricter rule sits behind it. A twelve-octet body has QDCOUNT zero, and RFC 5452 section 9.1 has a resolver match a response to 'Query ID, Query name, Query type, Query class': with no question section there is nothing to match, so the response is refused either way. The two readings differ only in which branch refuses it - Invalid rather than Failed - and those two carry the same response code, the same IsValid, the same IsTimeout and the same empty sections. The test for the rule that makes it unreachable is in DohResponseAcceptanceTests; it was first written the other way round, asserting that twelve octets are read, and being well-formed turned out not to be the same as being an answer to this question
 DNS/Client/DNSClient.cs	671	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	672	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	674	false-to-true	killed	answers-no-server-sent	

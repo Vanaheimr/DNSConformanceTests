@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net;
 
 namespace DNSConformance.Core.Scripted;
@@ -56,6 +56,19 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
     /// whether the client reads them.
     /// </remarks>
     public String?                       JSONResponse           { get; init; }
+
+    /// <summary>
+    /// The status code of an otherwise successful answer (default: 200).
+    /// </summary>
+    /// <remarks>
+    /// RFC 8484 §4.2.1 ties a DNS response to the status class rather than to one
+    /// code: "A successful HTTP response with a 2xx status code [...] is used for
+    /// any valid DNS response, regardless of the DNS response code." So where 2xx
+    /// ends is a rule a client can get wrong in either direction — reading a
+    /// redirect as an answer, or refusing a 2xx that is not 200 — and with only
+    /// 200 on offer neither edge can be reached.
+    /// </remarks>
+    public Int32                         StatusCode             { get; init; } = 200;
 
 
     public ScriptedDoHServer(Func<Byte[], Byte[]?> Responder)
@@ -143,7 +156,7 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
 
                 var json = System.Text.Encoding.UTF8.GetBytes(JSONResponse);
 
-                response.StatusCode       = 200;
+                response.StatusCode       = StatusCode;
                 response.ContentType      = "application/dns-json";
                 response.ContentLength64  = json.Length;
 
@@ -227,7 +240,7 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
                 return;
             }
 
-            response.StatusCode       = 200;
+            response.StatusCode       = StatusCode;
             response.ContentType      = "application/dns-message";
             response.ContentLength64  = answer.Length;
             await response.OutputStream.WriteAsync(answer, cts.Token);

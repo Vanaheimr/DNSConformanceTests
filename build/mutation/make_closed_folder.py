@@ -966,10 +966,49 @@ CLIENT_KILLED = {
         "DNS/Client/DNSClient.cs": {519, 520, 522, 527, 528, 671, 672, 674, 679, 680},
     },
 
+    # Which DoH responses a client may read. RFC 8484 section 4.2.1 ties a DNS
+    # response to the status class rather than to one code - "A successful HTTP
+    # response with a 2xx status code [...] is used for any valid DNS response,
+    # regardless of the DNS response code" - so one sentence carries two rules,
+    # and a client can break them in opposite directions. Both edges are tested:
+    # a 300 carrying a perfectly good answer must be refused on the status alone,
+    # and a 203 must not be, which is why the sentence says 2xx and not 200.
+    #
+    # Line 834 carries three mutants and only one of them fails a test. The other
+    # two do not survive either: QueryHTTPMultiTypeJSONAsync calls QueryHTTP once
+    # per type, and QueryHTTP is the method holding this guard, so a guard that
+    # fires on a single type recurses without bound. Both `>= 1` and `||` make a
+    # one-type JSON query fan out to itself; the stack overflows and the test host
+    # dies. That is recorded here rather than left open because a program that does
+    # not terminate is caught by any test at all - but it is worth saying that the
+    # mechanism is a dead process and not a failed assertion, because the sweep
+    # reads a dead process as PARSE-ERROR and would call it unmeasured forever.
+    "what-a-doh-client-may-read": {
+        "DNS/Client/DNSHTTPSClient.cs": {834, 958},
+    },
+
 }
 
 
 CLIENT_EQUIVALENT = {
+
+    "DNS/Client/DNSHTTPSClient.cs": {
+
+        1027: "body.Length < 12, the minimum-length guard on a DoH response body. RFC 1035 "
+              "section 4.1.1 makes the header exactly twelve octets, so twelve is the "
+              "smallest whole message and the guard is written correctly - but its boundary "
+              "cannot be reached from outside, because a stricter rule sits behind it. A "
+              "twelve-octet body has QDCOUNT zero, and RFC 5452 section 9.1 has a resolver "
+              "match a response to 'Query ID, Query name, Query type, Query class': with no "
+              "question section there is nothing to match, so the response is refused either "
+              "way. The two readings differ only in which branch refuses it - Invalid rather "
+              "than Failed - and those two carry the same response code, the same IsValid, "
+              "the same IsTimeout and the same empty sections. The test for the rule that "
+              "makes it unreachable is in DohResponseAcceptanceTests; it was first written "
+              "the other way round, asserting that twelve octets are read, and being "
+              "well-formed turned out not to be the same as being an answer to this question",
+
+    },
 
     "DNS/Client/Cache/DNSCache.cs": {
 
