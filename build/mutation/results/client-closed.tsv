@@ -1,0 +1,14 @@
+# Gaps of the 'client' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why
+DNS/Client/Cache/DNSCache.cs	518	logical-or-to-and	killed	the-cache-read-by-itself	
+DNS/Client/Cache/DNSCache.cs	518	inequality-to-equality	killed	the-cache-read-by-itself	
+DNS/Client/Cache/DNSCache.cs	519	inequality-to-equality	killed	the-cache-read-by-itself	
+DNS/Client/Cache/DNSCache.cs	572	less-to-less-or-equal	equivalent		soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a minimum written as a conditional. RFC 2308 section 5 asks for exactly that: the negative TTL comes from 'the minimum of the MINIMUM field of the SOA record and the TTL of the SOA itself'. The mutant moves the comparison to <=, which changes only the case where the two fields are equal - and there both arms return the same value. Not a boundary that is hard to reach: a boundary on which the two programs compute the same number. The test for the rule is in CacheBoundaryTests and checks it from both sides, which is worth having and is not what closes this line
+DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	killed	the-cache-read-by-itself	
+DNS/Client/Cache/DNSCache.cs	671	le-to-less	killed	the-cache-read-by-itself	
+DNS/Client/Cache/DNSCache.cs	702	le-to-less	killed	the-cache-read-by-itself	
+DNS/Client/Cache/DNSCache.cs	745	le-to-less	killed	the-cache-read-by-itself	

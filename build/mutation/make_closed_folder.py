@@ -884,11 +884,70 @@ SERVER_SUPERSEDED = {}
 
 
 
+CLIENT_KILLED = {
+
+    # The cache, driven directly rather than through the wire. CacheExpiryTests
+    # records in its own comments why the scripted-server route cannot reach
+    # these: the cache filters expired records on read AND sweeps them on a
+    # timer, either of which produces the same answer from outside, so a mutation
+    # of one is covered by the other. A cache built with an hour between sweeps
+    # leaves the filter as the only thing that can reply.
+    #
+    # RFC 8198 §5.1 asked without a zone, the cache tries every ancestor of the
+    # name; the root is an ancestor of everything and is where the whole idea
+    # earns its keep, since the root zone is NSEC-signed. RFC 4034 §4.1.1: one
+    # NSEC whose next name is its own owner is a zone holding nothing but its
+    # apex, and that equality is the only place "wraps" is decided by one.
+    # RFC 1035 §3.2.1 gives the TTL to the record rather than to whatever it is
+    # stored beside, in the answer section and the authority section alike.
+    #
+    # All six were planted and watched to fail before being written down here.
+    #
+    # Line 671 is the one this entry closes on two different grounds, because the
+    # ledger keys on (file, line) and cannot say "one of the two". Its
+    # logical-or-to-and is what the replacement test kills: with `&&` an entry is
+    # dropped only when it is expired AND carries the same owner, so a refetched
+    # NSEC joins its predecessor instead of replacing it, and the wider stale gap
+    # goes on denying names that now exist. Its le-to-less is a different thing
+    # and no test reaches it: `e.Expiry <= now` against `<` differs only when a
+    # stored expiry equals, to the tick, a Timestamp.Now read at a later call than
+    # the one that computed it. Killed and unreachable, on one line. MUTATION.md
+    # carries which half is which.
+    "the-cache-read-by-itself": {
+        "DNS/Client/Cache/DNSCache.cs": {518, 519, 671, 702, 745},
+    },
+
+}
+
+
+CLIENT_EQUIVALENT = {
+
+    "DNS/Client/Cache/DNSCache.cs": {
+
+        572: "soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a "
+             "minimum written as a conditional. RFC 2308 section 5 asks for exactly that: "
+             "the negative TTL comes from 'the minimum of the MINIMUM field of the SOA "
+             "record and the TTL of the SOA itself'. The mutant moves the comparison to "
+             "<=, which changes only the case where the two fields are equal - and there "
+             "both arms return the same value. Not a boundary that is hard to reach: a "
+             "boundary on which the two programs compute the same number. The test for "
+             "the rule is in CacheBoundaryTests and checks it from both sides, which is "
+             "worth having and is not what closes this line",
+
+    },
+
+}
+
+
+CLIENT_SUPERSEDED = {}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
     "dnssec": (DNSSEC_KILLED, DNSSEC_EQUIVALENT, DNSSEC_SUPERSEDED),
     "server": (SERVER_KILLED, SERVER_EQUIVALENT, SERVER_SUPERSEDED),
+    "client": (CLIENT_KILLED, CLIENT_EQUIVALENT, CLIENT_SUPERSEDED),
 }
 
 
