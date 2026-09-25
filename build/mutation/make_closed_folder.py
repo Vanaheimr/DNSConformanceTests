@@ -917,6 +917,29 @@ CLIENT_KILLED = {
         "DNS/Client/Cache/DNSCache.cs": {518, 519, 671, 702, 745},
     },
 
+    # Following an alias, and how often a client asks again. DNameFollowingTests
+    # covered the DNAME half of the chase in detail; the CNAME half had nothing.
+    #
+    # RFC 1035 section 7.2 leaves the retry count to the implementation, so what
+    # is asserted is that the setting is the thing deciding it: the loop runs
+    # while attempts <= MaxRetries, which is MaxRetries + 1 questions, and the
+    # count is taken at two different settings because one number is equally
+    # consistent with a loop that ignores the setting and agrees at the default.
+    # SERVFAIL is an answer rather than silence, so nothing at the transport
+    # retransmits and every datagram counted was a decision by that loop.
+    #
+    # RFC 1034 section 3.6.2 keeps a CNAME alone at its name and section 4.3.2
+    # has the resolver restart on the new name; RFC 2308 section 2.1 describes
+    # the NXDOMAIN that carries the CNAMEs which led to the absent name, which is
+    # a denial showing its working rather than an invitation to take another step.
+    #
+    # Every mutant on each of these lines is killed, not just one of them: 980
+    # carries two and both fail. That is worth saying because this ledger keys on
+    # (file, line) and would close the others silently if they were not.
+    "following-an-alias-and-asking-again": {
+        "DNS/Client/DNSClient.cs": {889, 890, 901, 980, 1549},
+    },
+
 }
 
 

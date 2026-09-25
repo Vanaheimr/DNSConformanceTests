@@ -12,3 +12,9 @@ DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	killed	the-cache-read-by-itse
 DNS/Client/Cache/DNSCache.cs	671	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	702	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	745	le-to-less	killed	the-cache-read-by-itself	
+DNS/Client/DNSClient.cs	889	logical-and-to-or	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	890	logical-and-to-or	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	901	logical-and-to-or	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	980	logical-or-to-and	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	980	inequality-to-equality	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	1549	le-to-less	killed	following-an-alias-and-asking-again	
