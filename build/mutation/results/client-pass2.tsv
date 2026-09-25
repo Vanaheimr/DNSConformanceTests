@@ -396,3 +396,4 @@ DNS/Client/IDNSClient.cs	491	true-to-false	SURVIVED-EVERYWHERE		0
 DNS/Client/IDNSClient.cs	491	false-to-true	SURVIVED-EVERYWHERE		0
 DNS/Client/IDNSClient.cs	496	true-to-false	SURVIVED-EVERYWHERE		0
 DNS/Client/IDNSClient.cs	497	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	558	greater-to-ge	KILLED-ELSEWHERE	SecureTransports: the test count moved from 164 to 118	0

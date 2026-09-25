@@ -1,0 +1,383 @@
+# Every mutant of the 'client' block that survived every project,
+# classified against Hermod cc8323d5 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source
+DNS/Client/Cache/DNSCache.cs	129	true-to-false	branch	IsAuthoritativeAnswer:  true,
+DNS/Client/DNSClient.cs	185	true-to-false	noise-region	#region DNSClient(DNSServer,  Port = null, QueryTimeout = null, UseQueryCache = true, ...)
+DNS/Client/DNSTCPClient.cs	192	true-to-false	branch	this.RecursionDesired  = RecursionDesired ?? true;
+DNS/Client/DNSTLSClient.cs	286	true-to-false	branch	this.RecursionDesired  = RecursionDesired ?? true;
+DNS/Client/DNSUDPClient.cs	139	false-to-true	branch	=> false;
+DNS/Client/IDNSClient.cs	57	greater-to-ge	noise-region	#region Query<T>            (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	130	false-to-true	branch	IsTruncated:            false,
+DNS/Client/DNSClient.cs	197	true-to-false	branch	Boolean?              UseQueryCache   = true,
+DNS/Client/DNSHTTPSClient.cs	332	true-to-false	branch	true,
+DNS/Client/DNSKeepalivePolicy.cs	141	false-to-true	host-only	await closeConnection().ConfigureAwait(false);
+DNS/Client/DNSTCPClient.cs	202	true-to-false	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTLSClient.cs	355	true-to-false	branch	true,
+DNS/Client/DNSUDPClient.cs	224	true-to-false	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/IDNSClient.cs	57	true-to-false	noise-region	#region Query<T>            (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	131	false-to-true	branch	RecursionDesired:       false,
+DNS/Client/DNSClient.cs	218	true-to-false	noise-region	#region DNSClient(DNSServers, Port = null, QueryTimeout = null, UseQueryCache = true, ...)
+DNS/Client/DNSHTTPSClient.cs	346	true-to-false	branch	true,
+DNS/Client/DNSKeepalivePolicy.cs	171	false-to-true	host-only	if (!await streamLock.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
+DNS/Client/DNSTCPClient.cs	202	false-to-true	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTLSClient.cs	375	true-to-false	branch	this.RecursionDesired  = RecursionDesired ?? true;
+DNS/Client/DNSUDPClient.cs	224	false-to-true	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/IDNSClient.cs	57	false-to-true	noise-region	#region Query<T>            (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	132	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/DNSClient.cs	230	true-to-false	branch	Boolean?                 UseQueryCache   = true,
+DNS/Client/DNSHTTPSClient.cs	347	true-to-false	branch	true,
+DNS/Client/DNSKeepalivePolicy.cs	176	false-to-true	host-only	await closeConnection().ConfigureAwait(false);
+DNS/Client/DNSTCPClient.cs	207	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSTLSClient.cs	389	true-to-false	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSUDPClient.cs	229	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/IDNSClient.cs	64	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	140	true-to-false	branch	IsValid:                true,
+DNS/Client/DNSClient.cs	250	true-to-false	noise-region	#region DNSClient(                  QueryTimeout = null, SearchForIPv4DNSServers = true, SearchForIPv6DNSServers = true, UseQueryCache = true, ...)
+DNS/Client/DNSHTTPSClient.cs	355	true-to-false	branch	this.RecursionDesired  = RecursionDesired ?? true;
+DNS/Client/DNSKeepalivePolicy.cs	203	true-to-false	branch	disposed = true;
+DNS/Client/DNSTCPClient.cs	208	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSTLSClient.cs	389	false-to-true	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSUDPClient.cs	230	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/IDNSClient.cs	79	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/Cache/DNSCache.cs	141	false-to-true	branch	IsTimeout:              false,
+DNS/Client/DNSHTTPSClient.cs	432	true-to-false	branch	true,
+DNS/Client/DNSTCPClient.cs	222	true-to-false	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTLSClient.cs	394	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSUDPClient.cs	244	true-to-false	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/IDNSClient.cs	87	greater-to-ge	noise-region	#region Query<T>            (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	172	true-to-false	branch	IsAuthoritativeAnswer:  true,
+DNS/Client/DNSHTTPSClient.cs	446	true-to-false	branch	true,
+DNS/Client/DNSTCPClient.cs	222	false-to-true	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTLSClient.cs	395	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSUDPClient.cs	244	false-to-true	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/IDNSClient.cs	87	true-to-false	noise-region	#region Query<T>            (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	173	false-to-true	branch	IsTruncated:            false,
+DNS/Client/DNSClient.cs	260	true-to-false	branch	Boolean?              SearchForIPv4DNSServers   = true,
+DNS/Client/DNSHTTPSClient.cs	447	true-to-false	branch	true,
+DNS/Client/DNSTCPClient.cs	227	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSTLSClient.cs	409	true-to-false	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSUDPClient.cs	249	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/IDNSClient.cs	87	false-to-true	noise-region	#region Query<T>            (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	174	false-to-true	branch	RecursionDesired:       false,
+DNS/Client/DNSClient.cs	261	true-to-false	branch	Boolean?              SearchForIPv6DNSServers   = true,
+DNS/Client/DNSHTTPSClient.cs	455	true-to-false	branch	this.RecursionDesired  = RecursionDesired ?? true;
+DNS/Client/DNSTCPClient.cs	228	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSTLSClient.cs	409	false-to-true	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSUDPClient.cs	250	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/IDNSClient.cs	94	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	175	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/DNSClient.cs	262	true-to-false	branch	Boolean?              UseQueryCache             = true,
+DNS/Client/DNSHTTPSClient.cs	544	true-to-false	branch	true,  // ConsumeRequestChunkedTEImmediately
+DNS/Client/DNSTCPClient.cs	236	equality-to-inequality	branch	if (resourceRecordTypes.Count == 0)
+DNS/Client/DNSTLSClient.cs	414	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSUDPClient.cs	266	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/IDNSClient.cs	95	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/Cache/DNSCache.cs	183	true-to-false	branch	IsValid:                true,
+DNS/Client/DNSClient.cs	278	true-to-false	noise-region	#region DNSClient(ManualDNSServers, QueryTimeout = null, SearchForIPv4DNSServers = true, SearchForIPv6DNSServers = true, UseQueryCache = true, ...)
+DNS/Client/DNSHTTPSClient.cs	545	true-to-false	branch	true,  // ConsumeResponseChunkedTEImmediately
+DNS/Client/DNSTCPClient.cs	245	true-to-false	branch	this.RecursionDesired ?? RecursionDesired ?? true,
+DNS/Client/DNSTLSClient.cs	415	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSUDPClient.cs	267	false-to-true	branch	IsTruncated:            false,
+DNS/Client/IDNSClient.cs	109	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/Cache/DNSCache.cs	184	false-to-true	branch	IsTimeout:              false,
+DNS/Client/DNSHTTPSClient.cs	554	true-to-false	branch	this.RecursionDesired  = RecursionDesired ?? true;
+DNS/Client/DNSTCPClient.cs	247	greater-to-ge	boundary	EDNSOptions.Count > 0 ? EDNSOptions : null,
+DNS/Client/DNSTLSClient.cs	423	equality-to-inequality	branch	if (resourceRecordTypes.Count == 0)
+DNS/Client/DNSUDPClient.cs	268	true-to-false	branch	RecursionDesired:       true,
+DNS/Client/IDNSClient.cs	118	greater-to-ge	noise-region	#region Query<T1, T2>       (DomainName,     Mapper, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	346	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/DNSHTTPSClient.cs	747	true-to-false	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTCPClient.cs	258	false-to-true	branch	dnsQuery.Serialize(ms, false, []);
+DNS/Client/DNSTLSClient.cs	432	true-to-false	branch	this.RecursionDesired ?? RecursionDesired ?? true,
+DNS/Client/DNSUDPClient.cs	269	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/IDNSClient.cs	118	true-to-false	noise-region	#region Query<T1, T2>       (DomainName,     Mapper, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	347	false-to-true	branch	IsTruncated:            false,
+DNS/Client/DNSClient.cs	290	false-to-true	branch	Boolean?                      SearchForIPv4DNSServers   = false,
+DNS/Client/DNSHTTPSClient.cs	747	false-to-true	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTCPClient.cs	271	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	434	greater-to-ge	boundary	EDNSOptions.Count > 0 ? EDNSOptions : null,
+DNS/Client/DNSUDPClient.cs	274	true-to-false	branch	IsValid:                true,
+DNS/Client/IDNSClient.cs	118	false-to-true	noise-region	#region Query<T1, T2>       (DomainName,     Mapper, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	348	false-to-true	branch	RecursionDesired:       false,
+DNS/Client/DNSClient.cs	291	false-to-true	branch	Boolean?                      SearchForIPv6DNSServers   = false,
+DNS/Client/DNSHTTPSClient.cs	752	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSTCPClient.cs	276	logical-or-to-and	branch	if (!IsConnected || tcpClient is null)
+DNS/Client/DNSTLSClient.cs	450	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	275	false-to-true	branch	IsTimeout:              false,
+DNS/Client/IDNSClient.cs	126	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	349	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/DNSClient.cs	292	true-to-false	branch	Boolean?                      UseQueryCache             = true,
+DNS/Client/DNSHTTPSClient.cs	753	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSTCPClient.cs	278	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	455	logical-or-to-and	branch	if (!IsConnected || tcpClient is null)
+DNS/Client/DNSUDPClient.cs	282	equality-to-inequality	branch	if (resourceRecordTypes.Count == 0)
+DNS/Client/IDNSClient.cs	127	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/Cache/DNSCache.cs	354	true-to-false	branch	IsValid:                true,
+DNS/Client/DNSClient.cs	301	true-to-false	branch	this.UseCache          = UseQueryCache ?? true;
+DNS/Client/DNSHTTPSClient.cs	771	true-to-false	branch	Boolean?                             RecursionDesired          = true,
+DNS/Client/DNSTCPClient.cs	294	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	457	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	291	true-to-false	branch	this.RecursionDesired ?? RecursionDesired ?? true,
+DNS/Client/IDNSClient.cs	142	greater-to-ge	noise-region	#region Query<T1, T2>       (DNSServiceName, Mapper, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	355	false-to-true	branch	IsTimeout:              false,
+DNS/Client/DNSClient.cs	303	true-to-false	branch	this.RecursionDesired  = true;
+DNS/Client/DNSHTTPSClient.cs	772	false-to-true	branch	Boolean?                             ForceUpdate               = false,
+DNS/Client/DNSTCPClient.cs	298	false-to-true	host-only	await ReconnectAsync(CancellationToken).ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	472	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	293	greater-to-ge	boundary	EDNSOptions.Count > 0 ? EDNSOptions : null,
+DNS/Client/IDNSClient.cs	142	true-to-false	noise-region	#region Query<T1, T2>       (DNSServiceName, Mapper, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	452	true-to-false	noise-attribute	[NotNullWhen(true)] out DNSInfo?  DNSInfo)
+DNS/Client/DNSClient.cs	309	true-to-false	branch	if (SearchForIPv4DNSServers ?? true)
+DNS/Client/DNSHTTPSClient.cs	790	true-to-false	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTCPClient.cs	301	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	476	false-to-true	host-only	await ReconnectAsync(CancellationToken).ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	314	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	142	false-to-true	noise-region	#region Query<T1, T2>       (DNSServiceName, Mapper, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	463	le-to-less	boundary	dnsCacheEntry.EndOfLife <= Timestamp.Now)
+DNS/Client/DNSClient.cs	311	equality-to-inequality	branch	Where     (networkInterface => networkInterface.OperationalStatus == OperationalStatus.Up).
+DNS/Client/DNSHTTPSClient.cs	790	false-to-true	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTCPClient.cs	404	false-to-true	host-only	await TCPStream.WriteAsync(Data, CancellationToken).ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	478	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	317	false-to-true	branch	dnsQuery.Serialize(ms, false, []);
+DNS/Client/IDNSClient.cs	150	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	506	greater-to-ge	boundary	Where(rr => rr.EndOfLife > now).
+DNS/Client/DNSClient.cs	320	true-to-false	branch	if (SearchForIPv6DNSServers ?? true)
+DNS/Client/DNSHTTPSClient.cs	795	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSTCPClient.cs	405	false-to-true	host-only	await TCPStream.FlushAsync(CancellationToken).      ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	605	false-to-true	branch	message.Serialize(stream, false, []);
+DNS/Client/DNSUDPClient.cs	327	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	151	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/Cache/DNSCache.cs	510	greater-to-ge	boundary	Where(rr => rr.EndOfLife > now).
+DNS/Client/DNSClient.cs	322	equality-to-inequality	branch	Where     (networkInterface => networkInterface.OperationalStatus == OperationalStatus.Up).
+DNS/Client/DNSHTTPSClient.cs	796	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSTCPClient.cs	423	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	352	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	167	true-to-false	noise-region	#region Query_IPv4Addresses (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	518	logical-or-to-and	branch	if (liveAnswers.Length    != Original.Answers.    Count() ||
+DNS/Client/DNSClient.cs	405	logical-or-to-and	branch	if (DomainName.IsNullOrEmpty() || DNSInformation is null)
+DNS/Client/DNSHTTPSClient.cs	813	true-to-false	branch	Boolean?                             RecursionDesired          = true,
+DNS/Client/DNSTCPClient.cs	444	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	362	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	167	false-to-true	noise-region	#region Query_IPv4Addresses (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	518	inequality-to-equality	branch	if (liveAnswers.Length    != Original.Answers.    Count() ||
+DNS/Client/DNSClient.cs	452	true-to-false	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSHTTPSClient.cs	814	false-to-true	branch	Boolean?                             ForceUpdate               = false,
+DNS/Client/DNSTCPClient.cs	449	false-to-true	host-only	await CloseConnection().ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	386	logical-or-to-and	branch	if (received < 2 ||
+DNS/Client/IDNSClient.cs	174	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	519	inequality-to-equality	branch	liveAuthorities.Length != Original.Authorities.Count())
+DNS/Client/DNSClient.cs	452	false-to-true	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSTCPClient.cs	466	false-to-true	host-only	await CloseConnection().ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	648	false-to-true	host-only	await TLSStream.WriteAsync(Data, CancellationToken).ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	386	less-to-less-or-equal	boundary	if (received < 2 ||
+DNS/Client/IDNSClient.cs	175	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/Cache/DNSCache.cs	572	less-to-less-or-equal	boundary	return soa.Minimum < soa.TimeToLive
+DNS/Client/DNSClient.cs	466	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSHTTPSClient.cs	834	logical-and-to-or	branch	if (Mode == DNSHTTPSMode.JSON && resourceRecordTypes.Count > 1)
+DNS/Client/DNSTCPClient.cs	473	less-to-less-or-equal	boundary	if (responseLength < 12)
+DNS/Client/DNSTLSClient.cs	649	false-to-true	host-only	await TLSStream.FlushAsync(CancellationToken).      ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	184	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers.Select(ARecord => ARecord.IPv4Address);
+DNS/Client/Cache/DNSCache.cs	619	greater-to-ge	boundary	if (endOfLife > Timestamp.Now)
+DNS/Client/DNSClient.cs	467	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSHTTPSClient.cs	834	equality-to-inequality	branch	if (Mode == DNSHTTPSMode.JSON && resourceRecordTypes.Count > 1)
+DNS/Client/DNSTCPClient.cs	497	false-to-true	host-only	await keepalive.ApplyAsync(response).ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	662	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	456	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	188	true-to-false	noise-region	#region Query_IPv4Addresses (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	branch	existing.RemoveAll(e => e.Expiry <= now ||
+DNS/Client/DNSClient.cs	481	true-to-false	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSHTTPSClient.cs	834	greater-to-ge	boundary	if (Mode == DNSHTTPSMode.JSON && resourceRecordTypes.Count > 1)
+DNS/Client/IDNSClient.cs	188	false-to-true	noise-region	#region Query_IPv4Addresses (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	671	le-to-less	boundary	existing.RemoveAll(e => e.Expiry <= now ||
+DNS/Client/DNSClient.cs	481	false-to-true	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSHTTPSClient.cs	844	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	680	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	473	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/IDNSClient.cs	195	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	702	le-to-less	boundary	for (var skip = 0; skip <= labels.Length; skip++)
+DNS/Client/DNSClient.cs	495	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSHTTPSClient.cs	850	true-to-false	branch	this.RecursionDesired ?? RecursionDesired ?? true,
+DNS/Client/DNSUDPClient.cs	474	false-to-true	branch	IsTruncated:            false,
+DNS/Client/IDNSClient.cs	196	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/Cache/DNSCache.cs	729	le-to-less	boundary	if (expiry <= now)
+DNS/Client/DNSClient.cs	496	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSHTTPSClient.cs	852	greater-to-ge	boundary	EDNSOptions.Count > 0 ? EDNSOptions : null,
+DNS/Client/DNSTLSClient.cs	685	false-to-true	host-only	await CloseConnection().ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	475	false-to-true	branch	RecursionDesired:       false,
+DNS/Client/IDNSClient.cs	205	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers.Select(ARecord => ARecord.IPv4Address);
+DNS/Client/Cache/DNSCache.cs	745	le-to-less	boundary	var wraps      = DenialOfExistenceValidator.CompareCanonical(nextName, ownerName) <= 0;
+DNS/Client/DNSClient.cs	511	logical-or-to-and	branch	if (DNSServiceName.IsNullOrEmpty() || dnsServers.Count == 0)
+DNS/Client/DNSHTTPSClient.cs	873	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	702	false-to-true	host-only	await CloseConnection().ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	476	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/IDNSClient.cs	209	true-to-false	noise-region	#region Query_IPv4Addresses (RemoteURL,              Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	777	logical-and-to-or	branch	Where(entry => entry.Value.EndOfLife < now &&
+DNS/Client/DNSClient.cs	519	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/DNSHTTPSClient.cs	878	logical-or-to-and	branch	if (!IsConnected || tcpClient is null)
+DNS/Client/DNSTLSClient.cs	709	less-to-less-or-equal	boundary	if (responseLength < 12)
+DNS/Client/DNSUDPClient.cs	481	true-to-false	branch	IsValid:                true,
+DNS/Client/IDNSClient.cs	209	false-to-true	noise-region	#region Query_IPv4Addresses (RemoteURL,              Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	777	less-to-less-or-equal	boundary	Where(entry => entry.Value.EndOfLife < now &&
+DNS/Client/DNSClient.cs	520	false-to-true	branch	IsTruncated:            false,
+DNS/Client/DNSHTTPSClient.cs	879	false-to-true	host-only	await ReconnectAsync(CancellationToken).ConfigureAwait(false);
+DNS/Client/DNSTLSClient.cs	746	false-to-true	host-only	await keepalive.ApplyAsync(response).ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	482	false-to-true	branch	IsTimeout:              false,
+DNS/Client/IDNSClient.cs	216	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/Cache/DNSCache.cs	778	le-to-less	boundary	entry.Value.DNSInfo.Answers.All(rr => rr.EndOfLife <= now)).
+DNS/Client/DNSClient.cs	521	true-to-false	branch	RecursionDesired:       true,
+DNS/Client/IDNSClient.cs	217	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/Cache/DNSCache.cs	792	less-to-less-or-equal	boundary	Where(entry => entry.Value < now).
+DNS/Client/DNSClient.cs	522	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/DNSHTTPSClient.cs	914	equality-to-inequality	branch	else if (Mode == DNSHTTPSMode.JSON)
+DNS/Client/DNSUDPClient.cs	631	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	239	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers.Select(ARecord => ARecord.IPv4Address);
+DNS/Client/Cache/DNSCache.cs	803	less-to-less-or-equal	boundary	kvp.Value.RemoveAll(e => e.Expiry < now);
+DNS/Client/DNSClient.cs	527	true-to-false	branch	IsValid:                true,
+DNS/Client/DNSHTTPSClient.cs	931	true-to-false	branch	true,
+DNS/Client/DNSUDPClient.cs	633	false-to-true	branch	using var networkStream = new NetworkStream(socket, ownsSocket: false);
+DNS/Client/IDNSClient.cs	246	true-to-false	noise-region	#region Query_IPv6Addresses (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/Cache/DNSCache.cs	804	equality-to-inequality	branch	if (kvp.Value.Count == 0)
+DNS/Client/DNSClient.cs	528	false-to-true	branch	IsTimeout:              false,
+DNS/Client/DNSHTTPSClient.cs	939	false-to-true	host-only	await ReconnectAsync(CancellationToken).ConfigureAwait(false);
+DNS/Client/DNSUDPClient.cs	636	false-to-true	branch	DNSQuery.Serialize(ms, false, []);
+DNS/Client/IDNSClient.cs	246	false-to-true	noise-region	#region Query_IPv6Addresses (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	539	equality-to-inequality	branch	if (resourceRecordTypes.Count == 0)
+DNS/Client/DNSHTTPSClient.cs	943	true-to-false	branch	true,
+DNS/Client/DNSUDPClient.cs	652	false-to-true	host-only	await networkStream.WriteAsync(data, timeoutCTS.Token).ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	253	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	567	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSHTTPSClient.cs	958	ge-to-greater	boundary	httpResponse.HTTPStatusCode.Code >= 300)
+DNS/Client/DNSUDPClient.cs	653	false-to-true	host-only	await networkStream.FlushAsync(timeoutCTS.Token).      ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	254	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	586	false-to-true	branch	if (UseCache && !(ForceUpdate ?? false) &&
+DNS/Client/DNSHTTPSClient.cs	983	logical-and-to-or	branch	if (timeoutCTS.IsCancellationRequested &&
+DNS/Client/DNSUDPClient.cs	656	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	263	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers.Select(AAAARecord => AAAARecord.IPv6Address);
+DNS/Client/DNSClient.cs	621	equality-to-inequality	branch	FirstOrDefault(resourceRecord => resourceRecord.Type == DNSResourceRecordTypes.CNAME);
+DNS/Client/DNSHTTPSClient.cs	984	logical-and-to-or	branch	!CancellationToken.IsCancellationRequested &&
+DNS/Client/DNSUDPClient.cs	659	less-to-less-or-equal	boundary	if (responseLength < 12)
+DNS/Client/IDNSClient.cs	267	true-to-false	noise-region	#region Query_IPv6Addresses (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	625	greater-to-ge	boundary	resourceRecord.EndOfLife > now &&
+DNS/Client/DNSHTTPSClient.cs	1027	less-to-less-or-equal	boundary	if (body.Length < 12)
+DNS/Client/DNSUDPClient.cs	680	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	267	false-to-true	noise-region	#region Query_IPv6Addresses (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	626	greater-to-ge	boundary	((cnameRecord is null) || (cnameRecord.EndOfLife > now))).
+DNS/Client/DNSHTTPSClient.cs	1084	equality-to-inequality	branch	if (clientCancellationTokenSource?.IsCancellationRequested == true)
+DNS/Client/DNSUDPClient.cs	1236	true-to-false	branch	disposedValue = true;
+DNS/Client/IDNSClient.cs	274	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	671	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/DNSHTTPSClient.cs	1084	true-to-false	branch	if (clientCancellationTokenSource?.IsCancellationRequested == true)
+DNS/Client/DNSUDPClient.cs	1242	true-to-false	branch	Dispose(Disposing: true);
+DNS/Client/IDNSClient.cs	275	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	672	false-to-true	branch	IsTruncated:            false,
+DNS/Client/DNSUDPClient.cs	1248	true-to-false	branch	Dispose(Disposing: true);
+DNS/Client/IDNSClient.cs	284	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers.Select(AAAARecord => AAAARecord.IPv6Address);
+DNS/Client/DNSClient.cs	673	true-to-false	branch	RecursionDesired:       true,
+DNS/Client/IDNSClient.cs	288	true-to-false	noise-region	#region Query_IPv6Addresses (RemoteURL,              Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	674	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/IDNSClient.cs	288	false-to-true	noise-region	#region Query_IPv6Addresses (RemoteURL,              Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	679	true-to-false	branch	IsValid:                true,
+DNS/Client/DNSHTTPSClient.cs	1241	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	295	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	680	false-to-true	branch	IsTimeout:              false,
+DNS/Client/DNSHTTPSClient.cs	1245	equality-to-inequality	branch	if (response.ResponseCode == DNSResponseCodes.NoError)
+DNS/Client/IDNSClient.cs	296	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	695	true-to-false	branch	this.RecursionDesired ?? RecursionDesired ?? true,
+DNS/Client/DNSHTTPSClient.cs	1252	equality-to-inequality	branch	if (response.ResponseCode == DNSResponseCodes.NameError)
+DNS/Client/IDNSClient.cs	316	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers.Select(AAAARecord => AAAARecord.IPv6Address);
+DNS/Client/DNSClient.cs	696	greater-to-ge	boundary	EDNSOptions.Count > 0 ? EDNSOptions : null,
+DNS/Client/DNSHTTPSClient.cs	1294	true-to-false	noise-attribute	[NotNullWhen(true)] out DNSInfo?  DNSInfo,
+DNS/Client/IDNSClient.cs	323	true-to-false	noise-region	#region Query_IPAddresses   (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	731	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSHTTPSClient.cs	1307	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/IDNSClient.cs	323	false-to-true	noise-region	#region Query_IPAddresses   (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	736	false-to-true	host-only	ConfigureAwait(false);
+DNS/Client/DNSHTTPSClient.cs	1308	false-to-true	branch	IsTruncated:            false,
+DNS/Client/IDNSClient.cs	330	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	765	greater-to-ge	boundary	if (nsecRecords.Count > 0)
+DNS/Client/DNSHTTPSClient.cs	1309	true-to-false	branch	RecursionDesired:       true,
+DNS/Client/IDNSClient.cs	331	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	870	greater-to-ge	boundary	while (allDNSServerRequests.Count > 0);
+DNS/Client/DNSHTTPSClient.cs	1310	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/IDNSClient.cs	342	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSClient.cs	889	logical-and-to-or	branch	if (FollowCNAMEs && firstResponse is not null &&
+DNS/Client/DNSHTTPSClient.cs	1315	false-to-true	branch	IsValid:                false,
+DNS/Client/IDNSClient.cs	344	false-to-true	host-only	var ipv4Addresses = await ipv4AddressLookupTask.ConfigureAwait(false);
+DNS/Client/DNSHTTPSClient.cs	1316	false-to-true	branch	IsTimeout:              false,
+DNS/Client/IDNSClient.cs	345	false-to-true	host-only	var ipv6Addresses = await ipv6AddressLookupTask.ConfigureAwait(false);
+DNS/Client/DNSClient.cs	890	logical-and-to-or	branch	firstResponse.ResponseCode == DNSResponseCodes.NoError &&
+DNS/Client/DNSHTTPSClient.cs	1321	false-to-true	rejection	return false;
+DNS/Client/IDNSClient.cs	354	true-to-false	noise-region	#region Query_IPAddresses   (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	901	logical-and-to-or	branch	if (!requestedTypesSet.Contains(DNSResourceRecordTypes.Any) &&
+DNS/Client/DNSHTTPSClient.cs	1328	false-to-true	branch	var tc     = json["TC"]?.    Value<Boolean>() ?? false;
+DNS/Client/IDNSClient.cs	354	false-to-true	noise-region	#region Query_IPAddresses   (DNSServiceName,         Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	917	less-to-less-or-equal	boundary	for (var hop = 0; hop < MaxCNAMEFollows; hop++)
+DNS/Client/DNSHTTPSClient.cs	1329	true-to-false	branch	var rd     = json["RD"]?.    Value<Boolean>() ?? true;
+DNS/Client/IDNSClient.cs	361	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	978	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSHTTPSClient.cs	1330	false-to-true	branch	var ra     = json["RA"]?.    Value<Boolean>() ?? false;
+DNS/Client/IDNSClient.cs	362	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	980	logical-or-to-and	branch	if (followUpResponse.ResponseCode != DNSResponseCodes.NoError ||
+DNS/Client/DNSHTTPSClient.cs	1334	false-to-true	branch	var ad     = json["AD"]?.    Value<Boolean>() ?? false;
+DNS/Client/IDNSClient.cs	373	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSClient.cs	980	inequality-to-equality	branch	if (followUpResponse.ResponseCode != DNSResponseCodes.NoError ||
+DNS/Client/DNSHTTPSClient.cs	1335	false-to-true	branch	var cd     = json["CD"]?.    Value<Boolean>() ?? false;
+DNS/Client/IDNSClient.cs	375	false-to-true	host-only	var ipv4Addresses = await ipv4AddressLookupTask.ConfigureAwait(false);
+DNS/Client/DNSClient.cs	1040	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/DNSHTTPSClient.cs	1367	false-to-true	branch	IsAuthoritativeAnswer:  false,
+DNS/Client/IDNSClient.cs	376	false-to-true	host-only	var ipv6Addresses = await ipv6AddressLookupTask.ConfigureAwait(false);
+DNS/Client/DNSClient.cs	1041	false-to-true	branch	IsTruncated:            false,
+DNS/Client/DNSHTTPSClient.cs	1375	true-to-false	branch	IsValid:                true,
+DNS/Client/IDNSClient.cs	385	true-to-false	noise-region	#region Query_IPAddresses   (RemoteURL,              Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	1042	true-to-false	branch	RecursionDesired:       true,
+DNS/Client/DNSHTTPSClient.cs	1376	false-to-true	branch	IsTimeout:              false,
+DNS/Client/IDNSClient.cs	385	false-to-true	noise-region	#region Query_IPAddresses   (RemoteURL,              Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	1043	false-to-true	branch	RecursionAvailable:     false,
+DNS/Client/DNSHTTPSClient.cs	1412	true-to-false	noise-attribute	[NotNullWhen(true)] out IDNSResourceRecord?  ResourceRecord)
+DNS/Client/IDNSClient.cs	392	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	1048	true-to-false	branch	IsValid:                true,
+DNS/Client/DNSHTTPSClient.cs	1422	logical-or-to-and	branch	if (name.Length == 0 || data.Length == 0)
+DNS/Client/IDNSClient.cs	393	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	1049	false-to-true	branch	IsTimeout:              false,
+DNS/Client/DNSHTTPSClient.cs	1423	false-to-true	rejection	return false;
+DNS/Client/IDNSClient.cs	411	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSClient.cs	1250	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/DNSHTTPSClient.cs	1477	equality-to-inequality	branch	URL.Parse(Mode == DNSHTTPSMode.JSON
+DNS/Client/IDNSClient.cs	413	false-to-true	host-only	var ipv4Addresses = await ipv4AddressLookupTask.ConfigureAwait(false);
+DNS/Client/DNSClient.cs	1261	equality-to-inequality	branch	var primary      = responses.FirstOrDefault(response => response.ResponseCode == DNSResponseCodes.NoError)
+DNS/Client/IDNSClient.cs	414	false-to-true	host-only	var ipv6Addresses = await ipv6AddressLookupTask.ConfigureAwait(false);
+DNS/Client/DNSClient.cs	1391	inequality-to-equality	branch	.Where (o => o.Code != (UInt16) EDNSOptionCode.Cookie)
+DNS/Client/IDNSClient.cs	424	true-to-false	noise-region	#region Query_DNSService    (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	1398	equality-to-inequality	branch	optionsWithCookie.RemoveAll(o => o.Code == (UInt16) EDNSOptionCode.ClientSubnet);
+DNS/Client/IDNSClient.cs	424	false-to-true	noise-region	#region Query_DNSService    (DomainName,             Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	1412	equality-to-inequality	branch	var isUDP           = DNSServer.Transport == DNSTransport.UDP;
+DNS/Client/IDNSClient.cs	432	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	1431	equality-to-inequality	branch	var idx = transportClient.EDNSOptions.FindIndex(o => o.Code == option.Code);
+DNS/Client/IDNSClient.cs	433	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	1432	ge-to-greater	boundary	if (idx >= 0)
+DNS/Client/IDNSClient.cs	445	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers;
+DNS/Client/DNSClient.cs	1467	false-to-true	branch	false,
+DNS/Client/IDNSClient.cs	449	true-to-false	noise-region	#region Query_DNSService    (DNSServiceName,          Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	1469	false-to-true	host-only	).ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	449	false-to-true	noise-region	#region Query_DNSService    (DNSServiceName,          Timeout = null, RecursionDesired = true, ForceUpdate = false, ...)
+DNS/Client/DNSClient.cs	1489	le-to-less	boundary	if (attempts <= MaxRetries)
+DNS/Client/IDNSClient.cs	456	true-to-false	branch	Boolean?           RecursionDesired    = true,
+DNS/Client/DNSClient.cs	1504	true-to-false	branch	cookieRetried  = true;
+DNS/Client/IDNSClient.cs	457	false-to-true	branch	Boolean?           ForceUpdate         = false,
+DNS/Client/DNSClient.cs	1535	le-to-less	boundary	if (attempts <= MaxRetries)
+DNS/Client/IDNSClient.cs	466	false-to-true	host-only	).ConfigureAwait(false)).FilteredAnswers;
+DNS/Client/DNSClient.cs	1545	false-to-true	host-only	await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken).ConfigureAwait(false);
+DNS/Client/IDNSClient.cs	480	true-to-false	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, ForceUpdate = false, RecursionDesired = true, ...)
+DNS/Client/DNSClient.cs	1549	le-to-less	boundary	while (attempts <= MaxRetries);
+DNS/Client/IDNSClient.cs	480	false-to-true	noise-region	#region Query (DomainName,     ResourceRecordTypes, Timeout = null, ForceUpdate = false, RecursionDesired = true, ...)
+DNS/Client/DNSClient.cs	1740	true-to-false	branch	disposedValue = true;
+DNS/Client/IDNSClient.cs	485	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/DNSClient.cs	1746	true-to-false	branch	Dispose(Disposing: true);
+DNS/Client/IDNSClient.cs	486	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSClient.cs	1752	true-to-false	branch	Dispose(Disposing: true);
+DNS/Client/IDNSClient.cs	491	true-to-false	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null,ForceUpdate = false, RecursionDesired = true, ...)
+DNS/Client/IDNSClient.cs	491	false-to-true	noise-region	#region Query (DNSServiceName, ResourceRecordTypes, Timeout = null,ForceUpdate = false, RecursionDesired = true, ...)
+DNS/Client/IDNSClient.cs	496	true-to-false	branch	Boolean?                             RecursionDesired    = true,
+DNS/Client/IDNSClient.cs	497	false-to-true	branch	Boolean?                             ForceUpdate         = false,
+DNS/Client/DNSTLSClient.cs	674	less-to-less-or-equal	unmeasured-timeout	while (totalRead < responseLength)

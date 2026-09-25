@@ -33,14 +33,18 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | not measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **245 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
-One line of `sweep_folder.py` runs any of them. The `multicast` row is worth a
-second look before anyone reads a number off it: its judge has **four tests** for
-598 mutable places, so whatever that block eventually reports will be a statement
-about the tests rather than about mDNS.
+One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
+a warning here: its judge had **four tests** for 598 mutable places, so whatever
+that block reported would have been a statement about the tests rather than about
+mDNS. It now has **thirty-one**, written against RFC 6762 and 6763 before the
+block was ever swept, which is the order that makes a measurement worth taking —
+first the tests a reading of the RFC asks for, then the sweep to say what they
+still do not reach. The warning stands for any block measured the other way
+round.
 
 **Three of those counts used to be wrong, and how they were wrong is worth
 keeping.** The table said 70 for `tsig`, 202 for `dnssec` and 551 for `multicast`;
@@ -64,7 +68,7 @@ comparison. The measured figure stays, because it is what was measured.
 
 ---
 
-## The thirty-nine that no test host can see
+## The hundred and seven that no test host can see
 
 `await x.ConfigureAwait(false)` says: do not resume on the caller's
 synchronization context. Read as `true` it says the opposite, and the two
@@ -73,9 +77,14 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. Thirty-nine of these sit across the measured blocks, and
-not one of them is work waiting to be done: no test written for a DNS conformance
-suite will ever close one.
+same as equivalent**. A hundred and seven of these sit across the measured
+blocks, and not one of them is work waiting to be done: no test written for a DNS
+conformance suite will ever close one.
+
+The count was thirty-nine when the class was named. The `client` block added
+sixty-eight in one sweep, which is the shape of the thing: the transports are
+where a DNS library awaits most, so they are where the rule it never states
+matters most.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -89,6 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
+| `client` | 245 | **245** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -205,6 +215,119 @@ the same key appears twice in a ledger table, so Python kept only the last of th
   line 142: 'DNS/DNSZoneFile.cs'
 ```
 
+
+## The result: the client
+
+558 mutants. Pass 1 ran 545 of them in 280 minutes on top of the 13 a crashed
+earlier run had already recorded, and the totals reconcile to the mutant: 7
+build-failed, 1 killed and 5 survived separate the two files, which is exactly
+the 13.
+
+**93 do not compile, and they are not a storm.** The longest run of consecutive
+build failures is 8, and they fall into three classes that each say something
+about the generator rather than the code:
+
+- **81 are `greater-to-ge` on a generic argument list.**
+  `ConcurrentDictionary<DNSServerConfig, IDNSClientWithTransport>` becomes
+  `…IDNSClientWithTransport>=`. The operator fires on the closing angle bracket.
+- **8 are `logical-and-to-or` across an `out var`.**
+  `TryParse(currentName, out var currentServiceName, out _) && …` with `||`
+  leaves the variable not definitely assigned — CS0165, and the mutant is not a
+  program.
+- **3 are `while (true)` becoming `while (false)`**, in the receive loops of the
+  UDP, TCP and TLS transports.
+
+Six lines got no verdict: five timed out and one produced no summary line. All
+six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
+282/387/587 — which is where a mutant that moves a deadline or a retry bound
+would be expected to hang rather than answer.
+
+### The prediction that was wrong, and what being wrong said
+
+Pass 2 put the 393 survivors and the 5 timeouts to the other seven projects in
+401 minutes and killed **14**. That is 3.5%.
+
+| block | pass 2 killed elsewhere |
+|---|---:|
+| `server` | 37% |
+| `tsig` | 33% |
+| `core` | 23% |
+| `records` | 13% |
+| `dnssec` | 5.6% |
+| `client` | **3.5%** |
+
+The lowest of any block, and the opposite of what was written here before the run
+started. The reasoning had been: every conformance project talks to its server
+through `DNSClient`, so the wider bench should catch a great deal.
+
+It does not, and the reason is the suite's own design. The projects talk to
+Hermod's servers over the suite's raw wire — `RawDnsWriter` out, `RawDnsReader`
+back — precisely so that Hermod never supplies both halves of a verdict. Hermod's
+client is barely on the path at all. **The low number is not a thin bench; it is
+the bench being independent**, measured from the other side.
+
+That has a consequence for the 245 gaps below, and it is a question rather than an
+answer: a suite that deliberately does not use Hermod's client may not be able to
+close gaps in it at all from here. The lane that could is `interop`, which drives
+Hermod against BIND and `dig` — 93 tests across four projects, none of which run
+while Docker is down. Which of the 245 are structural in that sense is not known
+yet, and the first cluster worked will start to say.
+
+### 245 real gaps, and the one that vanished
+
+| file | gaps |
+|---|---:|
+| `DNSClient.cs` | 67 |
+| `DNSHTTPSClient.cs` | 54 |
+| `Cache/DNSCache.cs` | 37 |
+| `IDNSClient.cs` | 33 |
+| `DNSUDPClient.cs` | 29 |
+| `DNSTLSClient.cs` | 13 |
+| `DNSTCPClient.cs` | 11 |
+| `DNSKeepalivePolicy.cs` | 1 |
+
+`IDNSClient.cs` is worth a note because it looked alarming and is not: 98 mutants
+and 1 killed, which reads like a file nothing enters. 90 of its survivors turned
+out to be `#region` directive text, default parameter values on an interface
+declaration, and `ConfigureAwait` — `noise-region`, `noise-default` and
+`host-only`. 33 remain. A file can be almost entirely made of places these
+operators cannot meaningfully change.
+
+**And one mutant is missing from that table.** `DNSClient.cs:558` was recorded
+`PARSE-ERROR` in pass 1 — no verdict. Pass 2 reads pass 1 and carries forward the
+rows that say `SURVIVED` or `TIMED-OUT`; a `PARSE-ERROR` matches neither, so the
+row never entered pass 2, and the classifier reads pass 2. The line is neither
+killed nor surviving. It is simply gone, and nothing printed a warning, because
+the warning that exists — `unmeasured-*` — only fires for rows that reach the
+second pass.
+
+This is the third variant of one failure mode, and worth naming as such: **a
+mutant with no verdict disappearing through whichever door has not been shut
+yet.** First the classifier read only `SURVIVED-EVERYWHERE` and dropped four
+other verdicts. Then the ledger's `listed()` matched bare line numbers and would
+have closed three of those falsely. Now the row does not reach the classifier at
+all. Each door was found by looking for it after the last one; none was found by
+the harness noticing.
+
+Every block was checked for the same hole: `client` has the one `PARSE-ERROR`,
+and the ten timeouts across `client` and `server` are carried correctly. One
+line, and a door to shut.
+
+The door is shut. `sweep_wide_folder.py` now decides by what is *finished* rather
+than by a list of what is not: `SETTLED = ("KILLED", "BUILD-FAILED")`, and every
+other row goes to the second pass. Stated that way round on purpose — a verdict
+name nobody has thought of yet lands on the re-measure side, which costs a run,
+rather than on the dropped side, which costs a line and says nothing. The rule
+was checked against the file before it was trusted: 398 rows under the old test,
+399 under the new one, and the difference is exactly the `PARSE-ERROR`.
+
+**And the line turned out to be dead.** Re-measured across all seven other
+projects, `DNSClient.cs:558` comes back `KILLED-ELSEWHERE` — something in another
+project's tests already catches it. It was never one of the 245; it was a mutant
+with an answer that nobody had gone to collect. Which is the least dramatic
+possible ending and the reason the hole was worth closing anyway: the cost of
+losing a row is not that a gap goes unfixed, it is that nobody can tell which of
+the two it was.
 
 ## The result: the server
 

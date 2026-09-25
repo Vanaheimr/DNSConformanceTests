@@ -48,6 +48,25 @@ def not_the_mutants_fault(Result):
     """True when a build failed for a reason the mutation cannot explain."""
     return COMPILER_ERROR.search((Result.stdout or "") + (Result.stderr or "")) is None
 
+# The only two pass 1 verdicts that are answers. KILLED means the block's own
+# judge caught the mutant and there is nothing left to ask; BUILD-FAILED means the
+# compiler rejected it, checked against an actual `error CS` rather than a return
+# code, so it is not a program and cannot be tested.
+#
+# Everything else is a row pass 1 never settled - a timeout, a run whose summary
+# could not be read, a mutant the harness refused to plant - and every one of them
+# has to be asked again here. Stated as what is finished rather than as a list of
+# what is not, because the failure this guards against is a row falling out
+# silently: a verdict name nobody thought of lands on the re-measure side, which
+# costs a run, while the other way round costs a line and says nothing.
+#
+# DNSClient.cs:558 is the line that paid for the lesson. It came out of pass 1 as
+# PARSE-ERROR, matched neither of the two verdicts this test used to name, never
+# entered pass 2, and so never reached the classifier that would have flagged it
+# as unmeasured. Neither killed nor surviving - absent. See MUTATION.md, "245 real
+# gaps, and the one that vanished".
+SETTLED = ("KILLED", "BUILD-FAILED")
+
 TOTAL  = re.compile(r"(?:gesamt|total):\s*(\d+)", re.IGNORECASE)
 
 
@@ -114,7 +133,7 @@ def main():
         key = (p[0], int(p[1]), p[2])
         k   = int(p[5]) if len(p) >= 6 else tally.get(key, 0)
         tally[key] = tally.get(key, 0) + 1
-        if p[3] in ("SURVIVED", "TIMED-OUT"):
+        if p[3] not in SETTLED:
             survivors.append((p[0], int(p[1]), p[2], k))
 
     # Round-robin over the files rather than straight down the list. Pass 1

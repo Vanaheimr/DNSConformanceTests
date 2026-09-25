@@ -74,6 +74,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 56 | A backslash in a zone file arrived as a backslash | **High** | 1035 §5.1 | ✅ fixed |
 | 57 | A wildcard name was measured two octets short | Low | 1035 §2.3.4, 4592 §2.1.1 | ✅ fixed |
 | 58 | A BADTIME refusal carries neither a signature nor the time | **High** | 8945 §5.2.3, §5.3.2 | ⏳ **open** |
+| 59 | A name goes undefended for the one second after it is announced | Medium | 6762 §6, §8.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
