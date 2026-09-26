@@ -1012,10 +1012,84 @@ CLIENT_KILLED = {
         "DNS/Client/DNSUDPClient.cs": {266, 267, 269, 274, 275, 282, 317},
     },
 
+    # The two stream transports, whose query paths are near-identical line for
+    # line. TcpFallbackAndFramingTests covered the framing - the two-octet prefix
+    # of RFC 7766 section 8, reassembly, connection reuse, a server closing the
+    # connection - and nothing covered the message inside the frame.
+    #
+    # Every rule is asserted twice, once per transport, because DNSTCPClient and
+    # DNSTLSClient are separate classes with no common type to test through and the
+    # sweep reports them as separate lines. A rule proved for one of two parallel
+    # implementations says nothing about the other.
+    #
+    # RFC 1035 section 4.1.1 on RD: "this bit may be set in a query and is copied
+    # into the response". It is the difference between a stub and something walking
+    # the delegation chain itself, so it has to follow the caller rather than a
+    # constant: 286/192 are the constructor's default, 432/245 the per-query
+    # fallback behind it - reachable only by putting the property back to null,
+    # since the constructor's own `?? true` means it never is otherwise.
+    #
+    # 423/236 are the substitution of ANY for a caller who named no types, which
+    # must not happen to a caller who named some. 605/258 are Serialize's
+    # UseCompression: two types at one name make two questions, so the second name
+    # is a candidate for the RFC 1035 section 4.1.4 pointer - legal on paper and
+    # sent by nothing.
+    "inside-the-frame": {
+        "DNS/Client/DNSTLSClient.cs": {286, 423, 432, 605},
+        "DNS/Client/DNSTCPClient.cs": {192, 236, 245, 258},
+    },
+
 }
 
 
 CLIENT_EQUIVALENT = {
+
+    # The three shapes below repeat across both stream transports, so each reason is
+    # written once and referred to twice. All three are conditions this code decides
+    # twice over, which is why their mutants survive: the second decision has the
+    # same effect as the first.
+
+    "DNS/Client/DNSTLSClient.cs": {
+
+        709: "responseLength < 12 on a framed response. RFC 7766 section 8 puts a two-octet "
+             "length in front, so a response can declare exactly twelve octets and be "
+             "internally consistent - RFC 1035 section 4.1.1 makes the header that long. It "
+             "is still not an answer to this query: QDCOUNT is zero, and RFC 5452 section "
+             "9.1 matches a response on 'Query ID, Query name, Query type, Query class', "
+             "three of which are absent rather than wrong. Both readings refuse it, one at "
+             "the length and one at the question, and the object that reaches the caller is "
+             "the same either way. FramedTransportQueryTests asserts the outcome both "
+             "produce. The same argument closes DNSHTTPSClient 1027",
+
+        434: "EDNSOptions.Count > 0 ? EDNSOptions : null. The mutant makes the condition "
+             "always true, so an empty list is passed where null was - and OPT's constructor "
+             "does `this.Options = Options ?? []`, which makes the two the same object state "
+             "before anything is written. Serialisation sums over Options for the RDLENGTH "
+             "and writes nothing for an empty one, so the octets are identical. The OPT "
+             "record itself is not at stake: it exists because UDPPayloadSize > 0, not "
+             "because the option list is non-null",
+
+        455: "!IsConnected || tcpClient is null, the pre-emptive reconnect. The mutant's && "
+             "means a disconnected-but-non-null client is not reconnected before the write - "
+             "and the write then throws, into a `catch (IOException)` eight lines below that "
+             "reconnects and retries the whole exchange. Same answer, one failed round trip "
+             "later. TcpFallbackAndFramingTests already exercises a server closing the "
+             "connection and passes with the mutant planted, which is what pointed at the "
+             "second recovery rather than at a missing test",
+
+    },
+
+    "DNS/Client/DNSTCPClient.cs": {
+
+        473: "responseLength < 12 on a framed response - see DNSTLSClient 709, the same line "
+             "in the same shape",
+
+        247: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 434",
+
+        276: "!IsConnected || tcpClient is null - see DNSTLSClient 455. This is the file the "
+             "`catch (IOException)` was read in",
+
+    },
 
     "DNS/Client/DNSUDPClient.cs": {
 

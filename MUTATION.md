@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **207 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **193 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
@@ -98,7 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
-| `client` | 245 | **207** | 68 |
+| `client` | 245 | **193** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -241,6 +241,77 @@ Six lines got no verdict: five timed out and one produced no summary line. All
 six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
 282/387/587 — which is where a mutant that moves a deadline or a retry bound
 would be expected to hang rather than answer.
+
+### Inside the frame, and the third condition decided twice
+
+`DNSTCPClient` and `DNSTLSClient` together: fourteen mutants planted before a line
+of test was written, five tests, eight closed and six shown equivalent.
+
+Planting first paid differently this time. In the round below it found a row the
+suite had killed for weeks; here **all fourteen were genuinely open**, which is
+its own answer — `TcpFallbackAndFramingTests` covers the framing thoroughly (the
+two-octet prefix of RFC 7766 §8, reassembly of a dribbled response, connection
+reuse, a server closing the connection) and nothing had ever looked at the message
+*inside* the frame.
+
+Every rule is asserted twice, once per transport. The two classes have no common
+type to test through and their query paths are near-identical line for line, so a
+rule proved for one says nothing about the other — and the sweep reports them as
+separate lines because they are.
+
+| | what it decides |
+|---|---|
+| 286 / 192 | RFC 1035 §4.1.1 on RD: the bit is the difference between a stub and something walking the delegation chain itself, so it follows the caller rather than a constant |
+| 432 / 245 | the per-query fallback behind it, reachable only by putting the property back to null — the constructor's own `?? true` means it never is otherwise |
+| 423 / 236 | the substitution of ANY, which is for a caller who named no types and must not happen to one who named some |
+| 605 / 258 | `Serialize`'s `UseCompression`: two types at one name make two questions, so the second is a candidate for the §4.1.4 pointer — legal on paper, sent by nothing |
+
+#### Three conditions this code decides twice
+
+The six that survive are not six separate arguments. Each is a condition Hermod
+settles a second time, and the second settlement has the same effect as the first:
+
+- **The framed length floor** (709 / 473). RFC 7766 §8 puts a length in front, so a
+  response can declare exactly twelve octets and be internally consistent. It is
+  still not an answer: QDCOUNT is zero and RFC 5452 §9.1 matches on "Query ID,
+  Query name, Query type, Query class", three of which are absent rather than
+  wrong. Both readings refuse it — one at the length, one at the question — and the
+  object the caller gets is the same. The same argument closes `DNSHTTPSClient`
+  1027, where it was found by writing the test backwards.
+- **The reconnect guard** (455 / 276). Dropping the pre-emptive check means the
+  write throws instead, into a `catch (IOException)` eight lines below that
+  reconnects and retries the whole exchange. Same answer, one failed round trip
+  later. `TcpFallbackAndFramingTests` already closes a connection on the client and
+  passes with the mutant planted — which is what pointed at the second recovery
+  rather than at a missing test.
+- **And one that is not that pattern at all** (434 / 247): `EDNSOptions.Count > 0 ?
+  EDNSOptions : null`. The mutant passes an empty list where null was, and `OPT`'s
+  constructor does `this.Options = Options ?? []` — the two are the same state
+  before anything is written, and serialisation sums over `Options` for the
+  RDLENGTH. Byte-identical. The OPT record itself was never at stake: it exists
+  because `UDPPayloadSize > 0`, not because the list is non-null.
+
+Together with the UDP transaction-ID guard in the round below, that is **three
+places in this block where a condition is decided twice and both decisions have
+the same effect**. The surviving mutants there are a property of a defensive
+design rather than a hole in the bench, and saying so is only worth anything
+because each one was read down to the second decision rather than filed under
+"probably equivalent".
+
+#### Five tests that asserted nothing
+
+The first version of this fixture used `Assert.Multiple(async () => { … await … })`
+in four places, and all five tests were green.
+
+`Assert.Multiple` takes an `Action`. An async lambda handed to it becomes `async
+void`: it returns at the first `await`, the block ends, and the assertions run
+detached from the test that was supposed to be making them. Whether anything is
+checked at all then depends on scheduling. Every value is now awaited into a local
+before the block, which removes the question rather than answering it.
+
+Nothing here caught that — the tests passed either way, which is the point. It was
+noticed because two of them took six seconds, and a test that spends six seconds
+on four assertions is doing something other than asserting.
 
 ### A check made twice, and a verdict that had gone stale
 

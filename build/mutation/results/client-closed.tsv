@@ -4,13 +4,25 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
+DNS/Client/DNSTCPClient.cs	192	true-to-false	killed	inside-the-frame	
+DNS/Client/DNSTLSClient.cs	286	true-to-false	killed	inside-the-frame	
+DNS/Client/DNSTCPClient.cs	236	equality-to-inequality	killed	inside-the-frame	
 DNS/Client/DNSUDPClient.cs	266	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
+DNS/Client/DNSTCPClient.cs	245	true-to-false	killed	inside-the-frame	
 DNS/Client/DNSUDPClient.cs	267	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
+DNS/Client/DNSTCPClient.cs	247	greater-to-ge	equivalent		EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 434
+DNS/Client/DNSTLSClient.cs	423	equality-to-inequality	killed	inside-the-frame	
+DNS/Client/DNSTCPClient.cs	258	false-to-true	killed	inside-the-frame	
+DNS/Client/DNSTLSClient.cs	432	true-to-false	killed	inside-the-frame	
 DNS/Client/DNSUDPClient.cs	269	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
+DNS/Client/DNSTLSClient.cs	434	greater-to-ge	equivalent		EDNSOptions.Count > 0 ? EDNSOptions : null. The mutant makes the condition always true, so an empty list is passed where null was - and OPT's constructor does `this.Options = Options ?? []`, which makes the two the same object state before anything is written. Serialisation sums over Options for the RDLENGTH and writes nothing for an empty one, so the octets are identical. The OPT record itself is not at stake: it exists because UDPPayloadSize > 0, not because the option list is non-null
 DNS/Client/DNSUDPClient.cs	274	true-to-false	killed	which-datagrams-a-udp-client-may-act-on	
+DNS/Client/DNSTCPClient.cs	276	logical-or-to-and	equivalent		!IsConnected || tcpClient is null - see DNSTLSClient 455. This is the file the `catch (IOException)` was read in
 DNS/Client/DNSUDPClient.cs	275	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
+DNS/Client/DNSTLSClient.cs	455	logical-or-to-and	equivalent		!IsConnected || tcpClient is null, the pre-emptive reconnect. The mutant's && means a disconnected-but-non-null client is not reconnected before the write - and the write then throws, into a `catch (IOException)` eight lines below that reconnects and retries the whole exchange. Same answer, one failed round trip later. TcpFallbackAndFramingTests already exercises a server closing the connection and passes with the mutant planted, which is what pointed at the second recovery rather than at a missing test
 DNS/Client/DNSUDPClient.cs	282	equality-to-inequality	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/DNSUDPClient.cs	317	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
+DNS/Client/DNSTLSClient.cs	605	false-to-true	killed	inside-the-frame	
 DNS/Client/Cache/DNSCache.cs	518	logical-or-to-and	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	518	inequality-to-equality	killed	the-cache-read-by-itself	
 DNS/Client/DNSUDPClient.cs	386	logical-or-to-and	equivalent		received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the RFC 5452 section 4.2 pre-filter on an incoming datagram. Both of its mutants survive, and for one reason: the transaction id is checked twice and both checks react the same way. Whatever gets past this guard reaches DNSInfo.ReadResponse, which compares the id again and returns Invalid when it differs - and the caller answers `if (!response.IsValid) continue;`, which is the same `continue` this guard would have taken. Turning the || into && makes the pre-filter a no-op for any datagram of two octets or more, and moving the < to <= changes only where a two-octet datagram is dropped. Neither changes what the client does or how long it waits; the difference is one parse and one log line. Written as a property worth having rather than a redundancy: the file's own comment says the check and the reaction have to be decided together, and it decides them twice the same way. UdpDatagramAcceptanceTests asserts the behaviour both readings produce
@@ -18,6 +30,7 @@ DNS/Client/Cache/DNSCache.cs	519	inequality-to-equality	killed	the-cache-read-by
 DNS/Client/DNSUDPClient.cs	386	less-to-less-or-equal	equivalent		received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the RFC 5452 section 4.2 pre-filter on an incoming datagram. Both of its mutants survive, and for one reason: the transaction id is checked twice and both checks react the same way. Whatever gets past this guard reaches DNSInfo.ReadResponse, which compares the id again and returns Invalid when it differs - and the caller answers `if (!response.IsValid) continue;`, which is the same `continue` this guard would have taken. Turning the || into && makes the pre-filter a no-op for any datagram of two octets or more, and moving the < to <= changes only where a two-octet datagram is dropped. Neither changes what the client does or how long it waits; the difference is one parse and one log line. Written as a property worth having rather than a redundancy: the file's own comment says the check and the reaction have to be decided together, and it decides them twice the same way. UdpDatagramAcceptanceTests asserts the behaviour both readings produce
 DNS/Client/Cache/DNSCache.cs	572	less-to-less-or-equal	equivalent		soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a minimum written as a conditional. RFC 2308 section 5 asks for exactly that: the negative TTL comes from 'the minimum of the MINIMUM field of the SOA record and the TTL of the SOA itself'. The mutant moves the comparison to <=, which changes only the case where the two fields are equal - and there both arms return the same value. Not a boundary that is hard to reach: a boundary on which the two programs compute the same number. The test for the rule is in CacheBoundaryTests and checks it from both sides, which is worth having and is not what closes this line
 DNS/Client/DNSHTTPSClient.cs	834	logical-and-to-or	killed	what-a-doh-client-may-read	
+DNS/Client/DNSTCPClient.cs	473	less-to-less-or-equal	equivalent		responseLength < 12 on a framed response - see DNSTLSClient 709, the same line in the same shape
 DNS/Client/DNSHTTPSClient.cs	834	equality-to-inequality	killed	what-a-doh-client-may-read	
 DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	killed	the-cache-read-by-itself	
 DNS/Client/DNSHTTPSClient.cs	834	greater-to-ge	killed	what-a-doh-client-may-read	
@@ -25,6 +38,7 @@ DNS/Client/Cache/DNSCache.cs	671	le-to-less	killed	the-cache-read-by-itself
 DNS/Client/Cache/DNSCache.cs	702	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	745	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/DNSClient.cs	519	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSTLSClient.cs	709	less-to-less-or-equal	equivalent		responseLength < 12 on a framed response. RFC 7766 section 8 puts a two-octet length in front, so a response can declare exactly twelve octets and be internally consistent - RFC 1035 section 4.1.1 makes the header that long. It is still not an answer to this query: QDCOUNT is zero, and RFC 5452 section 9.1 matches a response on 'Query ID, Query name, Query type, Query class', three of which are absent rather than wrong. Both readings refuse it, one at the length and one at the question, and the object that reaches the caller is the same either way. FramedTransportQueryTests asserts the outcome both produce. The same argument closes DNSHTTPSClient 1027
 DNS/Client/DNSClient.cs	520	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	522	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	527	true-to-false	killed	answers-no-server-sent	
