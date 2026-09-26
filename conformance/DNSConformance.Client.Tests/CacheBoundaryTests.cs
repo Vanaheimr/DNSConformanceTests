@@ -39,6 +39,26 @@ public class CacheBoundaryTests
         => new (CleanUpEvery: TimeSpan.FromHours(1));
 
 
+    /// <summary>
+    /// A cache whose sweep runs often enough to be waited for.
+    /// </summary>
+    /// <remarks>
+    /// The other tests here take the clock out entirely, because a test that answers
+    /// differently depending on what ran beside it is not evidence. These two cannot:
+    /// the sweep is a timer, and what they are about is what it does. So the margin
+    /// is ten cycles rather than a fraction of one, and what is asserted is the state
+    /// afterwards rather than when it changed. The TTLs involved are zero and an
+    /// hour, which no amount of scheduling brings closer together.
+    /// </remarks>
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromMilliseconds(100);
+
+    private static DNSCache SweptCache()
+        => new (CleanUpEvery: SweepInterval);
+
+    private static Task WaitForSeveralSweeps()
+        => Task.Delay(SweepInterval * 10);
+
+
     private static NSEC Nsec(String Owner, String Next)
         => new (DomainName.ParseLenient(Owner),
                 DNSQueryClasses.IN,
@@ -347,6 +367,177 @@ public class CacheBoundaryTests
                         "§5: the SOA's own TTL, when that is the smaller one");
 
         });
+
+    }
+
+    #endregion
+
+
+    #region What the cache says about answers it made itself (RFC 6761 §6.3, RFC 1035 §4.1.1)
+
+    /// <summary>
+    /// The six header fields each of the cache's three DNSInfo sites sets by hand.
+    /// </summary>
+    private static void AssertHeader(DNSInfo  Answer,
+                                     Boolean  Authoritative,
+                                     String   Where)
+    {
+
+        Assert.Multiple(() => {
+
+            Assert.That(Answer.AuthoritativeAnswer, Is.EqualTo(Authoritative), $"{Where}: AA");
+            Assert.That(Answer.RecursionRequested,  Is.False, $"{Where}: nothing was asked of anybody, so no recursion was requested");
+            Assert.That(Answer.RecursionAvailable,  Is.False, $"{Where}: §4.1.1 makes RA a property of a name server, and none answered");
+            Assert.That(Answer.IsTruncated,         Is.False, $"{Where}: nothing was truncated because nothing was transmitted");
+            Assert.That(Answer.IsValid,             Is.True,  $"{Where}: the answer is meant to be read");
+            Assert.That(Answer.IsTimeout,           Is.False, $"{Where}: no clock ran out");
+
+        });
+
+    }
+
+
+    [Test]
+    [Property("RFC", "6761 §6.3.3, 1035 §4.1.1")]
+    public void Localhost_Is_Answered_Without_Asking_Anyone()
+    {
+
+        // RFC 6761 §6.3.3: "Name resolution APIs and libraries SHOULD recognize
+        // localhost names as special and SHOULD always return the IP loopback
+        // address for address queries", and SHOULD NOT send such queries to the
+        // configured caching server at all. The cache is where this library keeps
+        // that promise: the entry is there before anything is asked.
+        //
+        // AA is true here and that is the one field the RFC argues for rather than
+        // against. §4.1.1 makes AA a claim that the responder is an authority for
+        // the name — and for localhost, §6.3 says the library *is*: the answer comes
+        // from the specification, not from a zone anybody could contradict.
+        var cache   = UnsweptCache();
+        var answer  = cache.GetDNSInfo(DNSServiceName.Parse(DomainName.Localhost.FullName));
+
+        Assert.That(answer, Is.Not.Null, "§6.3.3: localhost is answered, not looked up");
+
+        Assert.Multiple(() => {
+
+            Assert.That(answer!.Answers.OfType<A>().Single().IPv4Address,
+                        Is.EqualTo(IPv4Address.Localhost),
+                        "§6.3.3: the loopback address, for an address query");
+
+            Assert.That(answer.Answers.OfType<AAAA>().Single().IPv6Address,
+                        Is.EqualTo(IPv6Address.Localhost),
+                        "§6.3.3: and the IPv6 loopback address as well");
+
+            Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NoError));
+
+        });
+
+        AssertHeader(answer!, Authoritative: true, Where: "the localhost entry");
+
+    }
+
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public void The_Loopback_Name_Is_Preseeded_The_Same_Way()
+    {
+
+        // "loopback." is not a name any RFC makes special — RFC 6761 §6.3 covers
+        // "localhost." and nothing else — so this is a convenience of this library
+        // and is asserted as one. What is worth pinning is that it does not differ
+        // from its neighbour by accident: two entries written twenty lines apart
+        // with the same six fields is exactly the arrangement in which one of them
+        // quietly drifts.
+        var cache   = UnsweptCache();
+        var answer  = cache.GetDNSInfo(DNSServiceName.Parse(DomainName.Loopback.FullName));
+
+        Assert.That(answer, Is.Not.Null);
+        Assert.That(answer!.Answers.OfType<A>().Single().IPv4Address, Is.EqualTo(IPv4Address.Localhost));
+
+        AssertHeader(answer, Authoritative: true, Where: "the loopback entry");
+
+    }
+
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public void A_Record_Put_Into_The_Cache_Comes_Back_Unauthoritative()
+    {
+
+        // The third site, and the one where AA goes the other way. §4.1.1 makes AA
+        // a statement that the *responding* name server is an authority for the
+        // name; a record handed to a cache has no responding name server behind it
+        // any more, and the cache is an authority for nothing. The contrast with
+        // localhost is the point: there the library answers from the specification,
+        // here it answers from something it was told.
+        var cache = UnsweptCache();
+        var name  = DNSServiceName.Parse("told.example.");
+
+        cache.Add(name, new A(DomainName.Parse("told.example."), DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.30")));
+
+        Assert.That(cache.TryGetDNSInfo(name, out var answer), Is.True);
+
+        AssertHeader(answer!, Authoritative: false, Where: "a record that was added");
+
+    }
+
+    #endregion
+
+
+    #region What the periodic sweep may remove (RFC 1035 §3.2.1, RFC 8198 §5.1)
+
+    [Test]
+    [Property("RFC", "1035 §3.2.1")]
+    public async Task An_Entry_Is_Not_Swept_While_One_Of_Its_Records_Lives()
+    {
+
+        // The sweep removes an entry only when the entry is past its end of life
+        // AND every answer in it has expired. Both halves are needed, and the entry
+        // half alone is always the weaker one: an entry's lifetime is the smallest
+        // TTL it holds, so a mixed-TTL entry goes past its own end of life while
+        // most of it is still perfectly good.
+        //
+        // RFC 1035 §3.2.1 gives the TTL to the record. An entry swept on its own
+        // clock would throw away records whose clocks have not run out, and the
+        // next query for them goes to the wire for no reason.
+        var cache = SweptCache();
+        var name  = DNSServiceName.Parse("mixed-sweep.example.");
+
+        cache.Add(name,
+                  new A (DomainName.Parse("mixed-sweep.example."), DNSQueryClasses.IN, TimeSpan.Zero,          IPv4Address.Parse("192.0.2.31")),
+                  new MX(DomainName.Parse("mixed-sweep.example."), DNSQueryClasses.IN, TimeSpan.FromHours(1), 10, DomainName.Parse("mail.example.")));
+
+        await WaitForSeveralSweeps();
+
+        Assert.That(cache.TryGetDNSInfo(name, out var survived), Is.True,
+                    "the MX has an hour left and the sweep must have left the entry alone");
+
+        Assert.That(survived!.Answers.Single().Type, Is.EqualTo(DNSResourceRecordTypes.MX),
+                    "and what comes back is the record that still has time on it");
+
+    }
+
+
+    [Test]
+    [Property("RFC", "8198 §5.1")]
+    public async Task A_Live_Nsec_Range_Survives_The_Sweep()
+    {
+
+        // The sweep drops expired ranges from each zone's list and then drops the
+        // zone itself when its list has emptied. A zone whose list is *not* empty
+        // must keep its key: removing it throws away every range the zone still
+        // has, and RFC 8198's whole saving is that one validated NSEC answers for
+        // a span of names until its TTL runs out.
+        var cache = SweptCache();
+
+        cache.AddNSECRange("sweep.example.", Nsec("a.sweep.example.", "z.sweep.example."), TimeSpan.FromMinutes(5));
+
+        Assert.That(cache.IsNameNegativelyCachedByNSEC("m.sweep.example.", "sweep.example."), Is.True,
+                    "inside the gap to begin with");
+
+        await WaitForSeveralSweeps();
+
+        Assert.That(cache.IsNameNegativelyCachedByNSEC("m.sweep.example.", "sweep.example."), Is.True,
+                    "§5.1: the range has four and a half minutes left and still proves what it proved");
 
     }
 

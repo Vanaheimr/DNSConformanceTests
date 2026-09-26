@@ -1039,6 +1039,47 @@ CLIENT_KILLED = {
         "DNS/Client/DNSTCPClient.cs": {192, 236, 245, 258},
     },
 
+    # What the cache says about answers it made itself, and what its sweep may
+    # remove. All twenty-nine of the remaining rows were planted before a line of
+    # test was written; twenty died, and the nine that did not are one argument
+    # rather than nine, recorded below.
+    #
+    # Three sites build a DNSInfo by hand and the sweep reported all eighteen of
+    # their fields surviving. Two are the preseeded names. RFC 6761 section 6.3.3:
+    # "Name resolution APIs and libraries SHOULD recognize localhost names as
+    # special and SHOULD always return the IP loopback address for address
+    # queries", and SHOULD NOT send such queries onward at all - the cache keeps
+    # that promise by having the entry before anything is asked. AA is true there,
+    # and it is the one field the RFC argues *for*: section 4.1.1 makes AA a claim
+    # that the responder is an authority for the name, and for localhost the
+    # library is, because the answer comes from the specification rather than from
+    # a zone anybody could contradict. "loopback." is not a name any RFC makes
+    # special and is asserted as this library's own convenience; what is pinned
+    # there is that it does not drift from its neighbour, two entries with the same
+    # six fields written twenty lines apart being exactly the arrangement in which
+    # one quietly does. The third site is the opposite case: a record handed to the
+    # cache comes back unauthoritative, because there is no responding name server
+    # behind it any more.
+    #
+    # 777 carries two mutants and only one of them fails a test, so this entry
+    # closes it on two grounds. Its logical-and-to-or is what the sweep test kills:
+    # the sweep removes an entry only when the entry is past its end of life AND
+    # every answer in it has expired, and the entry half alone is always the weaker
+    # one, since an entry's lifetime is the smallest TTL it holds. With || a
+    # mixed-TTL entry is thrown away while most of it is still good, and RFC 1035
+    # section 3.2.1 gives the TTL to the record. Its less-to-less-or-equal belongs
+    # to the clock family below and no test reaches it.
+    #
+    # 804 drops a zone from the NSEC range cache when its list has emptied; with !=
+    # it drops zones whose lists have not, throwing away every range they still
+    # hold, which is RFC 8198's entire saving.
+    "answers-the-cache-made-itself": {
+        "DNS/Client/Cache/DNSCache.cs": {129, 130, 131, 132, 140, 141,
+                                          172, 173, 174, 175, 183, 184,
+                                          346, 347, 348, 349, 354, 355,
+                                          777, 804},
+    },
+
 }
 
 
@@ -1128,7 +1169,34 @@ CLIENT_EQUIVALENT = {
 
     },
 
+    # Nine rows of DNSCache are one argument, not nine. Each compares a stored
+    # moment against a clock read at the moment of comparison, and each mutant moves
+    # the comparison across the single point where the two are equal: 463 and 729 on
+    # an entry's or a range's expiry, 506 and 510 on a record's, 619 on a NODATA
+    # entry's, 777 and 778 and 792 and 803 inside the periodic sweep.
+    #
+    # That point is not hard to reach, it is not reachable. Every stored moment here
+    # is `Timestamp.Now + TTL` evaluated when the thing was stored, and every `now`
+    # is `Timestamp.Now` read later, when it is looked at. For the two to be equal
+    # the second reading would have to land on the same tick as the first plus the
+    # TTL - a DateTimeOffset tick, a hundred nanoseconds - and nothing a test can do
+    # arranges that. A zero TTL comes closest and still misses: it makes the stored
+    # moment the construction instant, which is already behind any later reading, so
+    # both readings of the comparison agree that it has passed.
+    #
+    # CacheBoundaryTests asserts what both readings produce, on both sides of each
+    # comparison, which is the most a black-box test can say here: that a record
+    # which may not be cached is not served, and that one with time left is.
     "DNS/Client/Cache/DNSCache.cs": {
+
+        463: "dnsCacheEntry.EndOfLife <= Timestamp.Now, the negative entry's own lifetime",
+        506: "rr.EndOfLife > now, filtering the answer section on read",
+        510: "rr.EndOfLife > now, and the authority section beside it",
+        619: "endOfLife > Timestamp.Now in IsNoData",
+        729: "expiry <= now, skipping an NSEC range that has run out",
+        778: "rr.EndOfLife <= now, the second half of the sweep's condition",
+        792: "entry.Value < now, the NODATA entries the sweep removes",
+        803: "e.Expiry < now, the NSEC ranges it removes",
 
         572: "soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a "
              "minimum written as a conditional. RFC 2308 section 5 asks for exactly that: "

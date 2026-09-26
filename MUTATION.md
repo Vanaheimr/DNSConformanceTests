@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **193 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **164 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
@@ -98,7 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
-| `client` | 245 | **193** | 68 |
+| `client` | 245 | **164** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -241,6 +241,95 @@ Six lines got no verdict: five timed out and one produced no summary line. All
 six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
 282/387/587 — which is where a mutant that moves a deadline or a retry bound
 would be expected to hang rather than answer.
+
+### The first file in this block to close, and nine rows that are one argument
+
+All twenty-nine remaining rows of `DNSCache` planted before a line of test was
+written. Twenty died. The nine that did not are **one argument rather than nine**,
+and with them recorded the file has no open row left — the first in this block.
+
+#### Three sites, eighteen fields, and one of them the RFC argues for
+
+The sweep reported every field of all three hand-built `DNSInfo` sites surviving,
+which is the same observation as nobody having read what these answers say.
+
+Two of the sites are names the cache holds before anything is asked. RFC 6761
+§6.3.3:
+
+> Name resolution APIs and libraries SHOULD recognize localhost names as special
+> and SHOULD always return the IP loopback address for address queries
+
+and SHOULD NOT send such queries onward at all. The pre-seeded entry is how this
+library keeps that, and `IsAuthoritativeAnswer: true` on it is the one AA in the
+whole client that the RFC argues *for* rather than against: §4.1.1 makes AA a
+claim that the responder is an authority for the name, and for `localhost` the
+library is — the answer comes from the specification, not from a zone anybody
+could contradict.
+
+`loopback.` is **not** a name any RFC makes special; §6.3 covers `localhost.` and
+nothing else. It is this library's own convenience and is asserted as one. What is
+worth pinning there is that it has not drifted from its neighbour: two entries with
+the same six fields, written twenty lines apart, are exactly the arrangement in
+which one quietly does.
+
+The third site is the opposite case and makes the contrast the point: a record
+*handed* to the cache comes back unauthoritative, because there is no responding
+name server behind it any more.
+
+#### Two tests where the clock could not come out
+
+The sweep is a timer, and what these two are about is what it does, so the trick
+that fixed the earlier flake — remove the clock entirely — was not available. The
+margin is ten cycles instead of a fraction of one, what is asserted is the state
+afterwards rather than when it changed, and the TTLs involved are zero and an hour,
+which no amount of scheduling brings closer together.
+
+They close the two rows in the sweep that are not clock comparisons. 777's
+`&&`: the sweep removes an entry only when the entry is past its end of life **and**
+every answer in it has expired, and the entry half alone is always the weaker one,
+because an entry's lifetime is the smallest TTL it holds. With `||` a mixed-TTL
+entry is thrown away while most of it is still good, and RFC 1035 §3.2.1 gives the
+TTL to the record. And 804: dropping a zone from the NSEC range cache when its list
+has emptied, where `!=` drops zones whose lists have not — throwing away every
+range they still hold, which is RFC 8198's entire saving.
+
+#### The nine
+
+Every one of them compares a stored moment against a clock read at the moment of
+comparison, and every mutant moves the comparison across the single point where the
+two are equal — 463 and 729 on an entry's or a range's expiry, 506 and 510 on a
+record's, 619 on a NODATA entry's, and 777/778/792/803 inside the sweep.
+
+That point is not hard to reach; it is **not reachable**. Every stored moment is
+`Timestamp.Now + TTL` evaluated when the thing was stored, every `now` is
+`Timestamp.Now` read later when it is looked at, and equality would need the second
+reading to land on the same hundred-nanosecond tick as the first plus the TTL. A
+zero TTL comes closest and still misses: it makes the stored moment the construction
+instant, which is already behind any later reading, so both readings of the
+comparison agree that it has passed.
+
+What a black-box test can say there is what both readings produce, on both sides of
+each comparison — a record that may not be cached is not served, one with time left
+is — and `CacheBoundaryTests` says it.
+
+#### And a generator that mutated the wrong character
+
+Two of the twenty-nine came back `BUILD-FAILED`, which would have read as "not a
+viable mutant" and closed them for the wrong reason. They were not:
+
+```
+Where(rr =>= rr.EndOfLife > now).
+```
+
+The throwaway script that generated this round's mutant list replaced the *first*
+`>` on the line, and the first `>` is the lambda arrow. Re-measured at the right
+character, both survive and join the nine.
+
+`genmut.py` gets this right — the sweep had reported them as viable survivors,
+which is how the contradiction surfaced at all. The lesson is about the shortcut,
+not the harness: a hand-rolled operator applied by `str.replace` is not the same
+tool as the one that produced the verdicts it is being checked against, and where
+the two disagree the shortcut is the thing to doubt first.
 
 ### Inside the frame, and the third condition decided twice
 
