@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **119 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
@@ -98,7 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
-| `client` | 245 | **119** | 68 |
+| `client` | 245 | **86** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -241,6 +241,100 @@ Six lines got no verdict: five timed out and one produced no summary line. All
 six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
 282/387/587 — which is where a mutant that moves a deadline or a retry bound
 would be expected to hang rather than answer.
+
+### Six findings fixed, and thirty-seven rows closed by moving
+
+All six open findings are fixed in Hermod, one commit each. The mutation consequence
+is a category that had been empty in this block until now: **37 rows superseded**,
+the line the sweep measured either gone or somewhere else. Client block **119 → 86
+open**, and the ledger reconciles — 96 killed, 26 equivalent, 37 superseded, 86 open,
+245 real gaps.
+
+Four of the thirty-seven had to leave `CLIENT_EQUIVALENT` first, because **the reason
+they were equivalent was the defect**. That is the shape worth taking away from this
+round: an unreachable mutant is not always a fact about the test suite.
+
+#### Twenty-nine rows, one parameter default
+
+`Boolean? RecursionDesired = true` appeared as a parameter default 64 times across
+eight files, and 29 of those lines were open or equivalent rows. All of them now read
+`= null`, which has nothing mutable on it.
+
+The change is not cosmetic and the arithmetic is the whole argument. Finding 63's
+resolution order had to become `RecursionDesired ?? this.RecursionDesired ?? true` —
+but with the parameter defaulting to `true`, the argument is never absent, so the
+field is never consulted and `client.RecursionDesired = false` still does nothing.
+Swapping the order alone fixes nothing; changing the default alone fixes nothing. The
+rule those 29 rows stood for is re-measured where the fix put it — the one expression
+each call resolves to, `DNSClient.cs:581` and `DNSUDPClient.cs:262` — and killed
+there.
+
+#### The two rows whose mutants came back to life
+
+**`DNSClient.cs:695`** was equivalent because the value it decided was discarded
+downstream. It is now the hoisted resolution, and it dies.
+
+**`DNSClient.cs:917`** was equivalent because no chain could make `MaxCNAMEFollows`
+bind. That was true, and it was the evidence for finding 61: the chase took its next
+hop by calling `Query` again, so the counter counted one call rather than the descent.
+
+And then the first attempt at that fix was wrong in a way only the test caught.
+Carrying the budget down *by value* bounds the recursion — the original defect — but
+not the work: a call with budget `B` loops up to `B` times and each iteration recurses
+with `B - hop - 1`, so `W(B) = 1 + W(B-1) + … + W(0) = 2^B`. A chain of eight distinct
+names cost **256 queries** for one client request. The test written for the row
+expected 9 and said 256.
+
+RFC 1035 §7.1 is specific about the shape and the first fix had missed it: "The
+counter should be set to some initial value and decremented whenever the resolver
+performs any action." *One* counter, spent by whoever acts. A budget handed down by
+value gives every call its own allowance, which is a different thing that happens to
+terminate. The set and the counter now travel together in one object shared by the
+descent, and the boundary at `DNSClient.cs:1014` dies to a chain longer than the
+limit.
+
+#### Two green tests that rested on one defect
+
+Neither was found by failing.
+
+`Recursion_Unmentioned_Everywhere_Is_Still_Asked_For` asserted that RD reaches the
+wire with all three defaults left to speak. Green, with three live mutants under it,
+because the value never arrived anywhere. It was **withdrawn** as part of reporting
+finding 63 and is **back** now that the fix made what it asserts observable — the same
+test, over code that carries its value through.
+
+`FramedTransportQueryTests.The_Recursion_Bit_Says_What_The_Client_Was_Built_With` went
+red on the fix, correctly: its helper specified the call value while the test asserted
+the constructor's, and only the wrong precedence made the two agree.
+
+#### And one row that needed a test at the right altitude
+
+`DNSUDPClient.cs:291`'s final `?? true` is not reachable through a `DNSClient` at all:
+the transport is built fresh per query and handed an already-resolved value. The two
+stream transports had this covered by `FramedTransportQueryTests`; the UDP client did
+not, and the row stayed open until a test drove the client directly.
+
+#### The harness lesson, and it is the second of the session
+
+The re-measurement was run over an **uncommitted** Hermod fix. The verify scripts
+restore each mutant with `git checkout -- <file>`, which restores to HEAD rather than
+to the state they found — so the first mutant's cleanup silently reverted the fix, and
+every verdict after it was measured against a tree nobody intended. It showed up as
+two runs of the same mutant disagreeing, which is the only reason it was caught: the
+baseline is checked once, at the start.
+
+Same shape as the copy of `sweep_folder.run` earlier in this session, and as the
+hand-rolled `>` replacement the round before: a tool assumption that held until it
+did not. **Commit before measuring.**
+
+#### What is now stale
+
+`DNSClient.cs` and `DNSUDPClient.cs` gained lines, so every classified row below the
+edits in those two files has a line number that no longer points at what it was
+measured on. The other six client files took same-line substitutions only and are
+unaffected. Of the 86 open rows, the ones in those two files — `DNSUDPClient.cs` 15
+and `DNSClient.cs` 3 — must be re-located before the next round, and the block wants
+re-sweeping at the new revision when there is time for it.
 
 ### Fifty-one rows, three findings, and a harness I wrote twice
 

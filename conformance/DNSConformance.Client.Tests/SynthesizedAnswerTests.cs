@@ -65,7 +65,7 @@ public class SynthesizedAnswerTests
 
 
     /// <summary>
-    /// The six fields all three synthesis sites in DNSClient set by hand.
+    /// The seven fields all three synthesis sites in DNSClient set by hand.
     /// </summary>
     /// <remarks>
     /// All three are reached from here now. The third - every server query
@@ -74,10 +74,31 @@ public class SynthesizedAnswerTests
     /// DNSInfo of their own instead. A server configured by name and never
     /// connected is the way in.
     /// </remarks>
-    private static void AssertSynthesizedShape(DNSInfo Answer, String Where)
+    /// <param name="Proven">
+    /// Whether this non-answer is a denial the client can prove, or a failure to
+    /// obtain one. The two are not the same object and RFC 1035 §4.1.1 is why: RCODE
+    /// 3 is "Meaningful only for responses from an authoritative name server", so a
+    /// client that could not ask has no standing to use it and says RCODE 2 instead —
+    /// "The name server was unable to process this query". A validated NSEC is the one
+    /// case here where absence really was established (RFC 8198), and that one is
+    /// entitled to deny.
+    /// <para>
+    /// IsValid follows the same line. It is the field the transports and
+    /// <c>DNSSECValidator</c> test to decide whether to keep looking, so a failure
+    /// marked valid is one the rest of the library stops questioning.
+    /// </para>
+    /// </param>
+    private static void AssertSynthesizedShape(DNSInfo Answer, Boolean Proven, String Where)
     {
 
         Assert.Multiple(() => {
+
+            Assert.That(Answer.ResponseCode,
+                        Is.EqualTo(Proven ? DNSResponseCodes.NameError : DNSResponseCodes.ServerFailure),
+                        Proven
+                            ? $"{Where}: absence was established, so the denial is one this client may make"
+                            : $"{Where}: §4.1.1 reserves a name error for an authoritative response, and none was obtained");
+
 
             Assert.That(Answer.AuthoritativeAnswer, Is.False,
                         $"{Where}: §4.1.1 makes AA a statement that the responding name server is an " +
@@ -97,8 +118,10 @@ public class SynthesizedAnswerTests
             Assert.That(Answer.IsTimeout, Is.False,
                         $"{Where}: no deadline passed while waiting for an answer");
 
-            Assert.That(Answer.IsValid, Is.True,
-                        $"{Where}: the answer is meant to be read rather than discarded");
+            Assert.That(Answer.IsValid, Is.EqualTo(Proven),
+                        Proven
+                            ? $"{Where}: a proved absence is an answer, and meant to be read"
+                            : $"{Where}: a failure to ask is not an answer, and saying so is what stops it being relied on");
 
         });
 
@@ -120,10 +143,7 @@ public class SynthesizedAnswerTests
                                         [ DNSResourceRecordTypes.A ],
                                         ShortTimeout);
 
-        Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NameError),
-                    "the client has nobody to ask and says so with a name error");
-
-        AssertSynthesizedShape(answer, "no servers configured");
+        AssertSynthesizedShape(answer, Proven: false, "no servers configured");
 
     }
 
@@ -163,7 +183,7 @@ public class SynthesizedAnswerTests
 
         });
 
-        AssertSynthesizedShape(answer, "proved absent by a cached NSEC");
+        AssertSynthesizedShape(answer, Proven: true, "proved absent by a cached NSEC");
 
     }
 
@@ -173,17 +193,16 @@ public class SynthesizedAnswerTests
     #region What the response says was asked for (RFC 1035 §4.1.1)
 
     /// <summary>
-    /// Red for finding 60: a synthesized answer reports recursion it was not asked for.
+    /// What a synthesized answer says was asked for (finding 60, fixed).
     /// </summary>
     /// <remarks>
-    /// Left failing on purpose, as PLAN.md §9 asks. All three synthesis sites write
-    /// the literal <c>RecursionDesired: true</c> while the caller's value sits in a
-    /// parameter in scope at each of them, so the field says the same thing whatever
-    /// was asked. Making the test agree with the code would close the only signal
-    /// there is.
+    /// All five sites - three here, two in <c>DNSUDPClient</c> - used to write a
+    /// literal into the field while the caller's value sat in a parameter in scope at
+    /// each of them. Two of the five wrote opposite literals, so one file disagreed
+    /// with itself. Each now takes the value the method was called with, resolved once
+    /// per call so that the answer and the outgoing query cannot differ about it.
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §4.1.1")]
     public async Task A_Synthesized_Answer_Reports_The_Recursion_That_Was_Asked_For()
     {
@@ -256,7 +275,7 @@ public class SynthesizedAnswerTests
         Assert.That(answer.Answers, Is.Empty,
                     "nobody was asked, so there is nothing in the answer section");
 
-        AssertSynthesizedShape(answer, "no server could be dialled");
+        AssertSynthesizedShape(answer, Proven: false, "no server could be dialled");
 
     }
 
@@ -292,8 +311,8 @@ public class SynthesizedAnswerTests
 
         Assert.Multiple(() => {
 
-            Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NameError),
-                        "a question with no name is refused, not asked");
+            Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.ServerFailure),
+                        "a question with no name is refused, and a refusal to ask is not a denial of the name");
 
             Assert.That(server.Requests, Is.Empty,
                         "and nothing was sent on its behalf");

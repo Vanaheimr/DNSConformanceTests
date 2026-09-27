@@ -57,6 +57,45 @@ public class ClientQueryConstructionTests
 
     #endregion
 
+    #region Recursion_Left_Unset_Everywhere_Is_Still_Asked_For()
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public async Task Recursion_Left_Unset_Everywhere_Is_Still_Asked_For()
+    {
+
+        // The UDP client's own end of the chain. Three things decide RD — the call's
+        // argument, the client's field, and the `?? true` behind both — and the last is
+        // reachable only when the first two are absent: the field has to be put back to
+        // null by hand, because the constructor resolves its argument with `?? true`.
+        //
+        // <see cref="FramedTransportQueryTests"/> asserts the same rule for the two
+        // stream transports, where it closed the same line in each. This one was left
+        // open because nothing drives the UDP client this way: through a DNSClient the
+        // transport is built fresh per query and handed an already-resolved value, so
+        // its own fallback is never reached from there.
+        await using var server = new ScriptedUdpServer(
+            request => RawDnsResponder.Answer(request, ("unset.example.", RawDnsType.A, 300, [192, 0, 2, 1]))
+        );
+
+        await using var client = ClientFor(server.Port);
+
+        client.RecursionDesired = null;
+
+        _ = await client.Query(DNSServiceName.Parse("unset.example."),
+                               [ DNSResourceRecordTypes.A ],
+                               TimeSpan.FromSeconds(2),
+                               RecursionDesired: null);
+
+        Assert.That(server.Requests.TryDequeue(out var request), Is.True, "the query reached the server");
+
+        Assert.That(RawDnsReader.Parse(request!).RD, Is.True,
+                    "unset at the client and unset at the call still means a stub asking for recursion");
+
+    }
+
+    #endregion
+
     #region Client_Uses_Nonzero_Transaction_IDs_That_Vary()
 
     [Test]

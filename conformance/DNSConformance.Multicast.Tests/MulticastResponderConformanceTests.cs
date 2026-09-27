@@ -748,7 +748,6 @@ public sealed class MulticastResponderConformanceTests
     /// names.
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §6, §8.1")]
     public async Task A_Probe_Without_The_Unicast_Bit_Is_Still_Defended()
     {

@@ -440,7 +440,6 @@ public class ClientDefaultsTests
     /// </para>
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §4.1.1, 1034 §5.3.3")]
     public async Task A_Client_Told_Not_To_Ask_For_Recursion_Does_Not_Ask()
     {
@@ -479,6 +478,58 @@ public class ClientDefaultsTests
             Assert.That(asked[0], Is.True,  "a client told nothing asks for recursion");
             Assert.That(asked[1], Is.False, "a client whose RecursionDesired is false does not");
             Assert.That(asked[2], Is.False, "and neither does one told so per query");
+
+        });
+
+    }
+
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public async Task Recursion_Unmentioned_Everywhere_Is_Still_Asked_For()
+    {
+
+        // Three places decide RD and each has its own answer: the call's argument, the
+        // client's field, and the `?? true` the chain falls through to. The first two
+        // are covered above. This is the third, and reaching it takes both of the
+        // others being absent — the field put back to null by hand, which no caller
+        // does, and the argument left out or passed as null.
+        //
+        // What it decides is that a stub asks for recursion. No combination of silences
+        // turns the query into one a recursive server will not act on.
+        //
+        // This test existed before finding 63 and was withdrawn, because it was green
+        // while all three mutants under it survived: the value it watched was handed to
+        // a transport client that resolved RD again from its own field and discarded
+        // it. It is back because the fix made the thing it asserts observable. A test
+        // that cannot be killed is not evidence; the same test over code that carries
+        // its value through is.
+        await using var server = AnswerWhateverIsAsked();
+
+        using var client = new DNSClient(
+                               IPv4Address.Localhost,
+                               IPPort.Parse((UInt16) server.Port),
+                               QueryTimeout:   ShortTimeout,
+                               UseQueryCache:  false
+                           );
+
+        client.RecursionDesired = null;
+
+        // The parameter's own default, on each of the two overloads, and then the
+        // parameter passed as null — which is the same thing said out loud.
+        await client.Query(DNSServiceName.Parse("byservicename.example."), [ DNSResourceRecordTypes.A ], ShortTimeout);
+        await client.Query(DomainName.    Parse("bydomainname.example."),  [ DNSResourceRecordTypes.A ], ShortTimeout);
+        await client.Query(DNSServiceName.Parse("bynull.example."),        [ DNSResourceRecordTypes.A ], ShortTimeout, RecursionDesired: null);
+
+        var asked = RecursionAsked(server);
+
+        Assert.That(asked, Has.Length.EqualTo(3), "three queries went out");
+
+        Assert.Multiple(() => {
+
+            Assert.That(asked[0], Is.True, "Query(DNSServiceName, ...) with the parameter omitted");
+            Assert.That(asked[1], Is.True, "Query(DomainName, ...) with the parameter omitted");
+            Assert.That(asked[2], Is.True, "and with the parameter passed as null");
 
         });
 

@@ -1363,16 +1363,6 @@ CLIENT_EQUIVALENT = {
              "at each site by the condition that leads there. Both operands are already "
              "false wherever this runs, so || and && do the same nothing",
 
-        466: "Boolean? RecursionDesired = true on Query(DomainName, ...) - finding 63. The "
-             "value is forwarded to Query(DNSServiceName, ...), resolved into the outgoing "
-             "query, handed to the transport client, and discarded there: the transport "
-             "resolves RD again from its own field, which its own constructor defaulted to "
-             "true, and a non-null field wins over the argument. Nothing downstream can tell "
-             "the readings apart. Reachable again once finding 63 is fixed, and the red test "
-             "for it is the one that will close this",
-
-        495: "Boolean? RecursionDesired = true on Query(DNSServiceName, ...) - see 466",
-
         621: "FirstOrDefault(rr => rr.Type == CNAME), the record that gates the rest of a "
              "cache hit. The mutant picks the first non-CNAME answer instead, and the gate "
              "then tests that record's TTL - but every record in hand is live already. "
@@ -1388,11 +1378,6 @@ CLIENT_EQUIVALENT = {
              "did the filtering",
 
         626: "cnameRecord.EndOfLife > now, the gate's own TTL check - see 621 and 625",
-
-        695: "this.RecursionDesired ?? RecursionDesired ?? true, the RD the outgoing query is "
-             "built with - finding 63, and the clearest statement of it: this expression is "
-             "the one place DNSClient decides the bit, and the transport client overrules it. "
-             "See 466",
 
         696: "EDNSOptions.Count > 0 ? EDNSOptions : null. The same line in DNSTLSClient and "
              "DNSTCPClient is equivalent because [] and null serialise to the same octets. "
@@ -1410,14 +1395,6 @@ CLIENT_EQUIVALENT = {
              "this call. The code above it says as much: 'DNSSECStatus is normally null here "
              "and this path stays dormant. It is meant to'. Dead by design, so the mutant "
              "cannot be reached",
-
-        917: "hop < MaxCNAMEFollows, the alias-chain bound - finding 61. The counter never "
-             "reaches eight, because the next hop is not taken by this loop but by calling "
-             "Query again, and each call takes one or two hops before handing the rest to the "
-             "next. Which is the defect: the bound RFC 1035 section 7.1 requires is written "
-             "as a per-call counter over a recursive descent, and the visited set beside it "
-             "is created afresh at every hop. Measured at fourteen questions for a two-name "
-             "cycle. Reachable once finding 61 is fixed",
 
         1467: "the `false` handed to transportClient.Query as its ForceUpdate. Grepped across "
               "the whole client folder: DNSClient.cs:586 is the only line in it that reads "
@@ -1437,7 +1414,111 @@ CLIENT_EQUIVALENT = {
 }
 
 
-CLIENT_SUPERSEDED = {}
+CLIENT_SUPERSEDED = {
+
+    # Thirty-seven rows that the six fixes closed by moving or removing the line the
+    # sweep had measured. CORE_SUPERSEDED's finding-57 entry sets the shape: a fix does
+    # not let a row off, it relocates the rule, and the rule is re-measured where the fix
+    # put it.
+    #
+    # Twenty-nine of the thirty-seven are the same parameter default in six files. The
+    # argument for all of them is written once, at IDNSClient.cs:64.
+    #
+    # DNSClient.cs:917 is the one worth reading twice. It was recorded equivalent because
+    # no chain could make the counter bind, and that was true: the chase took its next hop
+    # by calling Query again, so the counter counted one call rather than the descent. The
+    # unreachable mutant was the evidence for finding 61 - and then the first attempt at
+    # that fix handed the budget down by value, which bounded the recursion and not the
+    # work, at 2^8 = 256 queries for a chain of eight names. The test written for this row
+    # is what said so, which is the whole argument for writing it.
+
+    "DNS/Client/DNSClient.cs": {
+
+         466: "Boolean? RecursionDesired = true, a parameter default - see IDNSClient.cs:64",
+         495: "see IDNSClient.cs:64",
+
+         521: "RecursionDesired: true at the refusal to ask - finding 60",
+         673: "RecursionDesired: true at the NSEC denial - finding 60",
+        1042: "RecursionDesired: true when nothing answered - finding 60",
+
+         695: "this.RecursionDesired ?? RecursionDesired ?? true, the RD the outgoing query was "
+              "built with. Hoisted to line 581, where one resolution now serves the query and "
+              "the three answers this method builds itself, and killed there by "
+              "ClientDefaultsTests - findings 60 and 63",
+
+         917: "for (var hop = 0; hop < MaxCNAMEFollows; hop++). The bound is now a counter on "
+              "an AliasChase shared by the whole descent, at line 1014, and killed there by a "
+              "chain of distinct names longer than the limit - finding 61",
+
+    },
+
+    "DNS/Client/DNSUDPClient.cs": {
+
+        229: "see IDNSClient.cs:64",
+        249: "see IDNSClient.cs:64",
+
+        268: "RecursionDesired: true for an empty query name - finding 60",
+        475: "RecursionDesired: false for a socket the host refused - finding 60, and the "
+             "literal that disagreed with 268's. One of the two was wrong for every call and "
+             "there was no call for which both were right, which is what made the pair the "
+             "clearest evidence in the finding",
+
+        291: "this.RecursionDesired ?? RecursionDesired ?? true, hoisted to line 262 and killed "
+             "there by ClientQueryConstructionTests - findings 60 and 63. It needed a test that "
+             "drives the UDP client directly: through a DNSClient the transport is built fresh "
+             "per query and handed an already-resolved value, so its own fallback is never "
+             "reached from there",
+
+    },
+
+    "DNS/Client/IDNSClient.cs": {
+
+        64:  "Boolean? RecursionDesired = true, a parameter default - finding 63. All twenty-nine "
+             "of these now read `= null`, and nothing mutable is left on any of them. The change "
+             "was not cosmetic: with the default at true the argument is never absent, so the "
+             "client-wide field could never be consulted and `client.RecursionDesired = false` "
+             "did nothing at all. Swapping the resolution order alone would not have helped. The "
+             "rule these twenty-nine stood for - what a caller who says nothing gets - is "
+             "re-measured where the fix put it, at the one expression each call now resolves to "
+             "(DNSClient.cs:581 and DNSUDPClient.cs:262, true-to-false), and killed there",
+
+        94:  "see 64",
+        126: "see 64",
+        150: "see 64",
+        174: "see 64",
+        195: "see 64",
+        216: "see 64",
+        253: "see 64",
+        274: "see 64",
+        295: "see 64",
+        330: "see 64",
+        361: "see 64",
+        392: "see 64",
+        432: "see 64",
+        456: "see 64",
+        485: "see 64",
+        496: "see 64",
+
+    },
+
+    "DNS/Client/DNSHTTPSClient.cs": {
+        752: "see IDNSClient.cs:64",
+        771: "see IDNSClient.cs:64",
+        795: "see IDNSClient.cs:64",
+        813: "see IDNSClient.cs:64",
+    },
+
+    "DNS/Client/DNSTCPClient.cs": {
+        207: "see IDNSClient.cs:64",
+        227: "see IDNSClient.cs:64",
+    },
+
+    "DNS/Client/DNSTLSClient.cs": {
+        394: "see IDNSClient.cs:64",
+        414: "see IDNSClient.cs:64",
+    },
+
+}
 
 
 LEDGERS = {

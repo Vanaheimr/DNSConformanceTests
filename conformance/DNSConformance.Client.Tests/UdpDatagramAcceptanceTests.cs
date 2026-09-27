@@ -112,15 +112,27 @@ public class UdpDatagramAcceptanceTests
         // same shape, and a bare null cannot say which guard is being aimed at.
         var response = await client.Query((DNSServiceName) null!,
                                           [ DNSResourceRecordTypes.A ],
-                                          ShortTimeout);
+                                          ShortTimeout,
+                                          RecursionDesired: false);
+
+        // Asked again the other way round, because the field this pins is the one
+        // thing the client knows for certain about an exchange that never happened:
+        // it is the party that was asked. This site used to write a literal `true`
+        // and its neighbour a literal `false` (finding 60), so the file disagreed
+        // with itself and neither answer was the caller's.
+        var recursive = await client.Query((DNSServiceName) null!,
+                                           [ DNSResourceRecordTypes.A ],
+                                           ShortTimeout,
+                                           RecursionDesired: true);
 
         Assert.Multiple(() => {
 
             Assert.That(server.Requests, Is.Empty,
                         "nothing can be asked, so nothing is sent");
 
-            Assert.That(response.ResponseCode, Is.EqualTo(DNSResponseCodes.NameError),
-                        "a query with no name has no name that exists");
+            Assert.That(response.ResponseCode, Is.EqualTo(DNSResponseCodes.ServerFailure),
+                        "§4.1.1 reserves a name error for an authoritative response; nothing was asked, "
+                        + "so nothing about the name was established");
 
             Assert.That(response.AuthoritativeAnswer, Is.False,
                         "§4.1.1: AA says the responding name server is an authority, and none responded");
@@ -134,8 +146,14 @@ public class UdpDatagramAcceptanceTests
             Assert.That(response.IsTimeout, Is.False,
                         "the client did not run out of time, it declined to start");
 
-            Assert.That(response.IsValid, Is.True,
-                        "the answer is meant to be read rather than discarded");
+            Assert.That(response.IsValid, Is.False,
+                        "and it is not an answer, which is the field the rest of the library reads to know that");
+
+            Assert.That(response.RecursionRequested,  Is.False,
+                        "§4.1.1: RD is the querier's own request, copied back — and recursion was not asked for");
+
+            Assert.That(recursive.RecursionRequested, Is.True,
+                        "and here it was, which is what makes the line above a measurement rather than a constant");
 
         });
 

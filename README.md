@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-27): 1546 ✅ · 0 ❌ · 37 skips** — four
+**Current verified status on Windows (2026-09-27): 1554 ✅ · 0 ❌ · 37 skips** — four
 platform-specific, and thirty-three that need container images which are not
 pulled. The Docker daemon itself is up, inside the Debian WSL instance, which is
 where the tests look for it: they run `docker` through `wsl -u root` rather than
@@ -25,24 +25,21 @@ through a Windows client, and a `docker info` typed into a Windows shell answers
 "command not found" whatever the daemon is doing. What the thirty-three need is
 `cznic/knot`, `coredns/coredns`, `mvance/unbound` and `zonemaster/cli` — 185 MiB
 compressed, pulled deliberately and never by a test run. The last measurement that
-had them was 1455 ✅ · 0 ❌ · 4 skips on 2026-09-18, ninety-one tests ago.
+had them was 1455 ✅ · 0 ❌ · 4 skips on 2026-09-18, ninety-nine tests ago.
 
-Five further tests are excluded from that figure and are red on purpose — the
-trackers PLAN.md §9 asks for in place of a test that agrees with the defect. There
-are six open findings and five trackers, because one of the six is a question
-about Hermod's own vocabulary rather than about the wire: the suite pins the
-present answer there deliberately, so a red test would be part of deciding the
-question rather than of reporting it.
+Nothing is excluded from that figure. For the first time in a while there are no
+red tracker tests, because there is no open finding for one to track — the five
+that were red are green, and the sixth question, which was pinned deliberately
+rather than tracked, has been decided.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 63 RFC deviations in Hermod. Fifty-seven are fixed and six
-are open, each with a red tracker test rather than a green one that agrees with
-it; [FINDINGS.md](FINDINGS.md) records every one with chapter and verse, the
-change where there is one, and the test that pins it.
+The suite has found 63 RFC deviations in Hermod. All are fixed;
+[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
+the test that pins it.
 
 ## Getting started
 

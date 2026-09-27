@@ -50,13 +50,25 @@ public class FramedTransportQueryTests
     /// <param name="ClearClientRecursion">
     /// Whether to put the property back to null afterwards. The constructor resolves
     /// its argument with <c>?? true</c>, so the field is never null unless somebody
-    /// sets it so — and the per-query fallback behind it cannot be reached any other
-    /// way.
+    /// sets it so — and the <c>?? true</c> at the end of the chain cannot be reached
+    /// any other way.
     /// </param>
-    /// <param name="CallRecursion">What the call passes, which may also be null.</param>
+    /// <param name="CallRecursion">
+    /// What the call passes. Null by default, meaning the call says nothing, so that a
+    /// test about the client's own setting is about the client's own setting.
+    /// <para>
+    /// It used to default to <c>true</c>, and
+    /// <see cref="The_Recursion_Bit_Says_What_The_Client_Was_Built_With"/> passed anyway
+    /// — because the precedence was the wrong way round and the field won over the
+    /// call whatever the call said. So the test asserted what the client was built with
+    /// while specifying something else, and agreed with the code for a reason that had
+    /// nothing to do with its name. Finding 63 fixed the precedence, this test went red,
+    /// and this is what it was actually asking.
+    /// </para>
+    /// </param>
     private static async Task<RawDnsMessage> OverTcp(Boolean?                   ClientRecursion        = null,
                                                      Boolean                    ClearClientRecursion   = false,
-                                                     Boolean?                   CallRecursion          = true,
+                                                     Boolean?                   CallRecursion          = null,
                                                      DNSResourceRecordTypes[]?  Types                  = null)
     {
 
@@ -85,7 +97,7 @@ public class FramedTransportQueryTests
     /// <summary>The same over DoT.</summary>
     private static async Task<RawDnsMessage> OverTls(Boolean?                   ClientRecursion        = null,
                                                      Boolean                    ClearClientRecursion   = false,
-                                                     Boolean?                   CallRecursion          = true,
+                                                     Boolean?                   CallRecursion          = null,
                                                      DNSResourceRecordTypes[]?  Types                  = null)
     {
 

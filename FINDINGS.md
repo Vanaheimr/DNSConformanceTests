@@ -73,12 +73,12 @@ what is queued, what is out of scope — are not here at all; they live in
 | 55 | A signature said which type it covered, in a spelling nothing else reads | Medium | 4034 §3.2, 3597 §5 | ✅ fixed |
 | 56 | A backslash in a zone file arrived as a backslash | **High** | 1035 §5.1 | ✅ fixed |
 | 57 | A wildcard name was measured two octets short | Low | 1035 §2.3.4, 4592 §2.1.1 | ✅ fixed |
-| 58 | A BADTIME refusal carries neither a signature nor the time | **High** | 8945 §5.2.3, §5.3.2 | ⏳ **open** |
-| 59 | A name goes undefended for the one second after it is announced | Medium | 6762 §6, §8.1 | ⏳ **open** |
-| 60 | A synthesized answer reports recursion that was never asked for | Low | 1035 §4.1.1 | ⏳ **open** |
-| 61 | Two aliases pointing at each other are chased for as long as the peer answers | Medium | 1034 §5.2.2, 1035 §7.1 | ⏳ **open** |
-| 62 | A client that could not ask anybody answers as an authority that said no | Low | 1035 §4.1.1, 2308 §2.1 | ⏳ **open** |
-| 63 | A DNSClient cannot be told to stop asking for recursion | Medium | 1035 §4.1.1, 1034 §5.3.3 | ⏳ **open** |
+| 58 | A BADTIME refusal carried neither a signature nor the time | **High** | 8945 §5.2.3, §5.3.2 | ✅ fixed |
+| 59 | A name went undefended for the one second after it was announced | Medium | 6762 §6, §8.1 | ✅ fixed |
+| 60 | A synthesized answer reported recursion that was never asked for | Low | 1035 §4.1.1 | ✅ fixed |
+| 61 | Two aliases pointing at each other were chased for as long as the peer answered | Medium | 1034 §5.2.2, 1035 §7.1 | ✅ fixed |
+| 62 | A client that could not ask anybody answered as an authority that said no | Low | 1035 §4.1.1, 2308 §2.1 | ✅ fixed |
+| 63 | A DNSClient could not be told to stop asking for recursion | Medium | 1035 §4.1.1, 1034 §5.3.3 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3191,7 +3191,7 @@ matter of course. Pinned by `NameSyntaxAndLimitTests`.
 
 ---
 
-## 58 — A BADTIME refusal carries neither a signature nor the time
+## 58 — A BADTIME refusal carried neither a signature nor the time
 
 RFC 8945 §5.2.3 gives a server two obligations in one breath. The first:
 
@@ -3262,15 +3262,25 @@ exists to close.
 — the same test asserts the other half, that BADSIG stays unsigned, which Hermod
 already does correctly.
 
-**Suggested fix**: `BuildErrorResponse` uses the key it is already handed. For
-BADTIME it writes the server's current time into Other Data as six octets with
-Other Len 6, and computes the MAC over the response with the same machinery
-`Sign` already has. Every other error keeps the empty MAC it has now, which
-§5.3.2 requires.
+**The fix uses the key it was already handed.** For BADTIME `BuildErrorResponse`
+writes the server's current time into Other Data as six octets — Other Len follows
+from the length — and computes the MAC with the machinery `Sign` already had: the
+request's own MAC folded in per §4.3.1, over the reply while ARCOUNT still excludes
+the TSIG record, with the client's Time Signed and the client's Fudge. Every other
+error keeps its empty MAC, which §5.3.2 requires. A BADTIME with no key to sign with
+falls back to the unsigned form rather than claiming a signature it does not have.
+
+The test grew with the fix, because the assertion that was there would have passed
+on a forgery. `MacSize > 0` says only that octets are present, and a signature over
+the wrong bytes or with the wrong key leaves the sender exactly where an unsigned
+refusal does. So the MAC is now recomputed in the test from §4.3's digest input,
+assembled from the specification, and the Other Data is compared against this
+process's own clock — which is what makes the skew measurable rather than a
+placeholder of the right length.
 
 ---
 
-## 59 — A name goes undefended for the one second after it is announced
+## 59 — A name went undefended for the one second after it was announced
 
 RFC 6762 §6 rate-limits multicast, and writes its exception into the middle of
 the sentence:
@@ -3367,15 +3377,16 @@ left to judgement.
 Its control, `A_Probe_With_The_Unicast_Bit_Is_Defended_By_Unicast`, passes — the
 defence works; only the exemption is missing.
 
-**Suggested fix**: `HandleQueryAsync` already computes whether the query carries
-authorities. Hand that down to `SendResponseAsync` and let it skip the
-`lastMulticast` filter for those responses, exactly as §6 words it. The stamping
-should stay, so an ordinary answer for the same record is still rate-limited
-afterwards.
+**The fix hands down what `HandleQueryAsync` already knew.** Whether the query
+carried authorities is now a named local, used twice — for the tie-break it was
+already used for, and by `SendResponseAsync`, which skips the `lastMulticast` filter
+for those responses exactly as §6 words it. The stamping stays on both paths, so an
+ordinary answer for the same record is rate-limited afterwards as before: the
+exemption is for the defence, not for the record.
 
 ---
 
-## 60 — A synthesized answer reports recursion that was never asked for
+## 60 — A synthesized answer reported recursion that was never asked for
 
 Three places in `DNSClient` return a `DNSInfo` without any server having
 answered: when no DNS servers are configured, when a cached NSEC already proves
@@ -3453,8 +3464,15 @@ precisely because asserting it would be asserting the defect.
 — the same fixture's other two tests assert the five fields that are right, at
 the two sites in `DNSClient` a black-box test can reach.
 
-**Suggested fix**: each of the five sites takes the value the method was called
-with, the same way the outgoing query does.
+**The fix resolves the value once per call** and shares it between the answers
+these methods build and the query that goes out, so the two cannot disagree about
+what was requested. All five sites take it; none holds a literal. Nothing on the
+wire changes.
+
+`UdpDatagramAcceptanceTests` had asserted the five fields at the UDP site and left
+this one alone, "precisely because asserting it would be asserting the defect". It
+asserts it now, both ways round, which is what makes the line a measurement rather
+than a constant.
 
 **Correction.** This entry said two of the five could not be reached from here at
 all — one needing every server query to throw rather than time out, the other the
@@ -3470,7 +3488,7 @@ code.
 
 ---
 
-## 61 — Two aliases pointing at each other are chased for as long as the peer answers
+## 61 — Two aliases pointing at each other were chased for as long as the peer answered
 
 RFC 1034 §5.2.2 asks for the opposite in one sentence: "Alias loops and aliases
 which point to non-existent names should be caught and an error condition passed
@@ -3532,22 +3550,33 @@ does, because the loop never gets that far — and the reason it never gets that
 far is this. The mutant is unreachable and the line it is on is the evidence for
 the defect.
 
-**Repro**: `CnameChaseAndRetryTests.An_Alias_Loop_Is_Caught_Rather_Than_Chased`,
-red on purpose. Two names alias each other; the scripted peer answers twelve
-questions and then falls silent so that a client which keeps chasing ends the
-test rather than hanging it. The count of questions asked is the measurement, and
-it is **fourteen** — the twelve the peer was willing to answer, plus the two that
-met silence. The descent ended because the peer stopped, which is the finding
-stated as a number: nothing in the resolver decided it had done enough.
+**Repro**: `CnameChaseAndRetryTests.An_Alias_Loop_Is_Caught_Rather_Than_Chased`.
+Two names alias each other; the scripted peer answers twelve questions and then
+falls silent so that a client which keeps chasing ends the test rather than hanging
+it. The count of questions asked is the measurement, and before the fix it was
+**fourteen** — the twelve the peer was willing to answer, plus the two that met
+silence. The descent ended because the peer stopped, which is the finding stated as
+a number: nothing in the resolver decided it had done enough. It is two now.
 
-**Suggested fix**: carry the visited set and the hop counter into the recursion,
-or flatten the chase into the loop it already has. Either one makes
-`MaxCNAMEFollows` mean the thing its name says, and makes the mutant on it
-reachable — which is the test this finding is waiting for.
+**The fix carries both into the recursion.** The public `Query` became a forwarder
+that starts a chain; the body moved to a private overload that takes the chain's
+state — the names already asked about, and how much of the budget is left — and the
+chase passes both to the next hop. `MaxCNAMEFollows` now means what its name says,
+counted across the descent rather than within one call, which is the counter RFC
+1035 §7.1 describes. A two-name cycle costs two queries instead of as many as the
+peer will answer.
+
+What the chase returns when it stops is unchanged: the merged response built from
+the chain so far. Only the stopping is fixed.
+
+**And the mutant is reachable again.** `DNSClient.cs:917` was recorded equivalent
+because no chain could make the counter bind. That reason is gone with the defect,
+which is the shape worth noticing: an unreachable mutant was the evidence, and
+fixing what made it unreachable is what turns it back into a test.
 
 ---
 
-## 62 — A client that could not ask anybody answers as an authority that said no
+## 62 — A client that could not ask anybody answered as an authority that said no
 
 Three places in `DNSClient` return a `DNSInfo` nobody sent, and all three write
 the same response code:
@@ -3604,22 +3633,32 @@ configured with such a server reaches the third synthesis site on the first
 query, which is how the five other fields at that site came to be asserted.
 
 **Recorded without a red test, on purpose.** Three assertions in
-`SynthesizedAnswerTests` currently pin the present behaviour, deliberately and
-with their reasons written down: the name error at the server-less site, and
-`IsValid: true` in the shape shared by all three. Whether a resolver API's result
-type should carry SERVFAIL for "I could not ask" or a denial with a flag beside it
-is a decision about Hermod's vocabulary rather than about the wire, and flipping
-those three assertions is part of making that decision rather than part of
-reporting it. Low, for the same reason finding 60 is low: no packet changes, and
-what changes is what a caller is told about an exchange that did not happen.
+`SynthesizedAnswerTests` pinned the present behaviour, deliberately and with their
+reasons written down: the name error at the server-less site, and `IsValid: true` in
+the shape shared by all three. Whether a resolver API's result type should carry
+SERVFAIL for "I could not ask" or a denial with a flag beside it is a decision about
+Hermod's vocabulary rather than about the wire, and flipping those three assertions
+was part of making that decision rather than part of reporting it. Low, for the same
+reason finding 60 is low: no packet changes, and what changes is what a caller is
+told about an exchange that did not happen.
 
-**Suggested fix**: `ServerFailure` and `IsValid: false` at the two sites that
-could not ask, leaving the NSEC site as the one denial of the three that is
-entitled to be one. The three assertions above change with it.
+**It was four sites, not two.** Looked at across the whole client folder before
+anything was changed, Hermod already disagreed with itself. `DNSHTTPSClient` answers
+a failure with `ServerFailure` and `IsValid: false`, and is the model.
+`DNSUDPClient`'s refused-socket site had the code right and `IsValid` wrong. Three
+sites answered a failure with a denial: the two named above and `DNSUDPClient`'s
+empty-name site, which is the same defect one file over — the same way finding 60
+turned out to be five sites rather than three.
+
+**The fix is `ServerFailure` with `IsValid: false`** at every site that could not
+ask, and nothing at all at the NSEC site, which proved absence and is entitled to
+deny. The shared test helper is now told which of the two kinds of non-answer it is
+looking at, and owns the response code as well, so the two fields cannot drift apart
+— they are the same statement made twice.
 
 ---
 
-## 63 — A `DNSClient` cannot be told to stop asking for recursion
+## 63 — A `DNSClient` could not be told to stop asking for recursion
 
 RFC 1035 §4.1.1 on RD: "this bit may be set in a query and is copied into the
 response." Which of two kinds of resolver is asking is the whole content of the
@@ -3697,12 +3736,21 @@ Recursion Desired flag in the DNS query" — and inert.
 purpose. Three queries: one default and two told not to. The first assertion is the
 control and passes.
 
-**Suggested fix**: the transport clients need a way to be handed a value that wins
-over their own default — the cleanest being for `Query` to prefer its argument over
-the field when the argument is not null, which is the opposite precedence to the one
-they have now. Changing `GetOrCreateTransportClient` to pass the client's setting
-into the constructor would fix the property and leave the per-query parameter still
-dead, so it is half a fix.
+**The fix needed both halves.** The resolution order became
+`RecursionDesired ?? this.RecursionDesired ?? true`, which is what every doc comment
+in the family already described — "If not specified, the client's default
+RecursionDesired setting will be used" — and the parameter's own default became
+`null` across all sixty-four declarations. Swapping the order alone fixes nothing:
+with the default at `true` the argument is never absent and the field is never
+consulted. No existing caller changes behaviour, because one that omits the argument
+used to get `true` and now gets the field, which is `true` unless somebody set it.
+
+**A second test had been passing for the wrong reason.**
+`FramedTransportQueryTests.The_Recursion_Bit_Says_What_The_Client_Was_Built_With`
+went red on the fix, correctly: its helper specified the call value while the test
+asserted the constructor's, and only the wrong precedence made the two agree. The
+helper now says nothing at the call, which is what the test was asking. Two green
+tests turned out to rest on this one defect, and neither was found by failing.
 
 **It is the same shape as the equivalences it explains.** Three of
 `DNSClient.cs`'s rows — 466, 495 and 695 — are recorded as equivalent, and this is

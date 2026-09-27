@@ -248,7 +248,6 @@ public class TsigServerTests
     #region A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "8945 §5.2.3")]
     [Property("RFC", "8945 §5.3.2")]
     public async Task A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not()
@@ -271,10 +270,12 @@ public class TsigServerTests
         // they agree on. Nothing looked inside the TSIG, where they must differ.
         await using var server = await SignedServerAsync();
 
+        var StaleTimeSigned = (UInt64) DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds();
+
         var stale      = TSIGSigner.Sign(
                              RawDnsWriter.Query(0x7A19, ZoneFixtures.AName, RawDnsType.A),
                              Key(),
-                             TimeSigned: (UInt64) DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds());
+                             TimeSigned: StaleTimeSigned);
 
         var impostor   = new TSIGKey(DomainName.Parse("server-key."),
                                      Convert.FromBase64String("d3Jvbmctc2VjcmV0LXRoYXQtaXMtbm90LXRoZS1yaWdodC1vbmU="));
@@ -283,8 +284,22 @@ public class TsigServerTests
                              RawDnsWriter.Query(0x7A1A, ZoneFixtures.AName, RawDnsType.A),
                              impostor);
 
-        var badTime    = TsigOf(await AskRaw(server, stale),  "the stale request");
-        var badSig     = TsigOf(await AskRaw(server, forged), "the forged request");
+        var staleRaw   = await AskRawBytes(server, stale);
+        var badTime    = TsigOf(RawDnsReader.Parse(staleRaw), "the stale request");
+        var badSig     = TsigOf(RawDnsReader.Parse(await AskRawBytes(server, forged)), "the forged request");
+
+        // The MAC is recomputed here from §4.3's digest input rather than taken on
+        // trust, because "a MAC is present" is not the claim §5.2.3 makes. A signature
+        // over the wrong bytes, or with the wrong key, is indistinguishable from a
+        // correct one by its length alone — and it would leave the sender exactly
+        // where an unsigned refusal does.
+        var expected   = ExpectedResponseMac(staleRaw, badTime, MacOf(stale, "the request we sent"));
+
+        // The server's clock, as the reply reports it, against the clock this
+        // process reads. §5.2.3 exists so the sender can gauge the skew, which means
+        // the number has to be the server's actual time and not a placeholder.
+        var reported   = badTime.OtherData.Aggregate(0UL, (value, octet) => (value << 8) | octet);
+        var ourClock   = (UInt64) DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         Assert.Multiple(() => {
 
@@ -294,9 +309,21 @@ public class TsigServerTests
             Assert.That(badTime.OtherLen,  Is.EqualTo(6),
                         "and carries the server's time as a 48-bit integer");
 
+            Assert.That(badTime.MAC,       Is.EqualTo(expected),
+                        "and the signature is the HMAC §4.3.3 describes over the request MAC, the reply, " +
+                        "and the TSIG variables — not merely some octets of the right length");
+
+            Assert.That(reported,          Is.EqualTo(ourClock).Within(120),
+                        "the Other Data is the server's own clock, which is what makes the skew measurable");
+
+            Assert.That(badTime.TimeSigned, Is.EqualTo(StaleTimeSigned),
+                        "§5.2.3: the Time Signed field carries the *client's* time, the one that was refused");
+
             Assert.That(badSig.Error,      Is.EqualTo(16), "BADSIG");
             Assert.That(badSig.MacSize,    Is.Zero,
                         "§5.3.2 — a key or MAC failure MUST NOT be answered with a signed message");
+            Assert.That(badSig.OtherLen,   Is.Zero,
+                        "and tells it nothing about the clock, which was never the problem");
 
         });
 
@@ -306,54 +333,187 @@ public class TsigServerTests
 
     #region Small independent helpers
 
+    /// <summary>The fields of a TSIG RDATA (RFC 8945 §4.2), plus where the record began.</summary>
+    private sealed record TsigFields(String  Owner,
+                                     String  Algorithm,
+                                     UInt64  TimeSigned,
+                                     UInt16  Fudge,
+                                     Int32   MacSize,
+                                     Byte[]  MAC,
+                                     UInt16  OriginalID,
+                                     UInt16  Error,
+                                     Int32   OtherLen,
+                                     Byte[]  OtherData,
+                                     Int32   RecordStart);
+
+
     private static async Task<RawDnsMessage> AskRaw(HermodServerFixture Server, Byte[] Query)
+        => RawDnsReader.Parse(await AskRawBytes(Server, Query));
+
+
+    private static async Task<Byte[]> AskRawBytes(HermodServerFixture Server, Byte[] Query)
     {
 
         var raw = await RawDnsProbe.UdpAsync(Server.UdpPort, Query);
 
         Assert.That(raw, Is.Not.Null, "§5.2 wants an answer, not silence");
 
-        return RawDnsReader.Parse(raw!);
+        return raw!;
 
     }
 
+
     /// <summary>
-    /// The three fields of a TSIG RDATA this test cares about (RFC 8945 §4.2),
-    /// read here rather than with Hermod's own parser: the point is what went out
-    /// on the wire, and a reader that shared the writer's mistakes would agree
-    /// with them.
+    /// The TSIG RDATA of a message, read here rather than with Hermod's own parser:
+    /// the point is what went out on the wire, and a reader that shared the writer's
+    /// mistakes would agree with them.
     /// </summary>
     /// <remarks>
     /// Layout after the algorithm name, which §4.2 says is never compressed:
     /// Time Signed (6), Fudge (2), MAC Size (2), MAC, Original ID (2),
     /// Error (2), Other Len (2), Other Data.
     /// </remarks>
-    private static (UInt16 Error, Int32 MacSize, Int32 OtherLen) TsigOf(RawDnsMessage  Response,
-                                                                       String         Because)
+    private static TsigFields TsigOf(RawDnsMessage  Response,
+                                     String         Because)
     {
 
         var record = Response.Additionals.SingleOrDefault(rr => rr.Type == RawDnsType.TSIG);
 
         Assert.That(record, Is.Not.Null, $"{Because} must be answered with a TSIG of its own");
 
-        var data   = record!.Rdata;
-        var offset = 0;
+        var data      = record!.Rdata;
+        var offset    = 0;
+        var algorithm = new List<String>();
 
-        while (offset < data.Length && data[offset] != 0)     // the algorithm name
+        while (offset < data.Length && data[offset] != 0)
+        {
+            algorithm.Add(System.Text.Encoding.ASCII.GetString(data, offset + 1, data[offset]));
             offset += data[offset] + 1;
+        }
 
         offset += 1;
-        offset += 6 + 2;                                      // time signed, fudge
 
-        var macSize = (data[offset] << 8) | data[offset + 1];
-        offset += 2 + macSize + 2;                            // mac, original id
+        var timeSigned = 0UL;
+        for (var i = 0; i < 6; i++)
+            timeSigned = (timeSigned << 8) | data[offset + i];
+        offset += 6;
 
-        var error    = (UInt16) ((data[offset] << 8) | data[offset + 1]);
-        var otherLen = (data[offset + 2] << 8) | data[offset + 3];
+        var fudge      = (UInt16) ((data[offset] << 8) | data[offset + 1]);
+        offset += 2;
 
-        return (error, macSize, otherLen);
+        var macSize    = (data[offset] << 8) | data[offset + 1];
+        offset += 2;
+
+        var mac        = data[offset..(offset + macSize)];
+        offset += macSize;
+
+        var originalId = (UInt16) ((data[offset] << 8) | data[offset + 1]);
+        offset += 2;
+
+        var error      = (UInt16) ((data[offset] << 8) | data[offset + 1]);
+        offset += 2;
+
+        var otherLen   = (data[offset] << 8) | data[offset + 1];
+        offset += 2;
+
+        var otherData  = data[offset..(offset + otherLen)];
+
+        // The record's own start: its RDATA offset back over the length field, the
+        // TTL, the class, the type and the owner name.
+        var start      = record.RdataOffset - (record.Name.WireLength + 2 + 2 + 4 + 2);
+
+        return new TsigFields($"{String.Join('.', record.Name.Canonical)}.",
+                              $"{String.Join('.', algorithm)}.",
+                              timeSigned,
+                              fudge,
+                              macSize,
+                              mac,
+                              originalId,
+                              error,
+                              otherLen,
+                              otherData,
+                              start);
 
     }
+
+
+    /// <summary>The MAC a message we built carries, so a reply can be checked against it.</summary>
+    private static Byte[] MacOf(Byte[] Message, String Because)
+        => TsigOf(RawDnsReader.Parse(Message), Because).MAC;
+
+
+    /// <summary>
+    /// The MAC RFC 8945 §4.3 requires on a response, assembled here from the
+    /// specification: the request's MAC with its length in front (§4.3.1), the reply
+    /// with its own TSIG record removed and ARCOUNT put back (§4.3.2), then the TSIG
+    /// variables in the fixed order of §4.3.3.
+    /// </summary>
+    private static Byte[] ExpectedResponseMac(Byte[]      ResponseWire,
+                                              TsigFields  Tsig,
+                                              Byte[]      RequestMac)
+    {
+
+        // What the MAC covered: everything before the TSIG record, with ARCOUNT no
+        // longer counting it.
+        var covered = ResponseWire[..Tsig.RecordStart];
+
+        Assert.That(covered, Has.Length.GreaterThanOrEqualTo(12), "a DNS message is at least a header");
+
+        var arCount = (covered[10] << 8) | covered[11];
+
+        Assert.That(arCount, Is.GreaterThan(0), "the TSIG record is counted in ARCOUNT on the wire");
+
+        covered[10] = (Byte) ((arCount - 1) >> 8);
+        covered[11] = (Byte) ((arCount - 1) & 0xFF);
+
+        var input   = new List<Byte>();
+
+        input.AddRange(BigEndian16((UInt16) RequestMac.Length));
+        input.AddRange(RequestMac);
+        input.AddRange(covered);
+
+        input.AddRange(CanonicalWire(Tsig.Owner));
+        input.AddRange([0x00, 0xFF]);                                    // CLASS = ANY
+        input.AddRange([0x00, 0x00, 0x00, 0x00]);                        // TTL   = 0
+        input.AddRange(CanonicalWire(Tsig.Algorithm));
+
+        input.AddRange(BigEndian16((UInt16) ((Tsig.TimeSigned >> 32) & 0xFFFF)));
+        input.AddRange(BigEndian32((UInt32) ( Tsig.TimeSigned        & 0xFFFFFFFF)));
+        input.AddRange(BigEndian16(Tsig.Fudge));
+        input.AddRange(BigEndian16(Tsig.Error));
+        input.AddRange(BigEndian16((UInt16) Tsig.OtherLen));
+        input.AddRange(Tsig.OtherData);
+
+        return System.Security.Cryptography.HMACSHA256.HashData(Secret, input.ToArray());
+
+    }
+
+
+    /// <summary>A name in the canonical wire form §4.3.3 hashes: lowercase, length-prefixed labels, root octet.</summary>
+    private static Byte[] CanonicalWire(String Name)
+    {
+
+        var wire = new List<Byte>();
+
+        foreach (var label in Name.TrimEnd('.').Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            wire.Add((Byte) label.Length);
+            wire.AddRange(System.Text.Encoding.ASCII.GetBytes(label.ToLowerInvariant()));
+        }
+
+        wire.Add(0);
+
+        return [.. wire];
+
+    }
+
+
+    private static Byte[] BigEndian16(UInt16 Value)
+        => [ (Byte) (Value >> 8), (Byte) (Value & 0xFF) ];
+
+    private static Byte[] BigEndian32(UInt32 Value)
+        => [ (Byte) (Value >> 24), (Byte) ((Value >> 16) & 0xFF),
+             (Byte) ((Value >> 8) & 0xFF), (Byte) (Value & 0xFF) ];
 
     #endregion
 

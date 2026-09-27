@@ -321,6 +321,53 @@ public class CnameChaseAndRetryTests
     #endregion
 
 
+    #region How far a chain is followed (RFC 1035 §7.1)
+
+    [Test]
+    [Property("RFC", "1035 §7.1, 1034 §5.2.2")]
+    public async Task A_Chain_Longer_Than_The_Limit_Is_Followed_Exactly_As_Far_As_The_Limit()
+    {
+
+        // RFC 1035 §7.1 requires the bound and describes it as a counter: "The counter
+        // should be set to some initial value and decremented whenever the resolver
+        // performs any action ... If the counter passes zero, the request is terminated
+        // with a temporary error." MaxCNAMEFollows is that counter.
+        //
+        // It could not be measured before finding 61. The chase took its next hop by
+        // calling Query again, so the counter counted one call rather than the descent
+        // and no chain could reach its boundary — which is why the mutation on it was
+        // recorded as equivalent, and why fixing the defect is what turned it back into
+        // something a test can hold.
+        //
+        // The chain here is of distinct names, long enough that the budget runs out
+        // before the names do, and it never carries the type that was asked for, so
+        // nothing stops the chase early. The count of questions is the whole assertion.
+        await using var server = new ScriptedUdpServer(request => {
+
+            var asked = RawDnsReader.Parse(request).Questions[0].Name.Canonical;
+            var step  = Int32.Parse(asked.Split('.')[0].TrimStart('a'));
+
+            return RawDnsResponder.Answer(
+                       request,
+                       ($"{asked}.", RawDnsType.CNAME, 60, CnameRdata($"a{step + 1}.example."))
+                   );
+
+        });
+
+        using var client = ClientFor(server.Port);
+
+        await client.Query(DNSServiceName.Parse("a0.example."), [ DNSResourceRecordTypes.A ], ShortTimeout);
+
+        Assert.That(QuestionsAsked(server), Has.Length.EqualTo(1 + client.MaxCNAMEFollows),
+                    "the name asked about, and then as many hops as the limit allows — asserted against "
+                    + "the property rather than against the number eight, so the rule and the setting "
+                    + "cannot drift apart");
+
+    }
+
+    #endregion
+
+
     #region A client told not to follow (RFC 1034 §3.6.2)
 
     [Test]
@@ -367,19 +414,21 @@ public class CnameChaseAndRetryTests
     #region An alias loop (RFC 1034 §5.2.2, RFC 1035 §7.1)
 
     /// <summary>
-    /// Red: two aliases pointing at each other are chased rather than caught.
+    /// Two aliases pointing at each other are caught rather than chased (finding 61, fixed).
     /// </summary>
     /// <remarks>
-    /// Left failing on purpose. The chase keeps a set of names it has visited, which
-    /// catches a name aliased to itself, but the set is created inside the call and
-    /// the next hop is taken by calling <c>Query</c> again — so every hop starts
-    /// with an empty memory and a two-name cycle is followed for as long as the peer
-    /// keeps answering. <c>MaxCNAMEFollows</c> does not bound it either: it counts
-    /// iterations of one call's own loop, and the recursion means each call takes
-    /// one or two hops before handing the rest to the next.
+    /// The chase had both mechanisms already and neither bounded anything: the set of
+    /// visited names was created inside the call while the next hop was taken by
+    /// calling <c>Query</c> again, so every hop started with a memory of two names,
+    /// and <c>MaxCNAMEFollows</c> counted iterations of one call's loop rather than
+    /// the descent. A name aliased to itself was caught; <c>a</c> to <c>b</c> to
+    /// <c>a</c> was followed for as long as the peer kept answering — fourteen
+    /// questions here, of which twelve were all the scripted peer offered.
+    /// <para>
+    /// Both now travel with the hop, so the bound is over the chain.
+    /// </para>
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1034 §5.2.2, 1035 §7.1")]
     public async Task An_Alias_Loop_Is_Caught_Rather_Than_Chased()
     {
