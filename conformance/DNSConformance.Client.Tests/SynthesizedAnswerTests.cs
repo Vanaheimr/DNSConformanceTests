@@ -67,6 +67,13 @@ public class SynthesizedAnswerTests
     /// <summary>
     /// The six fields all three synthesis sites in DNSClient set by hand.
     /// </summary>
+    /// <remarks>
+    /// All three are reached from here now. The third - every server query
+    /// raising rather than answering - was described as out of reach while the
+    /// only ways tried were a refused port and a silent one, and those produce a
+    /// DNSInfo of their own instead. A server configured by name and never
+    /// connected is the way in.
+    /// </remarks>
     private static void AssertSynthesizedShape(DNSInfo Answer, String Where)
     {
 
@@ -88,7 +95,7 @@ public class SynthesizedAnswerTests
             // IsValid says the object may be read at all. Pinned as behaviour, not
             // claimed as conformance.
             Assert.That(Answer.IsTimeout, Is.False,
-                        $"{Where}: the client did not run out of time, it declined to wait");
+                        $"{Where}: no deadline passed while waiting for an answer");
 
             Assert.That(Answer.IsValid, Is.True,
                         $"{Where}: the answer is meant to be read rather than discarded");
@@ -208,6 +215,88 @@ public class SynthesizedAnswerTests
 
             Assert.That(withoutRecursion.RecursionRequested, Is.False,
                         "and here it was not");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A client whose server has no address (RFC 1035 §4.1.1)
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public async Task A_Server_That_Cannot_Be_Dialled_Still_Produces_An_Answer()
+    {
+
+        // The third synthesis site, and the one the other two hid. It is reached
+        // when every configured server failed before a response existed — not
+        // when they answered badly or not in time, since a transport that times
+        // out or refuses returns a DNSInfo of its own and this site is skipped.
+        //
+        // A server known by name and never connected is the plain way in:
+        // DNSServerConfig says so itself — "This is what a DNS-over-HTTPS or
+        // DNS-over-TLS endpoint is before its socket connects, and what it stays
+        // if the connection never succeeds" — and dialling one raises rather than
+        // returning.
+        //
+        // What must not happen is the exception reaching the caller. A resolver
+        // API that throws for a configuration problem makes every call site carry
+        // a catch for something the resolver already knows how to say.
+        using var client = new DNSClient(
+                               ManualDNSServers:  [ new DNSServerConfig(DomainName.Parse("dns.example.")) ],
+                               QueryTimeout:      ShortTimeout,
+                               UseQueryCache:     false
+                           );
+
+        var answer = await client.Query(DNSServiceName.Parse("undialable.example."),
+                                        [ DNSResourceRecordTypes.A ],
+                                        ShortTimeout);
+
+        Assert.That(answer.Answers, Is.Empty,
+                    "nobody was asked, so there is nothing in the answer section");
+
+        AssertSynthesizedShape(answer, "no server could be dialled");
+
+    }
+
+    #endregion
+
+    #region A question with no name (RFC 1035 §4.1.2)
+
+    [Test]
+    [Property("RFC", "1035 §4.1.2")]
+    public async Task A_Query_With_No_Name_Is_Answered_Rather_Than_Thrown_At()
+    {
+
+        // RFC 1035 §4.1.2 gives every question a QNAME, so a query without a name
+        // is not a query. The guard that refuses one shares its condition with the
+        // guard that refuses a client with no servers, and the two look
+        // interchangeable from outside: with the condition joined the wrong way
+        // round, a server-less client still ends up with the same name error from
+        // the site above, which is why `A_Client_With_No_Servers_...` cannot tell
+        // the difference and this can.
+        //
+        // The name is the half where the two differ, because there is nothing
+        // downstream that copes with its absence: the next thing the query does
+        // with the name is ask the NSEC cache about it.
+        await using var server = new ScriptedUdpServer(
+            request => RawDnsResponder.Answer(request, ("named.example.", RawDnsType.A, 300, [192, 0, 2, 1]))
+        );
+
+        using var client = ClientFor(server.Port);
+
+        var answer = await client.Query((DNSServiceName) null!,
+                                        [ DNSResourceRecordTypes.A ],
+                                        ShortTimeout);
+
+        Assert.Multiple(() => {
+
+            Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NameError),
+                        "a question with no name is refused, not asked");
+
+            Assert.That(server.Requests, Is.Empty,
+                        "and nothing was sent on its behalf");
 
         });
 

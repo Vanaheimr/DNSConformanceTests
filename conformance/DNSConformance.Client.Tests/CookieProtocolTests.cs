@@ -415,4 +415,117 @@ public class CookieProtocolTests
 
     #endregion
 
+    #region A_Rejected_Cookie_Is_Followed_By_One_More_Try()
+
+    [Test]
+    [Property("RFC", "7873 §5.3, 1035 §7.1")]
+    public async Task A_Rejected_Cookie_Is_Followed_By_One_More_Try()
+    {
+
+        // A response that fails the cookie check is discarded, and discarding it
+        // leaves the query unanswered rather than answered badly. What happens
+        // next is the whole difference between a mechanism that excludes off-path
+        // answers and one that lets a single forged datagram deny the name: an
+        // attacker who wins one race against a legitimate answer needs the client
+        // to give up, and a client that asks again is a client they have to beat
+        // every time.
+        //
+        // RFC 1035 §7.1 bounds how much work that may cost — the retry counter is
+        // exactly the counter it describes — so the number is one, not none and
+        // not indefinitely many. `A_Response_Echoing_A_Foreign_Client_Cookie_Is_
+        // Discarded` above covers the discarding with a peer that forges every
+        // time, which cannot see whether a second attempt was made at all.
+        var forged = new Byte[8]; Array.Fill(forged, (Byte) 0xAA);
+
+        await using var peer = new ScriptedUdpServer((request, index) => {
+
+            var clientCookie = CookieOf(request)![..8];
+
+            return index == 0
+                       ? [ AnswerWith(request, forged,       null) ]   // not the cookie that was sent
+                       : [ AnswerWith(request, clientCookie, null) ];  // and now it is
+
+        });
+
+        using var client = ClientFor(peer);
+
+        var response = await Ask(client, "rejected.example.");
+
+        var requests = peer.Requests.ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(requests, Has.Length.EqualTo(2),
+                        "the discarded response is asked about once more, and once is the bound");
+
+            Assert.That(response.Answers, Is.Not.Empty,
+                        "so the second answer, which passes the check, reaches the caller");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Badcookie_Is_Retried_Once_And_Not_Again()
+
+    [Test]
+    [Property("RFC", "7873 §5.2.3, 1035 §7.1")]
+    public async Task A_Badcookie_Is_Retried_Once_And_Not_Again()
+    {
+
+        // The other side of the BADCOOKIE retry. Asking again with the cookie the
+        // response supplied is right once; a server that answers BADCOOKIE again,
+        // and hands over another cookie with it, must not be asked a third time.
+        //
+        // The retry is not counted against MaxRetries — it is gated by a flag that
+        // latches instead — so nothing else stops it: a peer that keeps answering
+        // BADCOOKIE with a fresh cookie would be asked forever, which is the
+        // unbounded work RFC 1035 §7.1 says a resolver must not do. A server can
+        // reach that state without meaning to, by rotating its secret.
+        //
+        // The peer falls silent from the third query on rather than answering, so
+        // that a client which does ask again ends the test by timing out instead of
+        // hanging it. The correct client never reaches that, and pays nothing.
+        var issued = new Byte[16]; Array.Fill(issued, (Byte) 0xEE);
+
+        await using var peer = new ScriptedUdpServer((request, index) => {
+
+            var clientCookie = CookieOf(request)![..8];
+
+            return index < 2
+                       ? [ AnswerWith(request, clientCookie, issued, Rcode: 23) ]   // BADCOOKIE, again
+                       : [];                                                        // and now nothing
+
+        });
+
+        using var client = new DNSClient(
+                               IPv4Address.Localhost,
+                               IPPort.Parse((UInt16) peer.Port),
+                               QueryTimeout:   TimeSpan.FromMilliseconds(600),
+                               UseQueryCache:  false
+                           );
+
+        var response = await client.Query(
+                                 DNSServiceName.Parse("stuck.example."),
+                                 [ DNSResourceRecordTypes.A ],
+                                 TimeSpan.FromMilliseconds(600)
+                             );
+
+        var requests = peer.Requests.ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(requests, Has.Length.EqualTo(2),
+                        "one query, one retry, and then the client stops rather than chasing the cookie");
+
+            Assert.That(response.Answers, Is.Empty,
+                        "and it stops without an answer, which is the honest outcome");
+
+        });
+
+    }
+
+    #endregion
+
 }

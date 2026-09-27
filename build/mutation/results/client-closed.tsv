@@ -8,14 +8,19 @@ DNS/Client/Cache/DNSCache.cs	129	true-to-false	killed	answers-the-cache-made-its
 DNS/Client/DNSTCPClient.cs	192	true-to-false	killed	inside-the-frame	
 DNS/Client/DNSTLSClient.cs	286	true-to-false	killed	inside-the-frame	
 DNS/Client/Cache/DNSCache.cs	130	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	197	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	131	false-to-true	killed	answers-the-cache-made-itself	
 DNS/Client/Cache/DNSCache.cs	132	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	230	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	140	true-to-false	killed	answers-the-cache-made-itself	
 DNS/Client/Cache/DNSCache.cs	141	false-to-true	killed	answers-the-cache-made-itself	
 DNS/Client/Cache/DNSCache.cs	172	true-to-false	killed	answers-the-cache-made-itself	
 DNS/Client/Cache/DNSCache.cs	173	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	260	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	174	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	261	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	175	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	262	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSTCPClient.cs	236	equality-to-inequality	killed	inside-the-frame	
 DNS/Client/DNSUDPClient.cs	266	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/Cache/DNSCache.cs	183	true-to-false	killed	answers-the-cache-made-itself	
@@ -29,37 +34,51 @@ DNS/Client/DNSTCPClient.cs	258	false-to-true	killed	inside-the-frame
 DNS/Client/DNSTLSClient.cs	432	true-to-false	killed	inside-the-frame	
 DNS/Client/DNSUDPClient.cs	269	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/Cache/DNSCache.cs	347	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	290	false-to-true	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSTLSClient.cs	434	greater-to-ge	equivalent		EDNSOptions.Count > 0 ? EDNSOptions : null. The mutant makes the condition always true, so an empty list is passed where null was - and OPT's constructor does `this.Options = Options ?? []`, which makes the two the same object state before anything is written. Serialisation sums over Options for the RDLENGTH and writes nothing for an empty one, so the octets are identical. The OPT record itself is not at stake: it exists because UDPPayloadSize > 0, not because the option list is non-null
 DNS/Client/DNSUDPClient.cs	274	true-to-false	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/Cache/DNSCache.cs	348	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	291	false-to-true	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSTCPClient.cs	276	logical-or-to-and	equivalent		!IsConnected || tcpClient is null - see DNSTLSClient 455. This is the file the `catch (IOException)` was read in
 DNS/Client/DNSUDPClient.cs	275	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/Cache/DNSCache.cs	349	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	292	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSTLSClient.cs	455	logical-or-to-and	equivalent		!IsConnected || tcpClient is null, the pre-emptive reconnect. The mutant's && means a disconnected-but-non-null client is not reconnected before the write - and the write then throws, into a `catch (IOException)` eight lines below that reconnects and retries the whole exchange. Same answer, one failed round trip later. TcpFallbackAndFramingTests already exercises a server closing the connection and passes with the mutant planted, which is what pointed at the second recovery rather than at a missing test
 DNS/Client/DNSUDPClient.cs	282	equality-to-inequality	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/Cache/DNSCache.cs	354	true-to-false	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	301	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	355	false-to-true	killed	answers-the-cache-made-itself	
+DNS/Client/DNSClient.cs	303	true-to-false	killed	what-a-client-is-when-nothing-is-said	
+DNS/Client/DNSClient.cs	309	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	463	le-to-less	equivalent		dnsCacheEntry.EndOfLife <= Timestamp.Now, the negative entry's own lifetime
+DNS/Client/DNSClient.cs	311	equality-to-inequality	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSUDPClient.cs	317	false-to-true	killed	which-datagrams-a-udp-client-may-act-on	
 DNS/Client/Cache/DNSCache.cs	506	greater-to-ge	equivalent		rr.EndOfLife > now, filtering the answer section on read
+DNS/Client/DNSClient.cs	320	true-to-false	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSTLSClient.cs	605	false-to-true	killed	inside-the-frame	
 DNS/Client/Cache/DNSCache.cs	510	greater-to-ge	equivalent		rr.EndOfLife > now, and the authority section beside it
 DNS/Client/Cache/DNSCache.cs	518	logical-or-to-and	killed	the-cache-read-by-itself	
+DNS/Client/DNSClient.cs	405	logical-or-to-and	equivalent		DomainName.IsNullOrEmpty() || DNSInformation is null, the guard on AddToCache. All four call sites were read: the name is either the query name, which the guard at the top of Query has already proved non-empty, or a parsed record's owner name, which is never null and is '.' at its shortest since ToPresentationName returns a dot for zero labels; and the response is non-null at each site by the condition that leads there. Both operands are already false wherever this runs, so || and && do the same nothing
 DNS/Client/Cache/DNSCache.cs	518	inequality-to-equality	killed	the-cache-read-by-itself	
 DNS/Client/DNSUDPClient.cs	386	logical-or-to-and	equivalent		received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the RFC 5452 section 4.2 pre-filter on an incoming datagram. Both of its mutants survive, and for one reason: the transaction id is checked twice and both checks react the same way. Whatever gets past this guard reaches DNSInfo.ReadResponse, which compares the id again and returns Invalid when it differs - and the caller answers `if (!response.IsValid) continue;`, which is the same `continue` this guard would have taken. Turning the || into && makes the pre-filter a no-op for any datagram of two octets or more, and moving the < to <= changes only where a two-octet datagram is dropped. Neither changes what the client does or how long it waits; the difference is one parse and one log line. Written as a property worth having rather than a redundancy: the file's own comment says the check and the reaction have to be decided together, and it decides them twice the same way. UdpDatagramAcceptanceTests asserts the behaviour both readings produce
 DNS/Client/Cache/DNSCache.cs	519	inequality-to-equality	killed	the-cache-read-by-itself	
 DNS/Client/DNSUDPClient.cs	386	less-to-less-or-equal	equivalent		received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the RFC 5452 section 4.2 pre-filter on an incoming datagram. Both of its mutants survive, and for one reason: the transaction id is checked twice and both checks react the same way. Whatever gets past this guard reaches DNSInfo.ReadResponse, which compares the id again and returns Invalid when it differs - and the caller answers `if (!response.IsValid) continue;`, which is the same `continue` this guard would have taken. Turning the || into && makes the pre-filter a no-op for any datagram of two octets or more, and moving the < to <= changes only where a two-octet datagram is dropped. Neither changes what the client does or how long it waits; the difference is one parse and one log line. Written as a property worth having rather than a redundancy: the file's own comment says the check and the reaction have to be decided together, and it decides them twice the same way. UdpDatagramAcceptanceTests asserts the behaviour both readings produce
 DNS/Client/Cache/DNSCache.cs	572	less-to-less-or-equal	equivalent		soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a minimum written as a conditional. RFC 2308 section 5 asks for exactly that: the negative TTL comes from 'the minimum of the MINIMUM field of the SOA record and the TTL of the SOA itself'. The mutant moves the comparison to <=, which changes only the case where the two fields are equal - and there both arms return the same value. Not a boundary that is hard to reach: a boundary on which the two programs compute the same number. The test for the rule is in CacheBoundaryTests and checks it from both sides, which is worth having and is not what closes this line
+DNS/Client/DNSClient.cs	466	true-to-false	equivalent		Boolean? RecursionDesired = true on Query(DomainName, ...) - finding 63. The value is forwarded to Query(DNSServiceName, ...), resolved into the outgoing query, handed to the transport client, and discarded there: the transport resolves RD again from its own field, which its own constructor defaulted to true, and a non-null field wins over the argument. Nothing downstream can tell the readings apart. Reachable again once finding 63 is fixed, and the red test for it is the one that will close this
 DNS/Client/DNSHTTPSClient.cs	834	logical-and-to-or	killed	what-a-doh-client-may-read	
 DNS/Client/DNSTCPClient.cs	473	less-to-less-or-equal	equivalent		responseLength < 12 on a framed response - see DNSTLSClient 709, the same line in the same shape
 DNS/Client/Cache/DNSCache.cs	619	greater-to-ge	equivalent		endOfLife > Timestamp.Now in IsNoData
+DNS/Client/DNSClient.cs	467	false-to-true	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSHTTPSClient.cs	834	equality-to-inequality	killed	what-a-doh-client-may-read	
 DNS/Client/Cache/DNSCache.cs	671	logical-or-to-and	killed	the-cache-read-by-itself	
 DNS/Client/DNSHTTPSClient.cs	834	greater-to-ge	killed	what-a-doh-client-may-read	
 DNS/Client/Cache/DNSCache.cs	671	le-to-less	killed	the-cache-read-by-itself	
 DNS/Client/Cache/DNSCache.cs	702	le-to-less	killed	the-cache-read-by-itself	
+DNS/Client/DNSClient.cs	495	true-to-false	equivalent		Boolean? RecursionDesired = true on Query(DNSServiceName, ...) - see 466
 DNS/Client/Cache/DNSCache.cs	729	le-to-less	equivalent		expiry <= now, skipping an NSEC range that has run out
+DNS/Client/DNSClient.cs	496	false-to-true	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/Cache/DNSCache.cs	745	le-to-less	killed	the-cache-read-by-itself	
+DNS/Client/DNSClient.cs	511	logical-or-to-and	killed	answers-nobody-sent-at-all	
 DNS/Client/Cache/DNSCache.cs	777	logical-and-to-or	killed	answers-the-cache-made-itself	
 DNS/Client/DNSClient.cs	519	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSTLSClient.cs	709	less-to-less-or-equal	equivalent		responseLength < 12 on a framed response. RFC 7766 section 8 puts a two-octet length in front, so a response can declare exactly twelve octets and be internally consistent - RFC 1035 section 4.1.1 makes the header that long. It is still not an answer to this query: QDCOUNT is zero, and RFC 5452 section 9.1 matches a response on 'Query ID, Query name, Query type, Query class', three of which are absent rather than wrong. Both readings refuse it, one at the length and one at the question, and the object that reaches the caller is the same either way. FramedTransportQueryTests asserts the outcome both produce. The same argument closes DNSHTTPSClient 1027
@@ -72,16 +91,42 @@ DNS/Client/Cache/DNSCache.cs	803	less-to-less-or-equal	equivalent		e.Expiry < no
 DNS/Client/DNSClient.cs	527	true-to-false	killed	answers-no-server-sent	
 DNS/Client/Cache/DNSCache.cs	804	equality-to-inequality	killed	answers-the-cache-made-itself	
 DNS/Client/DNSClient.cs	528	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	539	equality-to-inequality	killed	what-a-client-is-when-nothing-is-said	
 DNS/Client/DNSHTTPSClient.cs	958	ge-to-greater	killed	what-a-doh-client-may-read	
+DNS/Client/DNSClient.cs	586	false-to-true	killed	what-a-client-is-when-nothing-is-said	
+DNS/Client/DNSClient.cs	621	equality-to-inequality	equivalent		FirstOrDefault(rr => rr.Type == CNAME), the record that gates the rest of a cache hit. The mutant picks the first non-CNAME answer instead, and the gate then tests that record's TTL - but every record in hand is live already. DNSCache.TryGetDNSInfo calls FilterExpiredRecords first, which drops every answer whose EndOfLife has passed and returns null when none is left, so an expired CNAME is gone before DNSClient sees it. Negative entries skip the filter, and they return from this method twenty lines earlier. Whichever record is chosen, the gate passes
+DNS/Client/DNSClient.cs	625	greater-to-ge	equivalent		resourceRecord.EndOfLife > now, the per-record TTL check on a cache hit - see 621. The check is a second reading of one the cache has already made, and the boundary between them is a Timestamp.Now read microseconds after the one that did the filtering
 DNS/Client/DNSHTTPSClient.cs	1027	less-to-less-or-equal	equivalent		body.Length < 12, the minimum-length guard on a DoH response body. RFC 1035 section 4.1.1 makes the header exactly twelve octets, so twelve is the smallest whole message and the guard is written correctly - but its boundary cannot be reached from outside, because a stricter rule sits behind it. A twelve-octet body has QDCOUNT zero, and RFC 5452 section 9.1 has a resolver match a response to 'Query ID, Query name, Query type, Query class': with no question section there is nothing to match, so the response is refused either way. The two readings differ only in which branch refuses it - Invalid rather than Failed - and those two carry the same response code, the same IsValid, the same IsTimeout and the same empty sections. The test for the rule that makes it unreachable is in DohResponseAcceptanceTests; it was first written the other way round, asserting that twelve octets are read, and being well-formed turned out not to be the same as being an answer to this question
+DNS/Client/DNSClient.cs	626	greater-to-ge	equivalent		cnameRecord.EndOfLife > now, the gate's own TTL check - see 621 and 625
 DNS/Client/DNSClient.cs	671	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	672	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	674	false-to-true	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	679	true-to-false	killed	answers-no-server-sent	
 DNS/Client/DNSClient.cs	680	false-to-true	killed	answers-no-server-sent	
+DNS/Client/DNSClient.cs	695	true-to-false	equivalent		this.RecursionDesired ?? RecursionDesired ?? true, the RD the outgoing query is built with - finding 63, and the clearest statement of it: this expression is the one place DNSClient decides the bit, and the transport client overrules it. See 466
+DNS/Client/DNSClient.cs	696	greater-to-ge	equivalent		EDNSOptions.Count > 0 ? EDNSOptions : null. The same line in DNSTLSClient and DNSTCPClient is equivalent because [] and null serialise to the same octets. Here the reason is stronger and has nothing to do with serialisation: the query this builds never reaches the wire. QueryDNSServerAsync assigns `effectiveQuery = DNSQuery`, rebuilds it with the per-server cookie, and then never reads it - every use is of DNSQuery, and only of its Questions and its RecursionDesired. The options reach the wire by the other path, the transfer onto transportClient.EDNSOptions. Two mechanisms for one job, one of them inert
+DNS/Client/DNSClient.cs	765	greater-to-ge	equivalent		nsecRecords.Count > 0, feeding the RFC 8198 denial cache. The block is guarded by firstResponse?.DNSSECStatus == DNSSECValidationResult.Secure, and DNSSECStatus is assigned nowhere in Hermod/DNS - it is a settable property the caller fills in after the fact, and the object read here was created inside this call. The code above it says as much: 'DNSSECStatus is normally null here and this path stays dormant. It is meant to'. Dead by design, so the mutant cannot be reached
+DNS/Client/DNSClient.cs	870	greater-to-ge	killed	a-race-that-does-not-end	
 DNS/Client/DNSClient.cs	889	logical-and-to-or	killed	following-an-alias-and-asking-again	
 DNS/Client/DNSClient.cs	890	logical-and-to-or	killed	following-an-alias-and-asking-again	
 DNS/Client/DNSClient.cs	901	logical-and-to-or	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	917	less-to-less-or-equal	equivalent		hop < MaxCNAMEFollows, the alias-chain bound - finding 61. The counter never reaches eight, because the next hop is not taken by this loop but by calling Query again, and each call takes one or two hops before handing the rest to the next. Which is the defect: the bound RFC 1035 section 7.1 requires is written as a per-call counter over a recursive descent, and the visited set beside it is created afresh at every hop. Measured at fourteen questions for a two-name cycle. Reachable once finding 61 is fixed
 DNS/Client/DNSClient.cs	980	logical-or-to-and	killed	following-an-alias-and-asking-again	
 DNS/Client/DNSClient.cs	980	inequality-to-equality	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	1040	false-to-true	killed	answers-nobody-sent-at-all	
+DNS/Client/DNSClient.cs	1041	false-to-true	killed	answers-nobody-sent-at-all	
+DNS/Client/DNSClient.cs	1043	false-to-true	killed	answers-nobody-sent-at-all	
+DNS/Client/DNSClient.cs	1048	true-to-false	killed	answers-nobody-sent-at-all	
+DNS/Client/DNSClient.cs	1049	false-to-true	killed	answers-nobody-sent-at-all	
+DNS/Client/DNSClient.cs	1261	equality-to-inequality	killed	which-of-several-answers-speaks-for-the-whole	
+DNS/Client/DNSClient.cs	1391	inequality-to-equality	killed	the-options-a-query-leaves-with	
+DNS/Client/DNSClient.cs	1398	equality-to-inequality	killed	the-options-a-query-leaves-with	
+DNS/Client/DNSClient.cs	1412	equality-to-inequality	killed	the-options-a-query-leaves-with	
+DNS/Client/DNSClient.cs	1431	equality-to-inequality	killed	the-options-a-query-leaves-with	
+DNS/Client/DNSClient.cs	1432	ge-to-greater	killed	the-options-a-query-leaves-with	
+DNS/Client/DNSClient.cs	1467	false-to-true	equivalent		the `false` handed to transportClient.Query as its ForceUpdate. Grepped across the whole client folder: DNSClient.cs:586 is the only line in it that reads ForceUpdate. Every transport declares the parameter and forwards it onward - DNSHTTPSClient passes it from QueryHTTP to QueryHTTPMultiTypeJSONAsync and back to QueryHTTP - and none of them acts on it. No cache to bypass, so nothing to ask for
+DNS/Client/DNSClient.cs	1489	le-to-less	killed	how-often-and-how-soon-a-client-asks-again	
+DNS/Client/DNSClient.cs	1504	true-to-false	killed	how-often-and-how-soon-a-client-asks-again	
+DNS/Client/DNSClient.cs	1535	le-to-less	killed	how-often-and-how-soon-a-client-asks-again	
 DNS/Client/DNSClient.cs	1549	le-to-less	killed	following-an-alias-and-asking-again	
+DNS/Client/DNSClient.cs	1740	true-to-false	equivalent		disposedValue = true, the flag that makes Dispose idempotent. The body it guards already is: DNSCache.Dispose() is `cleanUpTimer.Dispose()` and Timer tolerates being disposed twice, transportClients is cleared on the first pass so the second finds nothing, and no exception is possible either way. A second Dispose with the flag never set does the same nothing the flag prevents

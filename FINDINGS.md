@@ -76,6 +76,9 @@ what is queued, what is out of scope — are not here at all; they live in
 | 58 | A BADTIME refusal carries neither a signature nor the time | **High** | 8945 §5.2.3, §5.3.2 | ⏳ **open** |
 | 59 | A name goes undefended for the one second after it is announced | Medium | 6762 §6, §8.1 | ⏳ **open** |
 | 60 | A synthesized answer reports recursion that was never asked for | Low | 1035 §4.1.1 | ⏳ **open** |
+| 61 | Two aliases pointing at each other are chased for as long as the peer answers | Medium | 1034 §5.2.2, 1035 §7.1 | ⏳ **open** |
+| 62 | A client that could not ask anybody answers as an authority that said no | Low | 1035 §4.1.1, 2308 §2.1 | ⏳ **open** |
+| 63 | A DNSClient cannot be told to stop asking for recursion | Medium | 1035 §4.1.1, 1034 §5.3.3 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3451,11 +3454,261 @@ precisely because asserting it would be asserting the defect.
 the two sites in `DNSClient` a black-box test can reach.
 
 **Suggested fix**: each of the five sites takes the value the method was called
-with, the same way the outgoing query does. Two of them cannot be reached from
-here at all — one needs every server query to throw rather than time out, the
-other needs the host to refuse the socket's address family — and they should
-change with the rest rather than be left as the only ones still holding a
-literal.
+with, the same way the outgoing query does.
+
+**Correction.** This entry said two of the five could not be reached from here at
+all — one needing every server query to throw rather than time out, the other the
+host to refuse the socket's address family. The first of those is reachable, and
+the way in was in `DNSServerConfig`'s own doc comment all along: a server may be
+named without an address, "what a DNS-over-HTTPS or DNS-over-TLS endpoint is before
+its socket connects", and `AddressOf` raises for one rather than returning null. A
+client configured with such a server reaches the site on its first query, which is
+how the five other fields there came to be asserted. What had been tried until then
+was a refused port and a silent one, and both of those return a `DNSInfo` instead of
+raising — so "cannot be reached" was a report on two attempts rather than on the
+code.
+
+---
+
+## 61 — Two aliases pointing at each other are chased for as long as the peer answers
+
+RFC 1034 §5.2.2 asks for the opposite in one sentence: "Alias loops and aliases
+which point to non-existent names should be caught and an error condition passed
+back to the client." RFC 1035 §7.1 says why it is not merely tidiness — "The
+amount of work which a resolver will do in response to a client request must be
+limited to guard against errors in the database, such as circular CNAME
+references, and operational problems" — and names this exact database error as
+the reason the limit has to exist.
+
+`DNSClient` has both of the mechanisms that would do it. A set of names already
+visited:
+
+```csharp
+var visited = new HashSet<String>(StringComparer.OrdinalIgnoreCase) {
+                  currentName
+              };
+…
+if (cnameTarget is null || !visited.Add(cnameTarget))
+    break;   // No CNAME/DNAME or loop detected
+```
+
+and a hop counter with a limit of eight:
+
+```csharp
+for (var hop = 0; hop < MaxCNAMEFollows; hop++)
+```
+
+Neither bounds the chase, for the same reason: the next hop is not taken by the
+loop, it is taken by calling `Query` again.
+
+```csharp
+var followUpResponse = await Query(
+                                 DNSServiceName.Parse(cnameTarget),
+                                 resourceRecordTypes,
+                                 …
+```
+
+That call is a whole query, cache lookup and server race included, and it does
+its own chasing. So `visited` is created afresh at every hop and never holds more
+than two names, and `hop` is the counter of one call's own loop rather than of the
+descent — each call takes one hop and hands the rest to the next. `a` aliased to
+itself is still caught, because that is the one loop a two-name memory can see.
+`a` to `b` to `a` is not.
+
+**What it costs.** Every hop is a datagram to the configured server, and the
+descent ends when the peer stops answering rather than when the resolver decides
+it has done enough. A zone with a cycle in it therefore turns one question into
+as many queries as the server is willing to answer, and the caller's `Query` does
+not return while that goes on. The cache does not help: the cycle's answers are
+cached under their own names, but a cached CNAME does not satisfy a query for A,
+so every hop goes to the network anyway. A misconfiguration reaches this state by
+accident; a hostile zone reaches it on purpose, and the client it is aimed at is
+the one that pays.
+
+**How it was found.** `MaxCNAMEFollows` came up as a mutation: `hop <
+MaxCNAMEFollows` against `hop <=`, surviving, and the question was which chain
+would make the eighth hop differ from the ninth. The answer is that no chain
+does, because the loop never gets that far — and the reason it never gets that
+far is this. The mutant is unreachable and the line it is on is the evidence for
+the defect.
+
+**Repro**: `CnameChaseAndRetryTests.An_Alias_Loop_Is_Caught_Rather_Than_Chased`,
+red on purpose. Two names alias each other; the scripted peer answers twelve
+questions and then falls silent so that a client which keeps chasing ends the
+test rather than hanging it. The count of questions asked is the measurement, and
+it is **fourteen** — the twelve the peer was willing to answer, plus the two that
+met silence. The descent ended because the peer stopped, which is the finding
+stated as a number: nothing in the resolver decided it had done enough.
+
+**Suggested fix**: carry the visited set and the hop counter into the recursion,
+or flatten the chase into the loop it already has. Either one makes
+`MaxCNAMEFollows` mean the thing its name says, and makes the mutant on it
+reachable — which is the test this finding is waiting for.
+
+---
+
+## 62 — A client that could not ask anybody answers as an authority that said no
+
+Three places in `DNSClient` return a `DNSInfo` nobody sent, and all three write
+the same response code:
+
+```csharp
+ResponseCode:           DNSResponseCodes.NameError,
+…
+IsValid:                true,
+```
+
+For one of the three that is correct: a cached NSEC, validated, proves the name
+absent, and RFC 8198 exists so that the proof may be used instead of a question.
+The other two are a client saying it could not ask.
+
+RFC 1035 §4.1.1 defines the code it uses for that:
+
+> Name Error - Meaningful only for responses from an authoritative name server,
+> this code signifies that the domain name referenced in the query does not exist.
+
+Both halves fail here. No name server responded at all — the same object says so,
+with AA clear — and the domain name's existence was never established either way.
+The code next door is the one for exactly this situation: "Server failure - The
+name server was unable to process this query due to a problem with the name
+server."
+
+Hermod agrees with itself about this everywhere else. `DNSInfo.Invalid`, which the
+same file reaches for when a response may not be used, is built as
+`DNSResponseCodes.ServerFailure` with `IsValid` false; `DNSInfo.Failed` and
+`DNSInfo.TimedOut` exist beside it. A transport that cannot connect, or that runs
+out of time, returns one of those. Only the two synthesis sites in `DNSClient`
+answer a failure with a denial.
+
+**What it costs.** `IsValid: true` is the field the transports test to decide
+whether to keep waiting — `if (!response.IsValid)` appears in the UDP, TCP and
+TLS clients and four times in `DNSSECValidator` — so an answer marked valid is an
+answer the rest of the library stops questioning. Together with `NameError` it
+tells a caller two things that are both wrong in the same direction: the name does
+not exist, and you may rely on that. A caller doing negative caching of its own
+caches the nonexistence of a name it was never able to look up. Hermod's own
+cache would: `DNSCache` keeps `NameError` entries as negative entries, and only
+the fact that these two sites never reach `AddToCache` keeps it out of the cache
+today.
+
+**Reached how.** The site behind "every server query threw" was described in
+finding 60 as unreachable from a black-box test, because a transport that refuses
+or times out returns a `DNSInfo` rather than raising. There is a way in:
+`DNSServerConfig` may name a server without an address —
+
+> This is what a DNS-over-HTTPS or DNS-over-TLS endpoint is before its socket
+> connects, and what it stays if the connection never succeeds.
+
+— and `AddressOf` raises for one of those rather than returning null. A client
+configured with such a server reaches the third synthesis site on the first
+query, which is how the five other fields at that site came to be asserted.
+
+**Recorded without a red test, on purpose.** Three assertions in
+`SynthesizedAnswerTests` currently pin the present behaviour, deliberately and
+with their reasons written down: the name error at the server-less site, and
+`IsValid: true` in the shape shared by all three. Whether a resolver API's result
+type should carry SERVFAIL for "I could not ask" or a denial with a flag beside it
+is a decision about Hermod's vocabulary rather than about the wire, and flipping
+those three assertions is part of making that decision rather than part of
+reporting it. Low, for the same reason finding 60 is low: no packet changes, and
+what changes is what a caller is told about an exchange that did not happen.
+
+**Suggested fix**: `ServerFailure` and `IsValid: false` at the two sites that
+could not ask, leaving the NSEC site as the one denial of the three that is
+entitled to be one. The three assertions above change with it.
+
+---
+
+## 63 — A `DNSClient` cannot be told to stop asking for recursion
+
+RFC 1035 §4.1.1 on RD: "this bit may be set in a query and is copied into the
+response." Which of two kinds of resolver is asking is the whole content of the
+bit. A stub sets it, because it has no delegation chain to walk and needs the
+server to walk it. Something walking the chain itself — the algorithm of RFC 1034
+§5.3.3, a resolver following referrals from the root downwards — must leave it
+clear, or a recursive server will answer out of its own cache instead of
+referring it to the next zone.
+
+`DNSClient` offers three ways to say so, and none of them reaches the wire.
+
+```csharp
+public Boolean?  RecursionDesired  { get; set; }          // client-wide
+…
+public async Task<DNSInfo> Query(…,
+                                 Boolean?  RecursionDesired = true,   // per query
+                                 …)
+…
+var dnsQuery = DNSPacket.Query(
+                   DNSServiceName,
+                   UDPPayloadSize,
+                   this.RecursionDesired ?? RecursionDesired ?? true,  // resolved here
+```
+
+That value is carried to `QueryDNSServerAsync` and handed on:
+
+```csharp
+response = await transportClient.Query(
+                     DNSQuery.Questions.First().DomainName,
+                     DNSQuery.Questions.Select(q => q.QueryType),
+                     Timeout,
+                     DNSQuery.RecursionDesired,
+```
+
+and the transport client resolves the same question a second time, from its own
+field:
+
+```csharp
+// DNSUDPClient, and the same three lines in DNSTCPClient, DNSTLSClient, DNSHTTPSClient
+this.RecursionDesired  = RecursionDesired ?? true;      // in the constructor
+…
+this.RecursionDesired ?? RecursionDesired ?? true,      // when the query is built
+```
+
+`GetOrCreateTransportClient` builds those clients without a `RecursionDesired`
+argument, so the constructor's `?? true` makes the field non-null on every one of
+them, and a non-null field takes precedence over the value that was passed. The
+argument is therefore dead on arrival, on every transport. RD is 1 on every query
+a `DNSClient` sends, whatever the caller asked for.
+
+**Measured, in both directions.** A default client asks for recursion, which is
+right. A client whose `RecursionDesired` is set to `false` asks for it anyway, and
+so does one told `RecursionDesired: false` on the call itself.
+
+**How it was found.** Not by a failing test — by a test that passed and should not
+have. `Recursion_Unmentioned_Everywhere_Is_Still_Asked_For` asserted that RD
+reaches the wire when all three defaults are left to speak, and it was green. The
+three mutants underneath it — the two parameter defaults and the `?? true` behind
+them — were then re-measured against it and all three survived. A test that cannot
+be killed is not evidence, and the only reading that fits a green test with three
+live mutants under it is that the value it was watching never arrives anywhere. So
+the test has been withdrawn rather than kept: it asserted a true fact for a reason
+that had nothing to do with the code it appeared to be about.
+
+**What it costs.** Nothing for a stub, which is what `DNSClient` is used as
+everywhere in this repository, and that is why it has gone unnoticed. It costs
+everything for the one use the setting exists for: an iterative resolver built on
+this class silently becomes a recursive one, asking a caching server to do the walk
+it meant to do itself, and getting that server's cached view instead of the
+authoritative chain. The setting is public, documented — "Whether to set the
+Recursion Desired flag in the DNS query" — and inert.
+
+**Repro**:
+`ClientDefaultsTests.A_Client_Told_Not_To_Ask_For_Recursion_Does_Not_Ask`, red on
+purpose. Three queries: one default and two told not to. The first assertion is the
+control and passes.
+
+**Suggested fix**: the transport clients need a way to be handed a value that wins
+over their own default — the cleanest being for `Query` to prefer its argument over
+the field when the argument is not null, which is the opposite precedence to the one
+they have now. Changing `GetOrCreateTransportClient` to pass the client's setting
+into the constructor would fix the property and leave the per-query parameter still
+dead, so it is half a fix.
+
+**It is the same shape as the equivalences it explains.** Three of
+`DNSClient.cs`'s rows — 466, 495 and 695 — are recorded as equivalent, and this is
+the reason: the value they decide is discarded downstream, so no test can tell the
+readings apart. When this is fixed those three become reachable, and the test above
+turns green and starts closing them.
 
 ---
 

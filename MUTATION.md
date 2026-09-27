@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **164 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **119 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
@@ -98,7 +98,7 @@ neither.
 | `dnssec` | 75 | **1** | 9 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
-| `client` | 245 | **164** | 68 |
+| `client` | 245 | **119** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What is actually left there is one: the depth limit of the chain walk,
@@ -241,6 +241,187 @@ Six lines got no verdict: five timed out and one produced no summary line. All
 six sit in waiting paths — `DNSClient.cs` 539/558/870, `DNSUDPClient.cs`
 282/387/587 — which is where a mutant that moves a deadline or a retry bound
 would be expected to hang rather than answer.
+
+### Fifty-one rows, three findings, and a harness I wrote twice
+
+`DNSClient.cs` had 51 of the block's 164 open rows — the largest single file left
+that no scope question was blocking. All 51 planted before a line of test was
+written, then every one of them re-measured afterwards. **33 killed, 12
+equivalent, 6 open**, and the file goes from 51 to 6.
+
+The two halves are not symmetric and that is the point of doing both. Planting
+first found **two rows that were already dead**: 290, and 539 by seventeen tests
+at once. Re-measuring afterwards found **three rows I had claimed wrongly** — and
+those three turned into a finding.
+
+#### The pattern, for the fifth time
+
+Eight of the twelve equivalences are one shape: a condition this file decides
+twice, where the second decision cannot disagree with the first.
+
+- **621, 625, 626** — the per-record TTL check on a cache hit. `TryGetDNSInfo`
+  calls `FilterExpiredRecords` before it returns, which drops every answer whose
+  `EndOfLife` has passed and returns null when none is left. So every record
+  DNSClient then tests is live already, and neither which record it picks as the
+  gate nor which side of the boundary it compares can change the outcome.
+- **1535** — `if (attempts <= MaxRetries)` fourteen lines above
+  `while (attempts <= MaxRetries)`. Not equivalent, as it turned out: the inner
+  one guards only a log line and a 200 ms pause, so it is a *different rule* on
+  the same condition. See below.
+- **405** — the guard on `AddToCache`, whose two operands are already false at all
+  four of its call sites.
+- **1740** — a flag that makes an idempotent body idempotent.
+
+The other four are values the code computes and discards, which is the same
+observation from the other side. **696** is the clearest: `QueryDNSServerAsync`
+assigns `effectiveQuery = DNSQuery`, rebuilds it with the per-server cookie and
+the client subnet — and then never reads it. Every use downstream is of
+`DNSQuery`, and only of its `Questions` and its `RecursionDesired`. The options
+reach the wire by the *other* path, the transfer onto
+`transportClient.EDNSOptions`. Two mechanisms for one job, one of them inert; and
+whoever removes the working one will not notice, because the dead one still looks
+like it does the job.
+
+#### Two mutants that could not be reached, and were findings instead
+
+**917** (`hop < MaxCNAMEFollows`) survives, and the question was which chain makes
+the eighth hop differ from the ninth. None does: the next hop is not taken by the
+loop but by calling `Query` again, so `visited` is created afresh at every hop and
+never holds more than two names, and `hop` counts one call rather than the
+descent. `a` aliased to itself is still caught. `a → b → a` is not — measured at
+**fourteen questions** for a two-name cycle, where twelve is all the scripted peer
+was willing to answer. The descent ended at the peer's silence, not at a decision
+of the resolver's. RFC 1034 §5.2.2 asks for the opposite in one sentence and
+RFC 1035 §7.1 names "circular CNAME references" as the reason a bound must exist.
+**Finding 61**, and 917 becomes reachable when it is fixed.
+
+**765** is dead code by design: the RFC 8198 denial cache is guarded by
+`firstResponse?.DNSSECStatus == Secure`, and `DNSSECStatus` is assigned nowhere in
+`Hermod/DNS`. It is a settable property a caller fills in afterwards, and the
+object read here was made inside the call. The comment above it already said so.
+
+#### The third place the client answers without asking anyone
+
+Eighteen mutants sit across three hand-built `DNSInfo` objects in this file, and
+`SynthesizedAnswerTests` reached two of them. Its own entry recorded the third as
+out of reach: it needs every server query to *raise* rather than time out, and a
+refused port and a silent one both return a `DNSInfo` instead.
+
+The way in was in `DNSServerConfig`'s doc comment the whole time. A server may be
+named without an address — "what a DNS-over-HTTPS or DNS-over-TLS endpoint is
+before its socket connects" — and `AddressOf` raises for one rather than returning
+null. So "cannot be reached" was a report on two attempts, not on the code, and
+finding 60 carries the correction.
+
+What is there is **finding 62**. The site answers `NameError` with `IsValid: true`,
+and RFC 1035 §4.1.1 makes that code "Meaningful only for responses from an
+authoritative name server" — while the same object clears AA, because no name
+server responded. Hermod already has the right vocabulary and uses it three lines
+away: `DNSInfo.Invalid` is `ServerFailure` with `IsValid` false. Recorded without a
+red test on purpose, because three assertions in the suite deliberately pin the
+present behaviour and flipping them is part of deciding the question rather than of
+reporting it.
+
+#### A test that passed and should not have
+
+`Recursion_Unmentioned_Everywhere_Is_Still_Asked_For` asserted that RD reaches the
+wire when all three of `DNSClient`'s defaults are left to speak. Green. Then 466,
+495 and 695 were re-measured against it and **all three survived**.
+
+A green test with three live mutants under it has one reading: the value it was
+watching never arrives anywhere. `DNSClient` resolves
+`this.RecursionDesired ?? RecursionDesired ?? true`, hands it to the transport
+client — and the transport resolves RD again from its own field, which its own
+constructor defaulted to `true`, and a non-null field wins over the argument.
+`GetOrCreateTransportClient` passes no `RecursionDesired`, so this is true on every
+transport. RD is 1 on every query a `DNSClient` sends, whatever the caller said.
+
+Both ways of saying otherwise were then measured and both fail: the property, and
+the per-call parameter. **Finding 63**, and the withdrawn test is replaced by a red
+one that asserts the control alongside the two failures. 466, 495 and 695 are
+equivalent until it is fixed — which is the honest entry, since nothing downstream
+can tell their readings apart.
+
+#### 1535 is a pause, not a retry
+
+I had predicted the existing count test would kill it. It did not, and the reason
+is the fifth instance of the decided-twice pattern:
+
+```csharp
+attempts++;
+
+if (attempts <= MaxRetries)          // 1535
+{ log; await Task.Delay(200ms); }
+}
+while (attempts <= MaxRetries);      // 1549
+```
+
+1549 decides the retry; 1535 decides only whether to pause first. Remove its
+condition and the same two datagrams go out, back to back — which no count can
+see. So it is a rule of its own, and it was worth having: SERVFAIL is what a name
+server answers when it is in trouble, and the answer to trouble is not the same
+question arriving in the same millisecond. Timed rather than counted, as a **lower
+bound**, which is the direction that survives load — a scheduled delay can be late
+but never early.
+
+#### Six that stay, and why each one does
+
+- **521, 673, 1042** — finding 60. A KnownIssue test closes nothing.
+- **322** — `OperationalStatus == Up` for IPv6 discovery. Its sibling 311 dies, and
+  the difference is this machine rather than the code: IPv4 DNS is configured on
+  exactly one interface and that one is up, so "up" and "not up" disagree. The
+  IPv6 addresses `fec0:0:0:ffff::1` through `::3` are the legacy site-local
+  defaults and sit on nearly every adapter, three disconnected VPN tunnels
+  included, so both readings find something. The test says which of the two
+  questions it could answer, per address family, and writes that line into the run
+  rather than passing silently.
+- **1746, 1752** — `Dispose(Disposing: true)`. The consequence *is* visible from
+  outside: the cache's sweep timer stops when it is disposed, and `DNSCache`
+  reports its entry count through `ToString()`. Reaching it costs an eleven-second
+  wait per site, because `DNSClient` builds its cache with the default ten-second
+  interval and takes no argument for it. A test that waits eleven seconds to assert
+  a negative, twice, is worse than a recorded reason. It becomes a millisecond
+  affair the day `DNSClient` accepts a clean-up interval.
+
+#### The harness I wrote twice, and twenty-one hours of a spinning core
+
+Line **870** is killed by not terminating: `while (count > 0)` against `>= 0`
+leaves the loop calling `Task.WhenAny` on an empty list, which throws into the
+generic catch above it and goes round again. Every test that queries through
+`DNSClient` hangs, so the suite does not fail — it does not finish. That is a
+verdict, and the original sweep had already recorded it among the six lines that
+got none.
+
+What is worth writing down is the second measurement. The verify script for this
+round wedged on that mutant for **twenty-one hours**. `subprocess.run(timeout=600)`
+killed `dotnet test`, the testhost that had inherited the pipe kept running inside
+the infinite loop, and the wait afterwards blocked on a pipe nobody would close.
+One process burned **74 715 seconds of CPU**. The `finally` that restores the
+source never ran, so the mutant sat in the working tree the whole time.
+
+`sweep_folder.py` has solved this, with a comment on it:
+
+> Windows does not take a process's children down with it, and `dotnet test`
+> leaves a testhost behind that inherited the pipe. Killing only the child
+> therefore leaves the wait afterwards blocked on a pipe nobody will close —
+> which is how a thirty-minute timeout became five and a half hours.
+
+I wrote a second runner rather than importing the first. It is the same lesson the
+previous round paid for with a hand-rolled `>` replacement that struck a lambda
+arrow: **a hand-rolled copy of the harness is not the harness**, and the copy is
+always the suspect when the two disagree. The verify script now imports `run`,
+`build`, `read`, `write` and `run_tests` from `sweep_folder`, and the scratch runner
+is gone.
+
+#### One gap found in a test before it was written down
+
+The pooled-transport test asserts one COOKIE option per query. With one configured
+option beside the cookie it would have passed under the mutant that replaces the
+*wrong* option: with two codes in the list, a search for the wrong one finds the
+only other entry, each assignment writes over the other's slot, and the list ends
+up holding one of each in the opposite order — which RFC 6891 §6.1.2 makes
+indistinguishable, since it defines no order. Three codes and the same mutation
+loses one option and duplicates another. The test configures two.
 
 ### The first file in this block to close, and nine rows that are one argument
 

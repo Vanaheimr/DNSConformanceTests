@@ -1,8 +1,11 @@
+using System.Diagnostics;
+
 using NUnit.Framework;
 
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -54,10 +57,20 @@ public class CnameChaseAndRetryTests
     #endregion
 
 
-    #region How often a SERVFAIL is asked again (RFC 1035 §7.2)
+    #region How often, and how soon, a SERVFAIL is asked again (RFC 1035 §7.1)
+
+    // Cited on §7.1 rather than §7.2, which is where this used to point. §7.1 is
+    // the section that says a bound has to exist — "The amount of work which a
+    // resolver will do in response to a client request must be limited" — and
+    // describes it as a counter decremented on every action, "retransmission
+    // timeout, retransmission, etc.". That is what both tests below are about. The
+    // text of §7.2 could not be read from any source available here: two fetches of
+    // it truncate at the section's first sentence and a third returned text the
+    // other two contradict, so the citation moved to the section that can be
+    // checked rather than staying on one that cannot.
 
     [Test]
-    [Property("RFC", "1035 §7.2")]
+    [Property("RFC", "1035 §7.1")]
     public async Task A_Servfail_Is_Asked_Again_Exactly_Max_Retries_Times()
     {
 
@@ -94,6 +107,49 @@ public class CnameChaseAndRetryTests
                         "and with three retries allowed, four times in all");
 
         });
+
+    }
+
+
+    [Test]
+    [Property("RFC", "1035 §7.1")]
+    public async Task A_Retried_Servfail_Is_Not_Asked_Again_Immediately()
+    {
+
+        // The test above counts the questions; this one times them. They are two
+        // rules and they live on two different lines, which is how this one came to
+        // be missing: `while (attempts <= MaxRetries)` is what decides whether to
+        // ask again, and a second `if (attempts <= MaxRetries)` just above it
+        // decides only whether to pause first. The count test cannot see the second
+        // one at all — remove its condition entirely and the same two datagrams go
+        // out, back to back.
+        //
+        // Which is the whole point of the pause. RFC 1035 §7.1 counts a
+        // "retransmission timeout" among the actions a resolver spends its budget
+        // on, and a retry sent the instant the failure arrives spends no budget and
+        // gives the server nothing: SERVFAIL is what a name server answers when it
+        // is having trouble, and the reply to trouble is not the same question
+        // arriving again in the same millisecond.
+        //
+        // Asserted as a lower bound, which is the direction that holds under load:
+        // a scheduled delay can be late but never early, so a loaded machine makes
+        // this gap longer and never shorter.
+        var arrivals = new List<TimeSpan>();
+        var clock    = Stopwatch.StartNew();
+
+        await using var server = new ScriptedUdpServer(request => {
+            arrivals.Add(clock.Elapsed);
+            return RawDnsResponder.Rcode(request, 2);   // SERVFAIL
+        });
+
+        using var client = ClientFor(server.Port);
+
+        await client.Query<A>(DomainName.Parse("slowdown.example."), ShortTimeout);
+
+        Assert.That(arrivals, Has.Count.EqualTo(2), "one question and one retry, as the test above establishes");
+
+        Assert.That(arrivals[1] - arrivals[0], Is.GreaterThan(TimeSpan.FromMilliseconds(150)),
+                    "the retry waits before it is sent, rather than following the failure straight back out");
 
     }
 
@@ -303,6 +359,69 @@ public class CnameChaseAndRetryTests
                         "and no address appears that the server was never asked for");
 
         });
+
+    }
+
+    #endregion
+
+    #region An alias loop (RFC 1034 §5.2.2, RFC 1035 §7.1)
+
+    /// <summary>
+    /// Red: two aliases pointing at each other are chased rather than caught.
+    /// </summary>
+    /// <remarks>
+    /// Left failing on purpose. The chase keeps a set of names it has visited, which
+    /// catches a name aliased to itself, but the set is created inside the call and
+    /// the next hop is taken by calling <c>Query</c> again — so every hop starts
+    /// with an empty memory and a two-name cycle is followed for as long as the peer
+    /// keeps answering. <c>MaxCNAMEFollows</c> does not bound it either: it counts
+    /// iterations of one call's own loop, and the recursion means each call takes
+    /// one or two hops before handing the rest to the next.
+    /// </remarks>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1034 §5.2.2, 1035 §7.1")]
+    public async Task An_Alias_Loop_Is_Caught_Rather_Than_Chased()
+    {
+
+        // RFC 1034 §5.2.2: "Alias loops and aliases which point to non-existent
+        // names should be caught and an error condition passed back to the client."
+        // RFC 1035 §7.1 says why it is a MUST in practice — "The amount of work
+        // which a resolver will do in response to a client request must be limited
+        // to guard against errors in the database, such as circular CNAME
+        // references" — and names this exact database error as the reason.
+        //
+        // The cost is borne by the server, not the client: one question produces as
+        // many queries as the peer is willing to answer, so a single zone with a
+        // cycle in it turns every resolver that meets it into a small flood. A
+        // misconfiguration does it by accident; a hostile zone does it on purpose.
+        //
+        // The peer stops answering after a while so that a client which keeps
+        // chasing ends this test by timing out instead of hanging it. That patience
+        // is the measurement: what is asserted is how many questions were asked
+        // before it ran out.
+        const Int32 Patience = 12;
+
+        await using var server = new ScriptedUdpServer((request, index) => {
+
+            if (index >= Patience)
+                return [];
+
+            var asked  = RawDnsReader.Parse(request).Questions[0].Name.Canonical;
+            var target = asked.StartsWith("ping", StringComparison.Ordinal)
+                             ? "pong.example."
+                             : "ping.example.";
+
+            return [ RawDnsResponder.Answer(request, ($"{asked}.", RawDnsType.CNAME, 60, CnameRdata(target))) ];
+
+        });
+
+        using var client = ClientFor(server.Port);
+
+        await client.Query(DNSServiceName.Parse("ping.example."), [ DNSResourceRecordTypes.A ], ShortTimeout);
+
+        Assert.That(QuestionsAsked(server), Has.Length.LessThanOrEqualTo(3),
+                    "the cycle is provable after the second question, so a third is generous and a fourth is chasing");
 
     }
 

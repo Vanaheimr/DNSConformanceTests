@@ -12,6 +12,12 @@ public sealed record DoHExchange(
     String?  RawDnsParameter,   // the ?dns= value EXACTLY as sent (base64url padding checks!)
     String?  ContentType,
     String?  Accept,
+
+    // Empty on the JSON path, which carries no DNS message at all — the question
+    // is in the query string and the answer is a document. Empty rather than null
+    // so that every reader here stays non-nullable: the twelve places that parse
+    // this are all wire-mode exchanges, and a nullable field would cost each of
+    // them a suppression to say something none of them has to worry about.
     Byte[]   DnsMessage
 );
 
@@ -151,7 +157,7 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
                     request.Url?.Query,
                     request.ContentType,
                     request.Headers["Accept"],
-                    null
+                    []
                 ));
 
                 var json = System.Text.Encoding.UTF8.GetBytes(JSONResponse);
