@@ -17,20 +17,21 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-09-27): 1554 ✅ · 0 ❌ · 37 skips** — four
-platform-specific, and thirty-three that need container images which are not
-pulled. The Docker daemon itself is up, inside the Debian WSL instance, which is
-where the tests look for it: they run `docker` through `wsl -u root` rather than
-through a Windows client, and a `docker info` typed into a Windows shell answers
-"command not found" whatever the daemon is doing. What the thirty-three need is
-`cznic/knot`, `coredns/coredns`, `mvance/unbound` and `zonemaster/cli` — 185 MiB
-compressed, pulled deliberately and never by a test run. The last measurement that
-had them was 1455 ✅ · 0 ❌ · 4 skips on 2026-09-18, ninety-nine tests ago.
+**Current verified status on Windows (2026-10-01): 1587 ✅ · 0 ❌ · 4 skips** — the
+four are platform-specific: Windows CNG refuses RSA public exponents of 255
+octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
+The thirty-three tests that need container images ran this time. `cznic/knot`,
+`coredns/coredns`, `mvance/unbound` and `zonemaster/cli` are pulled — 185 MiB
+compressed, deliberately and never by a test run — into the Docker daemon inside
+the Debian WSL instance, which is where the tests look for it: they run `docker`
+through `wsl -u root` rather than through a Windows client, and a `docker info`
+typed into a Windows shell answers "command not found" whatever the daemon is
+doing. That daemon does not start by itself (see
+[Preparing WSL](#preparing-wsl-for-the-interop-lane)); without it the
+thirty-three skip and say so.
 
-Nothing is excluded from that figure. For the first time in a while there are no
-red tracker tests, because there is no open finding for one to track — the five
-that were red are green, and the sixth question, which was pinned deliberately
-rather than tracked, has been decided.
+Nothing is excluded from that figure, and there are no red tracker tests, because
+there is no open finding for one to track.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

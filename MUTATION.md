@@ -116,29 +116,37 @@ name.
 
 The property is real and the instrument for it is a static one, not a test:
 **CA2007** flags every `await` in library code that does not say which context it
-wants. It is not enabled here — no `.editorconfig`, no analyzer configuration,
-no mention of the rule anywhere in the tree.
+wants. Until 2026-10-01 it was not enabled — no `.editorconfig`, no analyzer
+configuration, no mention of the rule anywhere in the tree.
 
-Which matters, because the convention is not actually held. Counting textually
-across `Hermod/DNS`, of roughly **258 awaits about 70 carry no `ConfigureAwait`
-at all**:
+Which mattered, because the convention was not actually held. Counted textually
+across `Hermod/DNS`, of roughly 258 awaits about 70 carried no `ConfigureAwait`
+at all. The compiler, once asked, said **68** — 44 of them in `DNSServer.cs`,
+where the listener loops logged and read and wrote on whatever context their
+caller happened to have.
 
-```
-DNSClient.cs:873        await raceCTS.CancelAsync();
-DNSHTTPSClient.cs:649   var response = await client.ConnectAsync();
-DNSHTTPSClient.cs:1708  await base.DisposeAsync();
-DNSTCPClient.cs:345     await Log(…);
-```
+So the lines the sweep kept pointing at were pointing at something — just not at
+anything a test could reach. The question they raise is not *does a test notice
+`false` versus `true`* but *is the library consistent about it*, and the answer
+was no, in about a quarter of its awaits.
 
-So the thirty-nine lines the sweep kept pointing at were pointing at something —
-just not at anything a test could reach. The question they raise is not *does a
-test notice `false` versus `true`* but *is the library consistent about it*, and
-the answer today is no, in about a quarter of its awaits.
+**It is on now**, in Hermod's own `.editorconfig`, scoped to `Hermod/DNS`, and
+all 68 say `ConfigureAwait(false)`. Sixty-seven of them took the call on the line
+that already ended the expression, so no line moved and no ledger row went
+stale. The sixty-eighth was an `await using`, which cannot take the call: lines
+984 to 988 of `DNSServer.cs` now declare the stream plainly, and line 989, which
+had been blank, configures its disposal. The one open row inside that edit,
+`leaveInnerStreamOpen: false` at line 986, is still on line 986 — indented less,
+which is all that changed about it. The rest of the library would raise the rule
+about fifteen hundred times and is left as it was: DNS is what this suite
+measures, and the rest is Hermod's own decision.
 
-Turning CA2007 on is a change to Hermod and would produce a warning at each of
-those places, so it is not made here. It is written down because the alternative
-is thirty-nine lines that look like unfinished work for ever, and a real question
-that nothing in this repository was ever going to ask.
+**What it does not do is close a single host-only row.** CA2007 accepts
+`ConfigureAwait(true)` as readily as `false` — it asks that the choice be made,
+not which one — so the mutation each of those rows records still compiles clean
+and still passes. The class keeps its argument unchanged, and the next sweep will
+find it up to sixty-eight larger: every place that now says what it means is one
+more place a mutant can say the opposite.
 
 
 ## The five that had fallen out
