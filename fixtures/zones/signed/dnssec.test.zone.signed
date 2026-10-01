@@ -1,5 +1,5 @@
-; File written on Mon Sep 14 11:33:25 2026
-; dnssec-signzone version 9.20.26-1~deb13u1-Debian
+; File written on Thu Oct  1 18:56:26 2026
+; dnssec-signzone version 9.20.29-1~deb13u1-Debian
 dnssec.test.		3600	IN SOA	ns1.dnssec.test. hostmaster.dnssec.test. (
 					2026072502 ; serial
 					7200       ; refresh (2 hours)
@@ -8,168 +8,168 @@ dnssec.test.		3600	IN SOA	ns1.dnssec.test. hostmaster.dnssec.test. (
 					3600       ; minimum (1 hour)
 					)
 			3600	RRSIG	SOA 8 2 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					Enbvwdh0e/5oqOzi7atxybbIBhEDQfxCSD84
-					NW/ng31lhJ/gC2X7rC1+Ns+fAnVv1EFGGO/S
-					WSpez6DpK1Mv6tmIifLigqChdN+hadB1CLTR
-					YAbQPQoKLKYyZbMyPavJm2QurhAMz0TvRKZ+
-					E2MR8LVWjjl3gMWYAiUyFj0eDPQ= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					eoffqXrKGnNF+8DnQV3Ew97QXgqBNGKf2jor
+					w0h4B1FMH8qOffg2LzuZ4q7BdaaQxXylrp1t
+					AzG86Sp7mPF4/sOmK9O4vAX0OglFLWKykFSb
+					o9ISjZ6DS7MqSUYPZ9gwSxSF2FKgpoQ3meVi
+					2pksNNxlw37cNHm2HAhcZG00TOw= )
 			3600	NS	ns1.dnssec.test.
 			3600	RRSIG	NS 8 2 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					jLxrC+SVij9Q/8E84Wq5SCsbuiyomiVJezCc
-					gGokwMdKn2L3F0WoejsL0z+Nvp0X6sYkKxji
-					ZWOBk/DBY6mY57ZKQjzXDM4wBK7iB5XgS+tO
-					vSqUE011Ha76/uL+lalReL8sM6ilqEwjaEim
-					bAn/IOTyE8xO/57F1keKwNXGI7o= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					DZHE0g1bVo3GdzaNPgcekqSu+2iJUlazEkoE
+					K/3T/If8OVT0KSOEfzjnYK6vbe5as1VjpeHw
+					Rxd0n+4pkBM1QOgyixWAZMtH5USg7ZWICdFe
+					79ROBJdE6pP/ZqirNn40horsxVjVaxY5tdYh
+					ZNT9lj75gEMNp0w8BpnrnTWXdOo= )
 			3600	NSEC	a.dnssec.test. NS SOA RRSIG NSEC DNSKEY
 			3600	RRSIG	NSEC 8 2 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					RDuFdU/7MLUctPSz1AtvhdyY4TzR20pR/ue5
-					LEkmJjnnK6Bt3fRjbkvbFJphvKVc6JA8nMT4
-					XMw2YRoYSB8Ed+sRovqGaBlzOQ1v7NgwXgaI
-					c1EyGdPz2oXsAYkX8LE5J0028j2UablUqxDB
-					jRY9stDGg/Dtfwajf1oghkfmDNU= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					MtdCE1VqvRGSWiCskdmBxqJ87fi8nJ455WH8
+					FRr8Bhtoqj5yn/wujOeErQfVfX5JYEOddET9
+					MUlCY7KGmH37WBArchBWUBb2j+/O9LiujFKj
+					JmAysxlT5iVfWYlJwnHQkw8drZqA7mFP1TZc
+					COootWHzc61aNGxiWII/zeY0oso= )
 			3600	DNSKEY	256 3 8 (
-					AwEAAbDtTeoGyLFC05TuMEgmbP2kbWiMS3ht
-					UaDDaEGT2/KedHC0GOkWEO3lJkUEFdLmwBVa
-					cinFhpm/VwOdw2M9fLLoPDlEbj/RkhilI3v6
-					+Hfia5YZatxZvINGIMRmBhGVagr/X+JjlqO2
-					S9+ZLcDlDWzUYTEFOIYgwZanRTpAIHYn
-					) ; ZSK; alg = RSASHA256 ; key id = 31098
+					AwEAAZihztU+qTuRKkxcrUa79uRIQuhxqvJi
+					ekxbcWMOEEYVycqKCLg6GcJCdhwT7LFUMDpK
+					aBeWZt5qxAVLF3fPsACpnyF5d8I/29gx3VTC
+					qXPBlFr+JgkYqAy0z7Ik8B7M39P9bHanIOOo
+					gaHxR/xaxqYDkah7NHI62n5thGeTuFdR
+					) ; ZSK; alg = RSASHA256 ; key id = 61785
 			3600	DNSKEY	257 3 8 (
-					AwEAAe4USgrNZyiYWbtA8f8UCf+b1M0iVUxZ
-					ZcZUDZhhRmMK5XBD+cAYJthPwWK5quMGXXw+
-					t8297Wz38A9Di1eqE9rhKIxbrQO1DVU9cVCN
-					4+YjP6c4/TfFV4leJVwTRbfxJ7z+bA8uz/s/
-					r2qls6pFtUnH79hxUR0YmyBG1neWhALYyWrk
-					8CnZoHpysRshxSKPSEsTUjxzaiyIPHw0bC/n
-					Lqq+voHtGZlMqxl1Zs7HNq4hN/4C3/2xe7uw
-					Mxqo4DK7ZvNZXOzoE7TEjviLMrCD3Piy3Ngi
-					6WdmlF27bLt3zFmFQ8GybmA4sh5yMfYGEHsb
-					Vll9MxPPpJVflW7KtMCUKaM=
-					) ; KSK; alg = RSASHA256 ; key id = 41776
+					AwEAAcktyQsln9xWy95UsLygO+/OEk24/pBB
+					5W2TprC/e/bz/mTPnLWDuKqxNO+dTLrVew7n
+					zGvVb3SK4g0m0YRicdRMMglXokqwZh92NOyQ
+					zP00ph1hoUx5lt5EDxECyIdvocu76I78wHAW
+					zpiaIjJgIpanCXm1DV1v3oWHsjb2vd/T7lqa
+					8D1mNx4bJ+1Ucz0bX2BLSnSupzHf4CmF5fRr
+					4Rv+v/ztC26w/V3Q4YBH17CdxV6IDHWty/j8
+					FDas2g0FduvkmRAktupevPfuTEGAhptBgJx3
+					ODoXFA82TeM8pKU5HxPp9md3EUh+pFmExE5d
+					YHYvbHjqKUkgLsbH+17qI2c=
+					) ; KSK; alg = RSASHA256 ; key id = 63557
 			3600	RRSIG	DNSKEY 8 2 3600 (
-					20261014083325 20260914083325 41776 dnssec.test.
-					I1srMkvVYi+WCR1df6gS3LsRRK4BsKaj7UTG
-					jbbVNejIXttfWzB/wKWNMgPhTTLQe/Xxw6jm
-					egcAX+rsyb/Uq2br2RvMgwzBGmOvvX1B5LTM
-					K14NCZDUQ/b9BaDvZlbEswcYIibrPX8wBGWt
-					4Zoa1Mh/A1adC9kAurRLZHVEG5FYjgGiKZ1X
-					egclWpvP6OZGQIUpLvGjDerRK6n7aHflkaQI
-					0jJH4fA0iPnM7OMo1YgO+IByiv7SKMEx/U8q
-					8tNynAtAiJVn8z5mKfMh0HNlgcM7B2HovV25
-					kYcz6FafoLd/pE5qBT9WbC/DLAAxad9zofc7
-					d0SoOiLbD6kgBFMJLA== )
+					20261031155625 20261001155625 63557 dnssec.test.
+					SN2pFQdkzixqwZ4YCVXxOfJBMHhcT/DABcO5
+					bCl4uKTg7fPXDvufPvYOsexymlCLduuP9Pr9
+					34H0NQatDxkch+unY5l11BTytmxGjPxSJ1po
+					Xc22L3NVTJha2W3sJZLpLQeYdlqhFBnR9SlQ
+					C5VxYINRXpGGYjgmZE8rZhhwqf9KczsLLLii
+					ZJCf/KKFGsJHGlOkvHhFm9TLSTpTEU93wHwI
+					qbzciE8GYlw8W5r3STIjjzkAu6douLmMQNCM
+					PTEET3fVud4KDck7xf/JqxnRwjFs6wBJP6C2
+					0p+PUDrk/vRkUU/zvvACMwSq5mZqOs8C1IJ1
+					JnvDCYdt4h/7ZmgxHw== )
 a.dnssec.test.		3600	IN A	192.0.2.1
 			3600	RRSIG	A 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					rdLkaf5FvoQUE3Q7v5Ha8CQPjYo0QcaY7oUK
-					O41VkT9JnqNi8PAVTJEE8cWf4xOQaf9radAg
-					+zGSBB/dX7SyyavMARdLsmPnEYbFBM/VMj7a
-					u0XPR4yn8v/RI2ygq4K435Kt9iTh3SRSFbLv
-					z//0ZJR8IbCxzU1y0ZzvpAdmlAA= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					PyrJ0jHbBbE+EUFnOxGLlVW6z9oPPM6cu5Ta
+					rxVJ5e6jes626hQAbTbY+b7F892phGBtJlve
+					sC6csjxNtwHh4+A6lYhIT2/V2Iiz8w3RRGeZ
+					+qfllMFjyOwGqafESkuGE9IbRone8eOSqJfO
+					Ks+xIufUzuN+y27vxdVA682ISCw= )
 			3600	NSEC	aaaa.dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					qswV/EtZocnnmMNyhGWD5tz+dsPIRrRm3iG0
-					NGftn9y9F7fU7DHjBY4SYvqSrAojNBAtquQ9
-					1ymLHffBDY8fdlQRaD+Dg9Qygic70OvghX5Y
-					/ESb0GXiwH0+H+leuaXHrVSO6pNE1YjsoP32
-					Qmg/7SmrccZt7gp/ijoXZoEzzpE= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					BSztTGPIAKNmuQnsXR8p1Cyq7dP/wd56iQNz
+					dNfsKxz+ZWzIb+sGgtOqIc8w865XPbGEEuRH
+					pRABXrlhYJYAQXxNBMRrpF2qBGUwWVDtzRuM
+					VvvfJXLEk5ciL9o/mjjrukCSiQf7Q8gZe60Q
+					HGKEJPfHVeoPZb8Nx31COtKZi+s= )
 aaaa.dnssec.test.	3600	IN AAAA	2001:db8::1
 			3600	RRSIG	AAAA 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					jqfJIw1mATaZb/VL5PaBHfcDt7J0LP1Ju11H
-					k7iaeAUDzlAFp9scco1jTQg/TKa4IXKUqZha
-					FCRaCojFSJzULpRwXTH0gQ7wiPXjsbYaYtgG
-					SNOdSexOvEHRHl6nYnEB7TbXoEGiQ9xvjVAB
-					rlgkCHtixCeaTVgktNpMJeVpGdI= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					YQGfFXkwvYaCrd0wqFcSOeNAWA3NzTEpp7Vf
+					WVXZu/FOHuNknFOAIMTwhLlw8bmbPHuNfmzG
+					01z1p0sODAu4iDYRhE+E34RPAPQvYCqS89Nv
+					XEOT7TzGvB+z3OtZm8A0H2agTK4RywNiy2CJ
+					f6U4ZI+LjWaFo3J83IJjyYjx6SI= )
 			3600	NSEC	mail.dnssec.test. AAAA RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					eHUp1ptqTzaLwN5KOQau7CkP/aMScELnvP+h
-					Kdt+8belxe9Zd2sXWV1dmAwVmJ2aT/BYWpA2
-					JrQbmR9+VWZV5hmElJ2iTzrRvfHmfG7if9i/
-					wFNz1Vnr4320cA42VfK+4l3hk4ljBZm50hTe
-					avxp+oBiIadAJLKU5AuPz/dYAJ0= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					ZmFSiY3q+DPF1MK9j/aNMBEkbOcWeE94WVMB
+					hUUbUAQLLkXHfFRiKOHDL6Dg890nfPwActPQ
+					BRzaz2RPZB6qW/NhZMS3yrTAUG2drGeioQT5
+					y1RqRCbuBD6uzlwPNiQ/LF1wTxATSUzaQBaJ
+					q9BdFUCgWklECyY4ZqfzuAA7Hww= )
 mail.dnssec.test.	3600	IN A	192.0.2.25
 			3600	RRSIG	A 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					XHiEYm2MaNJZ557iQHQaPUeJOchxSsWOkhAD
-					ViNPbVZwnLSl6IG/WyTu3HMqqlN4tDb3Lio1
-					AyWx6pAHYtxE8eJNtoo6uVT0onP13HTnn0LW
-					n7/o2SbRlv4IVfasfCKdhpNILf9zx8KnjCgL
-					5KvPzWZgiGl/rDvtZDW10zDxBHs= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					Ry5t0YFYynypUtb/OBE36qZY5ZSylMAbYYDn
+					NwlNscXqzr6jd3Bz0OPJfMhJC2cxaUwmOJxc
+					MJnRUi5GFjTFX4dBJ/4zcgZT5iwWChCbf00k
+					SkfqkrGjkrHkXA1rThOaT4NfTCH5icIDZdCv
+					smhnSz7BqaNCyaX8QyUpGtrymlc= )
 			3600	NSEC	mx.dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					B8TE22mYD/XuTbLHlLf0HiyvHRiscfItB9rZ
-					nVH4dn/D2nR/TRAqmZR8LI4UD4D5+hR6RyLb
-					7L+zzUy9jo2FcZ9vIY2Ao84GObxAW6DHpw/M
-					gS6YJP08xR8eOvKaApwbfQk7lHzvNpfvK7em
-					8Hq2bQxvmNb0Zru59eETxWB1cN4= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					hqzp/x3raULGaahLeIZnnlT+zZ45upBrfhFz
+					1IYtn9p53E5FLc1VpOoCcqy2XR/8PdEJTim3
+					UYHQDfGldqYcl8SFoiM2q3YTwTh4p4Q9i5pp
+					zd4CoPXmajvdZ3rTmMw8mCqgJBEQT8ftTORw
+					cLpIGQmXe/BHnmj5xHqXEkIsf7c= )
 mx.dnssec.test.		3600	IN MX	10 mail.dnssec.test.
 			3600	RRSIG	MX 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					MIHu8Nv+atSKCC1UhHeAxDpYMoRhceNKiLxc
-					owsk+Iq8W9v9Uw7ITbDv/Gw6IGOX4eMRPy5G
-					Uz2hmqyxugKV6vRO6azWHKjeXGwOgQSYHJyu
-					Hla9xUWC0zHMvffpZpBcWEKlCCuBMvUN33cg
-					b6ozRiE7Ru8nmxqAYHoTZen9Jys= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					BxsBgUx1lxufY1v/wsPM8RhgvptwrkflYaWt
+					dU8C3DBwLwhZL6laDWZimLlhNJiKrEPTcqLV
+					ohE8HR63tlCHtbtzq1POzxRmcxxHjwUvI9T7
+					H6qh2ztCtv0OAZTjgfNdns7YXzAaiXlVZ7c3
+					2qwHF/8q2wrjWqpFtBI6eIYO6B0= )
 			3600	NSEC	ns1.dnssec.test. MX RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					jw7VawAYZSxGVv7D5lYfhPVa11VRJpOumRXo
-					Sr1Vb4MVipAhXuLhRJHKNDqIq/qrDIU6c28H
-					QmrFtgZY4aB4h60Gw8PaOMAC+Z+PjN+pNZQX
-					++cIew2ojhZYTxyPTzd8zZkl0P4SLKf7kHis
-					02BzoKAPdu2cHR7yjwQXfG5lQFQ= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					D9JvFwr9s7BTKTElqu1OzgyV/Fkf7LwnUCOd
+					q8TiWiFl2lV/tsjoA8CDWEK+zjSNoc6gxBOk
+					7V1E2BGrKJA7jv6SLW3E5k458q5wzqayjMir
+					o8ozyCMqIdgDurhJlsWtdiagqHemzyBXZD6+
+					pzuqeT8Fr6Ji8aHDvx0BsmhiEWE= )
 ns1.dnssec.test.	3600	IN A	192.0.2.53
 			3600	RRSIG	A 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					fUAuGw1T8iXAlebSHDCJ8Hut1d4HWusuPg6D
-					MYKrvPT1IClzUI6vMURUNtXjna5NXo5elFw6
-					vIVOyL4VQThbEmQYK0c+LUZWetluy5dwJdmR
-					Xyn7IRJ0o0abhCiUTYWWciZkR5Pj49fSlu6z
-					l6zduRy8/67i/pq8F42NZ3K+NsA= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					ZK0aNCUiaZpBmKIdBeGrq+xNzo4ztZlN8Iuj
+					fZJUUvcgEBwMArfR9nFFZLnn8N9pxkV9Q5aR
+					nKbhB9r9XGb3F0VE/Cc12t+8ugPVq7r8d49f
+					EtgLlKEyLmHa7hsta4iM9M8RzFGUk7qIccpN
+					wsY2pCmOKtLZabqNR/OJXn5pdWU= )
 			3600	NSEC	txt.dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					awXzOdjZdCG+AsA6RUvpp6o1UtyeivwodbYW
-					gSla6eGfXWhphBPZncB5KJz+TzeKe3RJsl2F
-					4Ne8ZtGT84JMDnnfYmcUy1tWNKMLT/kduTW6
-					RFIGnkC63DFxRhLh8VOMaTIB+ar5rC+mXYF7
-					uJwN37T6ou8N8LdiUsLHcTs3mC0= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					NSkk3zN1sbpA8wchsx3Wvih+51zlBN3tiEmo
+					HJTVZjtY4cLinQOYJoPYAKnAF5rlc7Bq+AYG
+					ivNRdgZbgqUiyOclkG6u+xtv+X911O9M00BL
+					iTScO+DPQ4ovJd3xBtP/EQ3CAmZsKNcaSrB+
+					5Ug2uP9GjinieUM0oac2gNq8Bfk= )
 txt.dnssec.test.	3600	IN TXT	"signed by BIND"
 			3600	RRSIG	TXT 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					pC6aFjmyflSW9aJFjRd3V9eYdHpTTV13WbcJ
-					yaThFSBsQciPrb3B47puepcYV0zO1x8U/euJ
-					3utILw4L59X1ZwFzrTqbGUslpb0Wxa6ew8ep
-					VfaHEEbbfi0q7wOuc0ymVjmKoroq6hd80u5o
-					tyRdgaBh7gXc4VyCiWCu8puN7oU= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					GXCYrbTA0p0rMQR1CmwM6JDYEwim6PTderCv
+					ucpV/WzPGGSnTDlL6BPNvKXtBpkqwOhGHWeH
+					qv06JFi33U7cMX//ilupOrEPwPU59BSPS/a5
+					lWnicqiamhtEi9zc8SuWk8Cp5UBa6BivIzED
+					WW0rnRSpGCh9TCBhKCxzBpqNa/Y= )
 			3600	NSEC	*.wild.dnssec.test. TXT RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					qE+OQ0I/lqMsTSKOCj3SWOhdjk+WUX9Tp0Vk
-					2e2+S/zjGtZRmnDRiFJFs6FRYvkrqLWTMdSk
-					C/+fBXPacHGH89GkuNCI9yAnjw2GzcW9lbyE
-					JCn3KcGvOMCBNDIBT0CbFhY0YQcrz6O1zUW2
-					fnW6Bzdcw34dOsyQEfp2QU06iQ8= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					M4ig2Sn1FVVEW7jv6Ysdb2Tx4WIAiyADmVrW
+					eCEG1YVP8K9cQM5+TRGm44vgVfq4jbRyPtHg
+					L3f6ac8W9jrouBg9MBkhih5dMtkcs8jgkfge
+					9e2CmZzjC8ooKaseGQYgoPOqCb6oZcIIRL8F
+					oDFaKyUK7TYsKQDioNVVcUh/19E= )
 *.wild.dnssec.test.	3600	IN A	192.0.2.77
 			3600	RRSIG	A 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					YaknfyvZRDVrrtflc96r+Od9xvpRZzcTGWZ/
-					p3iHeZQry0Lye1vnp61p6F6ScYitftUQfkCx
-					3dQHkrqNRKeom3xibOmzsLAaS/rt/QgaOBu4
-					9wQEf73aupFe/TuNEyJQx/Gw/W8I2hON8IED
-					wF0xX29haHV2D3clrZzfF7WsHF4= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					b58zikoJq9noHHBfqFx3se/WlPk/d5UMa471
+					qkx/qFgrM/Ui7w1fd+5LcuZ9roPk0CXZA+ap
+					0Q4cRaWibbhxM+R0hlzYVrfmKWQy62eWAzeN
+					CdD0q0sa9jtvSO41cAx0/APjcU+TOlru90dc
+					pBMW/NTXmVz3equAJILXu95ggnU= )
 			3600	NSEC	dnssec.test. A RRSIG NSEC
 			3600	RRSIG	NSEC 8 3 3600 (
-					20261014083325 20260914083325 31098 dnssec.test.
-					LKUA/WbHj9By37+XLoXQtmar1DBsgpQ+uiko
-					3SpKzHBSTHVRfNxUJWYLN/yRABjm7/srSzbv
-					wUBYap8yEAnDngxkNt7R3hubGeqxyrue0g5D
-					wnIuxUAV+wW8voMVmG4vA9X8XsanX6pQ7hj3
-					o5aqWWMMJ061swgOeHpYonpnUGc= )
+					20261031155625 20261001155625 61785 dnssec.test.
+					IBYX+tZyJtjgRebuIS4EdAreBWXRzO4oBK2+
+					XxZPm/b3wyx7p5oqZf6TvqP0gC7V2/DLyZO7
+					12/mZC6GcJg7TuHl+rNODtAiRO+CMb7WGZiT
+					2bDhahOcU0u3iCnkm6jepHFL8HrRk9JRaa9Q
+					UHcLiRKxfMoEGtlzL74zNQxJYio= )
