@@ -51,13 +51,22 @@ public class ZonemasterUndelegatedTests
     /// means the address handed over as glue is not the one the zone publishes.
     /// The one entry that was about Hermod, <c>IS_A_RECURSOR</c>, is gone —
     /// finding 41 closed it, and this list is where that became visible.
+    /// <para>
+    /// Zonemaster-Engine 9.0.1 (2026-09-30) rewrote Consistency05 and renamed its
+    /// tags, so the glue mismatch the bridge produces by construction, reported
+    /// as <c>IN_BAILIWICK_ADDR_MISMATCH</c> until then, is now
+    /// <c>CS05_ID_ADDR_MISMATCH</c>: the same comparison of delegation glue
+    /// against the child zone's address record, under the engine's new name.
+    /// The old name no longer occurs anywhere in that engine, so this is a
+    /// rename rather than a vanished tag and a new one.
+    /// </para>
     /// </remarks>
     private static readonly Dictionary<String, String> KnownErrors = new () {
 
         ["A01_NO_GLOBALLY_REACHABLE_ADDR"] = "lab: the server is on a private address",
         ["A01_DOCUMENTATION_ADDR"]         = "lab: the fixture zone publishes 192.0.2.53, TEST-NET-1 by design",
         ["A01_LOCAL_USE_ADDR"]             = "lab: the bridge address is the WSL VM's private one",
-        ["IN_BAILIWICK_ADDR_MISMATCH"]     = "harness: glue is the bridge address, the zone publishes 192.0.2.53",
+        ["CS05_ID_ADDR_MISMATCH"]          = "harness: glue is the bridge address, the zone publishes 192.0.2.53",
         ["EXTRA_NAME_PARENT"]              = "harness: same mismatch seen from the parent side",
         ["TOTAL_NAME_MISMATCH"]            = "harness: same mismatch again",
         ["NOT_ENOUGH_NS_DEL"]              = "lab: the fixture zone has one name server, registries want two",
