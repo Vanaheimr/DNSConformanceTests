@@ -45,15 +45,20 @@ jobs:
     # What this gives up is worth naming: nothing in CI now reads the committed
     # fixtures, so their expiry is invisible here. FixtureFreshnessTests still
     # sees it on a developer checkout, which is where it actually gets in the way.
+    #
+    # In a debian:13 container like the Linux test leg, so the signatures come
+    # from Debian's BIND, the same one nightly.yml signs with, rather than from
+    # whatever BIND the current Ubuntu image carries (ubuntu-latest moves to
+    # 26.04 in October 2026). No git needed: without it checkout downloads a
+    # tarball, which is all a job without submodules wants.
     runs-on: ubuntu-latest
+    container: debian:13
     steps:
 
       - uses: actions/checkout@v7
 
       - name: Install BIND's signing tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends bind9 bind9-dnsutils
+        run: apt-get update && apt-get install -y --no-install-recommends bind9 bind9-dnsutils
 
       - name: Re-sign the DNSSEC fixtures
         run: sh fixtures/zones/resign.sh
