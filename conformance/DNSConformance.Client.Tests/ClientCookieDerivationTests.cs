@@ -147,8 +147,10 @@ public class ClientCookieDerivationTests
         // The secret is what makes the value unguessable. Two clients on the same
         // host, talking to the same server, must not produce the same cookie —
         // otherwise anyone able to run a resolver could predict everybody else's.
-        Assert.That(new DNSClientCookies().For(ServerA),
-                    Is.Not.EqualTo(new DNSClientCookies().For(ServerA)));
+        var firstClient  = new DNSClientCookies().For(ServerA);
+        var secondClient = new DNSClientCookies().For(ServerA);
+
+        Assert.That(firstClient, Is.Not.EqualTo(secondClient));
 
     }
 

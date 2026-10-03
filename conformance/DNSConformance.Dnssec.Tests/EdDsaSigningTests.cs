@@ -207,8 +207,10 @@ public class EdDsaSigningTests
         var key  = Convert.FromBase64String(PrivateKey);
         var data = "the same message twice"u8.ToArray();
 
-        Assert.That(DNSSECSigning.Sign(Algorithm, key, data),
-                    Is.EqualTo(DNSSECSigning.Sign(Algorithm, key, data)));
+        var firstSignature  = DNSSECSigning.Sign(Algorithm, key, data);
+        var secondSignature = DNSSECSigning.Sign(Algorithm, key, data);
+
+        Assert.That(firstSignature, Is.EqualTo(secondSignature));
 
     }
 

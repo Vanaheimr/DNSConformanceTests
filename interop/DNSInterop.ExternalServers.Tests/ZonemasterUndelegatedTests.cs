@@ -141,6 +141,9 @@ public class ZonemasterUndelegatedTests
         try { relayUdp?.Kill(entireProcessTree: true); } catch { /* already gone */ }
         try { relayTcp?.Kill(entireProcessTree: true); } catch { /* already gone */ }
 
+        relayUdp?.Dispose();
+        relayTcp?.Dispose();
+
         Wsl.Run("pkill -f 'socat.*LISTEN:53' || true", TimeSpan.FromSeconds(15), asRoot: true);
 
         if (server is not null)
