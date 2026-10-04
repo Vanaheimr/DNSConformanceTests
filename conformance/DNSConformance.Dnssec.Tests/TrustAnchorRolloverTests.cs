@@ -19,11 +19,12 @@ namespace DNSConformance.Dnssec.Tests;
 ///
 /// <para>
 /// Every root DNSKEY RRset here is signed for real, the way the root signs it. RFC
-/// 5011 believes a set only once it is authenticated: a new key counts only in a
-/// set "validly signed by a trust anchor" (§2.2), a revocation only in a set the
-/// revoked key signed itself (§2.1). A test that feeds an unsigned set is testing
-/// what a validator does with a forged answer, and these tests are about what it
-/// does with a genuine one.
+/// 5011 believes a set only once it is authenticated: a new key counts only when
+/// "that RRSet is validated by an existing trust anchor" (§2), a revocation only
+/// when the key is seen "in a self-signed RRSet" (§2.1). A test that feeds an
+/// unsigned set is testing what a validator does with a forged answer, and these
+/// tests are about what it does with a genuine one. The forged ones are at the
+/// end of the file, under finding 71.
 /// </para>
 /// </summary>
 [TestFixture]
@@ -196,7 +197,7 @@ public class TrustAnchorRolloverTests
     {
 
         // The recognition is by tag *and* algorithm, because the tag alone is a
-        // checksum: RFC 4034 §5.1 says so outright. A key of another algorithm is
+        // checksum: RFC 4034 Appendix B says so outright. A key of another algorithm is
         // another key however its checksum comes out, so an anchor that happens
         // to share its tag does not vouch for it, and it has to serve a hold-down
         // like any newcomer.
@@ -605,6 +606,261 @@ public class TrustAnchorRolloverTests
         Assert.Multiple(() => {
             Assert.That(validator.PendingAnchors, Is.Empty, "a revoked key must not start a new hold-down");
             Assert.That(validator.TrustAnchors.Select(a => a.KeyTag), Is.EqualTo(new[] { successor.KeyTag }));
+        });
+
+    }
+
+    #endregion
+
+
+    // Finding 71. Everything above feeds the probe a set the root would sign.
+    // Everything below feeds it one the root did not, and asks that it change
+    // nothing: the hold-down exists so that an answer cannot install a key, and
+    // the REVOKE bit needs the revoked key's own signature so that an answer
+    // cannot remove one.
+
+    #region (private static) Forged(Signature)
+
+    /// <summary>
+    /// The signature an attacker without the private key can produce: every field
+    /// the genuine one has, key tag included, and zeros where the signature goes.
+    /// </summary>
+    private static RRSIG Forged(RRSIG Genuine)
+        => new (Root, DNSQueryClasses.IN, Genuine.TimeToLive, Genuine.TypeCovered, Genuine.Algorithm, Genuine.Labels,
+                Genuine.OriginalTTL, Genuine.SignatureExpiration, Genuine.SignatureInception, Genuine.KeyTag, Genuine.SignerName,
+                new Byte[Genuine.Signature.Length]);
+
+    #endregion
+
+    #region An_Unsigned_Key_Set_Starts_No_Hold_Down()
+
+    [Test]
+    [Property("RFC", "5011 §2.2")]
+    public async Task An_Unsigned_Key_Set_Starts_No_Hold_Down()
+    {
+
+        // The attack in its plainest form: the anchor's key, the attacker's key
+        // beside it, and no signature at all. Answered for thirty days, it made
+        // the attacker's key an anchor.
+        using var anchor    = RootKey();
+        using var attacker  = RootKey();
+
+        var validator = new DNSSECValidator(RootServing([anchor.DNSKEY, attacker.DNSKEY]), [AnchorFor(anchor)]);
+
+        var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.Multiple(() => {
+            Assert.That(modified,                 Is.False);
+            Assert.That(validator.PendingAnchors, Is.Empty, "a set nobody signed vouches for no key in it");
+        });
+
+    }
+
+    #endregion
+
+    #region A_Forged_Signature_Starts_No_Hold_Down()
+
+    [Test]
+    [Property("RFC", "5011 §2.2")]
+    public async Task A_Forged_Signature_Starts_No_Hold_Down()
+    {
+
+        // An RRSIG that names the anchor's key by tag, algorithm and signer, and
+        // does not verify. Finding one is not the same as checking it.
+        using var anchor    = RootKey();
+        using var attacker  = RootKey();
+
+        DNSKEY[] keys = [anchor.DNSKEY, attacker.DNSKEY];
+
+        var validator = new DNSSECValidator(RootServing(keys, Forged(Sign(keys, anchor))), [AnchorFor(anchor)]);
+
+        await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.That(validator.PendingAnchors, Is.Empty);
+
+    }
+
+    #endregion
+
+    #region A_Set_Signed_Only_By_The_Newcomer_Starts_No_Hold_Down()
+
+    [Test]
+    [Property("RFC", "5011 §2.2")]
+    public async Task A_Set_Signed_Only_By_The_Newcomer_Starts_No_Hold_Down()
+    {
+
+        // A genuine signature by the key that wants to be trusted proves only
+        // that whoever published it holds its private key — which the attacker
+        // does. §2.2 asks for the signature of a key already trusted.
+        using var anchor    = RootKey();
+        using var attacker  = RootKey();
+
+        DNSKEY[] keys = [anchor.DNSKEY, attacker.DNSKEY];
+
+        var validator = new DNSSECValidator(RootServing(attacker, keys), [AnchorFor(anchor)]);
+
+        await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.That(validator.PendingAnchors, Is.Empty);
+
+    }
+
+    #endregion
+
+    #region An_Unauthenticated_Set_Does_Not_Interrupt_A_Hold_Down()
+
+    [Test]
+    [Property("RFC", "5011 §2.4.1")]
+    public async Task An_Unauthenticated_Set_Does_Not_Interrupt_A_Hold_Down()
+    {
+
+        // The continuity rule read from the other side. A key that the root stops
+        // publishing loses its hold-down — but only the root can say that it
+        // stopped. A forged answer that leaves the key out would otherwise reset
+        // every rollover in progress, once a month, for good.
+        using var anchor    = RootKey();
+        using var incoming  = RootKey();
+
+        var resolver  = RootServing(anchor, anchor.DNSKEY, incoming.DNSKEY);
+        var validator = new DNSSECValidator(resolver, [AnchorFor(anchor)]);
+
+        await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        resolver.Answer(".", DNSResourceRecordTypes.DNSKEY, anchor.DNSKEY);
+
+        await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.That(validator.PendingAnchors.Keys.Select(id => id.KeyTag), Is.EqualTo(new[] { incoming.KeyTag }),
+                    "the newcomer's hold-down is still running");
+
+    }
+
+    #endregion
+
+    #region A_Revocation_In_An_Unsigned_Set_Is_Ignored()
+
+    [Test]
+    [Property("RFC", "5011 §2.1")]
+    public async Task A_Revocation_In_An_Unsigned_Set_Is_Ignored()
+    {
+
+        // One forged answer, the anchor's own public key with the REVOKE bit set,
+        // and the resolver was left without its trust anchor.
+        using var anchor = RootKey();
+
+        var validator = new DNSSECValidator(RootServing([Revoked(anchor)]), [AnchorFor(anchor)]);
+
+        var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.Multiple(() => {
+            Assert.That(modified, Is.False);
+            Assert.That(validator.TrustAnchors.Select(a => a.KeyTag), Is.EqualTo(new[] { anchor.KeyTag }));
+        });
+
+    }
+
+    #endregion
+
+    #region A_Revocation_The_Revoked_Key_Did_Not_Sign_Is_Ignored()
+
+    [Test]
+    [Property("RFC", "5011 §2.1")]
+    public async Task A_Revocation_The_Revoked_Key_Did_Not_Sign_Is_Ignored()
+    {
+
+        // What the REVOKE bit was designed against, in RFC 5011's own words:
+        // "Assume that B has been compromised. Without a specific revocation bit,
+        // B could invalidate A". The set here is genuinely signed by an anchor —
+        // the compromised one — and still says nothing about the other's
+        // revocation unless that key signed it too.
+        using var victim       = RootKey();
+        using var compromised  = RootKey();
+
+        DNSKEY[] keys = [Revoked(victim), compromised.DNSKEY];
+
+        var validator = new DNSSECValidator(RootServing(keys, Sign(keys, compromised)),
+                                            [AnchorFor(victim), AnchorFor(compromised)]);
+
+        var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.Multiple(() => {
+            Assert.That(modified, Is.False);
+            Assert.That(validator.TrustAnchors.Select(a => a.KeyTag),
+                        Is.EquivalentTo(new[] { victim.KeyTag, compromised.KeyTag }));
+        });
+
+    }
+
+    #endregion
+
+    #region A_Revocation_Removes_No_Anchor_That_Merely_Shares_Its_Tag()
+
+    [Test]
+    [Property("RFC", "5011 §2.1")]
+    public async Task A_Revocation_Removes_No_Anchor_That_Merely_Shares_Its_Tag()
+    {
+
+        // The self-signature proves who revoked the key; it is the anchor that
+        // names the key which decides what the revocation removes. A key tag is a
+        // sixteen-bit checksum — RFC 4034 Appendix B: "not a unique identifier" — and a
+        // key of one's own with any tag one likes is a few seconds of trying. So
+        // a stranger's genuine, self-signed revocation removes no anchor whose tag
+        // and algorithm it happens to share: it is not that anchor's key.
+        using var anchor    = RootKey();
+        using var stranger  = RootKey();
+
+        var namesake  = new DS(
+                            Root,
+                            DNSQueryClasses.IN,
+                            TimeSpan.FromDays(365),
+                            stranger.KeyTag,                 // the tag the stranger had before revoking
+                            EcdsaP256Sha256,
+                            2,
+                            new Byte[32]                     // and the digest of some other key
+                        );
+
+        DNSKEY[] keys = [anchor.DNSKEY, Revoked(stranger)];
+
+        var validator = new DNSSECValidator(RootServing(keys, Sign(keys, anchor), SignRevoked(keys, stranger)),
+                                            [AnchorFor(anchor), namesake]);
+
+        var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.Multiple(() => {
+            Assert.That(modified,               Is.False, "the stranger's key was never an anchor here");
+            Assert.That(validator.TrustAnchors, Has.Count.EqualTo(2));
+        });
+
+    }
+
+    #endregion
+
+    #region A_Self_Signed_Revocation_Vouches_For_Nothing_Else()
+
+    [Test]
+    [Property("RFC", "5011 §2.1")]
+    public async Task A_Self_Signed_Revocation_Vouches_For_Nothing_Else()
+    {
+
+        // §2.1 makes a revocation valid on the revoked key's own signature — "Unlike
+        // the 'Add' operation below, revocation is immediate" — so it takes effect
+        // even where no other anchor signed the set. But it limits what that
+        // signature may be used for: nothing "except to validate the RRSIG it
+        // signed over the DNSKEY RRSet specifically for the purpose of validating
+        // the revocation". The newcomer beside it starts no hold-down on its word.
+        using var anchor    = RootKey();
+        using var incoming  = RootKey();
+
+        DNSKEY[] keys = [Revoked(anchor), incoming.DNSKEY];
+
+        var validator = new DNSSECValidator(RootServing(keys, SignRevoked(keys, anchor)), [AnchorFor(anchor)]);
+
+        var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
+
+        Assert.Multiple(() => {
+            Assert.That(modified,                 Is.True, "the revocation took effect");
+            Assert.That(validator.TrustAnchors,   Is.Empty);
+            Assert.That(validator.PendingAnchors, Is.Empty, "and nothing else in the set did");
         });
 
     }
