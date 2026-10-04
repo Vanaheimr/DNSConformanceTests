@@ -30,8 +30,13 @@ doing. That daemon does not start by itself (see
 [Preparing WSL](#preparing-wsl-for-the-interop-lane)); without it the
 thirty-three skip and say so.
 
-Nothing is excluded from that figure, and there are no red tracker tests, because
-there is no open finding for one to track.
+Four test cases are not in that figure, because they were written after it, and
+they are red on purpose — the trackers PLAN.md §9 asks for, one per open finding:
+64, 65 and 66, the last in two cases (a NODATA and an NXNAME answer). Each finding
+has a Hermod pull request waiting. Both sides were measured on 2026-10-04: at the
+pinned Hermod everything but the four passes (1587 ✅ · 0 ❌ · 4 skips, the figure
+above), and with the three pull requests applied to Hermod's master everything
+passes, the four included.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

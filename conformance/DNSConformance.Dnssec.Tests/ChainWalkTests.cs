@@ -6,6 +6,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -107,7 +108,8 @@ public class ChainWalkTests
 
         var rdata = new MemoryStream();
 
-        foreach (var label in Key.DomainName.FullName.ToLowerInvariant().TrimEnd('.').Split('.'))
+        // The root has no labels, only the terminator written below.
+        foreach (var label in Key.DomainName.FullName.ToLowerInvariant().TrimEnd('.').Split('.', StringSplitOptions.RemoveEmptyEntries))
         {
             var bytes = Encoding.ASCII.GetBytes(label);
             rdata.WriteByte((Byte) bytes.Length);
@@ -121,7 +123,7 @@ public class ChainWalkTests
         rdata.WriteByte(Key.Algorithm);
         rdata.Write(Key.PublicKey);
 
-        return new DS(DomainName.Parse(Key.DomainName.FullName.TrimEnd('.')),
+        return new DS(DomainName.ParseLenient(Key.DomainName.FullName),
                       DNSQueryClasses.IN,
                       TimeSpan.FromDays(1),
                       DNSSECValidator.ComputeKeyTag(Key),
@@ -317,6 +319,74 @@ public class ChainWalkTests
 
         Assert.That(result, Is.EqualTo(DNSSECValidationResult.Secure),
                     "the signature names the second key, so the second key is the one carried up");
+
+    }
+
+    #endregion
+
+    #region A_Zone_With_Two_Key_Signing_Keys_Is_Followed_Through_The_One_Its_DS_Names()
+
+    /// <summary>
+    /// A zone in the middle of the chain that publishes two keys with the SEP bit,
+    /// as every zone does for the length of a KSK rollover — and as <c>org.</c> does
+    /// today: keys 725 and 26974, both flagged 257, the DNSKEY RRset signed by 26974,
+    /// and the root's DS for <c>org.</c> naming 26974.
+    ///
+    /// <para>
+    /// The walk picks "the" key-signing key as the first published key with the SEP
+    /// bit and an algorithm equal to the one it carried up, and checks the DS
+    /// against that key alone. With the standby key listed first, the check fails
+    /// and the verdict is Bogus — for every name under the zone, for as long as the
+    /// rollover lasts. RFC 4034 §2.1.1 rules the flag out as a basis for anything a
+    /// validator decides:
+    /// </para>
+    /// <para>
+    /// "This flag is only intended to be a hint to zone signing or debugging
+    /// software as to the intended use of this DNSKEY record; validators MUST NOT
+    /// alter their behavior during the signature validation process in any way
+    /// based on the setting of this bit."
+    /// </para>
+    /// <para>
+    /// RFC 4035 §5.2 says which key the DS has to match: "a DNSKEY RR in the child
+    /// zone's apex DNSKEY RRset" — any of them, chosen by key tag, algorithm and
+    /// digest, and not by its flags.
+    /// </para>
+    /// <para>
+    /// The anchor sits at the root, two steps above the fixture, so that the middle
+    /// zone's key is reached by a DS and not by an anchor. One level lower, as in
+    /// <see cref="The_Key_Carried_Up_Is_The_One_The_Signature_Names"/>, the key the
+    /// parent's signature names is compared with the anchor before the flag is ever
+    /// consulted, and the same zone validates.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "4034 §2.1.1, 4035 §5.2")]
+    public async Task A_Zone_With_Two_Key_Signing_Keys_Is_Followed_Through_The_One_Its_DS_Names()
+    {
+
+        var standby   = ParentKey(0x23);                 // SEP, same algorithm, published first
+        var active    = ParentKey(0x34);                 // SEP, signs the RRset, named by the DS
+        var root      = RootKey(0x67);
+
+        Assert.That(DNSSECValidator.ComputeKeyTag(standby),
+                    Is.Not.EqualTo(DNSSECValidator.ComputeKeyTag(active)),
+                    "the two key-signing keys are distinct, which is what the test rests on");
+
+        var resolver  = new StubDnsClient().
+                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
+                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
+                            Answer("test",        DNSResourceRecordTypes.DNSKEY, standby,
+                                                                                 active,
+                                                                                 SignatureNaming(active, DNSResourceRecordTypes.DNSKEY)).
+                            Answer("test",        DNSResourceRecordTypes.DS,     DelegationSignerFor(active)).
+                            Answer(".",           DNSResourceRecordTypes.DNSKEY, root,
+                                                                                 RootSignatureNaming(root));
+
+        var result    = await Validate(resolver, DelegationSignerFor(root));
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Secure),
+                    "the DS names the key that signs the RRset; that a standby key is listed first changes nothing");
 
     }
 
