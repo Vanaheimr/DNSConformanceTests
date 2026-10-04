@@ -424,4 +424,53 @@ public class ChainWalkTests
 
     #endregion
 
+    #region A_DS_RRset_Nobody_Signed_Is_Not_The_Parents_Word()
+
+    /// <summary>
+    /// Finding 67, the other link. RFC 4035 §5.2: the DS RRset is the parent's
+    /// statement about the child's key, and it is authenticated in the parent, by
+    /// the parent's signature — "the DS RRset ... has been authenticated" is the
+    /// first thing §5.2 asks before the DS may vouch for anything.
+    ///
+    /// <para>
+    /// <see cref="KeySetAuthenticationTests"/> breaks the signature over the zone's
+    /// DNSKEY RRset and leaves every DS signed. This breaks the DS and leaves every
+    /// key set signed: the parent is genuine and anchored, its DNSKEY RRset is
+    /// signed, the fixture's keys are BIND's with BIND's signature — and the DS
+    /// that ties the one to the other arrives with no signature at all. The walk
+    /// used to read it for its digest and never looked for an RRSIG over it, so
+    /// whoever answered the DS query chose which key the parent vouched for. The
+    /// control is the same chain with the parent's signature over the DS: Secure.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4035 §5.2")]
+    public async Task A_DS_RRset_Nobody_Signed_Is_Not_The_Parents_Word()
+    {
+
+        using var parent = ParentKey();
+
+        var signedDS   = await Validate(ResolverWithParent(parent, KeySet(parent, parent)),
+                                        DelegationSignerFor(parent.DNSKEY));
+
+        var unsignedDS = await Validate(new StubDnsClient().
+                                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, zone.KeySetAnswer).
+                                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
+                                            Answer("test",        DNSResourceRecordTypes.DNSKEY, KeySet(parent, parent)),
+                                        DelegationSignerFor(parent.DNSKEY));
+
+        Assert.Multiple(() => {
+
+            Assert.That(signedDS,   Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the parent signed the DS it publishes");
+
+            Assert.That(unsignedDS, Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "a DS RRset no key of the parent signed is not the parent's statement");
+
+        });
+
+    }
+
+    #endregion
+
 }

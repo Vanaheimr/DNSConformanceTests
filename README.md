@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1593 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-04): 1597 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -37,14 +37,16 @@ closed on the same day: their four tracker cases were red at the pin before last
 written in parallel with its tracker: its four cases — the tracker in two, and two
 tests in `ChainWalkTests` that assert the same rule one step up — were red at the
 previous pin (8dc9663a, the DNSSEC project 327 ✅ · 4 ❌ otherwise) and are among
-the 1593 now.
+the 1597 now. So were findings 68 to 70, the three neighbours #148 closed
+with it and recorded afterwards: their trackers, and the test for the DS link of
+67, were Secure at 8dc9663a and pass from 12baa4e6 on.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 63 RFC deviations in Hermod. All are fixed;
+The suite has found 70 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -215,7 +217,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **3596** | AAAA | §2.2 the wire form, full and compressed IPv6 text on input. §2.4 the presentation form, which is "the textual representation of an IPv6 address" and therefore not URI syntax: `IPv6Address.ToString()` brackets `::` and `::1` for an HTTP authority, and that string went into zone files that BIND then refused to load ✅ (finding 50) |
 | **4701** | DHCID | §3.1 the identifier type code, digest type code and digest; §3.5 the presentation form, which is base-64 of the whole RDATA block rather than of the digest alone — checked against all three of the RFC's own examples, which between them cover identifier types 0, 1 and 2 |
 | **3597** | Unknown RR types | §2 a type with no parser is kept as opaque data, in requests and in responses, and stepping over it leaves the reader where the next record begins — so it costs no record behind it. §3 the RDATA is served back octet for octet, including RDATA that reads as a compression pointer. §4 the eleven post-1035 types that carry a name in their RDATA emit it uncompressed, while the five RFC 1035 types still compress. §5 the `\#` generic form both ways, `TYPEnnn`/`CLASSnn`, a bare decimal read as a TTL and not a class, and a *known* type written generically re-read as that type. §6 RDATA compared as octets, case sensitively |
-| **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent; and a DS query at a zone cut is answered by the parent rather than referred (§3.1.4.1) |
+| **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). The chain of trust link by link (§5.2): every DNSKEY RRset verified under a key an authenticated DS or the anchor names, every DS RRset under its parent's key (finding 67); a signer that encloses the owner (§5.3.1, finding 68); every RRset of an answer covered by a signature that verified (finding 69); and a denial read only from the NSEC records whose signatures did (§5.4, finding 70). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent; and a DS query at a zone cut is answered by the parent rather than referred (§3.1.4.1) |
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
 | **2782** | SRV selection | the algorithm, not just the record. The lowest priority *it can reach*, so an unreachable one is a dead end for that priority and not for the query ✅ (finding 52); weight-0 targets first, an inclusive draw and "greater than or equal", which together are what give a weight 0 the "very small chance" the RFC asks for rather than none at all; and equal weights that actually spread, since all-zero is what the RFC recommends when there is no selection to make. Distributions are asserted seven standard deviations wide — a bound that only asked whether a weight-0 target was *ever* chosen let a mutation through |
 | **4025** | IPSECKEY | §2.3's gateway field, whose meaning is decided by the octet before it: none, four octets of IPv4, sixteen of IPv6, or a wire-encoded name whose length "is implicit" and therefore has to be found by walking labels — the one place in this record where being one octet out produces a shorter key that still decodes and still looks like a key. §2.4 the name uncompressed, asserted by walking the RDATA rather than trusting the serializer. §2.5 a record with no key at all, which is legal and which BIND cannot represent in either the presentation or the generic form. Every expected string is `named-checkzone -D`'s own output |

@@ -56,12 +56,13 @@ public class DenialSignatureTests
     /// A negative response: nothing in the answer section, the denial records in
     /// the authority section.
     /// </summary>
-    private static DNSInfo DenialResponse(IEnumerable<IDNSResourceRecord> Authorities)
+    private static DNSInfo DenialResponse(IEnumerable<IDNSResourceRecord>  Authorities,
+                                          DNSResponseCodes                 ResponseCode = DNSResponseCodes.NameError)
 
         => new(new DNSServerConfig(IPv4Address.Localhost, IPPort.DNS),
                0,
                true, false, true, false,
-               DNSResponseCodes.NameError,
+               ResponseCode,
                [],
                [.. Authorities],
                [],
@@ -341,6 +342,54 @@ public class DenialSignatureTests
         Assert.That(await validator.ValidateAsync(response, question),
                     Is.Not.EqualTo(DNSSECValidationResult.Secure),
                     "a proof is only worth the chain behind it");
+
+    }
+
+    #endregion
+
+    #region An_Unsigned_NSEC_Beside_A_Signed_One_Proves_Nothing()
+
+    /// <summary>
+    /// Finding 70. A denial is read from the records whose signatures were checked,
+    /// and from no others.
+    ///
+    /// <para>
+    /// The authority section holds BIND's NSEC at <c>mx.dnssec.test</c> with its
+    /// genuine signature — authentic, replayable, and about a span nowhere near the
+    /// question — and an NSEC at <c>a.dnssec.test</c> that BIND never wrote: no
+    /// signature, and a type bitmap that leaves out A. The question is the A
+    /// record of <c>a.dnssec.test</c>, which exists. The signed record proves
+    /// nothing about it; the record that would prove something is signed by
+    /// nobody. §5.4: "security-aware resolvers MUST authenticate the NSEC RRsets
+    /// that comprise the non-existence proof" — the ones the proof rests on.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4035 §5.4")]
+    public async Task An_Unsigned_NSEC_Beside_A_Signed_One_Proves_Nothing()
+    {
+
+        var genuine   = Zone.RRset("mx.dnssec.test", DNSResourceRecordTypes.NSEC);
+        var signature = Zone.SignatureFor("mx.dnssec.test", DNSResourceRecordTypes.NSEC)!;
+
+        // RFC 4034 §4.1.2, written out: window 0, six octets of bitmap, TXT (16),
+        // RRSIG (46) and NSEC (47) — and no A.
+        var forged    = new NSEC(DomainName.Parse("a.dnssec.test"),
+                                 DNSQueryClasses.IN,
+                                 TimeSpan.FromHours(1),
+                                 DomainName.Parse("aaaa.dnssec.test"),
+                                 [0x00, 0x06, 0x00, 0x00, 0x80, 0x00, 0x00, 0x03]);
+
+        var validator = new DNSSECValidator(ResolverServing(Zone.KeySetAnswer),
+                                            [Zone.DelegationSigner]);
+
+        var result    = await validator.ValidateAsync(
+                                  DenialResponse([.. genuine, signature, forged], DNSResponseCodes.NoError),
+                                  (DomainName.Parse("a.dnssec.test."), DNSResourceRecordTypes.A)
+                              );
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "the only NSEC that denies the A record carries no signature");
 
     }
 
