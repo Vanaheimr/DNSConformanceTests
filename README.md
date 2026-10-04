@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1593 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-04): 1601 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -32,20 +32,14 @@ thirty-three skip and say so.
 
 Nothing is excluded from that figure, and there are no red tracker tests, because
 there is no open finding for one to track. Findings 64 to 66 were opened and
-closed on the same day: their four tracker cases were red at the pin before last
-(360c8e28, 1587 ✅ otherwise). So was finding 67, whose fix Vanaheimr/Hermod#148 was
+closed on the same day: their four tracker cases were red at 360c8e28
+(1587 ✅ otherwise). So was finding 67, whose fix Vanaheimr/Hermod#148 was
 written in parallel with its tracker: its four cases — the tracker in two, and two
-tests in `ChainWalkTests` that assert the same rule one step up — were red at the
-previous pin (8dc9663a, the DNSSEC project 327 ✅ · 4 ❌ otherwise) and are among
-the 1593 now.
-
-Eight test cases written after that figure are red on purpose, all for finding 71
-— the RFC 5011 trust anchor probe believes every root DNSKEY RRset it is given, so
-an unsigned answer starts a hold-down and a forged REVOKE removes an anchor. They
-are at the end of `TrustAnchorRolloverTests` and carry `KnownIssue`, as PLAN.md §9
-asks. Measured on 2026-10-04 at the pinned Hermod, the DNSSEC project passes
-everything else (331 ✅ · 8 ❌ · 4 skips); at Hermod's master, where
-Vanaheimr/Hermod#150 fixed it, it passes everything, the eight included.
+tests in `ChainWalkTests` that assert the same rule one step up — were red at
+8dc9663a (the DNSSEC project 327 ✅ · 4 ❌ otherwise). So was finding 71, whose fix
+Vanaheimr/Hermod#150 was merged before its tracker was written: its eight cases
+were red at the previous pin (12baa4e6, the DNSSEC project 331 ✅ · 8 ❌
+otherwise). All sixteen are among the 1601 now.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

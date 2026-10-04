@@ -636,7 +636,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.2")]
-    [Category(TestCategories.KnownIssue)]
     public async Task An_Unsigned_Key_Set_Starts_No_Hold_Down()
     {
 
@@ -663,7 +662,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.2")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Forged_Signature_Starts_No_Hold_Down()
     {
 
@@ -688,7 +686,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.2")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Set_Signed_Only_By_The_Newcomer_Starts_No_Hold_Down()
     {
 
@@ -714,7 +711,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.4.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task An_Unauthenticated_Set_Does_Not_Interrupt_A_Hold_Down()
     {
 
@@ -745,7 +741,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Revocation_In_An_Unsigned_Set_Is_Ignored()
     {
 
@@ -770,7 +765,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Revocation_The_Revoked_Key_Did_Not_Sign_Is_Ignored()
     {
 
@@ -803,7 +797,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Revocation_Removes_No_Anchor_That_Merely_Shares_Its_Tag()
     {
 
@@ -846,7 +839,6 @@ public class TrustAnchorRolloverTests
 
     [Test]
     [Property("RFC", "5011 §2.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Self_Signed_Revocation_Vouches_For_Nothing_Else()
     {
 

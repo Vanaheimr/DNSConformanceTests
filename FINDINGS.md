@@ -83,7 +83,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
 | 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
 | 67 | A key published beside the one the DS named signed answers that validated Secure | **High** | 4035 §5.2, §5.3.1, §4.3 | ✅ fixed |
-| 71 | The trust anchor probe believes every root DNSKEY RRset it is given | **High** | 5011 §2, §2.1, §2.2 | ⏳ **open** |
+| 71 | The trust anchor probe believed every root DNSKEY RRset it was given | **High** | 5011 §2, §2.1, §2.2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -404,6 +404,11 @@ never recognized the key when it came back.
 the tag the key had *before* revocation can be computed. Revocation now matches
 anchors on that tag (and the post-revocation one, harmlessly), and records both
 identities in `revokedAnchors` so the key cannot start a fresh hold-down later.
+
+*Since [finding 71](#71--the-trust-anchor-probe-believed-every-root-dnskey-rrset-it-was-given)*
+the match is by digest, not by tag, and a revocation is processed only when the
+revoked key signed the RRset itself. The fix above made the revocation reliable,
+and so made a forged one reliable too.
 
 Verified by `Revoked_Ksk_Is_Removed_From_The_Trust_Anchors`, which first asserts
 the premise (`ComputeKeyTag(revoked) != ComputeKeyTag(live)`) so a future
@@ -4144,7 +4149,7 @@ measured against the fix with zones signed for real:
 
 ---
 
-## 71 — The trust anchor probe believes every root DNSKEY RRset it is given
+## 71 — The trust anchor probe believed every root DNSKEY RRset it was given
 
 RFC 5011 builds automated trust anchor updates on one condition. A new SEP key is
 added to the trust anchors "when that RRSet is validated by an existing trust
@@ -4159,8 +4164,8 @@ That is the revoked key's own signature, which only the holder of its private ke
 can make. In §2.1's example, "the attacker could revoke B because it has knowledge
 of B's private key, but could not revoke A."
 
-`ProbeForTrustAnchorUpdatesAsync` says in its summary that it fetches the root
-DNSKEY RRset and "validates it against the existing trust anchors". It reads the
+`ProbeForTrustAnchorUpdatesAsync` said in its summary that it fetched the root
+DNSKEY RRset and "validates it against the existing trust anchors". It read the
 answer's keys and nothing else:
 
 ```csharp
@@ -4170,14 +4175,14 @@ if (isRevoked && isSEP)   { /* remove the anchor */ }
 if (isSEP)                { /* start the hold-down, or end it */ }
 ```
 
-No RRSIG is read, let alone verified.
+No RRSIG was read, let alone verified.
 
 **What that allows.** Three things, each by answering the probe's one query:
 
 - **Plant an anchor.** Serve the root's keys and one of your own, unsigned, for thirty
   days. The probe promotes your key to a trust anchor, every chain walk ends at it
   from then on, and every name is yours to sign. The hold-down was meant to slow
-  down an attacker holding a compromised key. Here it is the only defence against
+  down an attacker holding a compromised key. Here it was the only defence against
   an attacker holding no key at all.
 - **Remove an anchor.** Answer once with the anchor's public key and the REVOKE bit
   set. The anchor is gone for good, because `revokedAnchors` never lets the key
@@ -4204,7 +4209,7 @@ They were moved onto signed sets first: generated keys, real DS anchors, and eve
 set signed by an anchor, with revocations also signed by the revoked key under its
 revoked key tag. They stay green against the probe before the fix and after it.
 
-**Repro**: eight tests at the end of `TrustAnchorRolloverTests`, red on purpose:
+**Repro**: eight tests at the end of `TrustAnchorRolloverTests`, red until the fix:
 
 - **No hold-down** for an unsigned set (`An_Unsigned_Key_Set_Starts_No_Hold_Down`),
   a forged RRSIG (`A_Forged_Signature_Starts_No_Hold_Down`), or a set signed only by
@@ -4221,10 +4226,9 @@ revoked key tag. They stay green against the probe before the fix and after it.
   takes effect, and the other key beside it starts no hold-down
   (`A_Self_Signed_Revocation_Vouches_For_Nothing_Else`).
 
-They carry `KnownIssue`, as PLAN.md §9 asks. Measured on 2026-10-04 at the pinned
-Hermod (12baa4e6), the DNSSEC project passes everything else (331 ✅ · 8 ❌ · 4
-skips); at Hermod's master, where Vanaheimr/Hermod#150 fixed it, it passes
-everything, the eight included.
+They carried `KnownIssue` until the fix was pinned. They were red at 12baa4e6 and
+are green from b64479e9 on, where the DNSSEC project passes whole (339 ✅ · 0 ❌ · 4
+skips).
 
 **The fix**:
 
