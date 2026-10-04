@@ -6,7 +6,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -297,6 +296,13 @@ public class ChainWalkTests
     /// passed and proved nothing, which the mutation run said and the test itself
     /// could not.
     /// </para>
+    ///
+    /// <para>
+    /// That fallback was finding 65, and it is gone: the walk now compares anchors
+    /// and DS records with every key of the RRset and carries no key up at all. The
+    /// verdict here is unchanged, but what it pins is less than this note describes —
+    /// the decoy can no longer be picked, because nothing is picked.
+    /// </para>
     /// </summary>
     [Test]
     [Property("RFC", "4034 §5.1")]
@@ -360,7 +366,6 @@ public class ChainWalkTests
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4034 §2.1.1, 4035 §5.2")]
     public async Task A_Zone_With_Two_Key_Signing_Keys_Is_Followed_Through_The_One_Its_DS_Names()
     {

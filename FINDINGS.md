@@ -79,9 +79,9 @@ what is queued, what is out of scope — are not here at all; they live in
 | 61 | Two aliases pointing at each other were chased for as long as the peer answered | Medium | 1034 §5.2.2, 1035 §7.1 | ✅ fixed |
 | 62 | A client that could not ask anybody answered as an authority that said no | Low | 1035 §4.1.1, 2308 §2.1 | ✅ fixed |
 | 63 | A DNSClient could not be told to stop asking for recursion | Medium | 1035 §4.1.1, 1034 §5.3.3 | ✅ fixed |
-| 64 | A cached RRset loses its signature when another signed RRset arrives for the same name | **High** | 4035 §4.5 | ⏳ **open** |
-| 65 | A zone with two key-signing keys is followed through whichever is listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ⏳ **open** |
-| 66 | A compact denial of existence is read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ⏳ **open** |
+| 64 | A cached RRset lost its signature when another signed RRset arrived for the same name | **High** | 4035 §4.5 | ✅ fixed |
+| 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
+| 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3763,7 +3763,7 @@ turns green and starts closing them.
 
 ---
 
-## 64 — A cached RRset loses its signature when another signed RRset arrives for the same name
+## 64 — A cached RRset lost its signature when another signed RRset arrived for the same name
 
 RFC 4035 §4.5 on what a security-aware resolver keeps:
 
@@ -3818,14 +3818,14 @@ on.
 
 **Repro**:
 `SignatureCachingTests.A_Cached_RRset_Keeps_Its_Signature_When_Another_Signed_RRset_Arrives_For_The_Same_Name`,
-red on purpose. A scripted server answers DNSKEY and DS for `example.`, each with
+red until the fix. A scripted server answers DNSKEY and DS for `example.`, each with
 its RRSIG; the client asks DNSKEY, DS, DNSKEY. Three controls pass — both RRsets
 arrived signed, and the third question never reached the server. The last DNSKEY
-answer, served from the cache, carries no RRSIG.
+answer, served from the cache, carried no RRSIG.
 
-**Suggested fix**: file an RRSIG under the type it covers (RFC 4034 §3.1.1) when
+**The fix**: file an RRSIG under the type it covers (RFC 4034 §3.1.1) when
 merging, so a signature is replaced together with its RRset and with nothing else.
-Proposed as [Vanaheimr/Hermod#139](https://github.com/Vanaheimr/Hermod/pull/139)
+Merged as [Vanaheimr/Hermod#139](https://github.com/Vanaheimr/Hermod/pull/139)
 (`dns/cache-keeps-signatures`), with regression tests in `DNSCache_Tests` that fail
 without it.
 
@@ -3836,7 +3836,7 @@ validator selects by type — and a change of its own.
 
 ---
 
-## 65 — A zone with two key-signing keys is followed through whichever is listed first
+## 65 — A zone with two key-signing keys was followed through whichever was listed first
 
 The chain walk has to decide which of a zone's keys the DS in the parent (or a
 configured anchor) is about. `WalkChainOfTrust` decides by flag:
@@ -3887,18 +3887,18 @@ DS, and the DS meets only the flag's choice.
 **What it costs.** Bogus is the verdict that takes a name off the internet for a
 validating client. For DANE it is worse than for a browser: RFC 7672 §2.1.2 makes a
 Bogus MX or TLSA lookup a reason to delay delivery, so every domain under `.org`
-that publishes DANE records currently receives no mail from a Hermod MTA that does
+that publishes DANE records received no mail from a Hermod MTA that did
 DANE.
 
 **Repro**:
 `ChainWalkTests.A_Zone_With_Two_Key_Signing_Keys_Is_Followed_Through_The_One_Its_DS_Names`,
-red on purpose. The fixture zone under a constructed `test.` that lists a standby SEP
+red until the fix. The fixture zone under a constructed `test.` that lists a standby SEP
 key before the active one, under a constructed root that is the anchor. The
 `DelegationSignerFor` helper learned to digest the root's empty owner name for it.
 
-**Suggested fix**: check the anchors and the DS against every key of the zone's
+**The fix**: check the anchors and the DS against every key of the zone's
 DNSKEY RRset, matched by key tag, algorithm and digest, and drop the flag from the
-decision. Proposed as [Vanaheimr/Hermod#140](https://github.com/Vanaheimr/Hermod/pull/140)
+decision. Merged as [Vanaheimr/Hermod#140](https://github.com/Vanaheimr/Hermod/pull/140)
 (`dns/ksk-without-sep`), with a regression test that signs three zones for real.
 
 **What that does not change, and should come next.** The walk looks for the RRSIG
@@ -3913,7 +3913,7 @@ it is a gap in the validator, and a finding of its own.
 
 ---
 
-## 66 — A compact denial of existence is read as a server failure
+## 66 — A compact denial of existence was read as a server failure
 
 An online signer cannot precompute the NSEC chain of a zone it signs on the fly, so
 it answers every denial with an NSEC made up for the query. RFC 9824 §3.1
@@ -3959,17 +3959,17 @@ hosts publish none: the answer is exactly this kind of NODATA. RFC 7672 §2.1.2:
 any DNS queries used to locate TLSA records fail (due to "bogus" or "indeterminate"
 records, timeouts, malformed replies, SERVFAIL responses, etc.), then the SMTP
 client MUST treat that server as unreachable and MUST NOT deliver the message via
-that server." Every MX host without TLSA records under a Cloudflare-signed zone is
-unreachable to a Hermod MTA that does DANE.
+that server." Every MX host without TLSA records under a Cloudflare-signed zone was
+unreachable to a Hermod MTA that did DANE.
 
 **Repro**: `CompactDenialTests.A_Compact_Denial_Is_A_Negative_Answer_Not_A_Server_Failure`,
-red on purpose, in two cases: the NODATA for `mail.ietf.org` and the NXNAME answer
+red until the fix, in two cases: the NODATA for `mail.ietf.org` and the NXNAME answer
 for `no-such-name.ietf.org`, both replayed byte for byte from what 1.1.1.1 sent on
 2026-10-04, re-addressed to the query's ID and question. Nothing is validated, so
 the expiry of the recorded signatures does not matter.
 
-**Suggested fix**: read the next domain name with a parser that enforces the length
-limits and nothing else. Proposed as
+**The fix**: read the next domain name with a parser that enforces the length
+limits and nothing else. Merged as
 [Vanaheimr/Hermod#141](https://github.com/Vanaheimr/Hermod/pull/141)
 (`dns/compact-denial`) as an internal `DomainName.FromWire`. Its regression tests
 also check the other half: the zero octet goes back on the wire as the one-octet

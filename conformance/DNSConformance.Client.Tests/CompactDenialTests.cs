@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -117,7 +116,6 @@ public class CompactDenialTests
     /// </remarks>
     [TestCase("mail.ietf.org.",         MailIetfOrgNoData,  TestName = "A_Compact_Denial_Is_A_Negative_Answer_Not_A_Server_Failure(NODATA)")]
     [TestCase("no-such-name.ietf.org.", NoSuchNameIetfOrg,  TestName = "A_Compact_Denial_Is_A_Negative_Answer_Not_A_Server_Failure(NXNAME)")]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "9824 §3.1, §3.2, 4034 §4.1.1, 2181 §11")]
     public async Task A_Compact_Denial_Is_A_Negative_Answer_Not_A_Server_Failure(String  Name,
                                                                                  String  Recording)

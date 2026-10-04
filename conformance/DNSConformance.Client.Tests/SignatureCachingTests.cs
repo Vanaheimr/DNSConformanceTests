@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -126,7 +125,6 @@ public class SignatureCachingTests
     /// </para>
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §4.5, 7672 §2.2")]
     public async Task A_Cached_RRset_Keeps_Its_Signature_When_Another_Signed_RRset_Arrives_For_The_Same_Name()
     {

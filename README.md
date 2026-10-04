@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-01): 1587 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-04): 1591 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -30,13 +30,10 @@ doing. That daemon does not start by itself (see
 [Preparing WSL](#preparing-wsl-for-the-interop-lane)); without it the
 thirty-three skip and say so.
 
-Four test cases are not in that figure, because they were written after it, and
-they are red on purpose — the trackers PLAN.md §9 asks for, one per open finding:
-64, 65 and 66, the last in two cases (a NODATA and an NXNAME answer). Each finding
-has a Hermod pull request waiting. Both sides were measured on 2026-10-04: at the
-pinned Hermod everything but the four passes (1587 ✅ · 0 ❌ · 4 skips, the figure
-above), and with the three pull requests applied to Hermod's master everything
-passes, the four included.
+Nothing is excluded from that figure, and there are no red tracker tests, because
+there is no open finding for one to track. Findings 64 to 66 were opened and
+closed on the same day: their four tracker cases were red at the previous pin
+(360c8e28, 1587 ✅ otherwise) and are among the 1591 now.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
