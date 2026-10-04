@@ -30,10 +30,16 @@ doing. That daemon does not start by itself (see
 [Preparing WSL](#preparing-wsl-for-the-interop-lane)); without it the
 thirty-three skip and say so.
 
-Nothing is excluded from that figure, and there are no red tracker tests, because
-there is no open finding for one to track. Findings 64 to 66 were opened and
-closed on the same day: their four tracker cases were red at the previous pin
-(360c8e28, 1587 ✅ otherwise) and are among the 1591 now.
+Findings 64 to 66 were opened and closed on the same day: their four tracker cases
+were red at the previous pin (360c8e28, 1587 ✅ otherwise) and are among the 1591.
+
+Four test cases written after that figure are red on purpose, all for finding 67 —
+the chain walk verifies none of the signatures over the key sets and DS RRsets it
+relies on: its tracker in two cases (the anchor at the zone, the anchor at the
+root), and two tests in `ChainWalkTests` that assert the same rule one step up. They
+carry `KnownIssue`, as PLAN.md §9 asks. Measured on 2026-10-04 at the pinned Hermod,
+the DNSSEC project passes everything else (327 ✅ · 4 ❌ · 4 skips); at Hermod's
+master, where Vanaheimr/Hermod#148 fixed it, it passes everything, the four included.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
