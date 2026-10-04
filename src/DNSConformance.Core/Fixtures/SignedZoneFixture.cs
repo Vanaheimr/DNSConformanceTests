@@ -60,6 +60,22 @@ public sealed class SignedZoneFixture
 
 
     /// <summary>
+    /// What a resolver answers to the zone's DNSKEY query: the apex key set and
+    /// every RRSIG over it.
+    /// </summary>
+    /// <remarks>
+    /// The keys alone are not an answer a validator can use. RFC 4035 §5.2 trusts
+    /// a zone's keys because the key a DS or an anchor names signed them, so a
+    /// stub serving the keys without that signature serves a zone whose keys
+    /// nothing vouches for (finding 67).
+    /// </remarks>
+    public IDNSResourceRecord[] KeySetAnswer
+        => [.. DnsKeys,
+            .. Signatures.Where(sig => sig.TypeCovered == DNSResourceRecordTypes.DNSKEY &&
+                                       String.Equals(sig.DomainName.FullName.TrimEnd('.'), Origin.TrimEnd('.'), StringComparison.OrdinalIgnoreCase))];
+
+
+    /// <summary>
     /// The whole fixture as a zone a Hermod server can be pointed at.
     /// </summary>
     /// <remarks>
