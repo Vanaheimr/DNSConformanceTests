@@ -473,4 +473,69 @@ public class ChainWalkTests
 
     #endregion
 
+    #region A_Forged_Signature_Over_The_Parents_Key_Set_Is_Bogus()
+
+    /// <summary>
+    /// Finding 67, the third link. The walk used to look for an RRSIG over the
+    /// parent's DNSKEY RRset, read the key tag it named, and carry on once a key of
+    /// the set had that tag — the signature itself was never verified. A missing
+    /// RRSIG took another branch (<see cref="A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Bogus"/>);
+    /// a present one with the right tag and nothing behind it took this one.
+    ///
+    /// <para>
+    /// Everything here is genuine except that signature: the parent's key is real
+    /// and anchored, it signed the fixture's DS, BIND's keys come with BIND's
+    /// signature. Over the parent's own key set stands an RRSIG with the parent
+    /// key's tag and 64 octets of 0x5A. The control is the same chain with the
+    /// parent's real signature: Secure.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Property("RFC", "4035 §5.2, §5.3.3")]
+    public async Task A_Forged_Signature_Over_The_Parents_Key_Set_Is_Bogus()
+    {
+
+        using var parent = ParentKey();
+
+        IDNSResourceRecord[] parentKeys = [ parent.DNSKEY ];
+
+        var genuine = await Validate(ResolverWithParent(parent, KeySet(parent, parent)),
+                                     DelegationSignerFor(parent.DNSKEY));
+
+        var forged  = await Validate(ResolverWithParent(parent, [ .. parentKeys, Forged(Sign(parentKeys, parent)) ]),
+                                     DelegationSignerFor(parent.DNSKEY));
+
+        Assert.Multiple(() => {
+
+            Assert.That(genuine, Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the parent's real signature over its key set");
+
+            Assert.That(forged,  Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "an RRSIG that names the key and does not verify authenticates nothing");
+
+        });
+
+    }
+
+    #endregion
+
+    #region (private static) Forged(Genuine)
+
+    /// <summary>A genuine signature's every field, and filler where the signature goes.</summary>
+    private static RRSIG Forged(RRSIG Genuine)
+        => new (DomainName.ParseLenient(Genuine.DomainName.FullName),
+                Genuine.Class,
+                Genuine.TimeToLive,
+                Genuine.TypeCovered,
+                Genuine.Algorithm,
+                Genuine.Labels,
+                Genuine.OriginalTTL,
+                Genuine.SignatureExpiration,
+                Genuine.SignatureInception,
+                Genuine.KeyTag,
+                DomainName.ParseLenient(Genuine.SignerName.FullName),
+                [.. Enumerable.Repeat((Byte) 0x5A, Genuine.Signature.Length)]);
+
+    #endregion
+
 }

@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1597 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-04): 1598 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -37,8 +37,8 @@ closed on the same day: their four tracker cases were red at the pin before last
 written in parallel with its tracker: its four cases — the tracker in two, and two
 tests in `ChainWalkTests` that assert the same rule one step up — were red at the
 previous pin (8dc9663a, the DNSSEC project 327 ✅ · 4 ❌ otherwise) and are among
-the 1597 now. So were findings 68 to 70, the three neighbours #148 closed
-with it and recorded afterwards: their trackers, and the test for the DS link of
+the 1598 now. So were findings 68 to 70, the three neighbours #148 closed
+with it and recorded afterwards: their trackers, and the tests for two more links of
 67, were Secure at 8dc9663a and pass from 12baa4e6 on.
 
 That full run exercised all twelve test projects and every category, including
