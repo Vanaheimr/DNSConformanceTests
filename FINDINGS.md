@@ -82,10 +82,10 @@ what is queued, what is out of scope — are not here at all; they live in
 | 64 | A cached RRset lost its signature when another signed RRset arrived for the same name | **High** | 4035 §4.5 | ✅ fixed |
 | 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
 | 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
-| 67 | The chain of trust verifies no signature above the answer | **High** | 4035 §5.2, 4033 §5 | ⏳ **open** |
-| 68 | A zone's signature is accepted for names outside the zone | **High** | 4035 §5.3.1 | ⏳ **open** |
-| 69 | A signature with nothing to cover makes the rest of the answer Secure | **High** | 4035 §5.3 | ⏳ **open** |
-| 70 | A denial is read from NSEC records nobody signed | **High** | 4035 §5.4 | ⏳ **open** |
+| 67 | The chain of trust verified no signature above the answer | **High** | 4035 §5.2, 4033 §5 | ✅ fixed |
+| 68 | A zone's signature was accepted for names outside the zone | **High** | 4035 §5.3.1 | ✅ fixed |
+| 69 | A signature with nothing to cover made the rest of the answer Secure | **High** | 4035 §5.3 | ✅ fixed |
+| 70 | A denial was read from NSEC records nobody signed | **High** | 4035 §5.4 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3803,7 +3803,8 @@ DNSKEY RRset (from the step out of `sys4.de.`) and the DS RRset with its signatu
 (from the step out of `de.`) — and no signature over the DNSKEY RRset. The next walk
 through `de.` reads the cached DNSKEY RRset, finds nothing covering it, and takes
 the branch pinned by
-`ChainWalkTests.A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure`.
+`ChainWalkTests.A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure` (since
+finding 67 `…_Breaks_The_Chain`, and Bogus).
 
 **How it was found.** Not by this suite: by a live probe of the DANE resolver the
 SMTP suite builds on Hermod (SMTPConformanceTests, FINDINGS.md § DANE, N-1), against
@@ -3987,7 +3988,7 @@ so it is recorded here rather than folded into this finding.
 
 ---
 
-## 67 — The chain of trust verifies no signature above the answer
+## 67 — The chain of trust verified no signature above the answer
 
 RFC 4035 §5.2 makes every step of a chain of trust a signature check. The child's
 DNSKEY RRset is authentic when a DS in the parent names one of its keys and
@@ -4054,13 +4055,14 @@ is the instruction to trust the certificate it names, so an attacker on the path
 an MTA's DNS can make up a TLSA record and a certificate to go with it, and the MTA
 hands its mail to them over a TLS session it considers authenticated.
 
-**Repro**: `ChainWalkTests.A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure`, red on
-purpose. The chain of `The_Root_Has_No_Parent_To_Step_Into` with an anchor over its
-filler root key: BIND's keys without BIND's signature over them, an unsigned DS for
-`dnssec.test.` and for `test.`, filler signatures over the DNSKEY RRsets of `test.`
-and the root, and BIND's genuine signature over the A record. Secure.
+**Repro**: `ChainWalkTests.A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure`, red
+until the fix. The shape of `The_Root_Has_No_Parent_To_Step_Into` made of filler,
+under an anchor over the filler root key: BIND's keys without BIND's signature over
+them, an unsigned DS for `dnssec.test.` and for `test.`, filler signatures over the
+DNSKEY RRsets of `test.` and the root, and BIND's genuine signature over the A
+record. It was Secure.
 
-**Suggested fix**: verify every link. A zone's DNSKEY RRset is accepted only if one
+**The fix**: verify every link. A zone's DNSKEY RRset is accepted only if one
 of its RRSIGs verifies with a key of the set that an authenticated DS — or the
 anchor — names; a DS RRset only if an RRSIG over it verifies with a key of the
 parent's DNSKEY RRset, the parent being the RRSIG's signer; every one of those
@@ -4068,9 +4070,37 @@ signatures inside its validity window at the same `Now` as the answer's. No DS
 stays Insecure, a failed fetch Indeterminate, and RFC 6840 §5.2's unusable DS stays
 Insecure — once the DS RRset is authenticated, since §5.2 speaks of "authenticated
 DS records" and a forged DS naming algorithm 253 would otherwise downgrade any
-zone. Proposed as [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148)
+zone. Merged as [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148)
 (`dns/authenticate-dnskey-and-ds`), with regression tests that sign three zones for
 real and break one link each.
+
+**What moved in the suite.** Twelve DNSSEC tests went red on the new pin, every one
+of them because it fed the validator a link nobody had signed — and several more
+were green for a reason that had stopped being the one they named, such as
+`A_Signed_Denial_That_Proves_Nothing_Is_Bogus`, which the unsigned key set alone
+now made Bogus. So the inputs changed, not the assertions:
+
+- every stub serves the fixture's DNSKEY RRset with BIND's signature over it
+  (`SignedZoneFixture.DnsKeyAnswer`), not only the ones that failed;
+- the zones above the fixture in `ChainWalkTests`, and the parent that signs the DS
+  in the two RFC 6840 §5.2 tests, are signed for real by `ConstructedKey`, which
+  builds the signed data itself; the filler keys stay only for the forgery above;
+- `KeyIdentityTests` anchors the KSK, the key that signed the DNSKEY RRset, rather
+  than the ZSK that signed the answer;
+- `A_Delegation_With_One_Usable_Ds_Among_Unusable_Ones_Still_Validates` asserted
+  only "not Insecure", which a chain reaching no anchor met by being Bogus; it
+  asserts Secure now;
+- `The_Root_Has_No_Parent_To_Step_Into` gained a control under an anchor, so that
+  its Bogus can only mean the missing anchor.
+
+Two assertions changed their verdict, and for the reason of this finding and the
+next-but-one. `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure` is now
+`…_Breaks_The_Chain` and Bogus: under an anchor over the parent, RFC 4035 §4.3's
+Insecure ("knows that it has no chain of signed DNSKEY and DS RRs") does not apply
+and its Bogus ("ought to be able to establish a chain of trust but … is unable to")
+does. And `A_Signature_Covers_One_Rrset_And_Not_Every_Record_Of_Its_Type` expects
+Insecure for the unsigned record beside the signed RRset — finding 69 — while still
+asserting what it was written for: not Bogus.
 
 **What that does not change.** A missing DS is still taken at its word. RFC 4035
 §5.2 asks for an authenticated NSEC or NSEC3 proof that the parent has none, and
@@ -4080,7 +4110,7 @@ no longer Secure, but for DANE Insecure means "use opportunistic TLS" (RFC 7672
 
 ---
 
-## 68 — A zone's signature is accepted for names outside the zone
+## 68 — A zone's signature was accepted for names outside the zone
 
 RFC 4035 §5.3.1, the first condition on an RRSIG:
 
@@ -4107,20 +4137,20 @@ A validator cannot tell where the zone cuts are from an RRSIG alone, but it can
 refuse a signer that is neither the owner nor one of its ancestors, and that is all
 it takes.
 
-**Repro**: `ChainValidationTests.A_Zone_Cannot_Sign_For_A_Name_Outside_It`, red on
-purpose. One zone, `attacker.test.`, signed by a key the suite makes itself
+**Repro**: `ChainValidationTests.A_Zone_Cannot_Sign_For_A_Name_Outside_It`, red
+until the fix. One zone, `attacker.test.`, signed by a key the suite makes itself
 (`ConstructedKey`: ECDSA P-256, the signed data built from RFC 4034 §3.1.8.1 in the
 suite rather than asked of Hermod), with an anchor over that key. The control — the
-same key signing `www.attacker.test.` — is Secure; `www.bank.example.` is Secure as
+same key signing `www.attacker.test.` — is Secure; `www.bank.example.` was Secure as
 well.
 
-**Suggested fix**: Bogus when the signer does not enclose the owner, for answers and
+**The fix**: Bogus when the signer does not enclose the owner, for answers and
 for the NSEC and NSEC3 records of a denial. Part of
 [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
 
 ---
 
-## 69 — A signature with nothing to cover makes the rest of the answer Secure
+## 69 — A signature with nothing to cover made the rest of the answer Secure
 
 `ValidateAsync` goes through the RRSIGs of the answer, finds for each the RRset it
 covers, and verifies it:
@@ -4158,16 +4188,16 @@ unsigned RRset a fully signed answer holds is the CNAME synthesized from a DNAME
 from it.
 
 **Repro**: `ChainValidationTests.A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing`,
-red on purpose. A forged A record for `www.dnssec.test.` and BIND's signature over
-the A RRset of `a.dnssec.test.`. Secure.
+red until the fix. A forged A record for `www.dnssec.test.` and BIND's signature over
+the A RRset of `a.dnssec.test.`. It was Secure.
 
-**Suggested fix**: an answer is Secure only when every RRset in it is covered by a
+**The fix**: an answer is Secure only when every RRset in it is covered by a
 verified signature, or is a CNAME that follows from a verified DNAME; otherwise
 Insecure. Part of [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
 
 ---
 
-## 70 — A denial is read from NSEC records nobody signed
+## 70 — A denial was read from NSEC records nobody signed
 
 RFC 4035 §5.4: "security-aware resolvers MUST authenticate the NSEC RRsets that
 comprise the non-existence proof" — the ones the proof rests on, not some others
@@ -4188,11 +4218,11 @@ are authentic. Now: do they prove the claim?" — and the records it then reads 
 not the ones it authenticated.
 
 **Repro**: `DenialSignatureTests.An_Unsigned_NSEC_Beside_A_Signed_One_Proves_Nothing`,
-red on purpose. BIND's NSEC at `mx.dnssec.test.` with its signature, and an unsigned
+red until the fix. BIND's NSEC at `mx.dnssec.test.` with its signature, and an unsigned
 NSEC at `a.dnssec.test.` whose bitmap — written out octet by octet — leaves out A.
-The question is the A record of `a.dnssec.test.`, which exists. Secure.
+The question is the A record of `a.dnssec.test.`, which exists. It was Secure.
 
-**Suggested fix**: read the proof only from the RRsets whose signatures verified.
+**The fix**: read the proof only from the RRsets whose signatures verified.
 Part of [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
 
 ---

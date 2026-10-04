@@ -103,6 +103,10 @@ public class KeyIdentityTests
     private StubDnsClient ResolverServing(params DNSKEY[] Keys)
         => new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. Keys]);
 
+    /// <summary>The zone's DNSKEY RRset as the zone serves it: every key, and BIND's signature.</summary>
+    private StubDnsClient ResolverServingTheZone()
+        => new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeyAnswer]);
+
     private (List<IDNSResourceRecord> RRset, RRSIG Signature) SignedA()
         => (zone.RRset("a.dnssec.test", DNSResourceRecordTypes.A),
             zone.SignatureFor("a.dnssec.test", DNSResourceRecordTypes.A)!);
@@ -184,6 +188,14 @@ public class KeyIdentityTests
     /// The control for the case above: the same construction with the key the
     /// signature actually names, which must come out Secure. Without it, the case
     /// above passes for a validator that refuses everything.
+    ///
+    /// <para>
+    /// The answer is still verified by the key it names, the zone-signing key. The
+    /// anchor is not over that key any more: since finding 67 an anchor vouches
+    /// for a DNSKEY RRset only through its key's signature over the RRset, and in
+    /// a BIND-signed zone that key is the key-signing one. So the zone's whole
+    /// RRset is served, with BIND's signature, and the anchor is over the KSK.
+    /// </para>
     /// </summary>
     [Test]
     public async Task A_Signature_Is_Validated_By_The_Key_It_Names()
@@ -191,10 +203,8 @@ public class KeyIdentityTests
 
         var (rrset, signature) = SignedA();
 
-        var signing   = zone.KeyFor(signature)!;
-
-        var validator = new DNSSECValidator(ResolverServing(signing),
-                                            [DelegationSignerFor(signing)]);
+        var validator = new DNSSECValidator(ResolverServingTheZone(),
+                                            [DelegationSignerFor(zone.KeySigningKey!)]);
 
         var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
 
@@ -217,6 +227,12 @@ public class KeyIdentityTests
     /// these two decoys show is that the lookup does not *reach* the digest with
     /// the wrong anchor: each decoy carries the right digest for a key it does not
     /// name.
+    ///
+    /// <para>
+    /// The anchored key is the zone's KSK, the key that signed its DNSKEY RRset —
+    /// see the control above for why it is no longer the key that signed the
+    /// answer.
+    /// </para>
     /// </summary>
     [Test]
     [Property("RFC", "4034 §5.1")]
@@ -225,8 +241,8 @@ public class KeyIdentityTests
 
         var (rrset, signature) = SignedA();
 
-        var signing  = zone.KeyFor(signature)!;
-        var correct  = DelegationSignerFor(signing);
+        var anchored = zone.KeySigningKey!;
+        var correct  = DelegationSignerFor(anchored);
 
         // Right digest, right algorithm, a tag that is one off.
         var wrongTag = new DS(DomainName.Parse("dnssec.test"), DNSQueryClasses.IN, TimeSpan.FromDays(1),
@@ -238,17 +254,17 @@ public class KeyIdentityTests
 
         Assert.Multiple(async () => {
 
-            Assert.That(await new DNSSECValidator(ResolverServing(signing), [correct]).
+            Assert.That(await new DNSSECValidator(ResolverServingTheZone(), [correct]).
                                   ValidateAsync(ResponseWith([.. rrset, signature])),
                         Is.EqualTo(DNSSECValidationResult.Secure),
                         "the anchor that names the key");
 
-            Assert.That(await new DNSSECValidator(ResolverServing(signing), [wrongTag]).
+            Assert.That(await new DNSSECValidator(ResolverServingTheZone(), [wrongTag]).
                                   ValidateAsync(ResponseWith([.. rrset, signature])),
                         Is.Not.EqualTo(DNSSECValidationResult.Secure),
                         "an anchor whose tag is not the key's does not anchor it");
 
-            Assert.That(await new DNSSECValidator(ResolverServing(signing), [wrongAlg]).
+            Assert.That(await new DNSSECValidator(ResolverServingTheZone(), [wrongAlg]).
                                   ValidateAsync(ResponseWith([.. rrset, signature])),
                         Is.Not.EqualTo(DNSSECValidationResult.Secure),
                         "nor does one whose algorithm is not the key's");

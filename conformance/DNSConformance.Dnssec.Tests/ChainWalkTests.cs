@@ -6,7 +6,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -33,11 +32,20 @@ namespace DNSConformance.Dnssec.Tests;
 /// </para>
 ///
 /// <para>
-/// The parent's own RRSIG is never verified by the walk and is not made to
-/// verify here: it is read for the key tag and algorithm it names, and the key
-/// it points at is authenticated by the DS one level further up. Building a
-/// signature that verifies would assert nothing the next DS check does not
-/// already assert.
+/// Every zone above the fixture is signed for real, by keys the suite makes and
+/// signs with itself (<see cref="ConstructedKey"/>): the parent's DNSKEY RRset
+/// by the parent's key, the fixture's DS by the parent, the parent's DS by the
+/// root. Every one of those signatures is a link of the chain, and RFC 4035 §5.2
+/// requires each to verify.
+/// </para>
+///
+/// <para>
+/// This summary used to say the opposite — that the parent's RRSIG "is never
+/// verified by the walk and is not made to verify here", because building one
+/// "would assert nothing the next DS check does not already assert". It asserts
+/// that the parent signed what the chain says it signed, which no DS check can.
+/// The validator did not check it either, and that was finding 67; the filler
+/// signatures this file was built on are kept only where a forgery is the point.
 /// </para>
 /// </summary>
 [TestFixture]
@@ -71,7 +79,10 @@ public class ChainWalkTests
         => new(Origin, 0, true, false, true, false, DNSResponseCodes.NoError,
                Answers, [], [], true, false, TimeSpan.FromSeconds(5), TimeSpan.Zero);
 
-    /// <summary>A key of the parent zone. The octets are filler: nothing signs with it.</summary>
+    /// <summary>
+    /// A key of the parent zone made of filler octets: nothing can sign with it,
+    /// which is what a forgery needs. Real parents are a <see cref="ConstructedKey"/>.
+    /// </summary>
     private static DNSKEY ParentKey(Byte Filler, UInt16 Flags = (UInt16) (ZoneKey | SEP))
         => new (DomainName.Parse("test"),
                 DNSQueryClasses.IN,
@@ -82,8 +93,8 @@ public class ChainWalkTests
                 [.. Enumerable.Repeat(Filler, 64)]);
 
     /// <summary>
-    /// An RRSIG naming the given key, over the given type. The signature octets
-    /// are filler — see the note on the fixture.
+    /// An RRSIG naming the given key, over the given type, whose signature octets
+    /// are filler: a signature nobody made.
     /// </summary>
     private static RRSIG SignatureNaming(DNSKEY Key, DNSResourceRecordTypes TypeCovered)
         => new (DomainName.Parse("test"),
@@ -134,17 +145,18 @@ public class ChainWalkTests
     }
 
     /// <summary>
-    /// A resolver serving the fixture zone's keys, the fixture zone's own DS
-    /// — which is what the walk asks the parent for — and whatever the parent
-    /// publishes under its DNSKEY.
+    /// A resolver serving the fixture zone's keys with BIND's signature over them,
+    /// the fixture zone's own DS — which is what the walk asks the parent for —
+    /// signed by the parent key given, and whatever the parent publishes under its
+    /// DNSKEY.
     /// </summary>
-    private StubDnsClient ResolverWithParent(params IDNSResourceRecord[] ParentDnskeyAnswer)
+    private StubDnsClient ResolverWithParent(ConstructedKey DsSigner, params IDNSResourceRecord[] ParentDnskeyAnswer)
         => new StubDnsClient().
-               Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
-               Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
+               Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeyAnswer]).
+               Answer("dnssec.test", DNSResourceRecordTypes.DS,     DsSigner.Signed(zone.DelegationSigner)).
                Answer("test",        DNSResourceRecordTypes.DNSKEY, ParentDnskeyAnswer);
 
-    /// <summary>A key of the root zone, for the step above the parent.</summary>
+    /// <summary>A key of the root zone made of filler octets, for forgeries above the parent.</summary>
     private static DNSKEY RootKey(Byte Filler)
         => new (DomainName.ParseLenient("."),
                 DNSQueryClasses.IN,
@@ -154,7 +166,7 @@ public class ChainWalkTests
                 RSASHA256,
                 [.. Enumerable.Repeat(Filler, 64)]);
 
-    /// <summary>The root's signature over its own DNSKEY RRset.</summary>
+    /// <summary>A filler signature over the root's DNSKEY RRset, naming the given key.</summary>
     private static RRSIG RootSignatureNaming(DNSKEY Key)
         => new (DomainName.ParseLenient("."),
                 DNSQueryClasses.IN,
@@ -207,29 +219,40 @@ public class ChainWalkTests
     /// twice: out of the fixture into its parent, and out of the parent into the
     /// root.
     /// </para>
+    ///
+    /// <para>
+    /// Every link is signed for real, so that the walk does reach the root: with
+    /// filler signatures, as this test was first written, it now stops at the
+    /// first DS and the verdict says nothing about the root. The control puts an
+    /// anchor over the root key and the same chain is Secure — what makes the
+    /// other answer Bogus is the missing anchor and nothing else.
+    /// </para>
     /// </summary>
     [Test]
     public async Task The_Root_Has_No_Parent_To_Step_Into()
     {
 
-        var parent    = ParentKey(0x55);
-        var root      = RootKey(0x66);
+        using var parent = new ConstructedKey("test");
+        using var root   = new ConstructedKey(".");
 
-        var resolver  = new StubDnsClient().
-                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
-                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
-                            Answer("test",        DNSResourceRecordTypes.DNSKEY, parent,
-                                                                                 SignatureNaming(parent, DNSResourceRecordTypes.DNSKEY)).
-                            Answer("test",        DNSResourceRecordTypes.DS,     DelegationSignerFor(parent)).
-                            Answer(".",           DNSResourceRecordTypes.DNSKEY, root,
-                                                                                 RootSignatureNaming(root));
+        var resolver  = ResolverWithParent(parent, parent.Signed(parent.DNSKEY)).
+                            Answer("test", DNSResourceRecordTypes.DS,     root.Signed(DelegationSignerFor(parent.DNSKEY))).
+                            Answer(".",    DNSResourceRecordTypes.DNSKEY, root.Signed(root.DNSKEY));
 
         // No anchor anywhere: the chain is signed the whole way up and reaches
         // nothing this resolver was configured to believe.
-        var result    = await Validate(resolver);
+        var unanchored = await Validate(resolver);
+        var anchored   = await Validate(resolver, DelegationSignerFor(root.DNSKEY));
 
-        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
-                    "the walk ran out of zones rather than asking the root for its own delegation");
+        Assert.Multiple(() => {
+
+            Assert.That(anchored,   Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the same chain under an anchor over the root key");
+
+            Assert.That(unanchored, Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "the walk ran out of zones rather than asking the root for its own delegation");
+
+        });
 
     }
 
@@ -240,14 +263,15 @@ public class ChainWalkTests
     /// <summary>
     /// The step, taken once. The anchor is not the fixture zone's DS but the
     /// parent's key, so reaching Secure requires fetching the child's DS from the
-    /// parent, verifying the child's KSK against it, moving up, and picking the
-    /// parent key the parent's DNSKEY signature names.
+    /// parent, verifying the parent's signature over it, matching the child's KSK
+    /// against it, and verifying the parent's own signature over its DNSKEY RRset
+    /// with the key the anchor names.
     ///
     /// <para>
     /// The parent also publishes a signature over something that is not its
     /// DNSKEY RRset, naming a key nobody published. RFC 4035 §5.2 is about "the
     /// DNSKEY RRset" specifically, and a walk that took whichever RRSIG came to
-    /// hand would carry up a key that does not exist. It is here so that the test
+    /// hand would look for a key that does not exist. It is here so that the test
     /// says which signature the step reads rather than merely that it reads one.
     /// </para>
     /// </summary>
@@ -255,14 +279,15 @@ public class ChainWalkTests
     public async Task The_Walk_Crosses_Into_The_Parent_And_Anchors_There()
     {
 
-        var parent    = ParentKey(0x11);
-        var unrelated = SignatureNaming(ParentKey(0x99), DNSResourceRecordTypes.A);
+        using var parent = new ConstructedKey("test");
+        var unrelated    = SignatureNaming(ParentKey(0x99), DNSResourceRecordTypes.A);
 
         var result    = await Validate(
                                   ResolverWithParent(parent,
-                                                     SignatureNaming(parent, DNSResourceRecordTypes.DNSKEY),
+                                                     parent.DNSKEY,
+                                                     parent.Sign([parent.DNSKEY]),
                                                      unrelated),
-                                  DelegationSignerFor(parent)
+                                  DelegationSignerFor(parent.DNSKEY)
                               );
 
         Assert.That(result, Is.EqualTo(DNSSECValidationResult.Secure),
@@ -304,24 +329,33 @@ public class ChainWalkTests
     /// verdict here is unchanged, but what it pins is less than this note describes —
     /// the decoy can no longer be picked, because nothing is picked.
     /// </para>
+    ///
+    /// <para>
+    /// Since finding 67 the signature is verified, which gives the test back some
+    /// of what it lost: the decoy is published first and cannot verify it, so a
+    /// walk that took the first key of the right algorithm would now fail, and
+    /// one that tries the key the signature names — by tag and algorithm — does
+    /// not.
+    /// </para>
     /// </summary>
     [Test]
     [Property("RFC", "4034 §5.1")]
     public async Task The_Key_Carried_Up_Is_The_One_The_Signature_Names()
     {
 
-        var decoy  = ParentKey(0x22);                    // same algorithm and flags, other tag
-        var parent = ParentKey(0x33);
+        using var decoy  = new ConstructedKey("test");    // same algorithm and flags, other tag
+        using var parent = new ConstructedKey("test");
 
-        Assert.That(DNSSECValidator.ComputeKeyTag(decoy),
-                    Is.Not.EqualTo(DNSSECValidator.ComputeKeyTag(parent)),
+        Assert.That(decoy.KeyTag,
+                    Is.Not.EqualTo(parent.KeyTag),
                     "the two parent keys are distinct, which is what the test rests on");
 
         var result = await Validate(
-                               ResolverWithParent(decoy,
-                                                  parent,
-                                                  SignatureNaming(parent, DNSResourceRecordTypes.DNSKEY)),
-                               DelegationSignerFor(parent)
+                               ResolverWithParent(parent,
+                                                  decoy.DNSKEY,
+                                                  parent.DNSKEY,
+                                                  parent.Sign([decoy.DNSKEY, parent.DNSKEY])),
+                               DelegationSignerFor(parent.DNSKEY)
                            );
 
         Assert.That(result, Is.EqualTo(DNSSECValidationResult.Secure),
@@ -371,25 +405,22 @@ public class ChainWalkTests
     public async Task A_Zone_With_Two_Key_Signing_Keys_Is_Followed_Through_The_One_Its_DS_Names()
     {
 
-        var standby   = ParentKey(0x23);                 // SEP, same algorithm, published first
-        var active    = ParentKey(0x34);                 // SEP, signs the RRset, named by the DS
-        var root      = RootKey(0x67);
+        using var standby = new ConstructedKey("test");  // SEP, same algorithm, published first
+        using var active  = new ConstructedKey("test");  // SEP, signs the RRset, named by the DS
+        using var root    = new ConstructedKey(".");
 
-        Assert.That(DNSSECValidator.ComputeKeyTag(standby),
-                    Is.Not.EqualTo(DNSSECValidator.ComputeKeyTag(active)),
+        Assert.That(standby.KeyTag,
+                    Is.Not.EqualTo(active.KeyTag),
                     "the two key-signing keys are distinct, which is what the test rests on");
 
-        var resolver  = new StubDnsClient().
-                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
-                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
-                            Answer("test",        DNSResourceRecordTypes.DNSKEY, standby,
-                                                                                 active,
-                                                                                 SignatureNaming(active, DNSResourceRecordTypes.DNSKEY)).
-                            Answer("test",        DNSResourceRecordTypes.DS,     DelegationSignerFor(active)).
-                            Answer(".",           DNSResourceRecordTypes.DNSKEY, root,
-                                                                                 RootSignatureNaming(root));
+        var resolver  = ResolverWithParent(active,
+                                           standby.DNSKEY,
+                                           active.DNSKEY,
+                                           active.Sign([standby.DNSKEY, active.DNSKEY])).
+                            Answer("test", DNSResourceRecordTypes.DS,     root.Signed(DelegationSignerFor(active.DNSKEY))).
+                            Answer(".",    DNSResourceRecordTypes.DNSKEY, root.Signed(root.DNSKEY));
 
-        var result    = await Validate(resolver, DelegationSignerFor(root));
+        var result    = await Validate(resolver, DelegationSignerFor(root.DNSKEY));
 
         Assert.That(result, Is.EqualTo(DNSSECValidationResult.Secure),
                     "the DS names the key that signs the RRset; that a standby key is listed first changes nothing");
@@ -398,33 +429,44 @@ public class ChainWalkTests
 
     #endregion
 
-    #region A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure()
+    #region A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Breaks_The_Chain()
 
     /// <summary>
     /// RFC 4035 §4.3 distinguishes Bogus from Insecure, and the difference is
-    /// whether a name resolves. A parent whose DNSKEY RRset carries no signature
-    /// offers nothing to continue the chain with — but it has not been caught
-    /// lying either, and answering Bogus would take the name off the internet
-    /// rather than leaving it unvalidated.
+    /// whether a name resolves — which is why it has to be drawn where §4.3 draws
+    /// it. Insecure is "an RRset for which the resolver knows that it has no chain
+    /// of signed DNSKEY and DS RRs from any trusted starting point"; Bogus is one
+    /// "for which the resolver believes that it ought to be able to establish a
+    /// chain of trust but for which it is unable to do so".
     ///
     /// <para>
-    /// This is the same reasoning the file already applies to a DS RRset with no
-    /// usable algorithm, one branch further down, and it is worth pinning because
-    /// the two verdicts are one comparison apart.
+    /// The anchor here is over the parent's key. The resolver was configured to
+    /// believe that <c>test.</c> is signed, the parent signed the fixture's DS, and
+    /// its DNSKEY RRset arrives without a signature. Nothing proves the parent
+    /// unsigned — the anchor says the opposite — so it is the second case. An
+    /// unsigned key set under an anchor is exactly what stripping the RRSIGs
+    /// produces, and finding 64's cache produced it by accident.
+    /// </para>
+    ///
+    /// <para>
+    /// This test was <c>A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure</c>
+    /// and asserted the other verdict, reasoning that such a parent "has not been
+    /// caught lying either". It pinned the one place where the walk read an RRSIG
+    /// above the answer, and the reading it pinned was the gap of finding 67.
     /// </para>
     /// </summary>
     [Test]
-    [Property("RFC", "4035 §4.3")]
-    public async Task A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure()
+    [Property("RFC", "4035 §4.3, §5.2")]
+    public async Task A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Breaks_The_Chain()
     {
 
-        var parent = ParentKey(0x44);
+        using var parent = new ConstructedKey("test");
 
-        var result = await Validate(ResolverWithParent(parent),
-                                    DelegationSignerFor(parent));
+        var result = await Validate(ResolverWithParent(parent, parent.DNSKEY),
+                                    DelegationSignerFor(parent.DNSKEY));
 
-        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Insecure),
-                    "an unsigned step is an unvalidated chain, not a broken one");
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "under an anchor that says the parent is signed, its unsigned keys are a broken chain");
 
     }
 
@@ -433,8 +475,9 @@ public class ChainWalkTests
     #region A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure()
 
     /// <summary>
-    /// Finding 67. The chain of <see cref="The_Root_Has_No_Parent_To_Step_Into"/>,
-    /// with the one thing that test leaves out: an anchor over the root key.
+    /// Finding 67. The shape of <see cref="The_Root_Has_No_Parent_To_Step_Into"/>
+    /// made of filler instead of signatures, under an anchor over the filler root
+    /// key.
     ///
     /// <para>
     /// Every key above the fixture zone is filler, every signature over a DNSKEY
@@ -455,7 +498,6 @@ public class ChainWalkTests
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.2, 4033 §5")]
     public async Task A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure()
     {

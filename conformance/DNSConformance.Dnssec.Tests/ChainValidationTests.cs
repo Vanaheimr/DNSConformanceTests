@@ -4,7 +4,6 @@ using org.GraphDefined.Vanaheimr.Illias;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -130,14 +129,28 @@ public class ChainValidationTests
 
 
     /// <summary>
-    /// A stub resolver that serves the fixture zone's DNSKEY RRset.
+    /// A stub resolver that serves the fixture zone's DNSKEY RRset, with BIND's
+    /// signature over it.
     /// </summary>
     private StubDnsClient ResolverServingKeys()
         => new StubDnsClient().Answer(
                "dnssec.test",
                DNSResourceRecordTypes.DNSKEY,
-               [.. zone.DnsKeys]
+               [.. zone.DnsKeyAnswer]
            );
+
+
+    /// <summary>
+    /// A resolver for the fixture zone under a parent, <c>test.</c>, that the
+    /// suite signs itself: the parent's DNSKEY RRset signed by its key, and the
+    /// given DS RRset for <c>dnssec.test.</c> signed by it too — so the DS is
+    /// authenticated, as RFC 6840 §5.2 requires before it decides anything.
+    /// </summary>
+    private StubDnsClient ResolverUnderParent(ConstructedKey Parent, params IDNSResourceRecord[] DelegationSigners)
+        => new StubDnsClient().
+               Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeyAnswer]).
+               Answer("dnssec.test", DNSResourceRecordTypes.DS,     Parent.Signed(DelegationSigners)).
+               Answer("test",        DNSResourceRecordTypes.DNSKEY, Parent.Signed(Parent.DNSKEY));
 
     #endregion
 
@@ -406,9 +419,12 @@ public class ChainValidationTests
     /// </para>
     ///
     /// <para>
-    /// The intruder here carries no signature of its own, which is left alone on
-    /// purpose — the validator checks the signatures it is given rather than
-    /// demanding one per record, and that is a separate question from this one.
+    /// The intruder here carries no signature of its own. This test used to call
+    /// that "a separate question from this one" and expect Secure; finding 69 was
+    /// that question. A response holding an RRset nobody signed is not Secure, so
+    /// the verdict is Insecure — the one an unsigned answer gets — and the point
+    /// of the test is unchanged: not Bogus. The genuine RRset still verifies on
+    /// its own, and the intruder cannot make it fail.
     /// </para>
     /// </summary>
     [Test]
@@ -425,9 +441,18 @@ public class ChainValidationTests
 
         var validator = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
 
-        Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, intruder, signature])),
-                    Is.EqualTo(DNSSECValidationResult.Secure),
-                    "another name's record of the same type is not part of this RRset");
+        Assert.Multiple(async () => {
+
+            Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, signature])),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the signed RRset alone");
+
+            Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, intruder, signature])),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "another name's record of the same type is not part of this RRset — " +
+                        "it does not break the signature, and the signature does not cover it");
+
+        });
 
     }
 
@@ -608,6 +633,10 @@ public class ChainValidationTests
         // RFC 8078 §4 reserves that value for the CDS delete sentinel and says a
         // validator "must treat it as unknown", so it is the sharpest case: the
         // digest still matches the KSK, and the delegation is still unfollowable.
+        //
+        // "Authenticated" is the word that matters since finding 67: the DS
+        // RRset is signed by a parent that is itself the anchor. An unsigned DS
+        // naming algorithm 0 would be a way to downgrade any zone, and is Bogus.
         var (rrset, signature) = SignedA();
 
         var anchor      = zone.DelegationSigner;
@@ -622,10 +651,11 @@ public class ChainValidationTests
                                anchor.Digest
                            );
 
+        using var parent = new ConstructedKey("test");
+
         var validator = new DNSSECValidator(
-                            new StubDnsClient().
-                                Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
-                                Answer("dnssec.test", DNSResourceRecordTypes.DS,     [ unfollowable ])
+                            ResolverUnderParent(parent, unfollowable),
+                            [parent.DelegationSigner()]
                         );
 
         var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
@@ -664,15 +694,20 @@ public class ChainValidationTests
                             anchor.Digest
                         );
 
+        //
+        // This used to assert only "not Insecure", which a chain that reached no
+        // anchor satisfied by being Bogus. Under a parent that signs the DS and is
+        // the anchor, the followable DS carries the chain all the way: Secure.
+        using var parent = new ConstructedKey("test");
+
         var validator = new DNSSECValidator(
-                            new StubDnsClient().
-                                Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
-                                Answer("dnssec.test", DNSResourceRecordTypes.DS,     [ unusable, anchor ])
+                            ResolverUnderParent(parent, unusable, anchor),
+                            [parent.DelegationSigner()]
                         );
 
         var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
 
-        Assert.That(result, Is.Not.EqualTo(DNSSECValidationResult.Insecure),
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Secure),
                     "one followable DS is enough — the others are disregarded, not fatal");
 
     }
@@ -742,7 +777,6 @@ public class ChainValidationTests
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.3.1")]
     public async Task A_Zone_Cannot_Sign_For_A_Name_Outside_It()
     {
@@ -802,7 +836,6 @@ public class ChainValidationTests
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.3")]
     public async Task A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing()
     {

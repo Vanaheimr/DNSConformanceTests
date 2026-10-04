@@ -6,7 +6,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -158,7 +157,7 @@ public class DenialSignatureTests
 
         var (response, question) = ProvenDenial();
 
-        var validator  = new DNSSECValidator(ResolverServing([.. Zone.DnsKeys]),
+        var validator  = new DNSSECValidator(ResolverServing(Zone),
                                              [Zone.DelegationSigner]);
 
         var signature  = DenialSignature();
@@ -256,7 +255,7 @@ public class DenialSignatureTests
 
         Assert.That(nsec, Is.Not.Empty, "the fixture has an NSEC at mx.dnssec.test");
 
-        var validator = new DNSSECValidator(ResolverServing([.. Zone.DnsKeys]),
+        var validator = new DNSSECValidator(ResolverServing(Zone),
                                             [Zone.DelegationSigner]);
 
         var result    = await validator.ValidateAsync(
@@ -303,7 +302,7 @@ public class DenialSignatureTests
                                real.DigestType,
                                [.. real.Digest.Select(b => (Byte) (b ^ 0xFF))]);
 
-        var validator = new DNSSECValidator(ResolverServing([.. Zone.DnsKeys]), [wrong]);
+        var validator = new DNSSECValidator(ResolverServing(Zone), [wrong]);
 
         Assert.That(await validator.ValidateAsync(response, question),
                     Is.Not.EqualTo(DNSSECValidationResult.Secure),
@@ -331,7 +330,6 @@ public class DenialSignatureTests
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.4")]
     public async Task An_Unsigned_NSEC_Beside_A_Signed_One_Proves_Nothing()
     {
