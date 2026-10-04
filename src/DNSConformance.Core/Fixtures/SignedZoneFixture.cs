@@ -45,6 +45,23 @@ public sealed class SignedZoneFixture
 
 
     /// <summary>
+    /// What a DNSKEY query to the zone's apex returns: the keys, and BIND's
+    /// signatures over them.
+    /// </summary>
+    /// <remarks>
+    /// RFC 4035 §5.2 authenticates a DNSKEY RRset only through an RRSIG over it,
+    /// made with a key a DS or a trust anchor names. The keys alone are an RRset
+    /// anyone could have typed, and a resolver stub that serves them without the
+    /// signature tests a validator that does not check it — which is what the
+    /// suite did until finding 67.
+    /// </remarks>
+    public IReadOnlyList<IDNSResourceRecord> DnsKeyAnswer
+        => [.. DnsKeys,
+            .. Signatures.Where(sig => sig.TypeCovered == DNSResourceRecordTypes.DNSKEY &&
+                                       String.Equals(sig.DomainName.FullName.TrimEnd('.'), Origin.TrimEnd('.'), StringComparison.OrdinalIgnoreCase))];
+
+
+    /// <summary>
     /// The DNSKEY matching an RRSIG's key tag and algorithm.
     /// </summary>
     public DNSKEY? KeyFor(RRSIG signature)

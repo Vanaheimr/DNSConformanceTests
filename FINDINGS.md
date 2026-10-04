@@ -82,6 +82,10 @@ what is queued, what is out of scope — are not here at all; they live in
 | 64 | A cached RRset lost its signature when another signed RRset arrived for the same name | **High** | 4035 §4.5 | ✅ fixed |
 | 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
 | 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
+| 67 | The chain of trust verifies no signature above the answer | **High** | 4035 §5.2, 4033 §5 | ⏳ **open** |
+| 68 | A zone's signature is accepted for names outside the zone | **High** | 4035 §5.3.1 | ⏳ **open** |
+| 69 | A signature with nothing to cover makes the rest of the answer Secure | **High** | 4035 §5.3 | ⏳ **open** |
+| 70 | A denial is read from NSEC records nobody signed | **High** | 4035 §5.4 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3980,6 +3984,216 @@ the fix, both answers above validate Secure as authenticated denials.
 name, TKEY and TSIG read their RDATA names with the same hostname rules. Most of
 those names are hostnames in practice, and widening them is a decision of its own,
 so it is recorded here rather than folded into this finding.
+
+---
+
+## 67 — The chain of trust verifies no signature above the answer
+
+RFC 4035 §5.2 makes every step of a chain of trust a signature check. The child's
+DNSKEY RRset is authentic when a DS in the parent names one of its keys and
+
+> the corresponding private key has signed the child zone's apex DNSKEY RRset,
+> and the resulting RRSIG RR authenticates the child zone's apex DNSKEY RRset.
+
+The DS RRset is the parent's data and is authenticated in the parent, by the
+parent's keys, and so on up to a key the resolver was configured to trust. RFC 4033
+§2 calls the whole of it "a chain of signed data, with each link in the chain
+vouching for the next", and §5 asks of Secure that the resolver "is able to verify
+all the signatures in the response".
+
+`ValidateAsync` verifies the RRSIG over the answer with a key from the signer's
+DNSKEY response, and hands the keys to the walk. The walk then checks digests and
+key tags, and nothing else:
+
+```csharp
+foreach (var anchor in trustAnchors)
+    if (currentDNSKeys.Any(key => ComputeKeyTag(key) == anchor.KeyTag    &&
+                                  key.Algorithm       == anchor.Algorithm &&
+                                  VerifyDS(key, anchor)))
+        return DNSSECValidationResult.Secure;
+…
+var dsRecords = dsResponse.Answers.OfType<DS>().ToList();          // its RRSIG is never read
+…
+parentSigningKey = parentDnskeys.FirstOrDefault(
+                      key => ComputeKeyTag(key) == parentRrsig.KeyTag &&
+                             key.Algorithm      == parentRrsig.Algorithm);
+```
+
+The RRSIG over the parent's DNSKEY RRset is looked for and its key tag read; it is
+never verified. The DS RRset's RRSIG is not looked at at all. The signer zone's own
+DNSKEY RRset is never checked to be signed by the key its DS names. `ValidateRRSig`
+is called once per answer RRSIG and nowhere in the walk.
+
+**What that allows.** Every DNSKEY RRset and every DS RRset above the answer can be
+made up. With an anchor over a root key: generate a key for `test.` and one for
+`leaf.test.`, publish DS records for both without signatures, put an RRSIG with the
+right key tag and 64 zero octets of signature over each DNSKEY RRset — the root's
+included, the root's public key copied in — and sign an A record with the
+`leaf.test.` key. `ValidateAsync` answers **Secure**. Against the real root the
+attack needs no made-up root key at all: the root's DNSKEY response is public and is
+replayed as it is, signature and all, and everything below it is the attacker's.
+Every name could be made Secure by anyone able to answer the resolver's queries.
+
+**How it was found.** Finding 65 said it: "the walk looks for the RRSIG over a
+parent's DNSKEY RRset and reads the key tag it names; it does not verify it … a gap
+in the validator, and a finding of its own." Reading `WalkChainOfTrust` with that in
+mind showed it was wider than one RRSIG — no signature above the answer is verified
+— and the made-up chain above confirmed it before anything was changed.
+
+**Why the suite did not see it.** It was written into the suite. The summary of
+`ChainWalkTests` says "the parent's own RRSIG is never verified by the walk and is
+not made to verify here", and every constructed parent there signs with 64 octets of
+0x5A. Every stub resolver in the DNSSEC project served the fixture's DNSKEY RRset
+without BIND's signature over it. `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure`
+pinned the one place where the walk did read an RRSIG — and pinned the reading that
+a parent with unsigned keys is merely unvalidated. A suite whose inputs never carry
+the signatures cannot notice a validator that never checks them.
+
+**What it costs.** Everything DNSSEC is for. For DANE (RFC 7672) a Secure TLSA RRset
+is the instruction to trust the certificate it names, so an attacker on the path of
+an MTA's DNS can make up a TLSA record and a certificate to go with it, and the MTA
+hands its mail to them over a TLS session it considers authenticated.
+
+**Repro**: `ChainWalkTests.A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure`, red on
+purpose. The chain of `The_Root_Has_No_Parent_To_Step_Into` with an anchor over its
+filler root key: BIND's keys without BIND's signature over them, an unsigned DS for
+`dnssec.test.` and for `test.`, filler signatures over the DNSKEY RRsets of `test.`
+and the root, and BIND's genuine signature over the A record. Secure.
+
+**Suggested fix**: verify every link. A zone's DNSKEY RRset is accepted only if one
+of its RRSIGs verifies with a key of the set that an authenticated DS — or the
+anchor — names; a DS RRset only if an RRSIG over it verifies with a key of the
+parent's DNSKEY RRset, the parent being the RRSIG's signer; every one of those
+signatures inside its validity window at the same `Now` as the answer's. No DS
+stays Insecure, a failed fetch Indeterminate, and RFC 6840 §5.2's unusable DS stays
+Insecure — once the DS RRset is authenticated, since §5.2 speaks of "authenticated
+DS records" and a forged DS naming algorithm 253 would otherwise downgrade any
+zone. Proposed as [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148)
+(`dns/authenticate-dnskey-and-ds`), with regression tests that sign three zones for
+real and break one link each.
+
+**What that does not change.** A missing DS is still taken at its word. RFC 4035
+§5.2 asks for an authenticated NSEC or NSEC3 proof that the parent has none, and
+without it an attacker who strips the DS can still turn a signed zone Insecure —
+no longer Secure, but for DANE Insecure means "use opportunistic TLS" (RFC 7672
+§2.2). That is a change of its own.
+
+---
+
+## 68 — A zone's signature is accepted for names outside the zone
+
+RFC 4035 §5.3.1, the first condition on an RRSIG:
+
+> The RRSIG RR and the RRset MUST have the same owner name and the same class.
+
+and the second:
+
+> The RRSIG RR's Signer's Name field MUST be the name of the zone that contains
+> the RRset.
+
+`ValidateAsync` fetches the DNSKEY RRset of whatever zone the Signer's Name field
+names, verifies the RRSIG with it and walks up from that zone. It never compares the
+signer with the owner. The chain walk authenticates the signer's keys — not the
+signer's authority over the name.
+
+**What that allows.** Whoever holds the key of any properly delegated, properly
+signed zone — `attacker.example.`, bought for the purpose — signs an A record for
+`www.bank.example.` with it, under their own signer name. The signature verifies,
+the chain from `attacker.example.` to the root is genuine, and the answer is
+**Secure**. Unlike finding 67 this needs no forgery anywhere: every signature in it
+is real.
+
+A validator cannot tell where the zone cuts are from an RRSIG alone, but it can
+refuse a signer that is neither the owner nor one of its ancestors, and that is all
+it takes.
+
+**Repro**: `ChainValidationTests.A_Zone_Cannot_Sign_For_A_Name_Outside_It`, red on
+purpose. One zone, `attacker.test.`, signed by a key the suite makes itself
+(`ConstructedKey`: ECDSA P-256, the signed data built from RFC 4034 §3.1.8.1 in the
+suite rather than asked of Hermod), with an anchor over that key. The control — the
+same key signing `www.attacker.test.` — is Secure; `www.bank.example.` is Secure as
+well.
+
+**Suggested fix**: Bogus when the signer does not enclose the owner, for answers and
+for the NSEC and NSEC3 records of a denial. Part of
+[Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
+
+---
+
+## 69 — A signature with nothing to cover makes the rest of the answer Secure
+
+`ValidateAsync` goes through the RRSIGs of the answer, finds for each the RRset it
+covers, and verifies it:
+
+```csharp
+var rrSet = answerRecords
+                .Where(rr => rr.Type == rrsig.TypeCovered &&
+                             rr.DomainName.FullName.Equals(rrsig.DomainName.FullName, …))
+                …;
+
+if (rrSet.Count == 0)
+    continue;
+```
+
+and returns Secure when the loop is done. Nothing checks that the loop covered the
+answer. An RRSIG whose RRset is absent is skipped, and the records nobody signed are
+reported Secure together with the ones somebody did.
+
+**What that allows.** A forged A record, and beside it any genuine RRSIG of the zone
+over an RRset the answer does not hold — replayed, which costs nothing: **Secure**.
+And one signed RRset makes every unsigned RRset beside it Secure.
+
+`A_Signature_Covers_One_Rrset_And_Not_Every_Record_Of_Its_Type` stood next to the
+second half without seeing it. It asks whether an unsigned record beside a signed
+RRset makes the answer Bogus — it must not — and set the other question aside: "the
+validator checks the signatures it is given rather than demanding one per record,
+and that is a separate question from this one". It is this one.
+
+**What the verdict should be.** Not Secure, and not Bogus either: a signed CNAME into
+an unsigned zone legitimately brings the target's records unsigned, and whether an
+unsigned RRset's zone is signed is the question an answer without any RRSIG raises
+too — which `Answer_Without_Any_Rrsig_Is_Insecure` answers Insecure. The one
+unsigned RRset a fully signed answer holds is the CNAME synthesized from a DNAME
+(RFC 6672 §5.3.1), and that one is covered by the DNAME's signature when it follows
+from it.
+
+**Repro**: `ChainValidationTests.A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing`,
+red on purpose. A forged A record for `www.dnssec.test.` and BIND's signature over
+the A RRset of `a.dnssec.test.`. Secure.
+
+**Suggested fix**: an answer is Secure only when every RRset in it is covered by a
+verified signature, or is a CNAME that follows from a verified DNAME; otherwise
+Insecure. Part of [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
+
+---
+
+## 70 — A denial is read from NSEC records nobody signed
+
+RFC 4035 §5.4: "security-aware resolvers MUST authenticate the NSEC RRsets that
+comprise the non-existence proof" — the ones the proof rests on, not some others
+beside them. `ValidateDenialAsync` verifies each NSEC or NSEC3 RRset that has an RRSIG,
+and then gives the whole authority section to the proof:
+
+```csharp
+return DenialOfExistenceValidator.Verify(QName, QType, authorities) switch { … };
+```
+
+An NSEC without an RRSIG is never checked, and still counts.
+
+**What that allows.** One genuine signed NSEC of the zone, replayed from anywhere in
+it, satisfies the signature half. A second NSEC, unsigned and made up, satisfies the
+proof half. A NODATA for a record that exists, or an NXDOMAIN for a name that does:
+**Secure**. The comment above the check says what it was meant to do — "the records
+are authentic. Now: do they prove the claim?" — and the records it then reads are
+not the ones it authenticated.
+
+**Repro**: `DenialSignatureTests.An_Unsigned_NSEC_Beside_A_Signed_One_Proves_Nothing`,
+red on purpose. BIND's NSEC at `mx.dnssec.test.` with its signature, and an unsigned
+NSEC at `a.dnssec.test.` whose bitmap — written out octet by octet — leaves out A.
+The question is the A record of `a.dnssec.test.`, which exists. Secure.
+
+**Suggested fix**: read the proof only from the RRsets whose signatures verified.
+Part of [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
 
 ---
 

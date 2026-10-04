@@ -4,6 +4,7 @@ using org.GraphDefined.Vanaheimr.Illias;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -719,6 +720,106 @@ public class ChainValidationTests
 
         Assert.That(resolver.Queries, Does.Contain(("dnssec.test", DNSResourceRecordTypes.DNSKEY)),
                     $"expected a DNSKEY query for the signer; saw: {String.Join(", ", resolver.Queries)}");
+
+    }
+
+    #endregion
+
+    #region A_Zone_Cannot_Sign_For_A_Name_Outside_It()
+
+    /// <summary>
+    /// Finding 68. RFC 4035 §5.3.1: "The RRSIG RR's Signer's Name field MUST be the
+    /// name of the zone that contains the RRset."
+    ///
+    /// <para>
+    /// The chain here is as short and as sound as a chain gets: one zone,
+    /// <c>attacker.test.</c>, its DNSKEY RRset signed by its own key, and a trust
+    /// anchor over that key — the position of anybody who holds the key of a
+    /// properly delegated, properly signed zone. With that key they sign an A
+    /// record for <c>www.bank.example.</c>, a name their zone has no say over. The
+    /// signature is genuine and the chain verifies; what is wrong is the claim that
+    /// <c>attacker.test.</c> speaks for that name at all, and only the names say so.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "4035 §5.3.1")]
+    public async Task A_Zone_Cannot_Sign_For_A_Name_Outside_It()
+    {
+
+        using var attacker = new ConstructedKey("attacker.test");
+
+        var own       = new A(DomainName.Parse("www.attacker.test"),
+                              DNSQueryClasses.IN,
+                              TimeSpan.FromHours(1),
+                              IPv4Address.Parse("192.0.2.66"));
+
+        var foreign   = new A(DomainName.Parse("www.bank.example"),
+                              DNSQueryClasses.IN,
+                              TimeSpan.FromHours(1),
+                              IPv4Address.Parse("192.0.2.66"));
+
+        var resolver  = new StubDnsClient().
+                            Answer("attacker.test", DNSResourceRecordTypes.DNSKEY, attacker.Signed(attacker.DNSKEY));
+
+        var validator = new DNSSECValidator(resolver, [attacker.DelegationSigner()]);
+
+        // The control: the same key, the same chain, a name inside the zone. It
+        // shows the signatures this suite makes verify, so that what refuses the
+        // second answer can only be the name.
+        var ownResult     = await validator.ValidateAsync(ResponseWith(attacker.Signed(own)));
+        var foreignResult = await validator.ValidateAsync(ResponseWith(attacker.Signed(foreign)));
+
+        Assert.Multiple(() => {
+
+            Assert.That(ownResult,     Is.EqualTo(DNSSECValidationResult.Secure),
+                        "a zone vouches for the names inside it");
+
+            Assert.That(foreignResult, Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "attacker.test. has no authority over www.bank.example., however valid its signature");
+
+        });
+
+    }
+
+    #endregion
+
+    #region A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing()
+
+    /// <summary>
+    /// Finding 69. The answer holds a forged A record for <c>www.dnssec.test</c>
+    /// and, beside it, BIND's genuine signature over the A RRset of
+    /// <c>a.dnssec.test</c> — which the answer does not hold. Replaying a signature
+    /// costs nothing; every resolver has been handed this one.
+    ///
+    /// <para>
+    /// A signature vouches for the RRset it covers. With that RRset absent it
+    /// vouches for nothing, and the forged record beside it is exactly as unsigned
+    /// as it would be alone — Insecure, the verdict of
+    /// <see cref="Answer_Without_Any_Rrsig_Is_Insecure"/>. Not Bogus, because an
+    /// unsigned RRset is also what a signed CNAME into an unsigned zone
+    /// legitimately brings along; but never Secure.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "4035 §5.3")]
+    public async Task A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing()
+    {
+
+        var (_, signature) = SignedA();
+
+        var forged    = new A(DomainName.Parse("www.dnssec.test"),
+                              DNSQueryClasses.IN,
+                              TimeSpan.FromHours(1),
+                              IPv4Address.Parse("192.0.2.66"));
+
+        var validator = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
+
+        var result    = await validator.ValidateAsync(ResponseWith(forged, signature));
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Insecure),
+                    "the only signature in the answer covers a record the answer does not hold");
 
     }
 

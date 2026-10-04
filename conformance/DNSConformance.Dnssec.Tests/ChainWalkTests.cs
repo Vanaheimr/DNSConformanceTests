@@ -6,6 +6,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -424,6 +425,57 @@ public class ChainWalkTests
 
         Assert.That(result, Is.EqualTo(DNSSECValidationResult.Insecure),
                     "an unsigned step is an unvalidated chain, not a broken one");
+
+    }
+
+    #endregion
+
+    #region A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure()
+
+    /// <summary>
+    /// Finding 67. The chain of <see cref="The_Root_Has_No_Parent_To_Step_Into"/>,
+    /// with the one thing that test leaves out: an anchor over the root key.
+    ///
+    /// <para>
+    /// Every key above the fixture zone is filler, every signature over a DNSKEY
+    /// RRset is 64 octets of 0x5A, neither DS RRset is signed at all, and BIND's
+    /// signature over the fixture's own DNSKEY RRset is left out. The one genuine
+    /// signature is BIND's over the A record. RFC 4035 §5.2 makes a DNSKEY RRset
+    /// authentic only through an RRSIG made by a key that an authenticated DS — or
+    /// the anchor — names, and a DS RRset authentic only through the parent's
+    /// signature. Nothing above the answer here is authentic, so the answer may
+    /// not be Secure.
+    /// </para>
+    ///
+    /// <para>
+    /// Against the real root the attack needs no made-up root key: the root's
+    /// DNSKEY response is public, signature and all, and can be replayed whole.
+    /// The filler key stands in for it because the suite holds no anchor for the
+    /// real root.
+    /// </para>
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "4035 §5.2, 4033 §5")]
+    public async Task A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure()
+    {
+
+        var parent    = ParentKey(0x77);
+        var root      = RootKey(0x88);
+
+        var resolver  = new StubDnsClient().
+                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeys]).
+                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     zone.DelegationSigner).
+                            Answer("test",        DNSResourceRecordTypes.DNSKEY, parent,
+                                                                                 SignatureNaming(parent, DNSResourceRecordTypes.DNSKEY)).
+                            Answer("test",        DNSResourceRecordTypes.DS,     DelegationSignerFor(parent)).
+                            Answer(".",           DNSResourceRecordTypes.DNSKEY, root,
+                                                                                 RootSignatureNaming(root));
+
+        var result    = await Validate(resolver, DelegationSignerFor(root));
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "no signature above the answer verifies, and the DS records are signed by nobody");
 
     }
 
