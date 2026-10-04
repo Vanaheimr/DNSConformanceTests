@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -158,7 +157,6 @@ public class KeySetAuthenticationTests
     /// </remarks>
     [TestCase(AnchorAt.TheZone, TestName = "A_Forged_Zone_Signing_Key_Beside_The_Genuine_Key_Signing_Key_Is_Bogus(anchor at the zone)")]
     [TestCase(AnchorAt.TheRoot, TestName = "A_Forged_Zone_Signing_Key_Beside_The_Genuine_Key_Signing_Key_Is_Bogus(anchor at the root)")]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.2, 7672 §2.2")]
     public async Task A_Forged_Zone_Signing_Key_Beside_The_Genuine_Key_Signing_Key_Is_Bogus(AnchorAt Anchor)
     {

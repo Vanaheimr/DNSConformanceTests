@@ -82,7 +82,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 64 | A cached RRset lost its signature when another signed RRset arrived for the same name | **High** | 4035 §4.5 | ✅ fixed |
 | 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
 | 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
-| 67 | A key published beside the one the DS names signs answers that validate Secure | **High** | 4035 §5.2, §5.3.1, §4.3 | ⏳ **open** |
+| 67 | A key published beside the one the DS named signed answers that validated Secure | **High** | 4035 §5.2, §5.3.1, §4.3 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3910,7 +3910,7 @@ answer is never tied to the key the DS matches — RFC 4035 §5.2's third condit
 "the corresponding private key has signed the child zone's apex DNSKEY RRset, and
 the resulting RRSIG RR authenticates the child zone's apex DNSKEY RRset". The
 summary of `ChainWalkTests` records the omission as a design decision of the tests;
-it is a gap in the validator, and a finding of its own.
+it is a gap in the validator, and a finding of its own: finding 67.
 
 ---
 
@@ -3984,7 +3984,7 @@ so it is recorded here rather than folded into this finding.
 
 ---
 
-## 67 — A key published beside the one the DS names signs answers that validate Secure
+## 67 — A key published beside the one the DS named signed answers that validated Secure
 
 A DS names one key of the child zone, and a trust anchor names one key of its zone.
 Every other key — the zone-signing key that signs the answers above all — is
@@ -4065,17 +4065,17 @@ domain's.
 
 **Repro**:
 `KeySetAuthenticationTests.A_Forged_Zone_Signing_Key_Beside_The_Genuine_Key_Signing_Key_Is_Bogus`,
-red on purpose, in two cases. The fixture zone's DNSKEY RRset is served as a
+red until the fix, in two cases. The fixture zone's DNSKEY RRset is served as a
 zone-signing key generated in the test beside BIND's genuine key-signing key, with
 BIND's signature over the genuine set replayed and one by the forged key over the
 forged set; the answer is `a.dnssec.test` with an address the zone never published,
 signed by the forged key. Once with the zone's own DS as the anchor, once with the
 anchor at a root two delegations up and `test.` between them, every RRset above the
 fixture signed for real. The genuine zone through the same scaffolding is the
-control, Secure in both. The forgery is Secure in both.
+control, Secure in both. The forgery was Secure in both.
 
-Two tests in `ChainWalkTests` carry `KnownIssue` with it, because each asserts the
-other half of the same rule one step up and is red for the same reason:
+Two tests in `ChainWalkTests` carried `KnownIssue` with it, because each asserts the
+other half of the same rule one step up and was red for the same reason:
 `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Bogus`, the test above turned the
 right way round, and the second assertion of
 `The_Anchor_Has_To_Name_The_Key_That_Signed_The_Key_Set`, which anchors on a key the
@@ -4097,8 +4097,8 @@ validly anchored `evil.` was Secure, measured here before the merge), an RRSIG w
 nothing to cover beside a forged RRset, and denial proofs read from NSEC records
 whose signatures were never checked.
 
-The tracker and the two tests beside it are red at the pinned Hermod and green at
-the merge, where the DNSSEC project passes whole (331 ✅ · 0 ❌ · 4 skips). Live
+The tracker and the two tests beside it were red at 8dc9663a and are green from
+12baa4e6 on, where the DNSSEC project passes whole (331 ✅ · 0 ❌ · 4 skips). Live
 against 1.1.1.1 with `WithRootTrustAnchor` on 2026-10-04, at the merge, nothing
 moves: `isc.org`, `www.isc.org`, `www.ietf.org`, `sys4.de`, `www.nic.cz`,
 `www.nlnetlabs.nl`, `cloudflare.com` and `example.com`, the TLSA RRsets of

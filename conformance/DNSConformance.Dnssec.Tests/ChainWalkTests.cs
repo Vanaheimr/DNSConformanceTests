@@ -6,7 +6,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -287,12 +286,12 @@ public class ChainWalkTests
     /// </para>
     ///
     /// <para>
-    /// The second assertion is finding 67 one step up, and red until it is fixed:
-    /// the walk compares an anchor with every key of the key set, signer or not.
+    /// The second assertion is finding 67 one step up, and was red until it was
+    /// fixed: the walk compared an anchor with every key of the key set, signer or
+    /// not.
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4034 §5.1, 4035 §5.2")]
     public async Task The_Anchor_Has_To_Name_The_Key_That_Signed_The_Key_Set()
     {
@@ -403,13 +402,12 @@ public class ChainWalkTests
     /// This test used to say Insecure, on the reasoning that a parent without a
     /// signature "has not been caught lying either". That was the validator's
     /// behavior — it looked for the RRSIG over the parent's key set, answered
-    /// Insecure when there was none, and verified it when there was — written
-    /// down as the rule. It is finding 67 seen from one step up, and it is red
-    /// until the walk verifies the signatures it relies on.
+    /// Insecure when there was none, and read only its key tag when there was —
+    /// written down as the rule. It is finding 67 seen from one step up, and was
+    /// red until the walk verified the signatures it relies on.
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §4.3, §5.2")]
     public async Task A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Bogus()
     {
