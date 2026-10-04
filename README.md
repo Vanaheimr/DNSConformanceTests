@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1605 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-04): 1606 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -38,10 +38,10 @@ written in parallel with its tracker: its four cases — the tracker in two, and
 tests in `ChainWalkTests` that assert the same rule one step up — were red at
 8dc9663a (the DNSSEC project 327 ✅ · 4 ❌ otherwise). So were findings 68 to 70,
 the three neighbours #148 closed with it and recorded afterwards: their trackers,
-and the test for the DS link of 67, were Secure at 8dc9663a and pass from 12baa4e6
-on. So was finding 71, whose fix Vanaheimr/Hermod#150 was merged before its
+and the tests for two more links of 67, were Secure at 8dc9663a and pass from
+12baa4e6 on. So was finding 71, whose fix Vanaheimr/Hermod#150 was merged before its
 tracker was written: its eight cases were red at the previous pin (12baa4e6, the
-DNSSEC project 335 ✅ · 8 ❌ otherwise). All of them are among the 1605 now.
+DNSSEC project 335 ✅ · 8 ❌ otherwise). All of them are among the 1606 now.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

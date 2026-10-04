@@ -4094,12 +4094,16 @@ right way round, and the second assertion of
 `The_Anchor_Has_To_Name_The_Key_That_Signed_The_Key_Set`, which anchors on a key the
 parent publishes and never signed its key set with.
 
-The tracker breaks the signature over a key set and leaves every DS signed; the DS
-link got a test of its own with findings 68 to 70.
-`ChainWalkTests.A_DS_RRset_Nobody_Signed_Is_Not_The_Parents_Word` serves a genuine,
-anchored parent with a signed key set, BIND's keys with BIND's signature, and the
-fixture's DS without any: it was Secure at 8dc9663a. The same chain with the
-parent's signature over the DS is its control.
+The tracker breaks the signature over a key set and leaves every DS signed; two
+more links got tests of their own with findings 68 to 70, each in an otherwise
+genuine chain under an anchored parent, each with that chain signed throughout as
+its control. `ChainWalkTests.A_DS_RRset_Nobody_Signed_Is_Not_The_Parents_Word`
+serves the fixture's DS without a signature;
+`ChainWalkTests.A_Forged_Signature_Over_The_Parents_Key_Set_Is_Bogus` serves the
+parent's key set with an RRSIG that names the parent's key and carries 64 octets of
+filler — the branch where the walk read the tag and stopped, as distinct from the
+missing RRSIG `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Bogus` covers. Both
+were Secure at 8dc9663a.
 
 **The fix**: verify every signature the walk relies on. A zone's DNSKEY RRset is
 accepted only if one of its RRSIGs verifies under a key of the set that a usable DS
