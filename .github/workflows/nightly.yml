@@ -96,6 +96,33 @@ jobs:
         if: runner.os == 'Linux'
         run: sh fixtures/zones/resign.sh
 
+      # Every interop verdict here is gated on its tool being present:
+      # TestEnvironment calls Assert.Ignore when one is missing, NUnit records
+      # that as a skip rather than a failure, and the steps below would pass
+      # having asked nothing. On a developer machine that is exactly right -- a
+      # missing kdig is not a conformance result. In this job the same silence
+      # is a lie, because the steps above installed every one of them.
+      #
+      # So they are checked here, in the idiom the container-servers job already
+      # uses for Docker: failing on a missing prerequisite means a skip can only
+      # ever be about the runner, never about something this workflow forgot to
+      # install. genreport is in the list for the reason its own build step
+      # gives -- it is the one verdict the suite cannot reach by itself, so a
+      # night where it silently skips is a night that stopped asking.
+      #
+      # named gets a -V rather than only a command -v. BIND is the one daemon in
+      # this list, and a binary that is present but cannot run is exactly the
+      # failure mode that let NTSConformanceTests' upstream-peer lane report
+      # agreement for a whole run against a chronyd that never started.
+      - name: Check the interop prerequisites are really there (Debian container)
+        if: runner.os == 'Linux'
+        run: |
+          set -e
+          for tool in dig kdig drill delv named named-checkzone genreport; do
+            command -v "${tool}"
+          done
+          named -V | head -1
+
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
 
@@ -115,14 +142,43 @@ jobs:
       # a real interoperability regression — dig, kdig or drill disagreeing with
       # what Hermod put on the wire. On Windows there is no WSL on the runner,
       # so every test in this category skips and the step passes trivially.
+      #
+      # And on Linux a skip is a failure too, which is the opposite of what a
+      # skip means elsewhere in this suite. Windows skipping all of them is
+      # honest reporting. The Debian leg skipping even one means a check could
+      # not use a tool the step above has just proved runs, and a green step
+      # would be reporting agreement it never measured. The bar is what the
+      # night of 2026-10-04 measured: 73 passed, 0 skipped.
+      #
+      # The counts are summed rather than read from a grand total, because this
+      # filter spans two assemblies and the SDK here prints one summary per
+      # assembly and no total. Summing cannot flip the verdict either way: all
+      # zeroes sum to zero, and a future SDK that printed both would only
+      # overstate a number that was already non-zero.
       - name: Test (interop against dig, kdig, drill, BIND)
         timeout-minutes: 45
-        run: >
-          dotnet test DNSConformanceTests.slnx --configuration Release --no-build
-          --filter "TestCategory=WSL"
-          --logger "console;verbosity=normal"
-          --logger "trx;LogFilePrefix=interop"
-          --results-directory artifacts
+        shell: bash
+        run: |
+          set +e
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
+            --filter "TestCategory=WSL" \
+            --logger "console;verbosity=normal" \
+            --logger "trx;LogFilePrefix=interop" \
+            --results-directory artifacts > interop.out 2>&1
+          rc=$?
+          cat interop.out
+          [ "${rc}" -eq 0 ] || exit "${rc}"
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            skipped=0
+            for n in $(grep -oE 'Skipped: +[0-9]+' interop.out | grep -oE '[0-9]+'); do
+              skipped=$((skipped + n))
+            done
+            echo "skipped on this leg: ${skipped}"
+            if [ "${skipped}" -ne 0 ]; then
+              echo "FAIL: ${skipped} interop checks skipped although every tool is installed."
+              exit 1
+            fi
+          fi
 
       # Bidirectional live DNS-SD interop. Windows ships dns-sd.exe; the
       # capability-gated tests skip on hosts without a native command or a
