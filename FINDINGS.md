@@ -79,6 +79,9 @@ what is queued, what is out of scope — are not here at all; they live in
 | 61 | Two aliases pointing at each other were chased for as long as the peer answered | Medium | 1034 §5.2.2, 1035 §7.1 | ✅ fixed |
 | 62 | A client that could not ask anybody answered as an authority that said no | Low | 1035 §4.1.1, 2308 §2.1 | ✅ fixed |
 | 63 | A DNSClient could not be told to stop asking for recursion | Medium | 1035 §4.1.1, 1034 §5.3.3 | ✅ fixed |
+| 64 | A cached RRset lost its signature when another signed RRset arrived for the same name | **High** | 4035 §4.5 | ✅ fixed |
+| 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
+| 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -3757,6 +3760,226 @@ tests turned out to rest on this one defect, and neither was found by failing.
 the reason: the value they decide is discarded downstream, so no test can tell the
 readings apart. When this is fixed those three become reachable, and the test above
 turns green and starts closing them.
+
+---
+
+## 64 — A cached RRset lost its signature when another signed RRset arrived for the same name
+
+RFC 4035 §4.5 on what a security-aware resolver keeps:
+
+> A security-aware resolver SHOULD cache each response as a single atomic entry
+> containing the entire answer, including the named RRset and any associated
+> DNSSEC RRs.
+
+The signature is part of the answer. An RRset served from the cache without it is,
+to a validator, an RRset that was never signed.
+
+`DNSCache` is keyed by owner name alone, and a second response for a name is merged
+into what the cache already holds for it, type by type:
+
+```csharp
+var newAnswerTypes = DNSInformation.Answers.
+                         Select(rr => rr.Type).
+                         ToHashSet();
+
+var mergedAnswers  = existingEntry.DNSInfo.Answers.
+                         Where (rr => !newAnswerTypes.Contains(rr.Type)).
+                         Concat(DNSInformation.Answers).
+```
+
+An RRSIG's type is RRSIG, whatever it covers. So of two signed RRsets at one name,
+only the one that arrived last keeps a signature: its RRSIG makes "RRSIG" one of the
+new types, and every older RRSIG at the name is dropped to make room for it.
+
+**Where two signed RRsets share a name.** At every zone apex a validator asks for,
+on every chain walk: the zone's DNSKEY RRset, signed by the zone, and the DS RRset
+the parent serves under the same name. `WalkChainOfTrust` fetches the DS of a zone
+and then the DNSKEY of its parent, so after one walk the cache holds, for `de.`, the
+DNSKEY RRset (from the step out of `sys4.de.`) and the DS RRset with its signature
+(from the step out of `de.`) — and no signature over the DNSKEY RRset. The next walk
+through `de.` reads the cached DNSKEY RRset, finds nothing covering it, and takes
+the branch pinned by
+`ChainWalkTests.A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure`.
+
+**How it was found.** Not by this suite: by a live probe of the DANE resolver the
+SMTP suite builds on Hermod (SMTPConformanceTests, FINDINGS.md § DANE, N-1), against
+1.1.1.1 on 2026-10-04 with `DnssecOK` and `WithRootTrustAnchor`. The TLSA RRset of
+`_25._tcp.mail.sys4.de` validated **Secure** with `UseQueryCache: false` and
+**Insecure** with the default cache, as soon as anything else under `sys4.de` had
+been validated first; `mx01.posteo.de` behaved the same.
+
+**What it costs.** For DANE an Insecure TLSA RRset is not an error but an
+instruction. RFC 7672 §2.2: for an "insecure" TLSA RRset "a connection to the MTA
+SHOULD be made using (pre-DANE) opportunistic TLS; this includes using cleartext
+delivery when the remote SMTP server does not appear to support TLS." A domain that
+published TLSA records to prevent exactly that downgrade gets it anyway — not from
+an attacker but from the resolver's own cache, and only from the second delivery
+on.
+
+**Repro**:
+`SignatureCachingTests.A_Cached_RRset_Keeps_Its_Signature_When_Another_Signed_RRset_Arrives_For_The_Same_Name`,
+red until the fix. A scripted server answers DNSKEY and DS for `example.`, each with
+its RRSIG; the client asks DNSKEY, DS, DNSKEY. Three controls pass — both RRsets
+arrived signed, and the third question never reached the server. The last DNSKEY
+answer, served from the cache, carried no RRSIG.
+
+**The fix**: file an RRSIG under the type it covers (RFC 4034 §3.1.1) when
+merging, so a signature is replaced together with its RRset and with nothing else.
+Merged as [Vanaheimr/Hermod#139](https://github.com/Vanaheimr/Hermod/pull/139)
+(`dns/cache-keeps-signatures`), with regression tests in `DNSCache_Tests` that fail
+without it.
+
+**What that does not change.** The cache stays keyed by name rather than by the
+`<QNAME, QTYPE, QCLASS>` triple §4.5 recommends, so a cached answer still carries
+whatever other types are cached at its name. That is untidy rather than wrong — the
+validator selects by type — and a change of its own.
+
+---
+
+## 65 — A zone with two key-signing keys was followed through whichever was listed first
+
+The chain walk has to decide which of a zone's keys the DS in the parent (or a
+configured anchor) is about. `WalkChainOfTrust` decides by flag:
+
+```csharp
+// A KSK has bit 8 (Secure Entry Point) set: Flags & 0x0001 == 1
+var ksk = currentDNSKeys.FirstOrDefault(
+              key => (key.Flags & 0x0001) == 1 &&
+                     key.Algorithm == currentKey.Algorithm
+          );
+…
+var dsVerified = dsRecords.Any(ds => VerifyDS(ksk, ds));
+```
+
+The first published key with the SEP bit is "the" key-signing key, and the DS is
+checked against that one key. RFC 4034 §2.1.1 rules the flag out for exactly this:
+
+> This flag is only intended to be a hint to zone signing or debugging software as
+> to the intended use of this DNSKEY record; validators MUST NOT alter their
+> behavior during the signature validation process in any way based on the setting
+> of this bit.
+
+RFC 4035 §5.2 says which key the DS has to match: "The Algorithm and Key Tag in the
+DS RR match the Algorithm field and the key tag of a DNSKEY RR in the child zone's
+apex DNSKEY RRset" — any of them, chosen by tag, algorithm and digest.
+
+A zone publishes two SEP keys for as long as a KSK rollover lasts. Whenever the
+standby key is listed first, the DS does not match it and the walk answers
+**Bogus** — for every name under the zone, for the length of the rollover.
+
+**Measured, live.** `org.` is in that state today: keys 725 and 26974, both flagged
+257, the DNSKEY RRset signed by 26974 and the root's DS naming 26974. `ValidateAsync`
+returned Bogus for the A records of `isc.org`, `www.isc.org` and `www.ietf.org`,
+while 1.1.1.1 set AD on all three; `.de`, `.nl`, `.cz` and `.com`, one KSK each,
+validated Secure. The probe that reported it (SMTPConformanceTests § DANE, N-2)
+suspected RSA/SHA-256 or NSEC3 at the TLD — the two things `.org` visibly does
+differently. Neither is involved: `.de` signs with RSA/SHA-256 too, and a positive
+answer never touches NSEC3.
+
+**Why the suite did not see it.**
+`ChainWalkTests.The_Key_Carried_Up_Is_The_One_The_Signature_Names` builds two SEP
+keys in one zone and calls the flag lookup "the ordinary way a zone's signing key is
+found from its zone-signing one". It stays green because its anchor sits at that
+very zone, and the anchor is compared with the key the parent's signature names
+before the flag is ever consulted. One zone further down the comparison is with the
+DS, and the DS meets only the flag's choice.
+
+**What it costs.** Bogus is the verdict that takes a name off the internet for a
+validating client. For DANE it is worse than for a browser: RFC 7672 §2.1.2 makes a
+Bogus MX or TLSA lookup a reason to delay delivery, so every domain under `.org`
+that publishes DANE records received no mail from a Hermod MTA that did
+DANE.
+
+**Repro**:
+`ChainWalkTests.A_Zone_With_Two_Key_Signing_Keys_Is_Followed_Through_The_One_Its_DS_Names`,
+red until the fix. The fixture zone under a constructed `test.` that lists a standby SEP
+key before the active one, under a constructed root that is the anchor. The
+`DelegationSignerFor` helper learned to digest the root's empty owner name for it.
+
+**The fix**: check the anchors and the DS against every key of the zone's
+DNSKEY RRset, matched by key tag, algorithm and digest, and drop the flag from the
+decision. Merged as [Vanaheimr/Hermod#140](https://github.com/Vanaheimr/Hermod/pull/140)
+(`dns/ksk-without-sep`), with a regression test that signs three zones for real.
+
+**What that does not change, and should come next.** The walk looks for the RRSIG
+over a parent's DNSKEY RRset and reads the key tag it names; it does not verify it.
+It does not look at the signature over the signer zone's own DNSKEY RRset at all,
+and the DS RRset's signature is not checked either. So the key that signed an
+answer is never tied to the key the DS matches — RFC 4035 §5.2's third condition,
+"the corresponding private key has signed the child zone's apex DNSKEY RRset, and
+the resulting RRSIG RR authenticates the child zone's apex DNSKEY RRset". The
+summary of `ChainWalkTests` records the omission as a design decision of the tests;
+it is a gap in the validator, and a finding of its own.
+
+---
+
+## 66 — A compact denial of existence was read as a server failure
+
+An online signer cannot precompute the NSEC chain of a zone it signs on the fly, so
+it answers every denial with an NSEC made up for the query. RFC 9824 §3.1
+standardises the form Cloudflare has served for years:
+
+> The Next Domain Name field SHOULD be set to the immediate lexicographic successor
+> of the QNAME. This is accomplished by adding a leading label with a single null
+> (zero-value) octet.
+
+```
+a.example.com. 300 IN NSEC \000.a.example.com. RRSIG NSEC NXNAME
+```
+
+The NSEC reader parses that field as a hostname:
+
+```csharp
+this.NextDomainName = DNS.DomainName.Parse(
+                         DNSTools.ExtractName(Stream)
+                     );
+```
+
+`\000.mail.ietf.org.` does not match the hostname pattern, `Parse` throws, the
+exception leaves the reflection-invoked constructor and takes `ReadResourceRecord`
+and the response reader with it, and the transport hands back what it hands back for
+any unreadable datagram: `ServerFailure`, `IsValid: false`, no records at all.
+
+RFC 4034 §4.1.1 makes the field a position in the canonical order of the zone, not
+a hostname, and RFC 2181 §11 says what a label may be: "any binary string whatever
+can be used as the label of any resource record" — and, two sentences on,
+"Implementations of the DNS protocols must not place any restrictions on the labels
+that can be used." A label of one zero octet is the smallest there is, which is why
+RFC 9824 chose it: `\000.qname` is the first name after `qname`.
+
+**Measured, live.** `Query(mail.ietf.org, A)` with `DnssecOK` against 1.1.1.1
+returned ServerFailure while `Resolve-DnsName -DnssecOk` showed NOERROR with SOA,
+NSEC and two RRSIGs. A name that does not exist at all — `no-such-name.ietf.org`,
+type bitmap RRSIG NSEC NXNAME — the same. Every negative answer from every zone
+signed this way, which is every zone Cloudflare signs, arrives as a resolver failure
+as soon as the client asks for DNSSEC records.
+
+**What it costs.** A DANE client asks for TLSA records at every MX host, and most
+hosts publish none: the answer is exactly this kind of NODATA. RFC 7672 §2.1.2: "If
+any DNS queries used to locate TLSA records fail (due to "bogus" or "indeterminate"
+records, timeouts, malformed replies, SERVFAIL responses, etc.), then the SMTP
+client MUST treat that server as unreachable and MUST NOT deliver the message via
+that server." Every MX host without TLSA records under a Cloudflare-signed zone was
+unreachable to a Hermod MTA that did DANE.
+
+**Repro**: `CompactDenialTests.A_Compact_Denial_Is_A_Negative_Answer_Not_A_Server_Failure`,
+red until the fix, in two cases: the NODATA for `mail.ietf.org` and the NXNAME answer
+for `no-such-name.ietf.org`, both replayed byte for byte from what 1.1.1.1 sent on
+2026-10-04, re-addressed to the query's ID and question. Nothing is validated, so
+the expiry of the recorded signatures does not matter.
+
+**The fix**: read the next domain name with a parser that enforces the length
+limits and nothing else. Merged as
+[Vanaheimr/Hermod#141](https://github.com/Vanaheimr/Hermod/pull/141)
+(`dns/compact-denial`) as an internal `DomainName.FromWire`. Its regression tests
+also check the other half: the zero octet goes back on the wire as the one-octet
+label it was, and ietf.org.'s real signature over the recorded NSEC verifies. With
+the fix, both answers above validate Secure as authenticated denials.
+
+**Where else the same parser sits.** CNAME, DNAME, SRV, AFSDB, RP, the RRSIG signer
+name, TKEY and TSIG read their RDATA names with the same hostname rules. Most of
+those names are hostnames in practice, and widening them is a decision of its own,
+so it is recorded here rather than folded into this finding.
 
 ---
 
