@@ -16,6 +16,15 @@ namespace DNSConformance.Dnssec.Tests;
 /// never come back. Both properties exist so that a single compromised response
 /// cannot install an attacker's key, so they are worth testing directly rather
 /// than inferring from a successful rollover.
+///
+/// <para>
+/// Every root DNSKEY RRset here is signed for real, the way the root signs it. RFC
+/// 5011 believes a set only once it is authenticated: a new key counts only in a
+/// set "validly signed by a trust anchor" (§2.2), a revocation only in a set the
+/// revoked key signed itself (§2.1). A test that feeds an unsigned set is testing
+/// what a validator does with a forged answer, and these tests are about what it
+/// does with a genuine one.
+/// </para>
 /// </summary>
 [TestFixture]
 [Property("RFC", "5011")]
@@ -24,47 +33,77 @@ public class TrustAnchorRolloverTests
 
     #region Helpers
 
-    private const Byte  RsaSha256   = 8;
-    private const UInt16 KskFlags   = 257;            // ZONE | SEP
-    private const UInt16 ZskFlags   = 256;            // ZONE
-    private const UInt16 RevokeBit  = 0x0080;
+    private const Byte   EcdsaP256Sha256  = 13;
+    private const Byte   RsaSha256        = 8;
+    private const UInt16 RevokeBit        = 0x0080;
 
-    private static DNSKEY RootKey(UInt16 Flags, Byte Seed)
+    private static readonly DomainName Root = DomainName.Parse(".");
+
+    /// <summary>
+    /// A key of the root, generated for the test: a KSK unless asked for a ZSK.
+    /// </summary>
+    private static DNSSECSigningKey RootKey(Boolean KeySigningKey = true)
+        => DNSSECSigningKey.Generate(Root, EcdsaP256Sha256, KeySigningKey);
+
+    /// <summary>
+    /// The key as its owner publishes it to revoke it. Setting REVOKE changes the
+    /// RDATA, and with it the key tag.
+    /// </summary>
+    private static DNSKEY Revoked(DNSSECSigningKey Key)
+        => new (Root,
+                DNSQueryClasses.IN,
+                Key.DNSKEY.TimeToLive,
+                (UInt16) (Key.DNSKEY.Flags | RevokeBit),
+                Key.DNSKEY.Protocol,
+                Key.DNSKEY.Algorithm,
+                Key.DNSKEY.PublicKey);
+
+    /// <summary>
+    /// A signature over the root's DNSKEY RRset, valid from yesterday for sixty
+    /// days — long enough to outlast the add hold-down, which some of the tests
+    /// below travel through.
+    /// </summary>
+    private static RRSIG Sign(DNSKEY[] Keys, DNSSECSigningKey Key)
+        => DNSSECZoneSigner.SignRRSet(Keys, Key, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(60));
+
+    /// <summary>
+    /// The signature a revoked key makes over the RRset it is revoked in: the same
+    /// private key, and the key tag of the revoked form, which is the key that
+    /// stands in the RRset (RFC 5011 §2.1, "self-signed").
+    /// </summary>
+    private static RRSIG SignRevoked(DNSKEY[] Keys, DNSSECSigningKey Key)
     {
 
-        // The bytes need not be a real key: nothing here verifies a signature, and
-        // the key tag is a checksum over the RDATA either way.
-        var publicKey = new Byte[64];
-        Array.Fill(publicKey, Seed);
+        var live    = Sign(Keys, Key);
+        var keyTag  = DNSSECValidator.ComputeKeyTag(Revoked(Key));
 
-        return new DNSKEY(
-                   DomainName.Parse("."),
-                   DNSQueryClasses.IN,
-                   TimeSpan.FromDays(1),
-                   Flags,
-                   3,
-                   RsaSha256,
-                   publicKey
-               );
+        RRSIG With(Byte[] Signature)
+            => new (Root, DNSQueryClasses.IN, live.TimeToLive, live.TypeCovered, live.Algorithm, live.Labels,
+                    live.OriginalTTL, live.SignatureExpiration, live.SignatureInception, keyTag, live.SignerName,
+                    Signature);
+
+        return With(Key.Sign(DNSSECCanonical.SignedData(Keys, With([]))));
 
     }
 
-    private static StubDnsClient RootServing(params DNSKEY[] Keys)
-        => new StubDnsClient().Answer(".", DNSResourceRecordTypes.DNSKEY, Keys);
+    /// <summary>
+    /// The root's DNSKEY RRset, the keys and the signatures over them.
+    /// </summary>
+    private static StubDnsClient RootServing(DNSKEY[] Keys, params RRSIG[] Signatures)
+        => new StubDnsClient().Answer(".", DNSResourceRecordTypes.DNSKEY, [.. Keys, .. Signatures]);
 
     /// <summary>
-    /// The anchor a resolver would have on file for this key. The probe finds an
-    /// anchor by key tag and algorithm and never looks at the digest, so the
-    /// digest is left at zero rather than computed.
+    /// The root's DNSKEY RRset with the keys given, signed by the anchor.
     /// </summary>
-    private static DS AnchorFor(DNSKEY Key)
-        => new (DomainName.Parse("."),
-                DNSQueryClasses.IN,
-                TimeSpan.FromDays(365),
-                DNSSECValidator.ComputeKeyTag(Key),
-                Key.Algorithm,
-                2,
-                new Byte[32]);
+    private static StubDnsClient RootServing(DNSSECSigningKey Anchor, params DNSKEY[] Keys)
+        => RootServing(Keys, Sign(Keys, Anchor));
+
+    /// <summary>
+    /// The anchor a resolver would have on file for this key: the DS of it, digest
+    /// and all.
+    /// </summary>
+    private static DS AnchorFor(DNSSECSigningKey Key)
+        => Key.DelegationSigner();
 
     #endregion
 
@@ -91,22 +130,27 @@ public class TrustAnchorRolloverTests
     {
 
         // Seeing a new KSK once means nothing. If a single probe could install a
-        // trust anchor, anyone able to answer one query would own the resolver.
-        var newKsk    = RootKey(KskFlags, 0x11);
-        var validator = new DNSSECValidator(RootServing(newKsk));
+        // trust anchor, anyone able to answer one query would own the resolver —
+        // and here the set is even genuinely signed by the anchor already trusted.
+        using var anchor  = RootKey();
+        using var newKsk  = RootKey();
+
+        var validator = new DNSSECValidator(RootServing(anchor, anchor.DNSKEY, newKsk.DNSKEY), [AnchorFor(anchor)]);
 
         var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
 
         Assert.Multiple(() => {
 
-            Assert.That(modified,               Is.False, "nothing is trusted yet, so nothing changed");
-            Assert.That(validator.TrustAnchors, Is.Empty, "the key must not become an anchor on first sight");
+            Assert.That(modified, Is.False, "nothing new is trusted yet, so nothing changed");
+
+            Assert.That(validator.TrustAnchors.Select(a => a.KeyTag), Is.EqualTo(new[] { anchor.KeyTag }),
+                        "the key must not become an anchor on first sight");
 
             Assert.That(validator.PendingAnchors, Has.Count.EqualTo(1),
                         "…it must start its hold-down instead");
 
             Assert.That(validator.PendingAnchors.Keys.Single().KeyTag,
-                        Is.EqualTo(DNSSECValidator.ComputeKeyTag(newKsk)));
+                        Is.EqualTo(newKsk.KeyTag));
 
         });
 
@@ -126,8 +170,9 @@ public class TrustAnchorRolloverTests
         // and the timer is the only place that recognition shows. A resolver that
         // failed to recognise the key would report no change today as well, and
         // differ only a month later, by adding an anchor it already had.
-        var known     = RootKey(KskFlags, 0xCC);
-        var validator = new DNSSECValidator(RootServing(known), [AnchorFor(known)]);
+        using var known  = RootKey();
+
+        var validator = new DNSSECValidator(RootServing(known, known.DNSKEY), [AnchorFor(known)]);
 
         var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
 
@@ -155,26 +200,28 @@ public class TrustAnchorRolloverTests
         // another key however its checksum comes out, so an anchor that happens
         // to share its tag does not vouch for it, and it has to serve a hold-down
         // like any newcomer.
-        var incoming  = RootKey(KskFlags, 0xDD);
+        using var anchor    = RootKey();
+        using var incoming  = RootKey();
 
         var otherAlg  = new DS(
-                            DomainName.Parse("."),
+                            Root,
                             DNSQueryClasses.IN,
                             TimeSpan.FromDays(365),
-                            DNSSECValidator.ComputeKeyTag(incoming),
-                            (Byte) (RsaSha256 + 5),          // ECDSAP256SHA256
+                            incoming.KeyTag,
+                            RsaSha256,                       // the newcomer is ECDSAP256SHA256
                             2,
                             new Byte[32]
                         );
 
-        var validator = new DNSSECValidator(RootServing(incoming), [otherAlg]);
+        var validator = new DNSSECValidator(RootServing(anchor, anchor.DNSKEY, incoming.DNSKEY),
+                                            [AnchorFor(anchor), otherAlg]);
 
         var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
 
         Assert.Multiple(() => {
 
             Assert.That(modified,                 Is.False, "a new key is not trusted on the day it appears");
-            Assert.That(validator.TrustAnchors,   Has.Count.EqualTo(1), "the anchor of the other algorithm is untouched");
+            Assert.That(validator.TrustAnchors,   Has.Count.EqualTo(2), "the anchor of the other algorithm is untouched");
             Assert.That(validator.PendingAnchors, Has.Count.EqualTo(1), "and the newcomer is on hold-down, not mistaken for it");
 
         });
@@ -192,14 +239,16 @@ public class TrustAnchorRolloverTests
 
         // The hold-down is wall-clock time, not a sighting count — otherwise an
         // attacker who can answer repeatedly could simply probe it away.
-        var newKsk    = RootKey(KskFlags, 0x22);
-        var validator = new DNSSECValidator(RootServing(newKsk));
+        using var anchor  = RootKey();
+        using var newKsk  = RootKey();
+
+        var validator = new DNSSECValidator(RootServing(anchor, anchor.DNSKEY, newKsk.DNSKEY), [AnchorFor(anchor)]);
 
         for (var i = 0; i < 5; i++)
             await validator.ProbeForTrustAnchorUpdatesAsync();
 
         Assert.Multiple(() => {
-            Assert.That(validator.TrustAnchors,   Is.Empty);
+            Assert.That(validator.TrustAnchors,   Has.Count.EqualTo(1), "still only the anchor it started with");
             Assert.That(validator.PendingAnchors, Has.Count.EqualTo(1));
         });
 
@@ -218,10 +267,10 @@ public class TrustAnchorRolloverTests
         // admitted — and the caller is told so, which is what has it write the
         // new trust store out. A rollover that completes silently is undone by
         // the next restart.
-        var existing  = RootKey(KskFlags, 0xEE);
-        var incoming  = RootKey(KskFlags, 0xE1);
+        using var existing  = RootKey();
+        using var incoming  = RootKey();
 
-        var validator = new DNSSECValidator(RootServing(existing, incoming), [AnchorFor(existing)]);
+        var validator = new DNSSECValidator(RootServing(existing, existing.DNSKEY, incoming.DNSKEY), [AnchorFor(existing)]);
 
         Assert.That(await validator.ProbeForTrustAnchorUpdatesAsync(), Is.False,
                     "the first sighting starts the clock and nothing more");
@@ -242,7 +291,7 @@ public class TrustAnchorRolloverTests
                             "a month of continuous presence later it is admitted, and said to be");
 
                 Assert.That(validator.TrustAnchors.Select(a => a.KeyTag),
-                            Contains.Item(DNSSECValidator.ComputeKeyTag(incoming)));
+                            Contains.Item(incoming.KeyTag));
 
                 Assert.That(validator.PendingAnchors, Is.Empty,
                             "and it is no longer waiting for anything");
@@ -277,10 +326,10 @@ public class TrustAnchorRolloverTests
         // readings can never be made to differ by exactly thirty days. Saying what
         // "now" is, is the only way to stand on the boundary — and no clock is
         // moved here, so the test leaves nothing behind for the next one.
-        var existing  = RootKey(KskFlags, 0xB1);
-        var incoming  = RootKey(KskFlags, 0xB2);
+        using var existing  = RootKey();
+        using var incoming  = RootKey();
 
-        var validator = new DNSSECValidator(RootServing(existing, incoming), [AnchorFor(existing)]);
+        var validator = new DNSSECValidator(RootServing(existing, existing.DNSKEY, incoming.DNSKEY), [AnchorFor(existing)]);
 
         var seen      = Timestamp.Now;
 
@@ -294,7 +343,7 @@ public class TrustAnchorRolloverTests
                     Is.True, "and the instant it runs out is inside it");
 
         Assert.That(validator.TrustAnchors.Select(a => a.KeyTag),
-                    Contains.Item(DNSSECValidator.ComputeKeyTag(incoming)));
+                    Contains.Item(incoming.KeyTag));
 
     }
 
@@ -309,16 +358,21 @@ public class TrustAnchorRolloverTests
 
         // RFC 5011 requires the key to be present *continuously* through the
         // hold-down. A key that vanishes restarts from zero if it reappears.
-        var newKsk    = RootKey(KskFlags, 0x33);
-        var resolver  = RootServing(newKsk);
-        var validator = new DNSSECValidator(resolver);
+        using var anchor  = RootKey();
+        using var newKsk  = RootKey();
+        using var zsk     = RootKey(KeySigningKey: false);
+
+        var resolver  = RootServing(anchor, anchor.DNSKEY, newKsk.DNSKEY);
+        var validator = new DNSSECValidator(resolver, [AnchorFor(anchor)]);
 
         await validator.ProbeForTrustAnchorUpdatesAsync();
 
         Assert.That(validator.PendingAnchors, Has.Count.EqualTo(1), "hold-down started");
 
-        // The zone stops publishing it.
-        resolver.Answer(".", DNSResourceRecordTypes.DNSKEY, RootKey(ZskFlags, 0x44));
+        // The zone stops publishing it, in a set as genuinely signed as the first.
+        DNSKEY[] without = [anchor.DNSKEY, zsk.DNSKEY];
+
+        resolver.Answer(".", DNSResourceRecordTypes.DNSKEY, [.. without, Sign(without, anchor)]);
 
         await validator.ProbeForTrustAnchorUpdatesAsync();
 
@@ -337,13 +391,16 @@ public class TrustAnchorRolloverTests
     {
 
         // Only Secure Entry Points are candidates. A ZSK is not one.
-        var validator = new DNSSECValidator(RootServing(RootKey(ZskFlags, 0x55)));
+        using var anchor  = RootKey();
+        using var zsk     = RootKey(KeySigningKey: false);
+
+        var validator = new DNSSECValidator(RootServing(anchor, anchor.DNSKEY, zsk.DNSKEY), [AnchorFor(anchor)]);
 
         await validator.ProbeForTrustAnchorUpdatesAsync();
 
         Assert.Multiple(() => {
             Assert.That(validator.PendingAnchors, Is.Empty);
-            Assert.That(validator.TrustAnchors,   Is.Empty);
+            Assert.That(validator.TrustAnchors,   Has.Count.EqualTo(1), "still only the anchor it started with");
         });
 
     }
@@ -379,7 +436,7 @@ public class TrustAnchorRolloverTests
         // one where nothing answers at all and the query throws. Both have to come
         // back as no change: a caller persists its trust store when the answer is
         // yes, and a probe that learned nothing has nothing to persist.
-        var known     = RootKey(KskFlags, 0xF1);
+        using var known  = RootKey();
 
         var validator = new DNSSECValidator(new StubDnsClient { Throws = true },
                                             [AnchorFor(known)]);
@@ -414,29 +471,25 @@ public class TrustAnchorRolloverTests
         // revoked key against the stored anchor by its new tag can never succeed,
         // and the revocation is silently ignored: exactly the case RFC 5011 §2.1
         // exists to handle.
-        var key       = RootKey(KskFlags, 0x66);
-        var revoked   = RootKey((UInt16) (KskFlags | RevokeBit), 0x66);
+        //
+        // The set is the one the root published when it revoked KSK-2010: the
+        // successor, already an anchor, signs it, and so does the revoked key.
+        using var key        = RootKey();
+        using var successor  = RootKey();
 
-        var liveTag   = DNSSECValidator.ComputeKeyTag(key);
+        var revoked   = Revoked(key);
 
-        Assert.That(DNSSECValidator.ComputeKeyTag(revoked), Is.Not.EqualTo(liveTag),
+        Assert.That(DNSSECValidator.ComputeKeyTag(revoked), Is.Not.EqualTo(key.KeyTag),
                     "setting REVOKE necessarily changes the key tag");
 
-        var anchor    = new DS(
-                            DomainName.Parse("."),
-                            DNSQueryClasses.IN,
-                            TimeSpan.FromDays(365),
-                            liveTag,
-                            RsaSha256,
-                            2,
-                            new Byte[32]
-                        );
+        DNSKEY[] keys = [revoked, successor.DNSKEY];
 
-        var validator = new DNSSECValidator(RootServing(revoked), [anchor]);
+        var validator = new DNSSECValidator(RootServing(keys, Sign(keys, successor), SignRevoked(keys, key)),
+                                            [AnchorFor(key), AnchorFor(successor)]);
 
         await validator.ProbeForTrustAnchorUpdatesAsync();
 
-        Assert.That(validator.TrustAnchors, Is.Empty,
+        Assert.That(validator.TrustAnchors.Select(a => a.KeyTag), Is.EqualTo(new[] { successor.KeyTag }),
                     "a revoked KSK must be removed from the trust anchors");
 
     }
@@ -454,15 +507,15 @@ public class TrustAnchorRolloverTests
         // anchor that merely shares the algorithm would empty most of a trust
         // store on one compromised key — so the bystander is the assertion that
         // matters here, and the caller being told the set changed is the other.
-        var doomed     = RootKey(KskFlags, 0x88);
-        var bystander  = RootKey(KskFlags, 0x89);      // same algorithm, another key
-        var revoked    = RootKey((UInt16) (KskFlags | RevokeBit), 0x88);
+        using var doomed     = RootKey();
+        using var bystander  = RootKey();               // same algorithm, another key
 
-        Assert.That(DNSSECValidator.ComputeKeyTag(bystander),
-                    Is.Not.EqualTo(DNSSECValidator.ComputeKeyTag(doomed)),
+        Assert.That(bystander.KeyTag, Is.Not.EqualTo(doomed.KeyTag),
                     "the two keys are distinct, which is what the test is about");
 
-        var validator  = new DNSSECValidator(RootServing(revoked, bystander),
+        DNSKEY[] keys  = [Revoked(doomed), bystander.DNSKEY];
+
+        var validator  = new DNSSECValidator(RootServing(keys, Sign(keys, bystander), SignRevoked(keys, doomed)),
                                              [AnchorFor(doomed), AnchorFor(bystander)]);
 
         var modified   = await validator.ProbeForTrustAnchorUpdatesAsync();
@@ -472,11 +525,11 @@ public class TrustAnchorRolloverTests
             Assert.That(modified, Is.True, "an anchor was removed, so the set changed");
 
             Assert.That(validator.TrustAnchors.Select(a => a.KeyTag),
-                        Does.Not.Contain(DNSSECValidator.ComputeKeyTag(doomed)),
+                        Does.Not.Contain(doomed.KeyTag),
                         "the revoked key is gone");
 
             Assert.That(validator.TrustAnchors.Select(a => a.KeyTag),
-                        Contains.Item(DNSSECValidator.ComputeKeyTag(bystander)),
+                        Contains.Item(bystander.KeyTag),
                         "and the one that was not revoked is still there");
 
         });
@@ -496,10 +549,13 @@ public class TrustAnchorRolloverTests
         // nothing changed. Reporting a change would have the caller write out a
         // trust store identical to the one it has — harmless once, and a lie
         // about what happened.
-        var known     = RootKey(KskFlags, 0xAA);
-        var stranger  = RootKey((UInt16) (KskFlags | RevokeBit), 0xBB);
+        using var known     = RootKey();
+        using var stranger  = RootKey();
 
-        var validator = new DNSSECValidator(RootServing(stranger), [AnchorFor(known)]);
+        DNSKEY[] keys = [known.DNSKEY, Revoked(stranger)];
+
+        var validator = new DNSSECValidator(RootServing(keys, Sign(keys, known), SignRevoked(keys, stranger)),
+                                            [AnchorFor(known)]);
 
         var modified  = await validator.ProbeForTrustAnchorUpdatesAsync();
 
@@ -525,34 +581,30 @@ public class TrustAnchorRolloverTests
         // cleared started a fresh hold-down, an attacker holding a compromised key
         // would only need to wait 30 days to have it trusted again — and the
         // operator's revocation would have bought nothing.
-        var key      = RootKey(KskFlags, 0x77);
-        var revoked  = RootKey((UInt16) (KskFlags | RevokeBit), 0x77);
+        using var key        = RootKey();
+        using var successor  = RootKey();
 
-        var anchor   = new DS(
-                           DomainName.Parse("."),
-                           DNSQueryClasses.IN,
-                           TimeSpan.FromDays(365),
-                           DNSSECValidator.ComputeKeyTag(key),
-                           RsaSha256,
-                           2,
-                           new Byte[32]
-                       );
+        DNSKEY[] revoking   = [Revoked(key), successor.DNSKEY];
 
-        var resolver  = RootServing(revoked);
-        var validator = new DNSSECValidator(resolver, [anchor]);
+        var resolver  = RootServing(revoking, Sign(revoking, successor), SignRevoked(revoking, key));
+        var validator = new DNSSECValidator(resolver, [AnchorFor(key), AnchorFor(successor)]);
 
         await validator.ProbeForTrustAnchorUpdatesAsync();
 
-        Assert.That(validator.TrustAnchors, Is.Empty, "revocation took effect");
+        Assert.That(validator.TrustAnchors.Select(a => a.KeyTag), Is.EqualTo(new[] { successor.KeyTag }),
+                    "revocation took effect");
 
-        // The zone publishes the very same key again, REVOKE cleared.
-        resolver.Answer(".", DNSResourceRecordTypes.DNSKEY, key);
+        // The zone publishes the very same key again, REVOKE cleared, in a set
+        // the remaining anchor signs.
+        DNSKEY[] returning  = [key.DNSKEY, successor.DNSKEY];
+
+        resolver.Answer(".", DNSResourceRecordTypes.DNSKEY, [.. returning, Sign(returning, successor)]);
 
         await validator.ProbeForTrustAnchorUpdatesAsync();
 
         Assert.Multiple(() => {
             Assert.That(validator.PendingAnchors, Is.Empty, "a revoked key must not start a new hold-down");
-            Assert.That(validator.TrustAnchors,   Is.Empty);
+            Assert.That(validator.TrustAnchors.Select(a => a.KeyTag), Is.EqualTo(new[] { successor.KeyTag }));
         });
 
     }
