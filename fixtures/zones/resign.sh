@@ -39,8 +39,15 @@ EOF
 
 # RSASHA256 (algorithm 8) — the most widely deployed algorithm, and the one
 # used by the IANA root KSK, so the same code path as real-world validation.
-KSK=$(dnssec-keygen -a RSASHA256 -b 2048 -f KSK -n ZONE "$ZONE")
-ZSK=$(dnssec-keygen -a RSASHA256 -b 1024        -n ZONE "$ZONE")
+# None of the dnssec-keygen calls below pass a nametype, deliberately. It is
+# redundant on 9.20 -- its own usage text says "DNSKEY generation defaults to
+# ZONE", and a key generated without it is the same 256 3 13 record -- and it
+# is fatal on 9.21, which answers "the -n option has been deprecated" and
+# exits 1. The nightly's upstream-tool lane found that on the day it was
+# built, which is some years before 9.21 becomes a stable release and this
+# script would otherwise have stopped working with no warning at all.
+KSK=$(dnssec-keygen -a RSASHA256 -b 2048 -f KSK "$ZONE")
+ZSK=$(dnssec-keygen -a RSASHA256 -b 1024        "$ZONE")
 
 dnssec-signzone -o "$ZONE" -N INCREMENT -S -x -t "$ZONE.zone" > signing.log 2>&1 || \
 dnssec-signzone -o "$ZONE" -k "$KSK" "$ZONE.zone" "$ZSK" > signing.log 2>&1
@@ -100,14 +107,14 @@ $records
 EOF
 
     # shellcheck disable=SC2086
-    ksk=$(dnssec-keygen -a "$algo" $bits -f KSK -n ZONE "$zone" 2>/dev/null) || {
+    ksk=$(dnssec-keygen -a "$algo" $bits -f KSK "$zone" 2>/dev/null) || {
         echo "  skipped $zone: $algo key generation unsupported"
         rm -f "$zone.zone"
         return 0
     }
 
     # shellcheck disable=SC2086
-    zsk=$(dnssec-keygen -a "$algo" $bits -n ZONE "$zone" 2>/dev/null)
+    zsk=$(dnssec-keygen -a "$algo" $bits "$zone" 2>/dev/null)
 
     # shellcheck disable=SC2086
     if ! dnssec-signzone -o "$zone" -N INCREMENT -S -x -t $extra "$zone.zone" > "signing-$zone.log" 2>&1; then
