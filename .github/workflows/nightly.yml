@@ -118,7 +118,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -e
-          for tool in dig kdig drill delv named named-checkzone genreport; do
+          for tool in dig kdig drill delv named named-checkconf named-checkzone genreport; do
             command -v "${tool}"
           done
           named -V | head -1
@@ -401,4 +401,292 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-results-container-servers
+          path: artifacts/*.trx
+
+  # ---------------------------------------------------------------------------
+  # The upstream-tool lane: the interop suite against the DNS tools as their own
+  # projects ship them, rather than as Debian does.
+  # ---------------------------------------------------------------------------
+  upstream-tools:
+    # The full-suite job judges Hermod against what trixie packages, and that is
+    # the right default: it is what a developer's WSL has, which keeps the desk
+    # and CI comparable. It is also, for two of the three tool families, behind.
+    #
+    #   dig / delv / named   BIND     trixie 9.20.29   upstream stable 9.20.29
+    #   kdig                 Knot     trixie 3.4.6     upstream 3.6.0
+    #   drill                ldns     trixie 1.8.4     upstream 1.9.2
+    #
+    # BIND is the interesting case and the reason this lane says "upstream tools"
+    # rather than "newer tools". ISC's own stable channel carries exactly what
+    # trixie carries, so there is no forward stable version to test against at
+    # all; the only thing ahead is the 9.21 development branch. That is a
+    # different claim from Knot's and ldns's -- it is an early warning about
+    # behaviour heading for a future stable, not a check against what operators
+    # run today -- and it is worth having for precisely that reason.
+    #
+    # Every version is discovered rather than pinned, which is the whole reason
+    # this belongs in a nightly: the question worth asking each morning is
+    # "do the tools released this month still agree with us", and a pinned
+    # version stops asking it the day after it is written. SSHConformanceTests'
+    # own upstream lane made that argument first and it is right.
+    #
+    # Informational, like the live-resolver lane and for a related reason: a red
+    # here can mean Hermod is wrong, or that a tool changed on purpose, or that
+    # one of three third-party channels moved -- and only the first is a finding
+    # about this repository. The step summary carries every discovered version,
+    # so a real disagreement needs no hunting for.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    container: debian:13
+    steps:
+
+      # git before the checkout: without it actions/checkout falls back to a
+      # REST tarball, which cannot fetch submodules -- and libs/Hermod IS the
+      # library under test.
+      - name: Install git (Debian container)
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install .NET prerequisites (Debian container)
+        run: apt-get install -y --no-install-recommends curl libicu76 libssl3t64 libstdc++6 tzdata
+
+      # The distro packages go on first and are then upgraded out from under
+      # themselves, which sounds backwards and is not: Debian's packaging is
+      # what creates the bind user and /var/cache/bind, and what brings the
+      # pieces the upgrade does not replace -- named-checkconf and
+      # named-checkzone for the fixture's staging, socat for genreport's
+      # harness. The build tools are for ldns and genreport; libssl-dev serves
+      # both, and libc6-dev is here because it is only a *recommended*
+      # dependency of gcc, so --no-install-recommends otherwise leaves the
+      # compiler unable to link ("C compiler cannot create executables").
+      - name: Install the distro DNS tools and the build prerequisites
+        run: |
+          apt-get install -y --no-install-recommends \
+            bind9-dnsutils knot-dnsutils ldnsutils bind9 bind9utils \
+            gcc libc6-dev make autoconf automake pkg-config libssl-dev socat \
+            apt-transport-https wget
+
+      # BIND and Knot both ship signed Debian repositories, so they arrive as
+      # packages rather than as builds. Both suites are discovered, not pinned:
+      #
+      #  * bind.debian.net -- ISC's documented entry point for Debian packages,
+      #    which redirects to packages.sury.org, the repository of Debian's own
+      #    BIND maintainer. It carries one suite per branch (bind-9.18,
+      #    bind-9.20, bind-9.21, ...), so the newest numbered branch is read off
+      #    the index. Reading the directory listing rather than naming a branch
+      #    is what makes this follow 9.23 by itself one day.
+      #  * pkg.labs.nic.cz -- CZ.NIC's own Knot DNS repository, which has a
+      #    trixie suite and tracks the current release.
+      #
+      # Both are third-party channels, which is part of why this lane cannot
+      # gate anything: a repository that moves or goes away must not turn a
+      # night red.
+      - name: Add the upstream channels and upgrade BIND and Knot
+        run: |
+          set -e
+          branch="$(curl -sL https://bind.debian.net/ \
+                    | grep -oE 'bind-9\.[0-9]+/' | tr -d '/' | sort -Vu | tail -1)"
+          if [ -z "${branch}" ]; then
+            echo "could not read a branch directory from bind.debian.net" >&2
+            exit 1
+          fi
+          echo "BIND branch discovered: ${branch}"
+          echo "BIND_BRANCH=${branch}" >> "${GITHUB_ENV}"
+
+          curl -sLo /tmp/sury-keyring.deb https://bind.debian.net/debsuryorg-archive-keyring.deb
+          dpkg -i /tmp/sury-keyring.deb
+          echo "deb https://bind.debian.net/${branch}/ trixie main" > /etc/apt/sources.list.d/bind.list
+
+          wget -qO /usr/share/keyrings/cznic-labs-pkg.gpg https://pkg.labs.nic.cz/gpg
+          echo "deb [signed-by=/usr/share/keyrings/cznic-labs-pkg.gpg] https://pkg.labs.nic.cz/knot-dns trixie main" \
+            > /etc/apt/sources.list.d/cznic-labs-knot-dns.list
+
+          apt-get update
+          apt-get install -y --no-install-recommends bind9 bind9-dnsutils bind9-utils knot-dnsutils
+
+      # ldns has no upstream Debian repository, so drill is built. Two details
+      # that are not obvious and both cost a round trip to find out:
+      #
+      #  * drill is NOT built by default -- --with-drill is required, and
+      #    without it the build succeeds and produces no drill at all.
+      #  * the drill left in the build tree is a libtool wrapper script, not an
+      #    executable, so copying it the way this lane's chrony equivalent
+      #    copies binaries would install a shell script that cannot run. Hence
+      #    make install, and hence --libdir pointing at the multiarch directory:
+      #    that puts the new libldns.so.3 where the distro's was instead of
+      #    beside it, leaving one library on the system rather than two for the
+      #    linker to choose between. ldconfig then refreshes the cache.
+      - name: Build and install upstream ldns
+        run: |
+          set -e
+          cd /tmp
+          tarball="$(curl -sL https://www.nlnetlabs.nl/downloads/ldns/ \
+                     | grep -oE 'ldns-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz' | sort -Vu | tail -1)"
+          if [ -z "${tarball}" ]; then
+            echo "could not read a release from the ldns download listing" >&2
+            exit 1
+          fi
+          echo "ldns release discovered: ${tarball}"
+          curl -fsSLO "https://www.nlnetlabs.nl/downloads/ldns/${tarball}"
+          tar xzf "${tarball}"
+          cd "${tarball%.tar.gz}"
+          ./configure --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu --with-drill
+          make -j"$(nproc)"
+          make install
+          ldconfig
+
+      # Written down before anything is built against them, so a job that dies
+      # later still says what it was holding -- and written to the log as well
+      # as the summary, because whoever investigates a red lane from the command
+      # line reads the log.
+      - name: Record the tool versions
+        run: |
+          {
+            echo '## Upstream DNS tools under test'
+            echo
+            echo '```'
+            dig -v 2>&1 | head -1
+            delv -v 2>&1 | head -1
+            kdig --version 2>&1 | head -1
+            drill -v 2>&1 | head -1
+            named -V 2>&1 | head -1
+            echo '```'
+            echo
+            echo "BIND came from the ${BIND_BRANCH} branch of bind.debian.net."
+            echo
+            echo 'Debian 13 for comparison: BIND 9.20.29, Knot 3.4.6, ldns 1.8.4 — the'
+            echo 'versions the full-suite job tests and a developer WSL has.'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # genreport is the one verdict the suite cannot reach by itself, so it is
+      # built here for the same reason full-suite builds it.
+      - name: Build ISC genreport (Debian container)
+        run: sh interop/genreport/build-genreport.sh
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # Re-signed with the UPSTREAM BIND, deliberately. dnssec-signzone is one
+      # of the tools this lane is about, so if a newer signer emits something
+      # Hermod cannot read, that is exactly the finding worth having. The
+      # committed signatures expire a month after they were made, so this step
+      # also keeps the lane from going red for that reason alone.
+      - name: Re-sign the DNSSEC fixtures with the upstream BIND
+        run: sh fixtures/zones/resign.sh
+
+      # The guard that this lane exists to deserve. Every interop check here
+      # gates itself on its tool: TestEnvironment calls Assert.Ignore when one
+      # is missing, NUnit counts a skip rather than a failure, and a lane of
+      # nothing but skips exits 0 having proved nothing. NTSConformanceTests
+      # reported agreement with chrony 4.9 for a whole run that way, with a
+      # chronyd that had exited at startup every time.
+      #
+      # So each tool has to answer, and named has to actually serve: the one
+      # daemon in the list is started from this repository's own fixture
+      # template, with the fixture's own zone, validated by named-checkconf and
+      # then queried with dig exactly as BindServerFixture queries it. A tool
+      # that is present but cannot run is the failure mode this catches, and
+      # running the fixture's own configuration is the only way to catch it
+      # before the suite does.
+      - name: Smoke-test that every tool answers and named serves
+        run: |
+          set -e
+          for tool in dig delv kdig drill named named-checkconf named-checkzone genreport; do
+            command -v "${tool}" > /dev/null || { echo "FAIL: ${tool} is not on PATH"; exit 1; }
+          done
+
+          work=/tmp/smoke-bind
+          port=24653
+          mkdir -p "${work}"
+          cp fixtures/bind/interop.test.zone "${work}/"
+          if [ -f fixtures/zones/signed/dnssec.test.zone.signed ]; then
+            cp fixtures/zones/signed/dnssec.test.zone.signed "${work}/"
+          else
+            printf '$TTL 3600\n@ IN SOA ns1.dnssec.test. hostmaster.dnssec.test. ( 1 7200 3600 1209600 3600 )\n@ IN NS ns1.dnssec.test.\nns1 IN A 192.0.2.53\n' \
+              > "${work}/dnssec.test.zone.signed"
+          fi
+          sed -e "s|__DIR__|${work}|g" -e "s|__PORT__|${port}|g" \
+            fixtures/bind/named.conf.template | tr -d '\r' > "${work}/named.conf"
+
+          echo '--- named-checkconf on the fixture template ---'
+          named-checkconf "${work}/named.conf"
+
+          echo '--- named, started the way BindServerFixture starts it ---'
+          named -c "${work}/named.conf" -g > "${work}/named.log" 2>&1 &
+          answered=no
+          for _ in $(seq 1 25); do
+            sleep 0.2
+            if [ -n "$(dig @127.0.0.1 -p "${port}" +time=1 +tries=1 +short a.interop.test A 2>/dev/null)" ]; then
+              answered=yes
+              break
+            fi
+          done
+          echo 'its output:'
+          sed 's/^/  /' "${work}/named.log" || true
+          pkill -f "named -c ${work}/named.conf" || true
+
+          if [ "${answered}" != "yes" ]; then
+            {
+              echo
+              echo '### The upstream named did not serve'
+              echo
+              echo 'The interop checks were not run: with no server they would have'
+              echo 'skipped themselves and left this job green on no evidence. The'
+              echo 'step log has named output verbatim.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo 'FAIL: the upstream named never answered the fixture query'
+            exit 1
+          fi
+          echo 'named served the fixture zone.'
+
+      - name: Build
+        run: dotnet build DNSConformanceTests.slnx --configuration Release
+
+      # The same filter the pinned-tool interop lane uses, so the two are
+      # directly comparable, and a skip is a failure here for the reason the
+      # smoke test above exists. The counts are summed rather than read from a
+      # grand total because this filter spans two assemblies and the SDK prints
+      # one summary each; summing cannot flip the verdict, since zeroes sum to
+      # zero.
+      - name: Test (interop against the upstream tools)
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          set +e
+          dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
+            --filter "TestCategory=WSL" \
+            --logger "console;verbosity=normal" \
+            --logger "trx;LogFilePrefix=upstream-interop" \
+            --results-directory artifacts > "${RUNNER_TEMP}/interop.out" 2>&1
+          rc=$?
+          cat "${RUNNER_TEMP}/interop.out"
+          skipped=0
+          passed=0
+          for n in $(grep -oE 'Skipped: +[0-9]+' "${RUNNER_TEMP}/interop.out" | grep -oE '[0-9]+'); do
+            skipped=$((skipped + n))
+          done
+          for n in $(grep -oE 'Passed: +[0-9]+' "${RUNNER_TEMP}/interop.out" | grep -oE '[0-9]+'); do
+            passed=$((passed + n))
+          done
+          {
+            echo
+            echo '### Interop against the upstream tools'
+            echo
+            echo "passed ${passed}, skipped ${skipped} (the pinned-tool lane: 73 passed, 0 skipped)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "${rc}" -eq 0 ] || exit "${rc}"
+          if [ "${skipped}" -ne 0 ]; then
+            echo "FAIL: ${skipped} interop checks skipped although every tool answered."
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-upstream-tools
           path: artifacts/*.trx
