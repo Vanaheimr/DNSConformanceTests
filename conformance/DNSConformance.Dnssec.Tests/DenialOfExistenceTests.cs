@@ -292,7 +292,7 @@ public class DenialOfExistenceTests
         // so every NXDOMAIN was waved through as "unsigned zone" without the
         // proof ever being looked at.
         var validator = new DNSSECValidator(
-                            new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. Nsec.DnsKeyAnswer]),
+                            new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, Nsec.KeySetAnswer),
                             [Nsec.DelegationSigner]
                         );
 
@@ -317,7 +317,7 @@ public class DenialOfExistenceTests
         // An attacker who removes the NSEC records leaves a response that still
         // looks like a valid NXDOMAIN. Fail-closed is the whole point.
         var validator = new DNSSECValidator(
-                            new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. Nsec.DnsKeyAnswer]),
+                            new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, Nsec.KeySetAnswer),
                             [Nsec.DelegationSigner]
                         );
 

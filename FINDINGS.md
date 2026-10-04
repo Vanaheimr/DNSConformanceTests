@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Fifty-seven RFC deviations in the Hermod DNS stack, each
+What this suite caught. Seventy RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -82,7 +82,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 64 | A cached RRset lost its signature when another signed RRset arrived for the same name | **High** | 4035 §4.5 | ✅ fixed |
 | 65 | A zone with two key-signing keys was followed through whichever was listed first | **High** | 4034 §2.1.1, 4035 §5.2 | ✅ fixed |
 | 66 | A compact denial of existence was read as a server failure | **High** | 9824 §3.1, 4034 §4.1.1, 2181 §11 | ✅ fixed |
-| 67 | The chain of trust verified no signature above the answer | **High** | 4035 §5.2, 4033 §5 | ✅ fixed |
+| 67 | A key published beside the one the DS named signed answers that validated Secure | **High** | 4035 §5.2, §5.3.1, §4.3 | ✅ fixed |
 | 68 | A zone's signature was accepted for names outside the zone | **High** | 4035 §5.3.1 | ✅ fixed |
 | 69 | A signature with nothing to cover made the rest of the answer Secure | **High** | 4035 §5.3 | ✅ fixed |
 | 70 | A denial was read from NSEC records nobody signed | **High** | 4035 §5.4 | ✅ fixed |
@@ -3803,8 +3803,7 @@ DNSKEY RRset (from the step out of `sys4.de.`) and the DS RRset with its signatu
 (from the step out of `de.`) — and no signature over the DNSKEY RRset. The next walk
 through `de.` reads the cached DNSKEY RRset, finds nothing covering it, and takes
 the branch pinned by
-`ChainWalkTests.A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure` (since
-finding 67 `…_Breaks_The_Chain`, and Bogus).
+`ChainWalkTests.A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure`.
 
 **How it was found.** Not by this suite: by a live probe of the DANE resolver the
 SMTP suite builds on Hermod (SMTPConformanceTests, FINDINGS.md § DANE, N-1), against
@@ -3914,7 +3913,7 @@ answer is never tied to the key the DS matches — RFC 4035 §5.2's third condit
 "the corresponding private key has signed the child zone's apex DNSKEY RRset, and
 the resulting RRSIG RR authenticates the child zone's apex DNSKEY RRset". The
 summary of `ChainWalkTests` records the omission as a design decision of the tests;
-it is a gap in the validator, and a finding of its own.
+it is a gap in the validator, and a finding of its own: finding 67.
 
 ---
 
@@ -3988,125 +3987,173 @@ so it is recorded here rather than folded into this finding.
 
 ---
 
-## 67 — The chain of trust verified no signature above the answer
+## 67 — A key published beside the one the DS named signed answers that validated Secure
 
-RFC 4035 §5.2 makes every step of a chain of trust a signature check. The child's
-DNSKEY RRset is authentic when a DS in the parent names one of its keys and
+A DS names one key of the child zone, and a trust anchor names one key of its zone.
+Every other key — the zone-signing key that signs the answers above all — is
+trusted only because it stands in the zone's apex DNSKEY RRset, and that RRset only
+because the named key signed it. RFC 4035 §5.2 lists the three conditions under
+which a DS authenticates the child's key set, and two of them are signatures:
 
-> the corresponding private key has signed the child zone's apex DNSKEY RRset,
-> and the resulting RRSIG RR authenticates the child zone's apex DNSKEY RRset.
+> The DS RR has been authenticated using some DNSKEY RR in the parent's apex DNSKEY
+> RRset (see Section 5.3).
 
-The DS RRset is the parent's data and is authenticated in the parent, by the
-parent's keys, and so on up to a key the resolver was configured to trust. RFC 4033
-§2 calls the whole of it "a chain of signed data, with each link in the chain
-vouching for the next", and §5 asks of Secure that the resolver "is able to verify
-all the signatures in the response".
+> The matching DNSKEY RR in the child zone has the Zone Flag bit set, the
+> corresponding private key has signed the child zone's apex DNSKEY RRset, and the
+> resulting RRSIG RR authenticates the child zone's apex DNSKEY RRset.
 
-`ValidateAsync` verifies the RRSIG over the answer with a key from the signer's
-DNSKEY response, and hands the keys to the walk. The walk then checks digests and
-key tags, and nothing else:
+The parent's own key set is authenticated the same way, one step further up.
+`WalkChainOfTrust` checks the condition between the two signatures — the DS digest
+— against every key of the RRset, and none of the signatures:
 
 ```csharp
-foreach (var anchor in trustAnchors)
-    if (currentDNSKeys.Any(key => ComputeKeyTag(key) == anchor.KeyTag    &&
-                                  key.Algorithm       == anchor.Algorithm &&
-                                  VerifyDS(key, anchor)))
-        return DNSSECValidationResult.Secure;
+var dsVerified = dsRecords.Any(ds => currentDNSKeys.Any(key => ComputeKeyTag(key) == ds.KeyTag    &&
+                                                               key.Algorithm       == ds.Algorithm &&
+                                                               VerifyDS(key, ds)));
 …
-var dsRecords = dsResponse.Answers.OfType<DS>().ToList();          // its RRSIG is never read
-…
+// Find the DNSKEY that signed the parent DNSKEY RRSet
 parentSigningKey = parentDnskeys.FirstOrDefault(
                       key => ComputeKeyTag(key) == parentRrsig.KeyTag &&
                              key.Algorithm      == parentRrsig.Algorithm);
 ```
 
-The RRSIG over the parent's DNSKEY RRset is looked for and its key tag read; it is
-never verified. The DS RRset's RRSIG is not looked at at all. The signer zone's own
-DNSKEY RRset is never checked to be signed by the key its DS names. `ValidateRRSig`
-is called once per answer RRSIG and nowhere in the walk.
+The RRSIG over the signer zone's own key set is never looked at. The one over the
+parent's key set is looked for and its key tag read. The one over the DS RRset is
+not looked at either. Anchors are compared with the keys the same way, signer or
+not.
 
-**What that allows.** Every DNSKEY RRset and every DS RRset above the answer can be
-made up. With an anchor over a root key: generate a key for `test.` and one for
-`leaf.test.`, publish DS records for both without signatures, put an RRSIG with the
-right key tag and 64 zero octets of signature over each DNSKEY RRset — the root's
-included, the root's public key copied in — and sign an A record with the
-`leaf.test.` key. `ValidateAsync` answers **Secure**. Against the real root the
-attack needs no made-up root key at all: the root's DNSKEY response is public and is
-replayed as it is, signature and all, and everything below it is the attacker's.
-Every name could be made Secure by anyone able to answer the resolver's queries.
+**The attack.** An attacker on the path answers the DNSKEY query for a zone with a
+zone-signing key of their own beside the zone's genuine key-signing key — which is
+public, the zone publishes it — and the question itself with records signed by
+their key. The DS names the genuine key, the genuine key is in the set, the answer's
+signature verifies under the attacker's key: Secure. No key material of the victim
+is needed, and nothing has to be forged above the zone. The same works one step up
+(a key slipped into the parent's set signs a DS for a child that is the attacker's
+from top to bottom) and at the DS itself (a DS naming the attacker's key, which no
+signature was asked to cover). Carried all the way up, nothing above the answer has
+to be genuine at all: made-up keys for every zone below the anchor, unsigned DS
+records naming them, an RRSIG of zero octets with the right key tag over each key
+set. Against the real root even the top needs no forgery — the root's DNSKEY
+response is public, signature and all, and is replayed as it is.
 
-**How it was found.** Finding 65 said it: "the walk looks for the RRSIG over a
-parent's DNSKEY RRset and reads the key tag it names; it does not verify it … a gap
-in the validator, and a finding of its own." Reading `WalkChainOfTrust` with that in
-mind showed it was wider than one RRSIG — no signature above the answer is verified
-— and the made-up chain above confirmed it before anything was changed.
+**How it was found.** By reading the walk while fixing finding 65, whose entry
+named it as the next thing to do — twice over, the same afternoon: the tracker here
+and a Hermod pull request that fixed it were written in parallel, and the pull
+request was merged first. The live probes behind 64 to 66 could not have seen it:
+they validate genuine answers, and a validator that checks too little agrees with
+one that checks enough on every genuine answer there is.
 
-**Why the suite did not see it.** It was written into the suite. The summary of
-`ChainWalkTests` says "the parent's own RRSIG is never verified by the walk and is
-not made to verify here", and every constructed parent there signs with 64 octets of
-0x5A. Every stub resolver in the DNSSEC project served the fixture's DNSKEY RRset
-without BIND's signature over it. `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure`
-pinned the one place where the walk did read an RRSIG — and pinned the reading that
-a parent with unsigned keys is merely unvalidated. A suite whose inputs never carry
-the signatures cannot notice a validator that never checks them.
+**Why the suite did not see it.** For the same reason, and because the suite had
+made the omission part of its scaffolding. The summary of `ChainWalkTests` said so
+outright — the parent's RRSIG "is never verified by the walk and is not made to
+verify here", and "building a signature that verifies would assert nothing the next
+DS check does not already assert" — and filled every signature above the fixture
+with `0x5A` octets. Below it, the stubs of `ChainValidationTests`,
+`DenialOfExistenceTests`, `DenialSignatureTests` and `KeyIdentityTests` answered the
+fixture's DNSKEY query with the keys and without the RRSIG BIND had made over them.
+They worked because the validator never asked for it, and so they could never have
+noticed that it did not. And `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure`
+pinned one face of the gap as a rule: an anchored parent's key set arriving without
+its signature was Insecure, "not caught lying". RFC 4035 §4.3 keeps Insecure for "an
+RRset for which the resolver knows that it has no chain of signed DNSKEY and DS RRs
+from any trusted starting point"; under an anchor the resolver knows the opposite,
+and the answer is Bogus — "an RRset for which the resolver believes that it ought to
+be able to establish a chain of trust but for which it is unable to do so". Stripping
+a signature is the cheapest thing on the path.
 
-**What it costs.** Everything DNSSEC is for. For DANE (RFC 7672) a Secure TLSA RRset
-is the instruction to trust the certificate it names, so an attacker on the path of
-an MTA's DNS can make up a TLSA record and a certificate to go with it, and the MTA
-hands its mail to them over a TLS session it considers authenticated.
+**What it costs.** For a browser, a forged address. For a DANE client, a forged
+certificate binding. RFC 7672 §2.2: with "a 'secure' TLSA RRset with at least one
+usable record", "any connection to the MTA MUST employ TLS encryption and MUST
+authenticate the SMTP server" against those records, and §3.1.1 on DANE-EE(3): "The
+server MUST be considered authenticated even if none of the names in the certificate
+match the client's reference identity for the server." A TLSA RRset signed by a key
+the attacker made is a certificate the attacker holds, accepted as the receiving
+domain's.
 
-**Repro**: `ChainWalkTests.A_Chain_Of_Signatures_Nobody_Made_Is_Not_Secure`, red
-until the fix. The shape of `The_Root_Has_No_Parent_To_Step_Into` made of filler,
-under an anchor over the filler root key: BIND's keys without BIND's signature over
-them, an unsigned DS for `dnssec.test.` and for `test.`, filler signatures over the
-DNSKEY RRsets of `test.` and the root, and BIND's genuine signature over the A
-record. It was Secure.
+**Repro**:
+`KeySetAuthenticationTests.A_Forged_Zone_Signing_Key_Beside_The_Genuine_Key_Signing_Key_Is_Bogus`,
+red until the fix, in two cases. The fixture zone's DNSKEY RRset is served as a
+zone-signing key generated in the test beside BIND's genuine key-signing key, with
+BIND's signature over the genuine set replayed and one by the forged key over the
+forged set; the answer is `a.dnssec.test` with an address the zone never published,
+signed by the forged key. Once with the zone's own DS as the anchor, once with the
+anchor at a root two delegations up and `test.` between them, every RRset above the
+fixture signed for real. The genuine zone through the same scaffolding is the
+control, Secure in both. The forgery was Secure in both.
 
-**The fix**: verify every link. A zone's DNSKEY RRset is accepted only if one
-of its RRSIGs verifies with a key of the set that an authenticated DS — or the
-anchor — names; a DS RRset only if an RRSIG over it verifies with a key of the
-parent's DNSKEY RRset, the parent being the RRSIG's signer; every one of those
-signatures inside its validity window at the same `Now` as the answer's. No DS
-stays Insecure, a failed fetch Indeterminate, and RFC 6840 §5.2's unusable DS stays
-Insecure — once the DS RRset is authenticated, since §5.2 speaks of "authenticated
-DS records" and a forged DS naming algorithm 253 would otherwise downgrade any
-zone. Merged as [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148)
-(`dns/authenticate-dnskey-and-ds`), with regression tests that sign three zones for
-real and break one link each.
+Two tests in `ChainWalkTests` carried `KnownIssue` with it, because each asserts the
+other half of the same rule one step up and was red for the same reason:
+`A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Bogus`, the test above turned the
+right way round, and the second assertion of
+`The_Anchor_Has_To_Name_The_Key_That_Signed_The_Key_Set`, which anchors on a key the
+parent publishes and never signed its key set with.
 
-**What moved in the suite.** Twelve DNSSEC tests went red on the new pin, every one
-of them because it fed the validator a link nobody had signed — and several more
-were green for a reason that had stopped being the one they named, such as
-`A_Signed_Denial_That_Proves_Nothing_Is_Bogus`, which the unsigned key set alone
-now made Bogus. So the inputs changed, not the assertions:
+The tracker breaks the signature over a key set and leaves every DS signed; the DS
+link got a test of its own with findings 68 to 70.
+`ChainWalkTests.A_DS_RRset_Nobody_Signed_Is_Not_The_Parents_Word` serves a genuine,
+anchored parent with a signed key set, BIND's keys with BIND's signature, and the
+fixture's DS without any: it was Secure at 8dc9663a. The same chain with the
+parent's signature over the DS is its control.
 
-- every stub serves the fixture's DNSKEY RRset with BIND's signature over it
-  (`SignedZoneFixture.DnsKeyAnswer`), not only the ones that failed;
-- the zones above the fixture in `ChainWalkTests`, and the parent that signs the DS
-  in the two RFC 6840 §5.2 tests, are signed for real by `ConstructedKey`, which
-  builds the signed data itself; the filler keys stay only for the forgery above;
-- `KeyIdentityTests` anchors the KSK, the key that signed the DNSKEY RRset, rather
-  than the ZSK that signed the answer;
-- `A_Delegation_With_One_Usable_Ds_Among_Unusable_Ones_Still_Validates` asserted
-  only "not Insecure", which a chain reaching no anchor met by being Bogus; it
-  asserts Secure now;
-- `The_Root_Has_No_Parent_To_Step_Into` gained a control under an anchor, so that
-  its Bogus can only mean the missing anchor.
+**The fix**: verify every signature the walk relies on. A zone's DNSKEY RRset is
+accepted only if one of its RRSIGs verifies under a key of the set that a usable DS
+or, at the top, a trust anchor names — the key with the Zone Key flag, every RRSIG's
+validity window checked against the one `Now` the answer was checked against; a DS
+RRset only if an RRSIG over it verifies under a key of the parent's DNSKEY RRset, the
+parent being that RRSIG's signer and strictly above the child. Merged as
+[Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148)
+(`dns/authenticate-dnskey-and-ds`), with 22 tests in
+`DNSSECValidatorChainAuthentication_Tests` on three zones signed for real, 17 of
+which fail without it. The same pull request closes three neighbours of this
+finding that the tracker does not cover: an RRSIG whose signer is not a zone at or
+above the owner (RFC 4035 §5.3.1 — an A record for `www.bank.` signed under a
+validly anchored `evil.` was Secure, measured here before the merge), an RRSIG with
+nothing to cover beside a forged RRset, and denial proofs read from NSEC records
+whose signatures were never checked. Each is a finding of its own: 68, 69 and 70.
 
-Two assertions changed their verdict, and for the reason of this finding and the
-next-but-one. `A_Parent_That_Does_Not_Sign_Its_DNSKEY_RRset_Is_Insecure` is now
-`…_Breaks_The_Chain` and Bogus: under an anchor over the parent, RFC 4035 §4.3's
-Insecure ("knows that it has no chain of signed DNSKEY and DS RRs") does not apply
-and its Bogus ("ought to be able to establish a chain of trust but … is unable to")
-does. And `A_Signature_Covers_One_Rrset_And_Not_Every_Record_Of_Its_Type` expects
-Insecure for the unsigned record beside the signed RRset — finding 69 — while still
-asserting what it was written for: not Bogus.
+The tracker and the two tests beside it were red at 8dc9663a and are green from
+12baa4e6 on, where the DNSSEC project passes whole (331 ✅ · 0 ❌ · 4 skips). Live
+against 1.1.1.1 with `WithRootTrustAnchor` on 2026-10-04, at the merge, nothing
+moves: `isc.org`, `www.isc.org`, `www.ietf.org`, `sys4.de`, `www.nic.cz`,
+`www.nlnetlabs.nl`, `cloudflare.com` and `example.com`, the TLSA RRsets of
+`mail.sys4.de` and `mx01.posteo.de` and the compact denials for `mail.ietf.org` and
+`no-such-name.ietf.org` validate Secure, `www.dnssec-failed.org` Bogus.
 
-**What that does not change.** A missing DS is still taken at its word. RFC 4035
-§5.2 asks for an authenticated NSEC or NSEC3 proof that the parent has none, and
-without it an attacker who strips the DS can still turn a signed zone Insecure —
-no longer Secure, but for DANE Insecure means "use opportunistic TLS" (RFC 7672
-§2.2). That is a change of its own.
+**What it takes from the root anchor.** The root's key set, too, now has to be
+signed by the anchored key rather than merely contain it. The root signs its DNSKEY
+RRset with KSK-2024 alone from 2026-10-11, and `WithRootTrustAnchor` held only
+KSK-2017 until [Vanaheimr/Hermod#142](https://github.com/Vanaheimr/Hermod/pull/142)
+added the other. Before the fix that would have gone unnoticed for as long as
+KSK-2017 stayed published; after it, it would not have. #142 was merged first.
+
+**The stubs.** The suite's tests now serve what a resolver serves.
+`SignedZoneFixture.KeySetAnswer` is the fixture's DNSKEY answer with its RRSIG, and
+the stubs use it; the zones above the fixture in `ChainWalkTests` and
+`ChainValidationTests` are generated and signed. Two tests had to change shape rather
+than gain a signature: `KeyIdentityTests.A_Signature_Is_Not_Validated_By_A_Key_It_Did_Not_Name`
+and `DenialSignatureTests.A_Denial_Is_Not_Validated_By_A_Key_It_Did_Not_Name` publish
+a relabelled key that BIND's key-signing key cannot sign, and with the fix an
+unsigned key set is refused on its own — the tests would have passed whatever the key
+lookup did. Their key sets are now signed by a key-signing key of the test's and
+another algorithm, so the lookup is again the only thing a verdict can turn on.
+
+**What it does not change, and should come next.** Two ways to Insecure, both
+measured against the fix with zones signed for real:
+
+- *An absent DS is not proven absent.* A DS query answered with an empty NOERROR
+  still ends the walk as Insecure, where RFC 4035 §5.2 expects "a signed NSEC RRset
+  proving that no DS RRset exists". A forged zone whose DS query the attacker
+  answers empty reads **Insecure** — for DANE, the downgrade to opportunistic TLS of
+  finding 64, now by choice of the attacker. #148 names this gap itself.
+- *An unusable DS is believed on the parent's word, before the parent is.* RFC 6840
+  §5.2 disregards "authenticated DS records" with an algorithm nobody can follow.
+  The fix checks the signature over such a DS RRset, and then answers Insecure at
+  once — without authenticating the parent's key set the signature was checked
+  under. A DS RRset naming algorithm 253, signed under a key set of `test.` that
+  the root's DS for `test.` does not name, reads **Insecure** at the merge. Going
+  on up before answering — Insecure only where the chain would otherwise have
+  ended Secure — makes it Bogus. It is the same downgrade as the one above, and
+  only worth closing together with it.
 
 ---
 
@@ -4138,9 +4185,8 @@ refuse a signer that is neither the owner nor one of its ancestors, and that is 
 it takes.
 
 **Repro**: `ChainValidationTests.A_Zone_Cannot_Sign_For_A_Name_Outside_It`, red
-until the fix. One zone, `attacker.test.`, signed by a key the suite makes itself
-(`ConstructedKey`: ECDSA P-256, the signed data built from RFC 4034 §3.1.8.1 in the
-suite rather than asked of Hermod), with an anchor over that key. The control — the
+until the fix. One zone, `attacker.test.`, its key generated in the test and its key
+set signed with it, and an anchor over that key. The control — the
 same key signing `www.attacker.test.` — is Secure; `www.bank.example.` was Secure as
 well.
 

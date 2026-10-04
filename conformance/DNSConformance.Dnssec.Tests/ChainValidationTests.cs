@@ -129,28 +129,44 @@ public class ChainValidationTests
 
 
     /// <summary>
-    /// A stub resolver that serves the fixture zone's DNSKEY RRset, with BIND's
+    /// A stub resolver that serves the fixture zone's DNSKEY RRset, with the
     /// signature over it.
     /// </summary>
     private StubDnsClient ResolverServingKeys()
         => new StubDnsClient().Answer(
                "dnssec.test",
                DNSResourceRecordTypes.DNSKEY,
-               [.. zone.DnsKeyAnswer]
+               zone.KeySetAnswer
            );
 
+    private static RRSIG Sign(IEnumerable<IDNSResourceRecord> RRset, DNSSECSigningKey Key)
+        => DNSSECZoneSigner.SignRRSet(RRset, Key, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(14));
 
     /// <summary>
-    /// A resolver for the fixture zone under a parent, <c>test.</c>, that the
-    /// suite signs itself: the parent's DNSKEY RRset signed by its key, and the
-    /// given DS RRset for <c>dnssec.test.</c> signed by it too — so the DS is
-    /// authenticated, as RFC 6840 §5.2 requires before it decides anything.
+    /// A stub resolver that serves the fixture zone's keys, and above it a parent
+    /// <c>test.</c> that publishes the given DS RRset for the fixture — signed,
+    /// with a key set of its own that is signed too. The parent's key is the
+    /// anchor to use.
     /// </summary>
-    private StubDnsClient ResolverUnderParent(ConstructedKey Parent, params IDNSResourceRecord[] DelegationSigners)
-        => new StubDnsClient().
-               Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. zone.DnsKeyAnswer]).
-               Answer("dnssec.test", DNSResourceRecordTypes.DS,     Parent.Signed(DelegationSigners)).
-               Answer("test",        DNSResourceRecordTypes.DNSKEY, Parent.Signed(Parent.DNSKEY));
+    /// <remarks>
+    /// RFC 6840 §5.2 disregards "authenticated DS records" with an algorithm
+    /// nobody can follow, and a DS RRset is authenticated by its parent's
+    /// signature (RFC 4035 §5.2). The parent is generated here for that, and
+    /// anchored, so that the DS RRset under test is the only thing in the chain
+    /// a verdict can turn on.
+    /// </remarks>
+    private StubDnsClient ResolverWithSignedParent(DNSSECSigningKey Parent, params DS[] DelegationSigners)
+    {
+
+        IDNSResourceRecord[] ds         = [.. DelegationSigners];
+        IDNSResourceRecord[] parentKeys = [ Parent.DNSKEY ];
+
+        return new StubDnsClient().
+                   Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, zone.KeySetAnswer).
+                   Answer("dnssec.test", DNSResourceRecordTypes.DS,     [ .. ds,         Sign(ds,         Parent) ]).
+                   Answer("test",        DNSResourceRecordTypes.DNSKEY, [ .. parentKeys, Sign(parentKeys, Parent) ]);
+
+    }
 
     #endregion
 
@@ -419,12 +435,13 @@ public class ChainValidationTests
     /// </para>
     ///
     /// <para>
-    /// The intruder here carries no signature of its own. This test used to call
-    /// that "a separate question from this one" and expect Secure; finding 69 was
-    /// that question. A response holding an RRset nobody signed is not Secure, so
-    /// the verdict is Insecure — the one an unsigned answer gets — and the point
-    /// of the test is unchanged: not Bogus. The genuine RRset still verifies on
-    /// its own, and the intruder cannot make it fail.
+    /// The other record is the zone's own A RRset at <c>mail.dnssec.test</c>, with
+    /// BIND's signature over it. It used to be an unsigned A record at a name the
+    /// zone does not have, on the reasoning that the validator checked the
+    /// signatures it was given rather than demanding one per RRset. Since Hermod
+    /// #148 it demands one — an answer with an unsigned RRset in it is Insecure —
+    /// and an unsigned intruder would decide the verdict for that reason instead of
+    /// this one.
     /// </para>
     /// </summary>
     [Test]
@@ -434,25 +451,16 @@ public class ChainValidationTests
 
         var (rrset, signature) = SignedA();
 
-        var intruder  = new A(DomainName.Parse("b.dnssec.test"),
-                              DNSQueryClasses.IN,
-                              TimeSpan.FromHours(1),
-                              IPv4Address.Parse("192.0.2.66"));
+        var other     = zone.RRset("mail.dnssec.test", DNSResourceRecordTypes.A);
+        var otherSig  = zone.SignatureFor("mail.dnssec.test", DNSResourceRecordTypes.A)!;
+
+        Assert.That(other, Is.Not.Empty, "the fixture has an A RRset at mail.dnssec.test");
 
         var validator = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
 
-        Assert.Multiple(async () => {
-
-            Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, signature])),
-                        Is.EqualTo(DNSSECValidationResult.Secure),
-                        "the control: the signed RRset alone");
-
-            Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, intruder, signature])),
-                        Is.EqualTo(DNSSECValidationResult.Insecure),
-                        "another name's record of the same type is not part of this RRset — " +
-                        "it does not break the signature, and the signature does not cover it");
-
-        });
+        Assert.That(await validator.ValidateAsync(ResponseWith([.. rrset, .. other, signature, otherSig])),
+                    Is.EqualTo(DNSSECValidationResult.Secure),
+                    "another name's record of the same type is not part of this RRset");
 
     }
 
@@ -634,10 +642,13 @@ public class ChainValidationTests
         // validator "must treat it as unknown", so it is the sharpest case: the
         // digest still matches the KSK, and the delegation is still unfollowable.
         //
-        // "Authenticated" is the word that matters since finding 67: the DS
-        // RRset is signed by a parent that is itself the anchor. An unsigned DS
-        // naming algorithm 0 would be a way to downgrade any zone, and is Bogus.
+        // "Authenticated" is part of the rule. The DS RRset is signed by a parent
+        // that is itself anchored, so the parent has said, verifiably, that the
+        // delegation is one nobody can follow — the step from a DS RRset that
+        // merely arrived to an Insecure verdict is finding 67's to forbid.
         var (rrset, signature) = SignedA();
+
+        using var parent = DNSSECSigningKey.Generate(DomainName.Parse("test"), 13, KeySigningKey: true);
 
         var anchor      = zone.DelegationSigner;
 
@@ -651,11 +662,9 @@ public class ChainValidationTests
                                anchor.Digest
                            );
 
-        using var parent = new ConstructedKey("test");
-
         var validator = new DNSSECValidator(
-                            ResolverUnderParent(parent, unfollowable),
-                            [parent.DelegationSigner()]
+                            ResolverWithSignedParent(parent, unfollowable),
+                            [ parent.DelegationSigner() ]
                         );
 
         var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
@@ -694,15 +703,11 @@ public class ChainValidationTests
                             anchor.Digest
                         );
 
-        //
-        // This used to assert only "not Insecure", which a chain that reached no
-        // anchor satisfied by being Bogus. Under a parent that signs the DS and is
-        // the anchor, the followable DS carries the chain all the way: Secure.
-        using var parent = new ConstructedKey("test");
+        using var parent = DNSSECSigningKey.Generate(DomainName.Parse("test"), 13, KeySigningKey: true);
 
         var validator = new DNSSECValidator(
-                            ResolverUnderParent(parent, unusable, anchor),
-                            [parent.DelegationSigner()]
+                            ResolverWithSignedParent(parent, unusable, anchor),
+                            [ parent.DelegationSigner() ]
                         );
 
         var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
@@ -781,28 +786,21 @@ public class ChainValidationTests
     public async Task A_Zone_Cannot_Sign_For_A_Name_Outside_It()
     {
 
-        using var attacker = new ConstructedKey("attacker.test");
+        using var attacker = DNSSECSigningKey.Generate(DomainName.Parse("attacker.test"), 13, KeySigningKey: true);
 
-        var own       = new A(DomainName.Parse("www.attacker.test"),
-                              DNSQueryClasses.IN,
-                              TimeSpan.FromHours(1),
-                              IPv4Address.Parse("192.0.2.66"));
-
-        var foreign   = new A(DomainName.Parse("www.bank.example"),
-                              DNSQueryClasses.IN,
-                              TimeSpan.FromHours(1),
-                              IPv4Address.Parse("192.0.2.66"));
+        IDNSResourceRecord[] keys    = [ attacker.DNSKEY ];
+        IDNSResourceRecord[] own     = [ new A(DomainName.Parse("www.attacker.test"), DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.66")) ];
+        IDNSResourceRecord[] foreign = [ new A(DomainName.Parse("www.bank.example"),  DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.66")) ];
 
         var resolver  = new StubDnsClient().
-                            Answer("attacker.test", DNSResourceRecordTypes.DNSKEY, attacker.Signed(attacker.DNSKEY));
+                            Answer("attacker.test", DNSResourceRecordTypes.DNSKEY, [ .. keys, Sign(keys, attacker) ]);
 
-        var validator = new DNSSECValidator(resolver, [attacker.DelegationSigner()]);
+        var validator = new DNSSECValidator(resolver, [ attacker.DelegationSigner() ]);
 
-        // The control: the same key, the same chain, a name inside the zone. It
-        // shows the signatures this suite makes verify, so that what refuses the
-        // second answer can only be the name.
-        var ownResult     = await validator.ValidateAsync(ResponseWith(attacker.Signed(own)));
-        var foreignResult = await validator.ValidateAsync(ResponseWith(attacker.Signed(foreign)));
+        // The control: the same key, the same chain, a name inside the zone. What
+        // refuses the second answer can then only be the name.
+        var ownResult     = await validator.ValidateAsync(ResponseWith([ .. own,     Sign(own,     attacker) ]));
+        var foreignResult = await validator.ValidateAsync(ResponseWith([ .. foreign, Sign(foreign, attacker) ]));
 
         Assert.Multiple(() => {
 

@@ -70,12 +70,26 @@ public class DenialSignatureTests
                TimeSpan.FromSeconds(5),
                TimeSpan.Zero);
 
-    private static StubDnsClient ResolverServing(params DNSKEY[] Keys)
-        => new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. Keys]);
+    private static StubDnsClient ResolverServing(params IDNSResourceRecord[] Records)
+        => new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, Records);
 
-    /// <summary>The zone's DNSKEY RRset as the zone serves it: with BIND's signature.</summary>
-    private static StubDnsClient ResolverServing(SignedZoneFixture Zone)
-        => new StubDnsClient().Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, [.. Zone.DnsKeyAnswer]);
+    /// <summary>
+    /// The given keys of <c>dnssec.test</c> beside a key-signing key, in one key set
+    /// that key signs — the DNSKEY answer for a zone whose key set holds a key
+    /// BIND never published, which the fixture's own key-signing key cannot sign.
+    /// </summary>
+    private static IDNSResourceRecord[] KeySetSignedBy(DNSSECSigningKey KeySigningKey, params DNSKEY[] Keys)
+    {
+
+        IDNSResourceRecord[] keySet = [.. Keys, KeySigningKey.DNSKEY];
+
+        return [.. keySet,
+                DNSSECZoneSigner.SignRRSet(keySet,
+                                           KeySigningKey,
+                                           DateTime.UtcNow.AddDays(-1),
+                                           DateTime.UtcNow.AddDays(14))];
+
+    }
 
     /// <summary>The same key material under different flags — same key, different tag.</summary>
     private static DNSKEY WithFlags(DNSKEY Key, UInt16 Flags)
@@ -157,7 +171,7 @@ public class DenialSignatureTests
 
         var (response, question) = ProvenDenial();
 
-        var validator  = new DNSSECValidator(ResolverServing(Zone),
+        var validator  = new DNSSECValidator(ResolverServing(Zone.KeySetAnswer),
                                              [Zone.DelegationSigner]);
 
         var signature  = DenialSignature();
@@ -200,10 +214,17 @@ public class DenialSignatureTests
     /// it is the only one that separates "looked the key up properly" from
     /// "found something that worked": the tag covers the DNSKEY's flags, so the
     /// same key material under a different SEP bit is the same key with a
-    /// different tag. The zone publishes only that, and the anchor is its own DS
-    /// — so nothing further up the chain is what refuses the denial, and a
-    /// validator matching on algorithm alone would find the key, verify the
-    /// signature over the NSEC chain, and call the denial Secure.
+    /// different tag. The zone publishes that, beside a key-signing key of
+    /// another algorithm that signs the key set and is the anchor — so nothing
+    /// further up the chain is what refuses the denial, and a validator matching
+    /// on algorithm alone would find the relabelled key, verify the signature
+    /// over the NSEC chain, and call the denial Secure.
+    /// </para>
+    ///
+    /// <para>
+    /// The key set has to be signed for that to hold. Since finding 67 a key set
+    /// nobody signed is refused on its own, and a test that served one would pass
+    /// for that reason whatever the lookup did.
     /// </para>
     /// </summary>
     [Test]
@@ -220,12 +241,26 @@ public class DenialSignatureTests
                     Is.Not.EqualTo(DenialSignature().KeyTag),
                     "the relabelled key is not the one the signature names");
 
-        var validator = new DNSSECValidator(ResolverServing(relabel),
-                                            [DelegationSignerFor(relabel)]);
+        using var ksk = DNSSECSigningKey.Generate(DomainName.Parse("dnssec.test"), 13, KeySigningKey: true);
 
-        Assert.That(await validator.ValidateAsync(response, question),
-                    Is.EqualTo(DNSSECValidationResult.Bogus),
-                    "the only published key would verify this signature, and it is not the one named");
+        Assert.That(ksk.Algorithm, Is.Not.EqualTo(DenialSignature().Algorithm),
+                    "an algorithm-only lookup finds the relabelled key and nothing else");
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await new DNSSECValidator(ResolverServing(KeySetSignedBy(ksk, signing)),
+                                                  [DelegationSignerFor(ksk.DNSKEY)]).
+                                  ValidateAsync(response, question),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the key the signature names, in the same signed key set");
+
+            Assert.That(await new DNSSECValidator(ResolverServing(KeySetSignedBy(ksk, relabel)),
+                                                  [DelegationSignerFor(ksk.DNSKEY)]).
+                                  ValidateAsync(response, question),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "the relabelled key would verify this signature, and it is not the one named");
+
+        });
 
     }
 
@@ -255,7 +290,7 @@ public class DenialSignatureTests
 
         Assert.That(nsec, Is.Not.Empty, "the fixture has an NSEC at mx.dnssec.test");
 
-        var validator = new DNSSECValidator(ResolverServing(Zone),
+        var validator = new DNSSECValidator(ResolverServing(Zone.KeySetAnswer),
                                             [Zone.DelegationSigner]);
 
         var result    = await validator.ValidateAsync(
@@ -302,7 +337,7 @@ public class DenialSignatureTests
                                real.DigestType,
                                [.. real.Digest.Select(b => (Byte) (b ^ 0xFF))]);
 
-        var validator = new DNSSECValidator(ResolverServing(Zone), [wrong]);
+        var validator = new DNSSECValidator(ResolverServing(Zone.KeySetAnswer), [wrong]);
 
         Assert.That(await validator.ValidateAsync(response, question),
                     Is.Not.EqualTo(DNSSECValidationResult.Secure),
@@ -345,7 +380,7 @@ public class DenialSignatureTests
                                  DomainName.Parse("aaaa.dnssec.test"),
                                  [0x00, 0x06, 0x00, 0x00, 0x80, 0x00, 0x00, 0x03]);
 
-        var validator = new DNSSECValidator(ResolverServing(Zone),
+        var validator = new DNSSECValidator(ResolverServing(Zone.KeySetAnswer),
                                             [Zone.DelegationSigner]);
 
         var result    = await validator.ValidateAsync(

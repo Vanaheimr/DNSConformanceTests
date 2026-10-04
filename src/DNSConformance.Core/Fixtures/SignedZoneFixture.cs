@@ -45,23 +45,6 @@ public sealed class SignedZoneFixture
 
 
     /// <summary>
-    /// What a DNSKEY query to the zone's apex returns: the keys, and BIND's
-    /// signatures over them.
-    /// </summary>
-    /// <remarks>
-    /// RFC 4035 §5.2 authenticates a DNSKEY RRset only through an RRSIG over it,
-    /// made with a key a DS or a trust anchor names. The keys alone are an RRset
-    /// anyone could have typed, and a resolver stub that serves them without the
-    /// signature tests a validator that does not check it — which is what the
-    /// suite did until finding 67.
-    /// </remarks>
-    public IReadOnlyList<IDNSResourceRecord> DnsKeyAnswer
-        => [.. DnsKeys,
-            .. Signatures.Where(sig => sig.TypeCovered == DNSResourceRecordTypes.DNSKEY &&
-                                       String.Equals(sig.DomainName.FullName.TrimEnd('.'), Origin.TrimEnd('.'), StringComparison.OrdinalIgnoreCase))];
-
-
-    /// <summary>
     /// The DNSKEY matching an RRSIG's key tag and algorithm.
     /// </summary>
     public DNSKEY? KeyFor(RRSIG signature)
@@ -74,6 +57,22 @@ public sealed class SignedZoneFixture
     /// </summary>
     public DNSKEY? ZoneSigningKey  => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) == 0);
     public DNSKEY? KeySigningKey   => DnsKeys.FirstOrDefault(k => (k.Flags & 0x0001) != 0);
+
+
+    /// <summary>
+    /// What a resolver answers to the zone's DNSKEY query: the apex key set and
+    /// every RRSIG over it.
+    /// </summary>
+    /// <remarks>
+    /// The keys alone are not an answer a validator can use. RFC 4035 §5.2 trusts
+    /// a zone's keys because the key a DS or an anchor names signed them, so a
+    /// stub serving the keys without that signature serves a zone whose keys
+    /// nothing vouches for (finding 67).
+    /// </remarks>
+    public IDNSResourceRecord[] KeySetAnswer
+        => [.. DnsKeys,
+            .. Signatures.Where(sig => sig.TypeCovered == DNSResourceRecordTypes.DNSKEY &&
+                                       String.Equals(sig.DomainName.FullName.TrimEnd('.'), Origin.TrimEnd('.'), StringComparison.OrdinalIgnoreCase))];
 
 
     /// <summary>
