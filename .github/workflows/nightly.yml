@@ -147,8 +147,9 @@ jobs:
       # skip means elsewhere in this suite. Windows skipping all of them is
       # honest reporting. The Debian leg skipping even one means a check could
       # not use a tool the step above has just proved runs, and a green step
-      # would be reporting agreement it never measured. The bar is what the
-      # night of 2026-10-04 measured: 73 passed, 0 skipped.
+      # would be reporting agreement it never measured. The bar is zero skips,
+      # not a count, so it holds as the suite grows; the night of 2026-10-04
+      # ran 73.
       #
       # The counts are summed rather than read from a grand total, because this
       # filter spans two assemblies and the SDK here prints one summary per
@@ -666,17 +667,25 @@ jobs:
           cat "${RUNNER_TEMP}/interop.out"
           skipped=0
           passed=0
+          failed=0
           for n in $(grep -oE 'Skipped: +[0-9]+' "${RUNNER_TEMP}/interop.out" | grep -oE '[0-9]+'); do
             skipped=$((skipped + n))
           done
           for n in $(grep -oE 'Passed: +[0-9]+' "${RUNNER_TEMP}/interop.out" | grep -oE '[0-9]+'); do
             passed=$((passed + n))
           done
+          for n in $(grep -oE 'Failed: +[0-9]+' "${RUNNER_TEMP}/interop.out" | grep -oE '[0-9]+'); do
+            failed=$((failed + n))
+          done
+          # Stated against itself rather than against a number written in here:
+          # a constant goes stale the first time a check is added, and the verdict
+          # never depended on it -- zero skips and a zero exit mean "everything ran
+          # and passed" for a suite of any size.
           {
             echo
             echo '### Interop against the upstream tools'
             echo
-            echo "passed ${passed}, skipped ${skipped} (the pinned-tool lane: 73 passed, 0 skipped)"
+            echo "${passed} of $((passed + skipped + failed)) checks passed, ${skipped} skipped, ${failed} failed."
           } >> "$GITHUB_STEP_SUMMARY"
           [ "${rc}" -eq 0 ] || exit "${rc}"
           if [ "${skipped}" -ne 0 ]; then
