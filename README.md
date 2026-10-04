@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1597 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-04): 1605 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -32,21 +32,23 @@ thirty-three skip and say so.
 
 Nothing is excluded from that figure, and there are no red tracker tests, because
 there is no open finding for one to track. Findings 64 to 66 were opened and
-closed on the same day: their four tracker cases were red at the pin before last
-(360c8e28, 1587 ✅ otherwise). So was finding 67, whose fix Vanaheimr/Hermod#148 was
+closed on the same day: their four tracker cases were red at 360c8e28
+(1587 ✅ otherwise). So was finding 67, whose fix Vanaheimr/Hermod#148 was
 written in parallel with its tracker: its four cases — the tracker in two, and two
-tests in `ChainWalkTests` that assert the same rule one step up — were red at the
-previous pin (8dc9663a, the DNSSEC project 327 ✅ · 4 ❌ otherwise) and are among
-the 1597 now. So were findings 68 to 70, the three neighbours #148 closed
-with it and recorded afterwards: their trackers, and the test for the DS link of
-67, were Secure at 8dc9663a and pass from 12baa4e6 on.
+tests in `ChainWalkTests` that assert the same rule one step up — were red at
+8dc9663a (the DNSSEC project 327 ✅ · 4 ❌ otherwise). So were findings 68 to 70,
+the three neighbours #148 closed with it and recorded afterwards: their trackers,
+and the test for the DS link of 67, were Secure at 8dc9663a and pass from 12baa4e6
+on. So was finding 71, whose fix Vanaheimr/Hermod#150 was merged before its
+tracker was written: its eight cases were red at the previous pin (12baa4e6, the
+DNSSEC project 335 ✅ · 8 ❌ otherwise). All of them are among the 1605 now.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 70 RFC deviations in Hermod. All are fixed;
+The suite has found 71 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -225,7 +227,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **5952** §4 | IPv6 text | the canonical form a zone file is written in, one case per subsection: §4.1 leading zeros suppressed, §4.2.1 `::` used to its maximum capability, §4.2.2 never for a single zero group, §4.2.3 the longest run and the leftmost of two equal ones, §4.3 lowercase. Written once in `DNSTools.ToZoneFileText` and used by both AAAA and APL, because findings 46 and 48 were each a second implementation quietly disagreeing with the first |
 | **4398** | CERT | type/keytag/algorithm |
 | **4592** | Wildcards | §2.1.1 the owner name: `*` accepted as leftmost label only, and never by the strict hostname parser — which is the parser the zone-file reader used to reach for, so every wildcard line BIND wrote was unreadable ✅ (finding 44). And the *relative* form of the same name, `*` on its own, which is how a hand-written zone file spells a wildcard and which a separate rule refused — taking the whole zone file with it ✅ (finding 51). §3.3.1 the *matching*: synthesis at the closest encloser and nowhere above it, an exact match and an empty non-terminal each suppressing it, more than one label covered, no type of its own meaning NODATA — and the answer carrying the queried name, with the asterisk absent from the response entirely |
-| **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good |
+| **5011** | Trust-anchor rollover | 30-day hold-down, no trust on first sight, continuity required, ZSKs ignored, a revoked KSK dropped for good, and none of it on the word of a DNSKEY RRset no anchor signed (a revocation: the revoked key) |
 | **4035** §2, **5155** §6/§7 | Signing | the direction the stack never had. Every authoritative RRset signed and no delegation's NS RRset or glue; an NSEC chain that closes, or an NSEC3 one with the empty non-terminals §7.1 demands and the opt-out of §6; the labels field of §3.1.3 shortened for a wildcard. **BIND's `dnssec-verify` is the judge** for all six algorithms RFC 8624 §3.1 lets a signer choose, and `dnssec-dsfromkey` for the DS. What it reads is a zone *file*, so the fields that only matter in an answer — the labels field, the opt-out flag — are pinned separately; both of those gaps were found by mutations that survived it. The suite's fixtures stay BIND-signed: a validator measured against its own signatures measures nothing. **And the same signer at runtime**: a zone signed in process by `InMemoryDNSZone.Sign` rather than by `dnssec-signzone`, served by a live Hermod and validated end to end by `delv` — answer, wildcard, NODATA denial and the DNSKEY RRset, under NSEC and NSEC3 both. No fixture is involved: the keys are generated at start-up and the trust anchor is the public half of the one that signed, so nothing on the wire existed before the test ran. The three failures an outside judge cannot see are pinned separately — signing twice must replace rather than accumulate, a record added afterwards makes the signatures stale and says so, and the expiration the zone reports is the one in its RRSIGs rather than one it merely remembers. **Keeping them fresh is a capability rather than a requirement** — RFC 6781 is Informational and names no interval, and it is a validating resolver rather than an authoritative server that decides an expired signature is expired — so `Resign` and `ResignIfDue` exist, are driven by the caller rather than by a timer inside the zone, and are tested for what they claim rather than against a specification that does not ask for them. The validity is remembered as a *length*: a repeat that reused the old absolute expiration would produce signatures exactly as stale as the ones it replaced, and would look like re-signing from every angle |
 | **5155** | NSEC3 | §3.3 presentation format: the salt hexadecimal and the next hashed owner name base32hex, read and written, against the record App. A publishes ✅ (finding 43). Hashing — all twelve hashed owner names of App. A reproduce; salt applied every iteration, iteration count is *extra* rounds, canonical-wire input; Base32hex order-preserving. §8 proofs read: match, cover, closest encloser, opt-out. §7 proofs written: the three-record closest-encloser proof a server owes an NXDOMAIN, the matching record for NODATA, the covering record for a wildcard answer — and never more NSEC3s than asked for, since every spare one is free zone-walking material. §6 opt-out, against a zone BIND signed with `-A`: the flag on every record, no NSEC3 for the insecure delegation, and the §7.2.7 referral proof whose covering record carries the flag |
 | **5452** | Spoofing resistance | §9.2 transaction IDs span the 16-bit space. §9.1's six-item list of what a response MUST match. Three items are the connected socket's - source and destination address, destination port - which leaves three for the resolver: the query name, class and type, each compared against the outstanding question on every transport, with a response carrying no question section at all matching nothing ✅ (finding 49). The comparison is RFC 4343's, case-insensitive, so a server that folds the QNAME before answering is still answering — a fix that compared octets would refuse most of the deployed world. §4.2 a non-matching response is ignored and not fatal, where *ignored* means the query keeps waiting: the reaction finding 5 fixed on the ID, now reached by the check finding 49 added |

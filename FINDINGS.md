@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Seventy RFC deviations in the Hermod DNS stack, each
+What this suite caught. Seventy-one RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -86,6 +86,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 68 | A zone's signature was accepted for names outside the zone | **High** | 4035 §5.3.1 | ✅ fixed |
 | 69 | A signature with nothing to cover made the rest of the answer Secure | **High** | 4035 §5.3 | ✅ fixed |
 | 70 | A denial was read from NSEC records nobody signed | **High** | 4035 §5.4 | ✅ fixed |
+| 71 | The trust anchor probe believed every root DNSKEY RRset it was given | **High** | 5011 §2, §2.1, §2.2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -406,6 +407,11 @@ never recognized the key when it came back.
 the tag the key had *before* revocation can be computed. Revocation now matches
 anchors on that tag (and the post-revocation one, harmlessly), and records both
 identities in `revokedAnchors` so the key cannot start a fresh hold-down later.
+
+*Since [finding 71](#71--the-trust-anchor-probe-believed-every-root-dnskey-rrset-it-was-given)*
+the match is by digest, not by tag, and a revocation is processed only when the
+revoked key signed the RRset itself. The fix above made the revocation reliable,
+and so made a forged one reliable too.
 
 Verified by `Revoked_Ksk_Is_Removed_From_The_Trust_Anchors`, which first asserts
 the premise (`ComputeKeyTag(revoked) != ComputeKeyTag(live)`) so a future
@@ -4270,6 +4276,116 @@ The question is the A record of `a.dnssec.test.`, which exists. It was Secure.
 
 **The fix**: read the proof only from the RRsets whose signatures verified.
 Part of [Vanaheimr/Hermod#148](https://github.com/Vanaheimr/Hermod/pull/148).
+
+---
+
+## 71 — The trust anchor probe believed every root DNSKEY RRset it was given
+
+RFC 5011 builds automated trust anchor updates on one condition. A new SEP key is
+added to the trust anchors "when that RRSet is validated by an existing trust
+anchor" (§2), and the add hold-down starts when the resolver "sees a new SEP key in
+a validated trust point DNSKEY RRSet" (§2.2). §2.1 asks the same of a revocation,
+from the other side:
+
+> A key is considered revoked when the resolver sees the key in a self-signed RRSet
+> and the key has the REVOKE bit (see Section 7 below) set to '1'.
+
+That is the revoked key's own signature, which only the holder of its private key
+can make. In §2.1's example, "the attacker could revoke B because it has knowledge
+of B's private key, but could not revoke A."
+
+`ProbeForTrustAnchorUpdatesAsync` said in its summary that it fetched the root
+DNSKEY RRset and "validates it against the existing trust anchors". It read the
+answer's keys and nothing else:
+
+```csharp
+var dnskeys  = response.Answers.OfType<DNSKEY>().ToList();
+…
+if (isRevoked && isSEP)   { /* remove the anchor */ }
+if (isSEP)                { /* start the hold-down, or end it */ }
+```
+
+No RRSIG was read, let alone verified.
+
+**What that allows.** Three things, each by answering the probe's one query:
+
+- **Plant an anchor.** Serve the root's keys and one of your own, unsigned, for thirty
+  days. The probe promotes your key to a trust anchor, every chain walk ends at it
+  from then on, and every name is yours to sign. The hold-down was meant to slow
+  down an attacker holding a compromised key. Here it was the only defence against
+  an attacker holding no key at all.
+- **Remove an anchor.** Answer once with the anchor's public key and the REVOKE bit
+  set. The anchor is gone for good, because `revokedAnchors` never lets the key
+  back, and with it every Secure answer: a walk that meets no anchor ends Bogus.
+  Finding 12 made this one reliable. Before it, the revocation never matched
+  anything, the forged one included.
+- **Stall a rollover.** Answer with a set that leaves the pending key out. The
+  continuity rule drops its hold-down. Done once a month, no new root key is ever
+  accepted. §2.2 resets the timer only when the set is seen "without the new key
+  but validly signed".
+
+**How it was found.** By reading it: the summary promised a validation the body
+did not contain. Finding 67 had just shown the chain walk looking at signatures
+without checking them. The probe is the other place where a DNSKEY RRset decides
+what is trusted, and it did not even look.
+
+**Why the suite did not see it.** It was written into the suite, as in finding 67.
+`TrustAnchorRolloverTests` built its keys from 64 repeated bytes, gave its anchors
+a zero digest, and served every DNSKEY RRset without an RRSIG, under the comment
+"The bytes need not be a real key: nothing here verifies a signature". Every test
+asked what the probe did with an answer. None asked whether it should have believed
+the answer. Against the fix, nine of them failed. Three more still passed, but only
+because the probe now believed nothing in them, so there was nothing left to test.
+They were moved onto signed sets first: generated keys, real DS anchors, and every
+set signed by an anchor, with revocations also signed by the revoked key under its
+revoked key tag. They stay green against the probe before the fix and after it.
+
+**Repro**: eight tests at the end of `TrustAnchorRolloverTests`, red until the fix:
+
+- **No hold-down** for an unsigned set (`An_Unsigned_Key_Set_Starts_No_Hold_Down`),
+  a forged RRSIG (`A_Forged_Signature_Starts_No_Hold_Down`), or a set signed only by
+  the newcomer (`A_Set_Signed_Only_By_The_Newcomer_Starts_No_Hold_Down`).
+- **No interrupted hold-down** from a set nobody signed
+  (`An_Unauthenticated_Set_Does_Not_Interrupt_A_Hold_Down`).
+- **No revocation** from an unsigned set (`A_Revocation_In_An_Unsigned_Set_Is_Ignored`),
+  or from a set an anchor signed but the revoked key did not
+  (`A_Revocation_The_Revoked_Key_Did_Not_Sign_Is_Ignored`).
+- **No removed namesake**: a stranger's genuine, self-signed revocation removes no
+  anchor that only shares its tag
+  (`A_Revocation_Removes_No_Anchor_That_Merely_Shares_Its_Tag`).
+- **Nothing else on a revocation's word**: a revocation the revoked key signed alone
+  takes effect, and the other key beside it starts no hold-down
+  (`A_Self_Signed_Revocation_Vouches_For_Nothing_Else`).
+
+They carried `KnownIssue` until the fix was pinned. They were red at 12baa4e6 and
+are green from b64479e9 on, where the DNSSEC project passes whole (343 ✅ · 0 ❌ · 4
+skips).
+
+**The fix**:
+
+- **Authenticate first.** The RRset, owner `.`, has to carry an RRSIG by the root
+  that is valid at the probe's `Now` and verifies with a key an anchor names, by
+  tag, algorithm and digest. It is the same check finding 67's walk makes at an
+  anchor.
+- **Revocation needs the revoked key's own signature.** That signature alone carries
+  the revocation of a key that is an anchor here. §2.1 asks for nothing more:
+  "revocation is immediate and permanent upon receipt of a valid revocation". It
+  carries nothing else in the set, because a revoked key may be used for nothing
+  "except to validate the RRSIG it signed over the DNSKEY RRSet specifically for the
+  purpose of validating the revocation".
+- **An unauthenticated set changes nothing.** No hold-down starts, ends, or is reset.
+- **Anchors are matched to keys by digest instead of by tag.** RFC 4034 Appendix B:
+  "the key tag is not a unique identifier". Otherwise a stranger's self-signed
+  revocation removes every anchor that shares its tag.
+
+Merged as [Vanaheimr/Hermod#150](https://github.com/Vanaheimr/Hermod/pull/150)
+(`dns/trust-anchor-probe-authenticates`).
+
+**What that does not change.** §2.2 also has the resolver remember "all the keys
+that validated the RRSet", and stop the acceptance process if all of them are
+revoked before the timer expires. The probe records when it first saw a key, not
+who vouched for it. A newcomer whose only sponsor is revoked during its hold-down is
+still admitted when the hold-down runs out.
 
 ---
 
