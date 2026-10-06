@@ -269,7 +269,6 @@ public class ChainValidationTests
     /// </para>
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §4.3")]
     public async Task Answer_Without_Any_Rrsig_Is_Insecure()
     {
@@ -311,7 +310,6 @@ public class ChainValidationTests
     /// </para>
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.2")]
     public async Task An_Unsigned_Answer_Below_A_Proven_Unsigned_Delegation_Is_Insecure()
     {
@@ -353,7 +351,6 @@ public class ChainValidationTests
     /// signed, and its missing signature is missing data.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §4.3")]
     public async Task An_Unsigned_Answer_Inside_An_Anchored_Zone_Is_Bogus_Either_Way()
     {
@@ -861,7 +858,6 @@ public class ChainValidationTests
     /// declare any signed zone below an anchor unsigned.
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6840 §5.2")]
     [Property("RFC", "4035 §5.2")]
     public async Task An_Unfollowable_Ds_Counts_Only_Once_The_Parents_Keys_Are_Authenticated()
@@ -926,7 +922,6 @@ public class ChainValidationTests
     /// </para>
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.2")]
     public async Task A_Missing_Ds_Is_No_Proof_Of_An_Unsigned_Delegation()
     {
@@ -1132,7 +1127,6 @@ public class ChainValidationTests
     /// </para>
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §5.3")]
     public async Task A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing()
     {

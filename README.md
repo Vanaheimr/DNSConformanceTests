@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1606 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-06): 1612 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -30,8 +30,8 @@ doing. That daemon does not start by itself (see
 [Preparing WSL](#preparing-wsl-for-the-interop-lane)); without it the
 thirty-three skip and say so.
 
-Nothing is excluded from that figure, and there were no red tracker tests in it,
-because there was no open finding for one to track. Findings 64 to 66 were opened and
+Nothing is excluded from that figure, and there are no red tracker tests, because
+there is no open finding for one to track. Findings 64 to 66 were opened and
 closed on the same day: their four tracker cases were red at 360c8e28
 (1587 ✅ otherwise). So was finding 67, whose fix Vanaheimr/Hermod#148 was
 written in parallel with its tracker: its four cases — the tracker in two, and two
@@ -41,26 +41,18 @@ the three neighbours #148 closed with it and recorded afterwards: their trackers
 and the tests for two more links of 67, were Secure at 8dc9663a and pass from
 12baa4e6 on. So was finding 71, whose fix Vanaheimr/Hermod#150 was merged before its
 tracker was written: its eight cases were red at the previous pin (12baa4e6, the
-DNSSEC project 335 ✅ · 8 ❌ otherwise). All of them are among the 1606 now.
-
-Eight test cases written after that figure are red on purpose, for findings 72 to
-75, which Hermod's master fixed on 2026-10-04 without the suite noticing — until
-the nightly lane that runs against that master went red on two tests that had
-pinned the old verdict as correct. An unsigned answer is judged by whether the
-question was given rather than by a proof (72), an empty DS answer makes a signed
-zone Insecure (73), and two cache hits hand back the wrong records (74, 75). The
-six DNSSEC cases are in `ChainValidationTests`, the two cache cases in
-`CachedAnswerTests`; all carry `KnownIssue`, as PLAN.md §9 asks. Measured on
-2026-10-06 at the pinned Hermod, the two projects pass everything else (DNSSEC
-342 ✅ · 4 skips, client 156 ✅).
+DNSSEC project 335 ✅ · 8 ❌ otherwise). So were findings 72 to 75, which Hermod's
+master fixed on 2026-10-04 without the suite noticing, until the nightly lane that
+runs against that master went red on two tests that had pinned the old verdict as
+correct: their eight cases were red at the previous pin (b64479e9, DNSSEC 342 ✅ ·
+4 skips and client 156 ✅ otherwise). All of them are among the 1612 now.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 75 RFC deviations in Hermod. 71 are fixed at the pinned
-revision; 72 to 75 are fixed in Hermod's master and wait for the pin to move;
+The suite has found 75 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

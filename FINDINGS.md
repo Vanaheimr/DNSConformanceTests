@@ -3,9 +3,8 @@
 What this suite caught. Seventy-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Seventy-one of them are fixed and defended by a test. Four — 72 to 75 — are fixed
-in Hermod's master but not yet at the revision this suite pins, and their trackers
-are red on purpose until the pin moves. It reads as a record, not a backlog. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -88,10 +87,10 @@ what is queued, what is out of scope — are not here at all; they live in
 | 69 | A signature with nothing to cover made the rest of the answer Secure | **High** | 4035 §5.3 | ✅ fixed |
 | 70 | A denial was read from NSEC records nobody signed | **High** | 4035 §5.4 | ✅ fixed |
 | 71 | The trust anchor probe believed every root DNSKEY RRset it was given | **High** | 5011 §2, §2.1, §2.2 | ✅ fixed |
-| 72 | An answer without signatures is judged by whether the question was given | **High** | 4035 §4.3, §5.2 | ⏳ **open** |
-| 73 | An empty DS answer makes a signed zone Insecure | **High** | 4035 §5.2, 6840 §5.2 | ⏳ **open** |
-| 74 | A cached answer holds every RRset cached under the name | Medium | 1035 §4.1 | ⏳ **open** |
-| 75 | A cached NODATA answer comes back as whatever the name was cached with last | Medium | 2308 §5 | ⏳ **open** |
+| 72 | An answer without signatures was judged by whether the question was given | **High** | 4035 §4.3, §5.2 | ✅ fixed |
+| 73 | An empty DS answer made a signed zone Insecure | **High** | 4035 §5.2, 6840 §5.2 | ✅ fixed |
+| 74 | A cached answer held every RRset cached under the name | Medium | 1035 §4.1 | ✅ fixed |
+| 75 | A cached NODATA answer came back as whatever the name was cached with last | Medium | 2308 §5 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -4405,7 +4404,7 @@ still admitted when the hold-down runs out.
 
 ---
 
-## 72 — An answer without signatures is judged by whether the question was given
+## 72 — An answer without signatures was judged by whether the question was given
 
 RFC 4035 §4.3 separates the two verdicts an unsigned RRset can earn by what the
 resolver knows. Insecure is "an RRset for which the resolver knows that it has no
@@ -4459,20 +4458,20 @@ unsigned, because the stub resolver could not carry an authority section: its
 summary said that an empty NOERROR "is exactly how a validator learns that a zone
 publishes no DS".
 
-**Repro**, red on purpose:
+**Repro**, red until the fix:
 
 - `ChainValidationTests.Answer_Without_Any_Rrsig_Is_Insecure`, which keeps its name
   because finding 69 cites it and now asserts Bogus: the fixture's A RRset without
-  its RRSIG, under the fixture's anchor. It is Insecure.
+  its RRSIG, under the fixture's anchor. It was Insecure.
 - `…An_Unsigned_Answer_Inside_An_Anchored_Zone_Is_Bogus_Either_Way`: a zone made in
   the test, anchored, and an unsigned A RRset inside it — Bogus with the question
-  and without it. Without it, it is Insecure.
+  and without it. Without it, it was Insecure.
 - `…An_Unsigned_Answer_Below_A_Proven_Unsigned_Delegation_Is_Insecure`: the same
   zone delegates `u.p.test.` and proves with its signed NSEC that the delegation has
   no DS; an unsigned A RRset below it is Insecure with the question and without it.
-  With it, it is Bogus.
+  With it, it was Bogus.
 - `…A_Signature_With_Nothing_To_Cover_Vouches_For_Nothing`, finding 69's tracker,
-  now asserting Bogus. It is Insecure.
+  now asserting Bogus. It was Insecure.
 
 **The fix**: look for the proof. From the closest anchor down, one label at a
 time, each name's DS answer is read with the keys of the zone the name lies in; a
@@ -4483,7 +4482,7 @@ Insecure. Merged as [Vanaheimr/Hermod#155](https://github.com/Vanaheimr/Hermod/p
 
 ---
 
-## 73 — An empty DS answer makes a signed zone Insecure
+## 73 — An empty DS answer made a signed zone Insecure
 
 The same §5.2 from the other end of the chain. A validator walking up from a signed
 answer asks the parent for the DS RRset of the signer's zone, and an answer without
@@ -4514,16 +4513,16 @@ for DANE takes its TLSA records out of play.
 second path. The suite had no test that could have failed on it; see finding 72 on
 the stub resolver.
 
-**Repro**, red on purpose:
+**Repro**, red until the fix:
 
 - `ChainValidationTests.A_Missing_Ds_Is_No_Proof_Of_An_Unsigned_Delegation`: an
   anchored parent `test.` above the fixture zone and three answers to the DS query —
   the parent's signed DS (Secure), an empty answer with the parent's signed NSEC
-  proving no DS (Insecure), and an empty answer with nothing (Bogus). The last is
+  proving no DS (Insecure), and an empty answer with nothing (Bogus). The last was
   Insecure.
 - `…An_Unfollowable_Ds_Counts_Only_Once_The_Parents_Keys_Are_Authenticated`: the
   anchor is the parent's genuine key, the parent key set offered is a forged key's,
-  and the DS it signs has algorithm 0. It is Insecure.
+  and the DS it signs has algorithm 0. It was Insecure.
 
 **The fix**: an empty DS answer counts only with an authenticated denial in its
 authority section — NSEC or NSEC3 of one zone strictly above the child, verified
@@ -4535,7 +4534,7 @@ waits for the same authentication. Merged as
 
 ---
 
-## 74 — A cached answer holds every RRset cached under the name
+## 74 — A cached answer held every RRset cached under the name
 
 RFC 1035 §4.1 gives the answer section of a message one content: "RRs answering the
 question". `DNSClient` keeps one cache entry per name, merging every answer fetched
@@ -4565,9 +4564,9 @@ read someone else's data.
 query is served from the cache, by counting requests at the socket. None asked what
 the served answer holds.
 
-**Repro**: `CachedAnswerTests.A_Cached_Answer_Holds_Only_The_Type_Asked_For`, red on
-purpose: a name with an A and a TXT RRset, asked for in that order, and the A query
-again from the cache. It holds the TXT record too.
+**Repro**: `CachedAnswerTests.A_Cached_Answer_Holds_Only_The_Type_Asked_For`, red
+until the fix: a name with an A and a TXT RRset, asked for in that order, and the A
+query again from the cache. It held the TXT record too.
 
 **The fix**: the cache keeps, per RRset type, the response that carried it, and a hit
 is served from that response, cut down to the RRset asked for with its RRSIGs and the
@@ -4576,7 +4575,7 @@ CNAME chain leading to it. Merged as
 
 ---
 
-## 75 — A cached NODATA answer comes back as whatever the name was cached with last
+## 75 — A cached NODATA answer came back as whatever the name was cached with last
 
 RFC 2308 §5: a NODATA answer "should be cached such that it can be retrieved and
 returned in response to another query for the same <QNAME, QTYPE, QCLASS>", and the
@@ -4597,7 +4596,7 @@ signed NSEC proof were gone, and in their place stood another type's records.
 
 **What it costs.** The tracker below asks for the A RRset of a name that has none,
 then for its AAAA RRset, then for the A RRset again: the cached answer to the A query
-holds the AAAA record, and no SOA. For DNSSEC the authority section is the proof: a
+held the AAAA record, and no SOA. For DNSSEC the authority section is the proof: a
 validator that asks a zone's DNSKEY and then its DS reads the denial of an unsigned
 delegation from the DS answer, and from the second lookup on it read the DNSKEY
 answer instead — a proven insecure zone turned Bogus once the cache was warm.
@@ -4610,7 +4609,7 @@ the requests of a repeated NODATA query and checked the response code; no test a
 for another type of the same name in between.
 
 **Repro**: `CachedAnswerTests.A_Cached_Nodata_Answer_Keeps_Its_Authority_Section`,
-red on purpose. The repeated A query comes back with the AAAA record in its answer
+red until the fix. The repeated A query came back with the AAAA record in its answer
 section and an empty authority section.
 
 **The fix**: the NODATA response is kept with the cache entry and returned on a hit.

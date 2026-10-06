@@ -61,7 +61,6 @@ public class CachedAnswerTests
     /// one after the other; the A query asked again comes from the cache.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §4.1")]
     public async Task A_Cached_Answer_Holds_Only_The_Type_Asked_For()
     {
@@ -127,7 +126,6 @@ public class CachedAnswerTests
     /// section — and not whichever answer the name was cached with last.
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "2308 §5")]
     public async Task A_Cached_Nodata_Answer_Keeps_Its_Authority_Section()
     {
