@@ -4,6 +4,7 @@ using org.GraphDefined.Vanaheimr.Illias;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -168,6 +169,53 @@ public class ChainValidationTests
 
     }
 
+
+    /// <summary>
+    /// A stub resolver that serves one zone made here: its DNSKEY RRset, signed
+    /// by its own key — the shape of a zone whose key is the trust anchor.
+    /// </summary>
+    private static StubDnsClient ResolverServingZone(DNSSECSigningKey Zone)
+    {
+
+        IDNSResourceRecord[] keys = [ Zone.DNSKEY ];
+
+        return new StubDnsClient().
+                   Answer(Zone.DNSKEY.DomainName.FullName, DNSResourceRecordTypes.DNSKEY, [ .. keys, Sign(keys, Zone) ]);
+
+    }
+
+
+    /// <summary>
+    /// RFC 4034 §4.1.2 — the types present at a delegation without DS: NS (2),
+    /// and the RRSIG (46) and NSEC (47) of the denial itself. One window, six
+    /// octets, bit <c>i</c> of the block standing for type <c>i</c> with bit 0 the
+    /// most significant. Written out here rather than asked of Hermod's encoder.
+    /// </summary>
+    private static Byte[] DelegationTypeBitMap
+        => [0x00, 0x06,                                   // window 0, six octets follow
+            0x20, 0x00, 0x00, 0x00, 0x00, 0x03];          // NS … RRSIG|NSEC
+
+
+    /// <summary>
+    /// The authority section of the parent's answer to a DS query for an unsigned
+    /// delegation, RFC 4035 §5.4 and §3.1.4.1: an NSEC at the delegation point with
+    /// the NS bit and neither DS nor SOA, signed by the parent.
+    /// </summary>
+    private static IDNSResourceRecord[] ProofOfAnUnsignedDelegation(String            Delegation,
+                                                                    String            NextName,
+                                                                    DNSSECSigningKey  Parent)
+    {
+
+        IDNSResourceRecord[] nsec = [ new NSEC(DomainName.Parse(Delegation),
+                                               DNSQueryClasses.IN,
+                                               TimeSpan.FromHours(1),
+                                               DomainName.Parse(NextName),
+                                               DelegationTypeBitMap) ];
+
+        return [ .. nsec, Sign(nsec, Parent) ];
+
+    }
+
     #endregion
 
 
@@ -194,20 +242,138 @@ public class ChainValidationTests
 
     #region Answer_Without_Any_Rrsig_Is_Insecure()
 
+    /// <summary>
+    /// Finding 72. The name says what this test used to assert, and the name is
+    /// kept because FINDINGS.md cites it; what it asserts now is the opposite.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It used to say that no signatures at all is "an ordinary answer from an
+    /// unsigned zone", and Insecure. That is true of an unsigned zone — and this
+    /// is not one. The trust anchor here is the fixture zone's own key: the
+    /// resolver knows <c>dnssec.test</c> is signed, and an A RRset at
+    /// <c>a.dnssec.test</c> arriving without its RRSIG is what stripping the
+    /// signature produces. RFC 4035 §4.3 calls Insecure "an RRset for which the
+    /// resolver knows that it has no chain of signed DNSKEY and DS RRs from any
+    /// trusted starting point to the RRset", and Bogus one "for which the resolver
+    /// believes that it ought to be able to establish a chain of trust but for
+    /// which it is unable to do so … due to missing data that the relevant DNSSEC
+    /// RRs indicate should be present". The anchor indicates it.
+    /// </para>
+    /// <para>
+    /// The unsigned internet is not broken by this. An unsigned zone below an
+    /// anchor is Insecure once the delegation to it is proven unsigned —
+    /// <see cref="An_Unsigned_Answer_Below_A_Proven_Unsigned_Delegation_Is_Insecure"/>
+    /// — and an unsigned zone outside every anchor stays Insecure without any
+    /// proof at all.
+    /// </para>
+    /// </remarks>
     [Test]
+    [Property("RFC", "4035 §4.3")]
     public async Task Answer_Without_Any_Rrsig_Is_Insecure()
     {
 
-        // No signatures at all is not a failure — it is an ordinary answer from an
-        // unsigned zone. Reporting Bogus here would break the entire unsigned
-        // internet; reporting Secure would make DNSSEC meaningless.
         var (rrset, _) = SignedA();
 
         var validator  = new DNSSECValidator(ResolverServingKeys(), [zone.DelegationSigner]);
 
         var result     = await validator.ValidateAsync(ResponseWith([.. rrset]));
 
-        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Insecure));
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "an RRset of a zone the resolver holds an anchor for, with its signature taken away");
+
+    }
+
+    #endregion
+
+    #region An_Unsigned_Answer_Below_A_Proven_Unsigned_Delegation_Is_Insecure()
+
+    /// <summary>
+    /// Finding 72, the other direction. RFC 4035 §5.2: a resolver that finds no DS
+    /// for a delegation learns from the parent's authenticated denial that the
+    /// child zone is unsigned, and the data below it is Insecure.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>p.test.</c> is anchored and signed with a key made here. It delegates
+    /// <c>u.p.test.</c> without a DS, and says so the way RFC 4035 §5.4 lets it: its
+    /// signed NSEC at <c>u.p.test.</c> has the NS bit and neither DS nor SOA. Below
+    /// that delegation an unsigned A RRset at <c>www.u.p.test.</c> is exactly what
+    /// an unsigned zone sends, and the verdict must not depend on whether the
+    /// caller said what it asked.
+    /// </para>
+    /// <para>
+    /// It did. Without a question the answer was Insecure — as was every unsigned
+    /// answer, stripped or not. With the question it was Bogus — as was every
+    /// unsigned answer under an anchor, proven unsigned or not, which under the
+    /// root's anchor is every unsigned zone on the internet.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Property("RFC", "4035 §5.2")]
+    public async Task An_Unsigned_Answer_Below_A_Proven_Unsigned_Delegation_Is_Insecure()
+    {
+
+        using var parent = DNSSECSigningKey.Generate(DomainName.Parse("p.test"), 13, KeySigningKey: true);
+
+        var name      = DomainName.Parse("www.u.p.test");
+
+        var resolver  = ResolverServingZone(parent).
+                            Authority("u.p.test", DNSResourceRecordTypes.DS,
+                                      ProofOfAnUnsignedDelegation("u.p.test", "v.p.test", parent));
+
+        var validator = new DNSSECValidator(resolver, [ parent.DelegationSigner() ]);
+
+        var response  = ResponseWith(new A(name, DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.80")));
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await validator.ValidateAsync(response),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "below a delegation the parent proves unsigned, nothing is owed a signature");
+
+            Assert.That(await validator.ValidateAsync(response, (name, DNSResourceRecordTypes.A)),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "and knowing the question changes nothing about that");
+
+        });
+
+    }
+
+    #endregion
+
+    #region An_Unsigned_Answer_Inside_An_Anchored_Zone_Is_Bogus_Either_Way()
+
+    /// <summary>
+    /// Finding 72, the control for the test above: the same zone and key, and an
+    /// unsigned A RRset at a name that lies in <c>p.test.</c> itself. Nothing proves
+    /// a delegation on the way, so the RRset belongs to a zone the anchor says is
+    /// signed, and its missing signature is missing data.
+    /// </summary>
+    [Test]
+    [Property("RFC", "4035 §4.3")]
+    public async Task An_Unsigned_Answer_Inside_An_Anchored_Zone_Is_Bogus_Either_Way()
+    {
+
+        using var parent = DNSSECSigningKey.Generate(DomainName.Parse("p.test"), 13, KeySigningKey: true);
+
+        var name      = DomainName.Parse("www.p.test");
+
+        var validator = new DNSSECValidator(ResolverServingZone(parent), [ parent.DelegationSigner() ]);
+
+        var response  = ResponseWith(new A(name, DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.80")));
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await validator.ValidateAsync(response),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "an answer from a signed zone, with its signature taken away");
+
+            Assert.That(await validator.ValidateAsync(response, (name, DNSResourceRecordTypes.A)),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "whether or not the caller says what it asked");
+
+        });
 
     }
 
@@ -677,6 +843,128 @@ public class ChainValidationTests
 
     #endregion
 
+    #region An_Unfollowable_Ds_Counts_Only_Once_The_Parents_Keys_Are_Authenticated()
+
+    /// <summary>
+    /// Finding 73. The test above, with the one word of RFC 6840 §5.2 that makes it
+    /// safe taken away: "authenticated". The anchor is the parent's genuine key;
+    /// the parent's DNSKEY RRset the resolver is handed holds a different key, made
+    /// up for the purpose, which signs itself and signs a DS with algorithm 0.
+    /// </summary>
+    /// <remarks>
+    /// The DS signature verifies — against a key set nothing has authenticated.
+    /// The step from there to Insecure was taken before the parent's keys were
+    /// checked against the anchor, so anybody able to answer two queries could
+    /// declare any signed zone below an anchor unsigned.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "6840 §5.2")]
+    [Property("RFC", "4035 §5.2")]
+    public async Task An_Unfollowable_Ds_Counts_Only_Once_The_Parents_Keys_Are_Authenticated()
+    {
+
+        var (rrset, signature) = SignedA();
+
+        using var genuine = DNSSECSigningKey.Generate(DomainName.Parse("test"), 13, KeySigningKey: true);
+        using var forged  = DNSSECSigningKey.Generate(DomainName.Parse("test"), 13, KeySigningKey: true);
+
+        var anchor       = zone.DelegationSigner;
+
+        IDNSResourceRecord[] unfollowable = [ new DS(DomainName.Parse("dnssec.test"),
+                                                     DNSQueryClasses.IN,
+                                                     TimeSpan.FromHours(1),
+                                                     anchor.KeyTag,
+                                                     0,
+                                                     anchor.DigestType,
+                                                     anchor.Digest) ];
+
+        IDNSResourceRecord[] forgedKeys   = [ forged.DNSKEY ];
+
+        var resolver  = new StubDnsClient().
+                            Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, zone.KeySetAnswer).
+                            Answer("dnssec.test", DNSResourceRecordTypes.DS,     [ .. unfollowable, Sign(unfollowable, forged) ]).
+                            Answer("test",        DNSResourceRecordTypes.DNSKEY, [ .. forgedKeys,   Sign(forgedKeys,   forged) ]);
+
+        var validator = new DNSSECValidator(resolver, [ genuine.DelegationSigner() ]);
+
+        var result    = await validator.ValidateAsync(ResponseWith([.. rrset, signature]));
+
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "a DS RRset signed by a key the anchor never vouched for authenticates nothing, " +
+                    "and an unfollowable algorithm in it proves nothing either");
+
+    }
+
+    #endregion
+
+    #region A_Missing_Ds_Is_No_Proof_Of_An_Unsigned_Delegation()
+
+    /// <summary>
+    /// Finding 73. RFC 4035 §5.2 ends the authentication path at a delegation only
+    /// on a proof: "If the validator authenticates an NSEC RRset that proves that
+    /// no DS RRset is present for this zone, then there is no authentication path
+    /// leading from the parent to the child." An empty answer to the DS query,
+    /// with nothing in the authority section, is no such proof — it is what an
+    /// attacker on the path sends to make a signed zone look unsigned.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The parent <c>test.</c> is anchored; the child is the fixture zone, whose
+    /// answer is genuinely signed. Three answers to the DS query, three verdicts:
+    /// the DS itself, signed by the parent — Secure; an empty answer with the
+    /// parent's signed NSEC proving the delegation has no DS — Insecure; and an
+    /// empty answer with no proof at all — Bogus. The last was Insecure.
+    /// </para>
+    /// <para>
+    /// For DANE the difference is the whole of the protocol: RFC 7672 §2.2 answers
+    /// an insecure TLSA lookup with opportunistic TLS, so a forged empty DS answer
+    /// took a zone's TLSA records out of play.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Property("RFC", "4035 §5.2")]
+    public async Task A_Missing_Ds_Is_No_Proof_Of_An_Unsigned_Delegation()
+    {
+
+        var (rrset, signature) = SignedA();
+
+        using var parent = DNSSECSigningKey.Generate(DomainName.Parse("test"), 13, KeySigningKey: true);
+
+        IDNSResourceRecord[] parentKeys = [ parent.DNSKEY ];
+        IDNSResourceRecord[] ds         = [ zone.DelegationSigner ];
+
+        StubDnsClient Resolver()
+            => new StubDnsClient().
+                   Answer("dnssec.test", DNSResourceRecordTypes.DNSKEY, zone.KeySetAnswer).
+                   Answer("test",        DNSResourceRecordTypes.DNSKEY, [ .. parentKeys, Sign(parentKeys, parent) ]);
+
+        var withDs     = Resolver().Answer   ("dnssec.test", DNSResourceRecordTypes.DS, [ .. ds, Sign(ds, parent) ]);
+        var provenNone = Resolver().Authority("dnssec.test", DNSResourceRecordTypes.DS, ProofOfAnUnsignedDelegation("dnssec.test", "e.test", parent));
+        var unproven   = Resolver();
+
+        var response   = ResponseWith([.. rrset, signature]);
+        var anchors    = new[] { parent.DelegationSigner() };
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await new DNSSECValidator(withDs,     anchors).ValidateAsync(response),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the parent's signed DS leads into the signed child");
+
+            Assert.That(await new DNSSECValidator(provenNone, anchors).ValidateAsync(response),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "the parent proves the delegation has no DS: the child is unsigned as far as the chain goes");
+
+            Assert.That(await new DNSSECValidator(unproven,   anchors).ValidateAsync(response),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "an empty DS answer that proves nothing is missing data the anchor says should be there");
+
+        });
+
+    }
+
+    #endregion
+
     #region A_Delegation_With_One_Usable_Ds_Among_Unusable_Ones_Still_Validates()
 
     [Test]
@@ -827,10 +1115,15 @@ public class ChainValidationTests
     /// <para>
     /// A signature vouches for the RRset it covers. With that RRset absent it
     /// vouches for nothing, and the forged record beside it is exactly as unsigned
-    /// as it would be alone — Insecure, the verdict of
-    /// <see cref="Answer_Without_Any_Rrsig_Is_Insecure"/>. Not Bogus, because an
-    /// unsigned RRset is also what a signed CNAME into an unsigned zone
-    /// legitimately brings along; but never Secure.
+    /// as it would be alone — which is the verdict of
+    /// <see cref="Answer_Without_Any_Rrsig_Is_Insecure"/>, never Secure.
+    /// </para>
+    /// <para>
+    /// This used to say that verdict was Insecure, "because an unsigned RRset is
+    /// also what a signed CNAME into an unsigned zone legitimately brings along".
+    /// It is, when a delegation on the way to it is proven unsigned. Here the
+    /// forged record lies in <c>dnssec.test</c>, the anchored zone itself, and
+    /// nothing proves anything: finding 72 makes that Bogus.
     /// </para>
     /// </summary>
     [Test]
@@ -849,8 +1142,9 @@ public class ChainValidationTests
 
         var result    = await validator.ValidateAsync(ResponseWith(forged, signature));
 
-        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Insecure),
-                    "the only signature in the answer covers a record the answer does not hold");
+        Assert.That(result, Is.EqualTo(DNSSECValidationResult.Bogus),
+                    "the only signature in the answer covers a record the answer does not hold, " +
+                    "and the record it holds lies in a zone the anchor says is signed");
 
     }
 

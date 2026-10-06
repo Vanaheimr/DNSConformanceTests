@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-04): 1606 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-06): 1612 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -41,14 +41,18 @@ the three neighbours #148 closed with it and recorded afterwards: their trackers
 and the tests for two more links of 67, were Secure at 8dc9663a and pass from
 12baa4e6 on. So was finding 71, whose fix Vanaheimr/Hermod#150 was merged before its
 tracker was written: its eight cases were red at the previous pin (12baa4e6, the
-DNSSEC project 335 ✅ · 8 ❌ otherwise). All of them are among the 1606 now.
+DNSSEC project 335 ✅ · 8 ❌ otherwise). So were findings 72 to 75, which Hermod's
+master fixed on 2026-10-04 without the suite noticing, until the nightly lane that
+runs against that master went red on two tests that had pinned the old verdict as
+correct: their eight cases were red at the previous pin (b64479e9, DNSSEC 342 ✅ ·
+4 skips and client 156 ✅ otherwise). All of them are among the 1612 now.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 71 RFC deviations in Hermod. All are fixed;
+The suite has found 75 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

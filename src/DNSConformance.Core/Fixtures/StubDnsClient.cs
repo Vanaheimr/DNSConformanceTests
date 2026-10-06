@@ -9,13 +9,16 @@ namespace DNSConformance.Core.Fixtures;
 /// every RFC 4035 §4.3 outcome offline and deterministically.
 ///
 /// It resolves nothing on its own: whatever a test does not register is answered
-/// as an empty NOERROR, which is exactly how a validator learns that a zone
-/// publishes no DS and the delegation is therefore unsigned.
+/// as an empty NOERROR. That is not how a validator learns that a zone publishes
+/// no DS — RFC 4035 §5.2 wants that proven by the parent's signed NSEC or NSEC3
+/// records, which a test registers with <see cref="Authority"/> — and since
+/// finding 73 an empty answer alone is no proof of anything.
 /// </summary>
 public sealed class StubDnsClient : IDNSClient
 {
 
-    private readonly Dictionary<(String Name, DNSResourceRecordTypes Type), List<IDNSResourceRecord>> table = [];
+    private readonly Dictionary<(String Name, DNSResourceRecordTypes Type), List<IDNSResourceRecord>> table       = [];
+    private readonly Dictionary<(String Name, DNSResourceRecordTypes Type), List<IDNSResourceRecord>> authorities = [];
 
     private static readonly DNSServerConfig origin = new(IPv4Address.Localhost, IPPort.DNS);
 
@@ -54,6 +57,23 @@ public sealed class StubDnsClient : IDNSClient
     }
 
 
+    /// <summary>
+    /// Register the authority section for one owner name and type — the SOA and
+    /// the signed NSEC or NSEC3 records of a negative answer. Returns this, for
+    /// chaining.
+    /// </summary>
+    public StubDnsClient Authority(String                            Name,
+                                   DNSResourceRecordTypes            Type,
+                                   params IDNSResourceRecord[]       Records)
+    {
+
+        authorities[(Key(Name), Type)] = [.. Records];
+
+        return this;
+
+    }
+
+
     private static String Key(String name)
         => name.TrimEnd('.').ToLowerInvariant();
 
@@ -62,7 +82,8 @@ public sealed class StubDnsClient : IDNSClient
                           IEnumerable<DNSResourceRecordTypes>  Types)
     {
 
-        var answers = new List<IDNSResourceRecord>();
+        var answers     = new List<IDNSResourceRecord>();
+        var authority   = new List<IDNSResourceRecord>();
 
         foreach (var type in Types)
         {
@@ -71,6 +92,9 @@ public sealed class StubDnsClient : IDNSClient
 
             if (table.TryGetValue((Key(Name), type), out var records))
                 answers.AddRange(records);
+
+            if (authorities.TryGetValue((Key(Name), type), out var denial))
+                authority.AddRange(denial);
 
         }
 
@@ -83,7 +107,7 @@ public sealed class StubDnsClient : IDNSClient
                    false,                      // recursion available
                    DNSResponseCodes.NoError,
                    answers,
-                   [],
+                   authority,
                    [],
                    !Unreachable,               // IsValid
                    false,                      // IsTimeout
@@ -125,6 +149,6 @@ public sealed class StubDnsClient : IDNSClient
         => ValueTask.CompletedTask;
 
     public override String ToString()
-        => $"stub DNS client ({table.Count} canned RRsets)";
+        => $"stub DNS client ({table.Count} canned RRsets, {authorities.Count} authority sections)";
 
 }
