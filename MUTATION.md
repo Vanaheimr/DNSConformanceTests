@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **31 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
@@ -100,7 +100,7 @@ neither.
 |---|---:|---:|---:|
 | `records` | 240 | 0 | — |
 | `core` | 132 | 0 | 1 |
-| `dnssec` | 46 | **31** | 19 |
+| `dnssec` | 46 | **1** | 19 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
 | `client` | 245 | **86** | 68 |
@@ -108,8 +108,9 @@ neither.
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
 where both readings are conformant because no RFC names a limit. The row above
-is the second sweep of the block, after the validator was rewritten, and all
-but three of the thirty-seven it found are in new code — see *The result: DNSSEC, measured again*.
+is the second sweep of the block, after the validator was rewritten. It found
+thirty-seven, all but three in new code, and what the rounds since have left is
+the same depth limit — see *The result: DNSSEC, measured again*.
 
 **The argument had already been written twice before it had a name.** One entry
 in the core ledger and one in the DNSSEC ledger had each worked out, separately,
@@ -1863,6 +1864,99 @@ the whole project. Each failed at least one of the four tests, and none failed
 anything else.
 
 **The `dnssec` block: 46 real gaps, 6 closed, 9 equivalent, 31 open.**
+
+### What proves a delegation unsigned, and who may say so
+
+The other thirty-one rows are one question asked from three places: the
+proof that a delegation is unsigned. That is the one claim that lets a chain of
+trust stop short of an answer without the answer being Bogus, so it is the claim
+an attacker wants believed — every signed RRset that can be made to look as
+though it lies below an unsigned delegation can be stripped and still pass as
+Insecure. Twenty-seven fall to new tests, three are equivalent, and one stays
+open.
+
+**The step up from a signed answer** (`UnsignedDelegationTests`, the first
+three; `TrustAnchorSetTests`; `KeySetAuthenticationTests`). RFC 4035 §5.2 wants
+the DS "authenticated using some DNSKEY RR in the parent's apex DNSKEY RRset".
+The walk learns the parent's name from the DS RRset's own signature, so a DS
+signed by `o.example.` for `c.p.test.` has to be refused by name. Followed, it
+would climb into a zone no anchor covers and come back Insecure. A DS the child
+signed for itself would lead back to the child, round and round until the depth
+limit said Indeterminate — which is why the tests ask for Bogus rather than for
+anything but Secure.
+
+A proof that the DS is absent is the parent's too ("MUST use the parent NSEC
+RR"). And it counts only once the walk has authenticated the parent's keys
+above it. Taken at the word of the key set it came with, it would let anyone
+who can answer two queries call any signed zone below an anchor unsigned.
+
+`CoveredByATrustAnchor`, the line that had lost its caller, has a test that
+reaches it again: *Whether a missing DS is a forgery depends on the anchors*. It is the twin of
+the test that used to reach it, for a signed answer. And the key set's own
+signature is held to §5.3.1's first condition, "the same owner name". Nothing
+false gets through by moving it, and that test's remarks say so; the rule is
+still the rule.
+
+**The walk down for an unsigned answer** (`UnsignedDelegationTests`, the next
+four). An A record at `u.p.test.`, the apex of the unsigned child, is the one
+answer where the delegation is the owner itself. A walk one step short never
+asks about it. Every earlier test had its unsigned delegation directly below the
+anchor. On the internet it almost never is, so the walk now crosses a signed
+zone cut on its way down: the DS checked, its signature checked, the child's key
+set checked, and the next proof read with the child's keys. It is tried once with
+a DS whose signature `p.test.`'s keys do not verify. And it goes on through a
+name of the zone that is no zone cut — an ordinary name, and an empty
+non-terminal, which is what a `_tcp` label or the second level of a registry
+is.
+
+**What the proof has to be** (`UnsignedDelegationTests`, the last three;
+`Nsec3DelegationProofTests`). RFC 6840 §4.4 names its attack: reuse "an NSEC or
+NSEC3 RR matching a non-delegation name to spoof an unsigned delegation at that
+name". The genuine NSEC of `www.p.test.` does that, and its SOA bit is clear as
+well as its NS bit, so a check of either bit alone lets it through. The proof's
+signature has to verify, which is finding 70's rule on another path. It has to
+carry the zone's own name as signer: a signature made with `p.test.`'s key in
+`u.p.test.`'s name is `u.p.test.`'s.
+
+The NSEC3 forms of the same proof are:
+
+- a record matching a delegation, read only from the reference chain. Its decoy
+  is built like the one in `DenialProofTests`;
+- an opt-out span below an ordinary closest encloser;
+- the same span below an "ancestor delegation", which RFC 6840 §4.1 says "MUST
+  NOT be used to assume nonexistence of any RRs below that zone cut".
+
+**The root as closest encloser.** `skip <= labels.Length` decides whether the
+root is tried, in the walk that reads the denial (300) and in the walk that then
+reads its bitmap (218). For a top-level domain the root is the only ancestor
+there is. So the root zone is signed with NSEC3 here, by hand, and a TLD in one
+of its opt-out spans is proven an unsigned delegation.
+
+The same zone was meant to deny `zz.` as well, and that test found finding 76.
+At the root the wildcard is `*.`, and `DomainName.ParseLenient("*.")` throws.
+The stripped wildcard label leaves an empty string where the root's `.` should
+be. The validator throws from `VerifyNSEC3`. The server catches the same
+refusal on purpose and sends the name error without the wildcard's cover. The
+server's tracker then found finding 77 on its way: the zone signer cannot sign
+a root zone with NSEC3 at all. The five trackers are red and carry `KnownIssue`,
+and FINDINGS.md has the rest.
+
+**Three are equivalent**, and the ledger says why:
+
+- 1178, `proof != Insecure || provenBy is null`. Every return of
+  `ProveNoDelegationSigner` pairs Insecure with a parent and every other verdict
+  with null, so `&&` cannot differ.
+- 1422, `rrSet.Count >= 0`. It adds an empty set, which is nothing.
+- 370, the guard in front of the empty-non-terminal clause. Where it differs —
+  the root — the clause asks whether a name trimmed of its dots ends in one.
+
+**One stays open**: the depth limit at 1101, for the reason it always had.
+
+All thirty-one mutants of these rows were planted one at a time against the
+whole project. The twenty-seven failed the tests written for them and nothing
+else, and the four above survived.
+
+**The `dnssec` block: 46 real gaps, 33 closed, 12 equivalent, 1 open.**
 
 ---
 

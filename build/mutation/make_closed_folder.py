@@ -414,12 +414,60 @@ DNSSEC_KILLED = {
         "DNS/DNSSEC/DNSSECValidator.cs": {684, 685, 687, 689, 693},
     },
 
+    # RFC 4035 section 5.2, the step up from a signed answer: the DS RRset is
+    # "authenticated using some DNSKEY RR in the parent's apex DNSKEY RRset", so
+    # a signer that is not strictly above the child (1202, 1203) is nobody's
+    # word; a proof that the DS is absent is the parent's too, and a child that
+    # signs one for itself (1350) proves nothing; and that proof counts only
+    # once the walk has authenticated the parent's keys above it (1178). Whether
+    # a missing DS needed a proof at all is the anchors' to say (720). And
+    # section 5.3.1's first condition, "the same owner name", holds for the
+    # key set's own signature as well as the answer's (1854).
+    "the-ds-step": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {720, (1178, "inequality-to-equality"), 1202, 1203, 1350, 1854},
+    },
+
+    # RFC 4035 sections 4.3 and 5.2, the walk down from the closest anchor for
+    # an answer that came unsigned. It asks about the owner itself, which is the
+    # delegation when the answer is at a child's apex (1572); it crosses a signed
+    # zone cut on the way, and checks the DS, its signature and the child's key
+    # set as it does (1681, 1692, 1713) - a DS whose signature the parent's keys
+    # do not verify leads nowhere (1692, 1693); and it goes on through a name
+    # of the zone that is no zone cut, an empty non-terminal included (1733).
+    "the-walk-down": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {1572, 1681, 1692, 1693, 1713, 1733},
+    },
+
+    # What may count as the proof that a delegation is unsigned. RFC 6840
+    # section 4.4: "MUST check for the presence of the NS bit", or the genuine
+    # NSEC of any ordinary name spoofs a delegation there (157, 259). The NSEC
+    # has to be one the zone's keys verify (1422, 1423), under the zone's own
+    # name (1406). The NSEC3 forms of the same proof: a record matching a
+    # delegation, read from the reference chain only (246, 247), and an opt-out
+    # span (213) - believed below an ordinary closest encloser and not below an
+    # "ancestor delegation", RFC 6840 section 4.1 (165, 166).
+    "what-proves-a-delegation-unsigned": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {1406, (1422, "logical-and-to-or"), 1423},
+        "DNS/DNSSEC/DenialOfExistence.cs": {157, 165, 166, 213, 246, 247, 259},
+    },
+
+    # RFC 5155 section 8.3: for a top-level domain the only ancestor is the
+    # root, so in a root zone signed with NSEC3 the root's own record is the
+    # closest encloser - the last candidate of both walks up, the one that reads
+    # the denial (300) and the one that reads its bitmap (218).
+    "the-root-as-closest-encloser": {
+        "DNS/DNSSEC/DenialOfExistence.cs": {218, 300},
+    },
+
 }
 
 # The nine mutants the first sweep argued equivalent all survived again, on
 # lines whose text did not change. Each argument was read again against the new
 # code rather than moved with its number, because what makes a mutation
-# equivalent is usually a caller, and the callers did change.
+# equivalent is usually a caller, and the callers did change. Three are the
+# second sweep's own, from the round that closed its rows: 1178 and 1422, two
+# operands that cannot disagree and a set that cannot add anything, and 370,
+# a guard in front of a clause that is false where the guard is.
 DNSSEC_EQUIVALENT = {
 
     "DNS/DNSSEC/DNSSECValidator.cs": {
@@ -431,6 +479,24 @@ DNSSEC_EQUIVALENT = {
               "first sweep's argument, that Zone.TrimEnd('.') cannot begin with a dot "
               "because a DomainName cannot hold an empty leading label, still holds and is "
               "no longer needed",
+
+        (1178, "logical-or-to-and"):
+              "proof != Insecure || provenBy is null, after ProveNoDelegationSigner - which "
+              "says one thing twice. Every one of its returns pairs Insecure with the parent "
+              "whose keys signed the proof, and every other verdict with null, so the two "
+              "operands are true together and false together, and where two operands always "
+              "agree, or and and cannot differ. The other mutation of the line, != read as "
+              "==, returns Insecure before the parent's keys are authenticated, and a test "
+              "kills it",
+
+        (1422, "greater-to-ge"):
+              "rrSet.Count > 0 in DenialSignedBy. Read as >= 0 it is always true, and it "
+              "differs only for an RRSIG over an NSEC or NSEC3 the authority section does not "
+              "hold: the mutation then asks whether that signature verifies over an empty set. "
+              "Whatever the answer, verified.AddRange adds the empty set, which is nothing, and "
+              "asking has no side effect - ValidateRRSig catches everything, and VerifiedByOneOf "
+              "only computes. The list the proof is read from is the same. The && beside it, "
+              "read as ||, adds every RRset unverified, and a test kills that",
 
     },
 
@@ -481,6 +547,13 @@ DNSSEC_EQUIVALENT = {
              "For the wildcard, the very next clause asks whether a record owns that name and "
              "answers the same way in the same iteration, so the || is true either way. The "
              "guard at the other end of the span has no such cover, and a test kills it",
+
+        370: "queryName.Length > 0 in front of the empty-non-terminal clause. The two readings "
+             "differ only for the root, whose queryName is empty, and there the clause asks "
+             "whether a next name ends in '.' followed by nothing - in a dot. Every next name "
+             "is compared after TrimEnd('.'), which leaves no trailing dot to find, so the "
+             "clause is false for the root whether the guard lets it run or not. The guard "
+             "spares the work and decides nothing",
 
     },
 

@@ -187,4 +187,69 @@ public class TrustAnchorSetTests
 
     #endregion
 
+    #region Whether_A_Missing_Ds_Is_A_Forgery_Depends_On_The_Anchors()
+
+    /// <summary>
+    /// The test above for a signed answer. <c>q.example.</c> is signed with a key
+    /// of its own and its answer verifies; the answer to its DS query is empty and
+    /// proves nothing. Whether that is a stripped DS or a zone that was never
+    /// delegated securely is again for the anchors to say — and the same three
+    /// anchor sets say the same three things.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is a different door into the same question. An answer without any
+    /// signature is judged by a walk down from the closest anchor, which finds
+    /// the anchor itself; a signed answer is walked up from its signer, and when a
+    /// DS is missing on the way it is this predicate that decides whether a proof
+    /// was owed. The root, the zone itself and a zone elsewhere are again the
+    /// three cases that tell a predicate that gets it right from one that matches
+    /// the wrong way round, or not at all.
+    /// </para>
+    /// <para>
+    /// The anchors name no key of <c>q.example.</c>, so in no case does the walk
+    /// end at one. What differs is only whether running out of DS is a verdict.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Property("RFC", "4035 §5.2")]
+    public async Task Whether_A_Missing_Ds_Is_A_Forgery_Depends_On_The_Anchors()
+    {
+
+        using var key = DNSSECSigningKey.Generate(DomainName.Parse("q.example"), 13, KeySigningKey: true);
+
+        IDNSResourceRecord[] keys   = [ key.DNSKEY ];
+        IDNSResourceRecord[] answer = [ new A(DomainName.Parse("www.q.example"), DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.81")) ];
+
+        RRSIG Sign(IDNSResourceRecord[] RRset)
+            => DNSSECZoneSigner.SignRRSet(RRset, key, DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(14));
+
+        var response = new DNSInfo(Origin, 0, true, false, true, false, DNSResponseCodes.NoError,
+                                   [ .. answer, Sign(answer) ], [], [], true, false, TimeSpan.FromSeconds(5), TimeSpan.Zero);
+
+        async Task<DNSSECValidationResult> Under(DS Anchor)
+            => await new DNSSECValidator(new StubDnsClient().Answer("q.example", DNSResourceRecordTypes.DNSKEY, [ .. keys, Sign(keys) ]),
+                                         [ Anchor ]).
+                         ValidateAsync(response);
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await Under(Anchor(".", 1)),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "the root anchor covers q.example., so its missing DS needed a proof");
+
+            Assert.That(await Under(Anchor("q.example.", 2)),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "an anchor at the zone itself covers it too");
+
+            Assert.That(await Under(Anchor("elsewhere.test.", 3)),
+                        Is.EqualTo(DNSSECValidationResult.Insecure),
+                        "and one over another zone leaves q.example. a zone nobody said was signed");
+
+        });
+
+    }
+
+    #endregion
+
 }

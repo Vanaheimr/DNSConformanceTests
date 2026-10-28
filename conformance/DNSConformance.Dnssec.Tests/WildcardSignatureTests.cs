@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
 
@@ -149,6 +150,43 @@ public class WildcardSignatureTests
             Throws.InstanceOf<ArgumentException>(),
             $"'{name}' is not a wildcard domain name"
         );
+
+    }
+
+    #endregion
+
+    #region The_Roots_Own_Wildcard_Is_A_Name()
+
+    /// <summary>
+    /// Finding 76. RFC 4592 §2.1.1 defines a wildcard domain name by its
+    /// leftmost label and nothing else, and the root has a wildcard like every
+    /// other name: <c>*.</c>, the asterisk label and nothing after it. RFC 5155
+    /// §8.4 needs it by name — "the name formed by prepending the asterisk label
+    /// to the closest encloser" — whenever the closest encloser is the root.
+    /// </summary>
+    /// <remarks>
+    /// The lenient parser strips a leading <c>*.</c> before the hostname rules
+    /// run, and lets the root through without them. For <c>*.</c> the strip
+    /// leaves an empty string rather than the root's <c>.</c>, and the empty
+    /// string fails the rules.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "4592 §2.1.1")]
+    [Category(TestCategories.KnownIssue)]
+    public void The_Roots_Own_Wildcard_Is_A_Name()
+    {
+
+        Assert.That(() => DomainName.ParseLenient("*."), Throws.Nothing,
+                    "the asterisk label prepended to the root is a wildcard domain name");
+
+        var wildcard = DomainName.ParseLenient("*.");
+
+        Assert.Multiple(() => {
+
+            Assert.That(wildcard.FullName,  Is.EqualTo("*."));
+            Assert.That(wildcard.Labels[0], Is.EqualTo("*"), "one label, the asterisk");
+
+        });
 
     }
 

@@ -4,6 +4,8 @@ using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.Mail;
 
+using DNSConformance.Core;
+
 namespace DNSConformance.Dnssec.Tests;
 
 /// <summary>
@@ -366,6 +368,71 @@ public class ZoneSignerTests
         Assert.That(signed.OfType<NSEC3>().Any(n => n.DomainName.FullName.Equals(parent.FullName, StringComparison.OrdinalIgnoreCase)),
                     Is.False,
                     "the parent of the apex is not this zone's to deny");
+
+    }
+
+    #endregion
+
+    #region A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root()
+
+    /// <summary>
+    /// Finding 77. RFC 5155 §3: an NSEC3's owner name is the hashed owner name
+    /// "prepended as a single label to the name of the zone". For the root zone
+    /// that is the hash and the root: one label, <c>&lt;hash&gt;.</c>. A root zone
+    /// that holds <c>host.tld.</c> also holds the empty non-terminal <c>tld.</c>,
+    /// and §7.1 gives that its own NSEC3.
+    /// </summary>
+    /// <remarks>
+    /// The signer writes the hash, a dot and the apex, and the apex of the root
+    /// is itself a dot — so the owner name came out as <c>&lt;hash&gt;..</c>,
+    /// which is not a name, and signing threw. The walk that collects empty
+    /// non-terminals has the same shape: it keeps a name only if it ends in a dot
+    /// and the apex, which for the root is two dots and nothing ends in them.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "5155 §3, §7.1")]
+    [Category(TestCategories.KnownIssue)]
+    public void A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root()
+    {
+
+        using var key = DNSSECSigningKey.Generate(Name("."), 13, KeySigningKey: true);
+
+        List<IDNSResourceRecord> root = [
+            new SOA(Name("."), DNSQueryClasses.IN, TimeSpan.FromHours(1),
+                    Name("a.root-servers.test."),
+                    SimpleEMailAddress.Parse("hostmaster@root-servers.test"),
+                    1, TimeSpan.FromHours(2), TimeSpan.FromHours(1),
+                    TimeSpan.FromDays(14), TimeSpan.FromHours(1)),
+            new NS (Name("."),          DNSQueryClasses.IN, TimeSpan.FromHours(1), Name("a.root-servers.test.")),
+            new A  (Name("host.tld."),  DNSQueryClasses.IN, TimeSpan.FromHours(1), IPv4Address.Parse("192.0.2.31"))
+        ];
+
+        List<IDNSResourceRecord> signed;
+
+        try
+        {
+            signed = DNSSECZoneSigner.Sign(root, Name("."), [ key ], NSEC3: NSEC3Parameters.Recommended);
+        }
+        catch (Exception exception)
+        {
+            Assert.Fail($"signing the root zone with NSEC3 threw: {exception.GetType().Name}: {exception.Message}");
+            return;
+        }
+
+        var nsec3s = signed.OfType<NSEC3>().ToList();
+        var ent    = NSEC3.ComputeHashedOwnerName(Name("tld."), Name("."), 0, []);
+
+        Assert.Multiple(() => {
+
+            Assert.That(nsec3s.Select(nsec3 => nsec3.DomainName.FullName.TrimEnd('.').Split('.').Length),
+                        Is.All.EqualTo(1),
+                        "every owner name is the hash and the root");
+
+            Assert.That(nsec3s.Any(nsec3 => nsec3.DomainName.FullName.Equals(ent.FullName, StringComparison.OrdinalIgnoreCase)),
+                        Is.True,
+                        "and tld., which exists only because host.tld. does, is in the chain");
+
+        });
 
     }
 

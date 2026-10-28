@@ -194,4 +194,74 @@ public class KeySetAuthenticationTests
 
     #endregion
 
+    #region A_Key_Set_Signature_Under_Another_Owner_Name_Covers_Nothing(Anchor)
+
+    /// <summary>
+    /// RFC 4035 §5.3.1, the first condition on any RRSIG: "The RRSIG RR and the
+    /// RRset MUST have the same owner name and the same class." The fixture's key
+    /// set comes back with its signatures filed under <c>keys.dnssec.test.</c>
+    /// instead of <c>dnssec.test.</c>, and the zone's keys are then signed by
+    /// nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing false gets through this way, and the test does not pretend
+    /// otherwise. The signatures are BIND's own, over the very RRset they are
+    /// served beside, and an RRSIG's owner name is not part of what it signs — so
+    /// moved, they still verify. What the move takes away is the reason to try
+    /// them: §5.3.1 lists the conditions under which "a security-aware resolver can
+    /// use an RRSIG RR to authenticate an RRset", and one at another name is not
+    /// one of them. The answer's own signatures are matched to their RRsets by
+    /// owner name; this holds the key set's to the same rule.
+    /// </para>
+    /// <para>
+    /// Both places the anchor can sit are tried, because the key set is read in
+    /// both — against the anchor at the zone, and against the DS when the anchor
+    /// is at the root.
+    /// </para>
+    /// </remarks>
+    [TestCase(AnchorAt.TheZone, TestName = "A_Key_Set_Signature_Under_Another_Owner_Name_Covers_Nothing(anchor at the zone)")]
+    [TestCase(AnchorAt.TheRoot, TestName = "A_Key_Set_Signature_Under_Another_Owner_Name_Covers_Nothing(anchor at the root)")]
+    [Property("RFC", "4035 §5.3.1")]
+    public async Task A_Key_Set_Signature_Under_Another_Owner_Name_Covers_Nothing(AnchorAt Anchor)
+    {
+
+        var keySet     = zone.RRset("dnssec.test", DNSResourceRecordTypes.DNSKEY);
+        var signatures = zone.KeySetAnswer.OfType<RRSIG>().ToList();
+
+        var moved      = signatures.Select(rrsig => new RRSIG(DomainName.Parse("keys.dnssec.test"),
+                                                              rrsig.Class,
+                                                              rrsig.TimeToLive,
+                                                              rrsig.TypeCovered,
+                                                              rrsig.Algorithm,
+                                                              rrsig.Labels,
+                                                              rrsig.OriginalTTL,
+                                                              rrsig.SignatureExpiration,
+                                                              rrsig.SignatureInception,
+                                                              rrsig.KeyTag,
+                                                              DomainName.Parse(rrsig.SignerName.FullName.TrimEnd('.')),
+                                                              rrsig.Signature)).
+                                        ToList();
+
+        IDNSResourceRecord[] answer = [ .. zone.RRset("a.dnssec.test", DNSResourceRecordTypes.A),
+                                        zone.SignatureFor("a.dnssec.test", DNSResourceRecordTypes.A)! ];
+
+        Assert.That(signatures, Is.Not.Empty, "the fixture's key set is signed");
+
+        Assert.Multiple(async () => {
+
+            Assert.That(await Validate(Anchor, [ .. keySet, .. signatures ], answer),
+                        Is.EqualTo(DNSSECValidationResult.Secure),
+                        "the control: the same signatures where they belong");
+
+            Assert.That(await Validate(Anchor, [ .. keySet, .. moved ], answer),
+                        Is.EqualTo(DNSSECValidationResult.Bogus),
+                        "a signature at keys.dnssec.test. is not one over the key set at dnssec.test.");
+
+        });
+
+    }
+
+    #endregion
+
 }
