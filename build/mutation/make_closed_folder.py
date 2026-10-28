@@ -389,176 +389,36 @@ TSIG_SUPERSEDED = {
 
 
 # -------------------------------------------------------------------- dnssec
+#
+# Keyed to Hermod bbbf88b6, the revision the second sweep of this block
+# measured. The first sweep measured 53f20591, and its ledger - sixty-five gaps
+# closed by tests in twelve rounds, nine mutants declared equivalent - is kept
+# as it was written: the rows in results/dnssec-53f20591/dnssec-closed.tsv, and
+# the tables that produced them in this file as of b07f4c1.
+#
+# None of those is carried over by number, and none needs to be. A gap a test
+# closed is killed by that test in the new pass 1 and never reaches the
+# classification. A row that would need its old entry here is one the test no
+# longer catches - and two of them did not, which MUTATION.md tells.
 
 DNSSEC_KILLED = {
-
-    # RFC 4034 section 3.1.5: the validity window is a check of its own, and not
-    # a property of the cryptography. Turning the or into an and makes the
-    # condition unsatisfiable, so every expired signature is accepted - which
-    # only a signature that still verifies can show.
-    # RFC 4034 section 3.1.5: the validity window is a check of its own and not a
-    # property of the cryptography. All three mutations of the answer-section
-    # check fall now - the or that makes the condition unsatisfiable, and the two
-    # comparisons that move a boundary by one second. The first needed a
-    # signature that still verifies; the other two needed the validator to be
-    # told when "now" is, which is the seam its two siblings already had.
-    "windows": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {452},
-    },
-
-    # RFC 4034 section 4.1.3 and RFC 4035 section 5.4: the span an NSEC covers is
-    # open at both ends, and the last record of a zone wraps. Four of the five;
-    # the fifth is below.
-    "nsec-coverage": {
-        "DNS/DNSSEC/DenialOfExistence.cs": {354, 357, 358, 359},
-    },
-
-    # RFC 5155 sections 7.2 and 8.4: the same span arithmetic a second time, in
-    # the hash domain. Four of its five, the same four - and 332 with them, the
-    # loop in CompareHashes, which reads one octet past the end of the shorter
-    # hash as soon as anything compares two of equal length.
-    "nsec3-coverage": {
-        "DNS/DNSSEC/DenialOfExistence.cs": {279, 284, 286, 287, 332},
-    },
-
-    # RFC 4035 section 5.3.1 and RFC 4034 section 5.1: the key tag is a checksum
-    # and not an identifier, so a signature and a trust anchor each name their key
-    # by tag *and* algorithm. The tag covers the DNSKEY's flags, which is what
-    # makes it possible to offer a validator a key that will verify a signature
-    # and is not the one the signature named.
-    "key-identity": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {469, 871, 872, 896},
-    },
-
-    # RFC 5011 sections 2.1 and 2.4.1: which keys a resolver comes to believe in
-    # when nobody touches its configuration. Three of the eight are the answer the
-    # probe returns rather than the anchors it holds - a caller writes its trust
-    # store out when told the set changed, so a probe that reports wrongly either
-    # loses a rollover or writes a file for nothing. The match at 259 and 260 is
-    # the one that needed the pending set to be visible at all: on a single probe
-    # both readings return the same answer and leave the same anchors, and differ
-    # only in whether a hold-down was started. 293 is the boundary of the hold-down
-    # itself, and it took a seam: FirstSeen is read at one probe and compared at
-    # the next, so no amount of travelling puts a test on the instant the interval
-    # closes. The probe now takes the same optional Now that TSIGSigner.Verify,
-    # SIG0Signer.Verify and ValidateAsync take, and one reading serves the whole
-    # pass. Its line was rewritten by that change, so it was re-run against the new
-    # text rather than the sweep's.
-    "trust-anchors": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {233, 237, 238, 259, 260, 293, 297, 326},
-    },
-
-    # RFC 4035 section 5.4: "the resolver MUST authenticate the NSEC RRset". The
-    # denial path repeats, on the authority section, every check the answer path
-    # makes on the answer section - the validity window, the key the signature
-    # names, the signature, and the chain to an anchor - and none of the four was
-    # watched. 577 is the twin of 452 and fell to the seam that was added for it;
-    # 590 is the twin of 871/872 and fell to the same relabelled key. 597 and 607
-    # are the two early returns that keep the checks independent: inverted, each
-    # reports Secure the moment its own half passes, so a signature good enough
-    # for records that prove nothing, or a proof from a zone nobody vouches for,
-    # comes back as an authenticated denial.
-    "denial-signature": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {577, 590, 597, 607},
-    },
-
-    # RFC 4035 section 5.2: the step from one zone to the next. Every other test in
-    # the suite anchors the fixture zone with its own DS, which is the shortest
-    # chain there is - the first check inside the walk succeeds and the step is
-    # never taken. Anchoring one level above the fixture forces it: fetch the
-    # child's DS, verify the child's KSK against it, cross into the parent, and
-    # pick the parent key its DNSKEY signature names. 960 is which signature is
-    # read, 963 is what an unsigned parent means (Insecure, not Bogus), and
-    # 971/972 are the key it names.
-    "chain-walk": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {960, 963, 971, 972},
-    },
-
-    # RFC 8624 section 3.1's DNSSEC Validation column, which is the half of that
-    # table the suite had never read: 1 (RSAMD5), 3 (DSA) and 6 (DSA-NSEC3-SHA1)
-    # are MUST NOT, and the numbers IANA has assigned nothing to are nothing at
-    # all. The default arm of the algorithm switch answering true would let an
-    # attacker choose the number and have any octets accepted as a signature.
-    "algorithm-numbers": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {1042},
-    },
-
-    # RFC 4035 section 2.2 at a delegation, and RFC 4034 section 2.1.1 above it.
-    # A delegation is the one place where the records present are not the zone's
-    # own: the NS RRset is authoritative in the child and the glue is a copy of
-    # the child's addresses, so neither is signed here, while the DS and the
-    # denial record at the delegation point are the parent's and are. Every
-    # existing test of the signer ran against a zone with no delegations in it.
-    # The key half is the same story one level up: the SEP bit is the whole of
-    # the two roles, it decides which key signs the DNSKEY RRset (RFC 4035
-    # section 5.2, because that is the key a DS covers), and every other test
-    # generated its key with KeySigningKey: true and stopped there. 34 is opt-out
-    # as a default rather than a choice.
-    "signer": {
-        "DNS/DNSSEC/DNSSECZoneSigner.cs":  {34, 173, 204, 207, 208, 238},
-        "DNS/DNSSEC/DNSSECSigningKey.cs":  {64, 96},
-    },
-
-    # RFC 5155 section 8.2 and RFC 4035 section 5.4: the reasoning around a span
-    # rather than the span itself. 118 and 119 are the parameter set a record has
-    # to share to be part of this chain at all - a zone mid re-signing publishes
-    # two, and a record of the old one is hashed by a different function. 308 is
-    # the difference between "no hash" and "the empty hash", which read the second
-    # way makes one record cover every name in the zone. 218 is the second half of
-    # an NXDOMAIN proof, without which a covered name may still be answerable by a
-    # wildcard. 212 is the walk that looks for that wildcard reaching the root: a
-    # one-label query has exactly one wildcard to deny and it is the root's own,
-    # so a walk one step short can never prove a TLD absent.
-    "denial-proofs": {
-        "DNS/DNSSEC/DenialOfExistence.cs": {118, 119, 212, 218, 308},
-    },
-
-    # What was left of the validator once the chain, the denial path and the probe
-    # were done. 357 is the manual removal API, which has to mean the same by "this
-    # key" as every other lookup does - tag and algorithm together, or retiring one
-    # key takes every anchor sharing its algorithm. 523 is what the anchor set is
-    # taken to cover, and its two mutations fail in opposite directions: one makes
-    # every name covered, the other makes a root anchor cover nothing, which is the
-    # one anchor a resolver actually ships with. 407 is the pair of conditions for
-    # entering the denial path at all - there has to be a proof, and there has to
-    # be a question to check it against. 442 is the RRset an RRSIG covers, one
-    # owner name and one type rather than every record of that type in the message.
-    # 1254 is the root having no parent: read otherwise, the walk asks the root for
-    # its own delegation and calls the chain unsigned rather than broken.
-    "validator-rest": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {357, 407, 442, 523, 1254},
-    },
-
-    # The three files nothing else had reached. 289 and 323 are ExportParameters
-    # (false): a DNSKEY's RDATA is a public key and every reader of one holds
-    # nothing else, so asking for the private half works in the signer's own
-    # process and throws in every validator. 300 is RFC 3110 section 2's boundary,
-    # 255 octets of exponent being the last written the short way - reachable only
-    # through a key object that holds parameters and nothing else, because the
-    # platform's own RSA refuses to import one and is right to. 140 is the two
-    # names that both carry a labels field of zero, the root apex and the root's
-    # own wildcard, which must not be reconstructed the same way. 200 is the
-    # comparison loop's bound, which overruns exactly when one RDATA is a prefix
-    # of another or the two are equal. 134 is RFC 8078 section 3's rollover: two
-    # ordinary CDS records are the expected case, not a contradiction.
-    "encoders-and-counts": {
-        "DNS/DNSSEC/DNSSECSigning.cs":   {289, 300, 323},
-        "DNS/DNSSEC/DNSSECCanonical.cs": {140, 200},
-        "DNS/DNSSEC/CDSAcceptance.cs":   {134},
-    },
-
 }
 
+# The nine mutants the first sweep argued equivalent all survived again, on
+# lines whose text did not change. Each argument was read again against the new
+# code rather than moved with its number, because what makes a mutation
+# equivalent is usually a caller, and the callers did change.
 DNSSEC_EQUIVALENT = {
 
     "DNS/DNSSEC/DNSSECValidator.cs": {
 
-        1259: "dotIndex < 0 in GetParentZone, which answers '.' for a zone of one label. "
-              "The two readings differ only when the first dot is at index 0, and the "
-              "string tested is Zone.TrimEnd('.') - a name that begins with a dot has an "
-              "empty leading label, which DomainName cannot hold and trimming the other "
-              "end cannot produce. The line above it, which the same round closed, is "
-              "what stops the root before this is reached at all",
+        2152: "dotIndex < 0 in GetParentZone, which answers '.' for a zone of one label. "
+              "Its one caller left is the chain walk, and it asks whether the answer is "
+              "null and nothing else - while both readings return a name, '.' or what "
+              "follows the first dot, for every input that gets past the line above. The "
+              "first sweep's argument, that Zone.TrimEnd('.') cannot begin with a dot "
+              "because a DomainName cannot hold an empty leading label, still holds and is "
+              "no longer needed",
 
     },
 
@@ -582,40 +442,39 @@ DNSSEC_EQUIVALENT = {
         97:  "nsecs.Length > 0 before handing the records to VerifyNSEC. The line is only "
              "reached when there is no NSEC3 either, so the mutation calls VerifyNSEC with "
              "an empty array - where the NODATA loop has nothing to iterate and every "
-             "Records.Any(...) is false, so it returns NotProven. That is the same answer "
-             "as the line below, which is what runs otherwise",
+             "Records.Any(...) is false, the empty-non-terminal clause included, so it "
+             "returns NotProven. That is the same answer as the line below, which is what "
+             "runs otherwise, and it is the same for the two callers Verify has gained",
 
-        334: "Left[i] < Right[i] ? -1 : 1, which sits inside if (Left[i] != Right[i]). The "
+        506: "Left[i] < Right[i] ? -1 : 1, which sits inside if (Left[i] != Right[i]). The "
              "two readings differ only when the two octets are equal, and the guard one "
-             "line above is exactly the statement that they are not. The same shape as 401 "
+             "line above is exactly the statement that they are not. The same shape as 573 "
              "below, in the hash domain instead of the name domain",
 
-        401: "comparison < 0 ? -1 : 1, inside if (comparison != 0). The same argument as "
-             "334: the value that separates < from <= is the one the guard above excludes",
+        573: "comparison < 0 ? -1 : 1, inside if (comparison != 0). The same argument as "
+             "506: the value that separates < from <= is the one the guard above excludes",
 
-        278: "CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and "
-             "the same argument as 353 below, which is the point of listing both. A name whose "
+        450: "CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and "
+             "the same argument as 525 below, which is the point of listing both. A name whose "
              "hash equals an owner matches that record, and VerifyNSEC3 looks for a match before "
              "it looks for a cover, at the queried name and again at every ancestor on the way "
-             "up. Nothing can be handed to FindCover whose hash equals an owner in the set",
+             "up. Nothing can be handed to FindCover whose hash equals an owner in the set, and "
+             "the code added since the first sweep calls FindMatch but never FindCover",
 
-        353: "CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. "
-             "The two readings differ only when the name equals the owner, and neither caller "
+        525: "CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. "
+             "The two readings differ only when the name equals the owner, and no caller "
              "can put that case in front of it. For the queried name, VerifyNSEC's NODATA loop "
-             "returns before Covers is reached whenever any record owns it. For the wildcard, "
-             "the very next clause asks whether a record owns that name and answers the same "
-             "way in the same iteration, so the || is true either way. The guard at the other "
-             "end of the span has no such cover and was killed by a test",
+             "returns before Covers is reached whenever any record owns it - and the "
+             "empty-non-terminal clause added since the first sweep comes after that loop too. "
+             "For the wildcard, the very next clause asks whether a record owns that name and "
+             "answers the same way in the same iteration, so the || is true either way. The "
+             "guard at the other end of the span has no such cover, and a test kills it",
 
     },
 
 }
 
 DNSSEC_SUPERSEDED = {
-
-    "DNS/DNSSEC/DNSSECValidator.cs": {
-    },
-
 }
 
 

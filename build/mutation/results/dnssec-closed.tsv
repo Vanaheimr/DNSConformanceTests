@@ -4,77 +4,12 @@
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
 # file	line	operator	state	round	why
-DNS/DNSSEC/CDSAcceptance.cs	134	greater-to-ge	killed	encoders-and-counts	
-DNS/DNSSEC/DNSSECCanonical.cs	140	logical-and-to-or	killed	encoders-and-counts	
-DNS/DNSSEC/DNSSECSigning.cs	289	false-to-true	killed	encoders-and-counts	
-DNS/DNSSEC/DNSSECSigningKey.cs	64	inequality-to-equality	killed	signer	
-DNS/DNSSEC/DNSSECZoneSigner.cs	34	false-to-true	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	equivalent		nsecs.Length > 0 before handing the records to VerifyNSEC. The line is only reached when there is no NSEC3 either, so the mutation calls VerifyNSEC with an empty array - where the NODATA loop has nothing to iterate and every Records.Any(...) is false, so it returns NotProven. That is the same answer as the line below, which is what runs otherwise
-DNS/DNSSEC/DNSSECSigning.cs	300	le-to-less	killed	encoders-and-counts	
-DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	killed	trust-anchors	
-DNS/DNSSEC/DNSSECZoneSigner.cs	173	equality-to-inequality	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	118	logical-and-to-or	killed	denial-proofs	
-DNS/DNSSEC/DNSSECSigning.cs	323	false-to-true	killed	encoders-and-counts	
-DNS/DNSSEC/DNSSECSigningKey.cs	96	false-to-true	killed	signer	
-DNS/DNSSEC/DNSSECZoneSigner.cs	204	false-to-true	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	119	logical-and-to-or	killed	denial-proofs	
-DNS/DNSSEC/DNSSECCanonical.cs	200	less-to-less-or-equal	killed	encoders-and-counts	
-DNS/DNSSEC/DNSSECValidator.cs	237	greater-to-ge	killed	trust-anchors	
-DNS/DNSSEC/DNSSECZoneSigner.cs	207	logical-or-to-and	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	212	le-to-less	killed	denial-proofs	
-DNS/DNSSEC/DNSSECValidator.cs	238	true-to-false	killed	trust-anchors	
-DNS/DNSSEC/DNSSECZoneSigner.cs	207	equality-to-inequality	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	218	equality-to-inequality	killed	denial-proofs	
-DNS/DNSSEC/DNSSECValidator.cs	259	logical-and-to-or	killed	trust-anchors	
-DNS/DNSSEC/DNSSECZoneSigner.cs	208	equality-to-inequality	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	278	greater-to-ge	equivalent		CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and the same argument as 353 below, which is the point of listing both. A name whose hash equals an owner matches that record, and VerifyNSEC3 looks for a match before it looks for a cover, at the queried name and again at every ancestor on the way up. Nothing can be handed to FindCover whose hash equals an owner in the set
-DNS/DNSSEC/DNSSECValidator.cs	259	equality-to-inequality	killed	trust-anchors	
-DNS/DNSSEC/DNSSECZoneSigner.cs	238	equality-to-inequality	killed	signer	
-DNS/DNSSEC/DenialOfExistence.cs	279	less-to-less-or-equal	killed	nsec3-coverage	
-DNS/DNSSEC/DNSSECValidator.cs	260	equality-to-inequality	killed	trust-anchors	
 DNS/DNSSEC/DNSSECZoneSigner.cs	381	logical-or-to-and	equivalent		the belt in front of the empty-non-terminal walk, whose every escape the braces two lines below already catch. All three mutations of it were run and all three survived, and the argument is that they must. dot <= 0 differs only for a name beginning with a dot, which a DomainName cannot hold and which stripping a label cannot produce. The other two let the walk take one more step, and that step either leaves the name unchanged (no dot) or empties it (the dot is last) - after which the very next line, name == Apex or name not ending in '.' + Apex, breaks before owners.Add is reached. The set of empty non-terminals is the same under all three readings
-DNS/DNSSEC/DenialOfExistence.cs	284	ge-to-greater	killed	nsec3-coverage	
-DNS/DNSSEC/DNSSECValidator.cs	293	ge-to-greater	killed	trust-anchors	
+DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	equivalent		nsecs.Length > 0 before handing the records to VerifyNSEC. The line is only reached when there is no NSEC3 either, so the mutation calls VerifyNSEC with an empty array - where the NODATA loop has nothing to iterate and every Records.Any(...) is false, the empty-non-terminal clause included, so it returns NotProven. That is the same answer as the line below, which is what runs otherwise, and it is the same for the two callers Verify has gained
 DNS/DNSSEC/DNSSECZoneSigner.cs	381	less-to-less-or-equal	equivalent		the belt in front of the empty-non-terminal walk, whose every escape the braces two lines below already catch. All three mutations of it were run and all three survived, and the argument is that they must. dot <= 0 differs only for a name beginning with a dot, which a DomainName cannot hold and which stripping a label cannot produce. The other two let the walk take one more step, and that step either leaves the name unchanged (no dot) or empties it (the dot is last) - after which the very next line, name == Apex or name not ending in '.' + Apex, breaks before owners.Add is reached. The set of empty non-terminals is the same under all three readings
-DNS/DNSSEC/DenialOfExistence.cs	286	logical-or-to-and	killed	nsec3-coverage	
-DNS/DNSSEC/DNSSECValidator.cs	297	true-to-false	killed	trust-anchors	
 DNS/DNSSEC/DNSSECZoneSigner.cs	381	ge-to-greater	equivalent		the belt in front of the empty-non-terminal walk, whose every escape the braces two lines below already catch. All three mutations of it were run and all three survived, and the argument is that they must. dot <= 0 differs only for a name beginning with a dot, which a DomainName cannot hold and which stripping a label cannot produce. The other two let the walk take one more step, and that step either leaves the name unchanged (no dot) or empties it (the dot is last) - after which the very next line, name == Apex or name not ending in '.' + Apex, breaks before owners.Add is reached. The set of empty non-terminals is the same under all three readings
-DNS/DNSSEC/DenialOfExistence.cs	287	logical-and-to-or	killed	nsec3-coverage	
-DNS/DNSSEC/DNSSECValidator.cs	326	false-to-true	killed	trust-anchors	
-DNS/DNSSEC/DenialOfExistence.cs	308	logical-or-to-and	killed	denial-proofs	
-DNS/DNSSEC/DNSSECValidator.cs	357	logical-and-to-or	killed	validator-rest	
-DNS/DNSSEC/DenialOfExistence.cs	332	less-to-less-or-equal	killed	nsec3-coverage	
-DNS/DNSSEC/DenialOfExistence.cs	334	less-to-less-or-equal	equivalent		Left[i] < Right[i] ? -1 : 1, which sits inside if (Left[i] != Right[i]). The two readings differ only when the two octets are equal, and the guard one line above is exactly the statement that they are not. The same shape as 401 below, in the hash domain instead of the name domain
-DNS/DNSSEC/DenialOfExistence.cs	353	greater-to-ge	equivalent		CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. The two readings differ only when the name equals the owner, and neither caller can put that case in front of it. For the queried name, VerifyNSEC's NODATA loop returns before Covers is reached whenever any record owns it. For the wildcard, the very next clause asks whether a record owns that name and answers the same way in the same iteration, so the || is true either way. The guard at the other end of the span has no such cover and was killed by a test
-DNS/DNSSEC/DNSSECValidator.cs	357	greater-to-ge	killed	validator-rest	
-DNS/DNSSEC/DenialOfExistence.cs	354	less-to-less-or-equal	killed	nsec-coverage	
-DNS/DNSSEC/DenialOfExistence.cs	357	ge-to-greater	killed	nsec-coverage	
-DNS/DNSSEC/DNSSECValidator.cs	407	logical-and-to-or	killed	validator-rest	
-DNS/DNSSEC/DenialOfExistence.cs	358	logical-or-to-and	killed	nsec-coverage	
-DNS/DNSSEC/DenialOfExistence.cs	359	logical-and-to-or	killed	nsec-coverage	
-DNS/DNSSEC/DNSSECValidator.cs	442	logical-and-to-or	killed	validator-rest	
-DNS/DNSSEC/DenialOfExistence.cs	401	less-to-less-or-equal	equivalent		comparison < 0 ? -1 : 1, inside if (comparison != 0). The same argument as 334: the value that separates < from <= is the one the guard above excludes
-DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	killed	windows	
-DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	killed	windows	
-DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	killed	windows	
-DNS/DNSSEC/DNSSECValidator.cs	469	logical-and-to-or	killed	key-identity	
-DNS/DNSSEC/DNSSECValidator.cs	523	logical-or-to-and	killed	validator-rest	
-DNS/DNSSEC/DNSSECValidator.cs	523	equality-to-inequality	killed	validator-rest	
-DNS/DNSSEC/DNSSECValidator.cs	577	logical-or-to-and	killed	denial-signature	
-DNS/DNSSEC/DNSSECValidator.cs	577	less-to-less-or-equal	killed	denial-signature	
-DNS/DNSSEC/DNSSECValidator.cs	577	greater-to-ge	killed	denial-signature	
-DNS/DNSSEC/DNSSECValidator.cs	590	logical-and-to-or	killed	denial-signature	
-DNS/DNSSEC/DNSSECValidator.cs	597	inequality-to-equality	killed	denial-signature	
-DNS/DNSSEC/DNSSECValidator.cs	607	inequality-to-equality	killed	denial-signature	
-DNS/DNSSEC/DNSSECValidator.cs	871	logical-and-to-or	killed	key-identity	
-DNS/DNSSEC/DNSSECValidator.cs	871	equality-to-inequality	killed	key-identity	
-DNS/DNSSEC/DNSSECValidator.cs	872	equality-to-inequality	killed	key-identity	
-DNS/DNSSEC/DNSSECValidator.cs	896	logical-and-to-or	killed	key-identity	
-DNS/DNSSEC/DNSSECValidator.cs	960	equality-to-inequality	killed	chain-walk	
-DNS/DNSSEC/DNSSECValidator.cs	963	equality-to-inequality	killed	chain-walk	
-DNS/DNSSEC/DNSSECValidator.cs	971	logical-and-to-or	killed	chain-walk	
-DNS/DNSSEC/DNSSECValidator.cs	971	equality-to-inequality	killed	chain-walk	
-DNS/DNSSEC/DNSSECValidator.cs	972	equality-to-inequality	killed	chain-walk	
-DNS/DNSSEC/DNSSECValidator.cs	1042	false-to-true	killed	algorithm-numbers	
-DNS/DNSSEC/DNSSECValidator.cs	1254	logical-or-to-and	killed	validator-rest	
-DNS/DNSSEC/DNSSECValidator.cs	1259	less-to-less-or-equal	equivalent		dotIndex < 0 in GetParentZone, which answers '.' for a zone of one label. The two readings differ only when the first dot is at index 0, and the string tested is Zone.TrimEnd('.') - a name that begins with a dot has an empty leading label, which DomainName cannot hold and trimming the other end cannot produce. The line above it, which the same round closed, is what stops the root before this is reached at all
+DNS/DNSSEC/DenialOfExistence.cs	450	greater-to-ge	equivalent		CompareHashes(hash, owner) > 0 in FindCover, the lower end of an NSEC3's span - and the same argument as 525 below, which is the point of listing both. A name whose hash equals an owner matches that record, and VerifyNSEC3 looks for a match before it looks for a cover, at the queried name and again at every ancestor on the way up. Nothing can be handed to FindCover whose hash equals an owner in the set, and the code added since the first sweep calls FindMatch but never FindCover
+DNS/DNSSEC/DenialOfExistence.cs	506	less-to-less-or-equal	equivalent		Left[i] < Right[i] ? -1 : 1, which sits inside if (Left[i] != Right[i]). The two readings differ only when the two octets are equal, and the guard one line above is exactly the statement that they are not. The same shape as 573 below, in the hash domain instead of the name domain
+DNS/DNSSEC/DenialOfExistence.cs	525	greater-to-ge	equivalent		CompareCanonical(Name, owner) > 0 in Covers, the lower end of an NSEC's span. The two readings differ only when the name equals the owner, and no caller can put that case in front of it. For the queried name, VerifyNSEC's NODATA loop returns before Covers is reached whenever any record owns it - and the empty-non-terminal clause added since the first sweep comes after that loop too. For the wildcard, the very next clause asks whether a record owns that name and answers the same way in the same iteration, so the || is true either way. The guard at the other end of the span has no such cover, and a test kills it
+DNS/DNSSEC/DenialOfExistence.cs	573	less-to-less-or-equal	equivalent		comparison < 0 ? -1 : 1, inside if (comparison != 0). The same argument as 506: the value that separates < from <= is the one the guard above excludes
+DNS/DNSSEC/DNSSECValidator.cs	2152	less-to-less-or-equal	equivalent		dotIndex < 0 in GetParentZone, which answers '.' for a zone of one label. Its one caller left is the chain walk, and it asks whether the answer is null and nothing else - while both readings return a name, '.' or what follows the first dot, for every input that gets past the line above. The first sweep's argument, that Zone.TrimEnd('.') cannot begin with a dot because a DomainName cannot hold an empty leading label, still holds and is no longer needed
