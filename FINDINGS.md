@@ -3,9 +3,8 @@
 What this suite caught. Seventy-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last two is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Findings 76 and 77 are open, and their
-trackers are red on purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -92,8 +91,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 73 | An empty DS answer made a signed zone Insecure | **High** | 4035 §5.2, 6840 §5.2 | ✅ fixed |
 | 74 | A cached answer held every RRset cached under the name | Medium | 1035 §4.1 | ✅ fixed |
 | 75 | A cached NODATA answer came back as whatever the name was cached with last | Medium | 2308 §5 | ✅ fixed |
-| 76 | The root's own wildcard `*.` was not a name Hermod would parse | Low | 4592 §2.1.1, 5155 §7.2.2, §8.4 | ⏳ **open** |
-| 77 | The zone signer could not sign a root zone with NSEC3 | Low | 5155 §3, §7.1 | ⏳ **open** |
+| 76 | The root's own wildcard `*.` was not a name Hermod would parse | Low | 4592 §2.1.1, 5155 §7.2.2, §8.4 | ✅ fixed |
+| 77 | The zone signer could not sign a root zone with NSEC3 | Low | 5155 §3, §7.1 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -4677,10 +4676,14 @@ its closest encloser below the root.
 itself; `Nsec3DelegationProofTests.A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_By_An_Nsec3_Root`,
 the validator; `RootZoneDenialTests.A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_With_The_Roots_Wildcard`,
 the server, with a root zone written out by hand whose two NSEC3 records split the
-ring so that the wildcard's cover is a record of its own. All three are red at the
-pinned `bbbf88b6` and carry `KnownIssue`.
+ring so that the wildcard's cover is a record of its own. All three were red at
+`bbbf88b6` and pass from `925c80d5` on.
 
-**The fix**: ⏳ open.
+**The fix**: what the strip leaves of `*.` is the root, `.`, and the hostname
+rules are not asked about it. The server's catch stays, for names the parser
+still refuses, and its comment no longer names `*.`. Merged as
+[Vanaheimr/Hermod#162](https://github.com/Vanaheimr/Hermod/pull/162), with
+`RootZoneNSEC3_Tests` on Hermod's side.
 
 ---
 
@@ -4716,10 +4719,14 @@ below the root.
 **Repro**: `ZoneSignerTests.A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root`,
 which also asks for the empty non-terminal `tld.` of a root zone holding
 `host.tld.`, and `RuntimeSigningTests.An_Nsec3_Signed_Root_Zone_Denies_A_Top_Level_Domain`,
-which signs a root zone and asks it for `zz.` — findings 76 and 77 end to end. Red
-at the pinned `bbbf88b6`; `KnownIssue`.
+which signs a root zone and asks it for `zz.` — findings 76 and 77 end to end. Both
+were red at `bbbf88b6` and pass from `925c80d5` on.
 
-**The fix**: ⏳ open.
+**The fix**: the hash is prepended to the apex without its leading dot, so the
+root contributes nothing after the separator the signer writes itself, and the
+empty non-terminal walk asks for names ending in `.` at the root and in `"." +
+Apex` everywhere else. Merged with finding 76 as
+[Vanaheimr/Hermod#162](https://github.com/Vanaheimr/Hermod/pull/162).
 
 ---
 

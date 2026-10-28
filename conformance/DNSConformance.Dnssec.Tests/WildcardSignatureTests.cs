@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
 
@@ -167,12 +166,11 @@ public class WildcardSignatureTests
     /// <remarks>
     /// The lenient parser strips a leading <c>*.</c> before the hostname rules
     /// run, and lets the root through without them. For <c>*.</c> the strip
-    /// leaves an empty string rather than the root's <c>.</c>, and the empty
-    /// string fails the rules.
+    /// left an empty string rather than the root's <c>.</c>, and the empty
+    /// string failed the rules.
     /// </remarks>
     [Test]
     [Property("RFC", "4592 §2.1.1")]
-    [Category(TestCategories.KnownIssue)]
     public void The_Roots_Own_Wildcard_Is_A_Name()
     {
 

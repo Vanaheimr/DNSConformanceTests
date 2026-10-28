@@ -3,8 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.Dnssec.Tests;
 
 /// <summary>
@@ -485,7 +483,6 @@ public class RuntimeSigningTests
     /// </remarks>
     [Test]
     [Property("RFC", "5155 §7.2.2")]
-    [Category(TestCategories.KnownIssue)]
     public async Task An_Nsec3_Signed_Root_Zone_Denies_A_Top_Level_Domain()
     {
 

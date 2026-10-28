@@ -88,7 +88,6 @@ public class RootZoneDenialTests
     /// record short of RFC 5155 §8.4's proof, which a validator has to call Bogus.
     /// </remarks>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_With_The_Roots_Wildcard()
     {
 

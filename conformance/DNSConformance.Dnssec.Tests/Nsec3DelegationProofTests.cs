@@ -5,8 +5,6 @@ using NUnit.Framework;
 
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.Dnssec.Tests;
 
 /// <summary>
@@ -328,7 +326,6 @@ public class Nsec3DelegationProofTests
     /// </remarks>
     [Test]
     [Property("RFC", "5155 §8.4")]
-    [Category(TestCategories.KnownIssue)]
     public void A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_By_An_Nsec3_Root()
     {
 

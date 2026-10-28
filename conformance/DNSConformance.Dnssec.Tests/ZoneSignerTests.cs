@@ -4,8 +4,6 @@ using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.Mail;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.Dnssec.Tests;
 
 /// <summary>
@@ -391,7 +389,6 @@ public class ZoneSignerTests
     /// </remarks>
     [Test]
     [Property("RFC", "5155 §3, §7.1")]
-    [Category(TestCategories.KnownIssue)]
     public void A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root()
     {
 

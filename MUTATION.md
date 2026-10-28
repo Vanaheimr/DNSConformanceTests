@@ -1938,8 +1938,8 @@ The stripped wildcard label leaves an empty string where the root's `.` should
 be. The validator throws from `VerifyNSEC3`. The server catches the same
 refusal on purpose and sends the name error without the wildcard's cover. The
 server's tracker then found finding 77 on its way: the zone signer cannot sign
-a root zone with NSEC3 at all. The five trackers are red and carry `KnownIssue`,
-and FINDINGS.md has the rest.
+a root zone with NSEC3 at all. The five trackers were red at `bbbf88b6`, and
+Vanaheimr/Hermod#162 fixed both; FINDINGS.md has the rest.
 
 **Three are equivalent**, and the ledger says why:
 
