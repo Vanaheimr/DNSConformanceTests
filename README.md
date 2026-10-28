@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-06): 1612 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-10-28): 1639 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -45,13 +45,13 @@ DNSSEC project 335 ✅ · 8 ❌ otherwise). So were findings 72 to 75, which Her
 master fixed on 2026-10-04 without the suite noticing, until the nightly lane that
 runs against that master went red on two tests that had pinned the old verdict as
 correct: their eight cases were red at the previous pin (b64479e9, DNSSEC 342 ✅ ·
-4 skips and client 156 ✅ otherwise). All of them are among the 1612 now. So were
-findings 76 and 77, a root zone signed with NSEC3, which the second DNSSEC mutation
-round found on 2026-10-28 and Vanaheimr/Hermod#162 fixed: their five trackers were
-red at bbbf88b6 (DNSSEC 370 ✅ · 5 ❌ · 4 skips otherwise) and pass at 925c80d5,
-where the offline suite as `ci.yml` runs it — every project, with the Online,
-WSL, Docker and Multicast categories left out — is 1508 ✅ · 0 ❌ · 4 skips. They were
-written after the 1612, and so were the tests of that round.
+4 skips and client 156 ✅ otherwise). So were findings 76 and 77, a root zone
+signed with NSEC3, which the second DNSSEC mutation round found on 2026-10-28 and
+Vanaheimr/Hermod#162 fixed: their five trackers were red at bbbf88b6 (DNSSEC
+370 ✅ · 5 ❌ · 4 skips otherwise) and pass from 925c80d5 on. All of them are among
+the 1639 now, and so are the tests of that round. Of the 1643 tests, 1512 are the
+offline suite as `ci.yml` runs it — every project, with the Online, WSL, Docker
+and Multicast categories left out — which is 1508 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
