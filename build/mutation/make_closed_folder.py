@@ -402,6 +402,18 @@ TSIG_SUPERSEDED = {
 # longer catches - and two of them did not, which MUTATION.md tells.
 
 DNSSEC_KILLED = {
+
+    # RFC 6672 section 5.3.1: the CNAME a server synthesizes from a DNAME "will
+    # never be signed", and the validator accepts it because the signed DNAME
+    # beside it produces it - and for no other reason. No test had handed the
+    # validator a DNAME at all. One answer the DNAME does explain, and three it
+    # does not: a target rewritten (section 5.3.4's own attack), a CNAME at the
+    # DNAME's own owner name, which section 2.3 says is not redirected, and one
+    # across a label boundary, which section 2.2's table says is no match.
+    "dname-synthesis": {
+        "DNS/DNSSEC/DNSSECValidator.cs": {684, 685, 687, 689, 693},
+    },
+
 }
 
 # The nine mutants the first sweep argued equivalent all survived again, on

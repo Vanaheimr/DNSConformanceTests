@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **37 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **31 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
@@ -100,7 +100,7 @@ neither.
 |---|---:|---:|---:|
 | `records` | 240 | 0 | — |
 | `core` | 132 | 0 | 1 |
-| `dnssec` | 46 | **37** | 19 |
+| `dnssec` | 46 | **31** | 19 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
 | `client` | 245 | **86** | 68 |
@@ -109,7 +109,7 @@ The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
 where both readings are conformant because no RFC names a limit. The row above
 is the second sweep of the block, after the validator was rewritten, and all
-but three of its thirty-seven are in new code — see *The result: DNSSEC, measured again*.
+but three of the thirty-seven it found are in new code — see *The result: DNSSEC, measured again*.
 
 **The argument had already been written twice before it had a name.** One entry
 in the core ledger and one in the DNSSEC ledger had each worked out, separately,
@@ -1825,6 +1825,44 @@ both readings are conformant, because no RFC names a limit.
 
 **`host-only` went from nine to nineteen**: twelve awaits in the new code, and
 two gone with the code they were in. The measured blocks hold 117 of them now.
+
+### A CNAME the DNAME has to account for
+
+Six rows, and all six fall to `DNameValidationTests`: four answers built from
+BIND's `dname.dnssec.test`, whose `redirect` DNAME and the A record at
+`host.target` are signed by `dnssec-signzone`, and a CNAME written out by hand
+beside them, because a synthesized CNAME is never signed and a forged one is
+the point.
+
+RFC 6672 §5.3.1 makes the validator's job two checks: "verification of the
+DNAME RR and then that the CNAME was properly synthesized is sufficient proof."
+The first test is the answer a server gives for `host.redirect`, and it is
+Secure. Without it a validator could refuse every DNAME redirection there is,
+and every other test here would still pass. The other three are answers the
+DNAME does not explain, each from the RFC:
+
+- **A target rewritten.** §5.3.4's own attack, `foo.bar.example.com CNAME
+  bla.bla.example`. The DNAME still verifies; it just no longer accounts for
+  the CNAME beside it.
+- **A CNAME at the DNAME's own name.** §2.3: "the owner name of a DNAME is not
+  redirected itself", and the same section rules out a CNAME there at all.
+- **A CNAME across a label boundary.** §2.2: "Only whole labels are replaced",
+  and its table has the row `ab.example.com.` under `b.example.com.`, no match.
+  The forgery is `abredirect` pointing at `a.target`. That is what a check that
+  cuts the owner's length off the end of a string, and takes the character
+  before it for a dot, would accept. Pointed anywhere else, it would fail on the
+  targets and say nothing about the boundary.
+
+One of the three wrong answers needed more than "not Secure". At the DNAME's
+own name the substitution, run anyway, has no labels left to keep, and three of
+the mutants then fail on their own arithmetic. That surfaces as Indeterminate,
+and only a test that asks for Bogus tells it from the refusal it replaced.
+
+All seven mutants of the six rows were planted one at a time and run against
+the whole project. Each failed at least one of the four tests, and none failed
+anything else.
+
+**The `dnssec` block: 46 real gaps, 6 closed, 9 equivalent, 31 open.**
 
 ---
 
