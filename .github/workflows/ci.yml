@@ -108,9 +108,23 @@ jobs:
       # downloads a tarball through the REST API, which cannot carry submodules
       # and fails with "Input 'submodules' not supported". Hermod's CI never
       # meets this because it checks out two plain repositories side by side.
+      #
+      # The git config line pins that git to HTTP/1.1. Debian's git negotiates
+      # HTTP/2 with github.com, and on 2026-10-15 NTSConformanceTests' nightly
+      # went red before its first test with "Error in the HTTP2 framing layer"
+      # while fetching a submodule -- one checkout in roughly ninety, and the
+      # only red night it had in three weeks. actions/checkout retries its main
+      # fetch but not the submodule update, so one dropped stream is a red run
+      # that says nothing about Hermod. This repository has not hit it yet; it
+      # runs the same git against the same host. HTTP/1.1 takes the framing
+      # layer out of the picture, and a shallow clone does not need
+      # multiplexing. --system, so it holds for every git call in the job,
+      # whatever HOME or repository config actions/checkout sets up for its own.
       - name: Install git (Debian container)
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+          git config --system http.version HTTP/1.1
 
       - uses: actions/checkout@v7
         with:

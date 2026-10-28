@@ -42,10 +42,14 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       # Must precede the checkout: without git in the container, checkout falls
-      # back to a REST-API tarball, which cannot carry submodules. See ci.yml.
+      # back to a REST-API tarball, which cannot carry submodules. See ci.yml,
+      # which also says why git is pinned to HTTP/1.1 -- as in every Debian
+      # job below.
       - name: Install git (Debian container)
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+          git config --system http.version HTTP/1.1
 
       - uses: actions/checkout@v7
         with:
@@ -256,7 +260,9 @@ jobs:
       # Must precede the checkout, as in the job above — and this job needs git
       # afterwards too, to move the submodules off their pinned revisions.
       - name: Install git (Debian container)
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+          git config --system http.version HTTP/1.1
 
       - uses: actions/checkout@v7
         with:
@@ -445,7 +451,9 @@ jobs:
       # REST tarball, which cannot fetch submodules -- and libs/Hermod IS the
       # library under test.
       - name: Install git (Debian container)
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates git
+          git config --system http.version HTTP/1.1
 
       - uses: actions/checkout@v7
         with:
