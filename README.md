@@ -45,14 +45,20 @@ DNSSEC project 335 ✅ · 8 ❌ otherwise). So were findings 72 to 75, which Her
 master fixed on 2026-10-04 without the suite noticing, until the nightly lane that
 runs against that master went red on two tests that had pinned the old verdict as
 correct: their eight cases were red at the previous pin (b64479e9, DNSSEC 342 ✅ ·
-4 skips and client 156 ✅ otherwise). All of them are among the 1612 now.
+4 skips and client 156 ✅ otherwise). All of them are among the 1612 now. So were
+findings 76 and 77, a root zone signed with NSEC3, which the second DNSSEC mutation
+round found on 2026-10-28 and Vanaheimr/Hermod#162 fixed: their five trackers were
+red at bbbf88b6 (DNSSEC 370 ✅ · 5 ❌ · 4 skips otherwise) and pass at 925c80d5,
+where the offline suite as `ci.yml` runs it — every project, with the Online,
+WSL, Docker and Multicast categories left out — is 1508 ✅ · 0 ❌ · 4 skips. They were
+written after the 1612, and so were the tests of that round.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 75 RFC deviations in Hermod. All are fixed;
+The suite has found 77 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

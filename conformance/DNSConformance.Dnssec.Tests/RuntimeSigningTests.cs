@@ -453,4 +453,78 @@ public class RuntimeSigningTests
 
     #endregion
 
+    #region An_Nsec3_Signed_Root_Zone_Denies_A_Top_Level_Domain()
+
+    /// <summary>
+    /// Findings 76 and 77 end to end: a root zone signed in process with NSEC3,
+    /// asked for <c>zz.</c>. RFC 5155 §7.2.2: "To prove the nonexistence of QNAME,
+    /// a closest encloser proof and an NSEC3 RR covering the (nonexistent)
+    /// wildcard RR at the closest encloser MUST be included in the response" —
+    /// and at the root the closest encloser is the root and the wildcard is
+    /// <c>*.</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two defects stood in the way, one behind the other. The signer could not
+    /// sign the zone at all, because it wrote the root's NSEC3 owner names with
+    /// two dots (finding 77, pinned by
+    /// <see cref="ZoneSignerTests.A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root"/>);
+    /// and a server handed a zone signed correctly could not hash <c>*.</c>
+    /// (finding 76, pinned by
+    /// <see cref="ApexOnlyZoneDenialTests.An_Nsec3_Root_Whose_Chain_Is_Its_Apex_Denies_A_Top_Level_Domain"/>).
+    /// This is the case a user of both meets.
+    /// </para>
+    /// <para>
+    /// The zone holds its apex and one delegation, which is all a root zone
+    /// needs to be one. What is asked of the answer is only that it is a name
+    /// error with NSEC3 records in it: which records, and whether they prove
+    /// anything, is the validator's side.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Property("RFC", "5155 §7.2.2")]
+    public async Task An_Nsec3_Signed_Root_Zone_Denies_A_Top_Level_Domain()
+    {
+
+        using var key = DNSSECSigningKey.Generate(DomainName.Parse("."), ECDSAP256SHA256, KeySigningKey: true);
+
+        var root = new InMemoryDNSZone().
+                       AddZoneFile(
+                           """
+                           $ORIGIN .
+                           $TTL 3600
+                           @     IN SOA  a.root-servers.test. hostmaster.root-servers.test. 1 7200 3600 1209600 3600
+                           @     IN NS   a.root-servers.test.
+                           tld.  IN NS   ns.tld.
+                           """
+                       ).
+                       Sign([ key ], NSEC3: NSEC3Parameters.Recommended);
+
+        DNSZoneLookupResult answer;
+
+        try
+        {
+            answer = await root.Lookup(new DNSQuestion(DNSServiceName.Parse("zz."), DNSResourceRecordTypes.A, DNSQueryClasses.IN),
+                                       DNSSECOK: true);
+        }
+        catch (Exception exception)
+        {
+            Assert.Fail($"the lookup threw instead of denying the name: {exception.GetType().Name}: {exception.Message}");
+            return;
+        }
+
+        Assert.Multiple(() => {
+
+            Assert.That(answer.Status, Is.EqualTo(DNSZoneLookupStatus.NameError),
+                        "zz. is not in the root zone");
+
+            Assert.That(answer.AuthorityRRs.OfType<NSEC3>(), Is.Not.Empty,
+                        "and the signed root says so with NSEC3 records");
+
+        });
+
+    }
+
+    #endregion
+
 }

@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Seventy-five RFC deviations in the Hermod DNS stack, each
+What this suite caught. Seventy-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -91,6 +91,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 73 | An empty DS answer made a signed zone Insecure | **High** | 4035 §5.2, 6840 §5.2 | ✅ fixed |
 | 74 | A cached answer held every RRset cached under the name | Medium | 1035 §4.1 | ✅ fixed |
 | 75 | A cached NODATA answer came back as whatever the name was cached with last | Medium | 2308 §5 | ✅ fixed |
+| 76 | The root's own wildcard `*.` was not a name Hermod would parse | Low | 4592 §2.1.1, 5155 §7.2.2, §8.4 | ✅ fixed |
+| 77 | The zone signer could not sign a root zone with NSEC3 | Low | 5155 §3, §7.1 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -4614,6 +4616,117 @@ section and an empty authority section.
 
 **The fix**: the NODATA response is kept with the cache entry and returned on a hit.
 Merged as part of [Vanaheimr/Hermod#156](https://github.com/Vanaheimr/Hermod/pull/156).
+
+---
+
+## 76 — The root's own wildcard `*.` was not a name Hermod would parse
+
+*RFC 5155 §8.4:* a validator "MUST verify that there is a closest encloser proof
+for QNAME present in the response and that there is an NSEC3 RR that covers the
+wildcard at the closest encloser (i.e., the name formed by prepending the asterisk
+label to the closest encloser)". §7.2.2 asks the server for the same record. When
+the closest encloser is the root, that name is `*.`, and RFC 4592 §2.1.1 defines
+a wildcard domain name by its leftmost label alone.
+
+`DomainName.ParseLenient("*.")` threw. The fix for finding 11 strips a leading
+asterisk label before the hostname rules run, and lets the root through without
+them:
+
+```csharp
+if (AllowWildcardLabel && textToValidate.StartsWith("*."))
+    textToValidate = textToValidate[2..];
+
+if (textToValidate != ".")
+```
+
+For `*.` the strip leaves the empty string rather than the root's `.`, and the
+empty string fails the hostname rules.
+
+**What it costs.** Both sides of an NSEC3 name error at the root build that name
+and parse it:
+
+- the validator, in `DenialOfExistenceValidator.VerifyNSEC3`, which throws.
+  `ValidateAsync` catches it and answers Indeterminate — for an NXDOMAIN whose
+  proof is complete;
+- the server, in `ZoneDenialOfExistence`, which catches the refusal on purpose.
+  Its comment names the case — "`*.` under a root zone is the one that occurs in
+  practice. Same conclusion: no proof rather than a wrong one" — and the name
+  error goes out without the NSEC3 that covers the wildcard. The rest of the
+  proof is sent, so it is not "no proof": it is one record short of §8.4's, and
+  a validator has to call it Bogus. Only where a single record happens to cover
+  the wildcard as well does nothing go missing.
+
+Only a root zone signed with NSEC3 reaches either. The root is signed with NSEC,
+so no resolver meets this on the internet today; a test bed or a private root
+signed with NSEC3 does. An opt-out proof at the root is not affected: it returns
+before the wildcard is looked for.
+
+**How it was found.** By the mutation round that closed the second measurement of
+the DNSSEC block, on 2026-10-28. `DenialOfExistence.cs:300`, `skip <=
+labels.Length`, decides whether the root is tried as a closest encloser, and the
+test written to make that boundary matter for a name error was the first to put a
+root closest encloser in front of `VerifyNSEC3` at all.
+
+**Why the suite did not see it.** Finding 11's tests parse `*.wild.dnssec.test`.
+The NSEC denial of a TLD, `A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_By_The_Root`,
+builds its wildcard as a string, and so does `VerifyNSEC`. Every NSEC3 test had
+its closest encloser below the root.
+
+**Repro**: `WildcardSignatureTests.The_Roots_Own_Wildcard_Is_A_Name`, the parse
+itself; `Nsec3DelegationProofTests.A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_By_An_Nsec3_Root`,
+the validator; `RootZoneDenialTests.A_Top_Level_Domain_That_Does_Not_Exist_Is_Denied_With_The_Roots_Wildcard`,
+the server, with a root zone written out by hand whose two NSEC3 records split the
+ring so that the wildcard's cover is a record of its own. All three were red at
+`bbbf88b6` and pass from `925c80d5` on.
+
+**The fix**: what the strip leaves of `*.` is the root, `.`, and the hostname
+rules are not asked about it. The server's catch stays, for names the parser
+still refuses, and its comment no longer names `*.`. Merged as
+[Vanaheimr/Hermod#162](https://github.com/Vanaheimr/Hermod/pull/162), with
+`RootZoneNSEC3_Tests` on Hermod's side.
+
+---
+
+## 77 — The zone signer could not sign a root zone with NSEC3
+
+*RFC 5155 §3:* "The owner name for the NSEC3 RR is the base32 encoding of the
+hashed owner name prepended as a single label to the name of the zone." For the
+root zone that is the hash and the root's dot.
+
+`DNSSECZoneSigner` writes the owner name as the hash, a dot and the apex:
+
+```csharp
+DomainName.ParseLenient($"{NSEC3.Base32HexEncode(hash)}.{Apex}")
+```
+
+and keeps the apex with its trailing dot, `example.` — so for the root the owner
+came out as `<hash>..`, which is not a name, and signing threw. The walk that
+collects the empty non-terminals §7.1 gives NSEC3 records of their own has the
+same shape: it keeps a name only if it ends in `"." + Apex`, which for the root is
+two dots, so a root zone would have been signed without them.
+
+**What it costs.** `InMemoryDNSZone.Sign` and `DNSSECZoneSigner.Sign` refuse a root
+zone the moment NSEC3 is asked for. NSEC signs it. As with finding 76, no root on
+the internet is signed this way.
+
+**How it was found.** With finding 76, by the server's side of it: the first
+attempt at a tracker signed a root zone in process, and the signer failed before
+the server was asked anything.
+
+**Why the suite did not see it.** Every zone the suite signs with NSEC3 has a name
+below the root.
+
+**Repro**: `ZoneSignerTests.A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root`,
+which also asks for the empty non-terminal `tld.` of a root zone holding
+`host.tld.`, and `RuntimeSigningTests.An_Nsec3_Signed_Root_Zone_Denies_A_Top_Level_Domain`,
+which signs a root zone and asks it for `zz.` — findings 76 and 77 end to end. Both
+were red at `bbbf88b6` and pass from `925c80d5` on.
+
+**The fix**: the hash is prepended to the apex without its leading dot, so the
+root contributes nothing after the separator the signer writes itself, and the
+empty non-terminal walk asks for names ending in `.` at the root and in `"." +
+Apex` everywhere else. Merged with finding 76 as
+[Vanaheimr/Hermod#162](https://github.com/Vanaheimr/Hermod/pull/162).
 
 ---
 
