@@ -1,89 +1,70 @@
 # Every mutant of the 'dnssec' block that survived every project,
-# classified against Hermod 53f20591 — the revision the sweep measured.
+# classified against Hermod bbbf88b6 — the revision the sweep measured.
 # Line numbers move; this file does not.
 # file	line	operator	kind	source
-DNS/DNSSEC/CDSAcceptance.cs	134	greater-to-ge	boundary	if (sentinels > 0 && records.Length != 1)
-DNS/DNSSEC/DNSSECCanonical.cs	140	logical-and-to-or	branch	if (labels.Length == 1 && labels[0].Length == 0)
-DNS/DNSSEC/DNSSECSigning.cs	289	false-to-true	branch	var parameters = rsa.ExportParameters(false);
-DNS/DNSSEC/DNSSECSigningKey.cs	64	inequality-to-equality	branch	=> (DNSKEY.Flags & 0x0001) != 0;
-DNS/DNSSEC/DNSSECValidator.cs	195	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECZoneSigner.cs	34	false-to-true	branch	Boolean  OptOut       = false)
-DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	boundary	if (nsecs.Length > 0)
-DNS/DNSSEC/DNSSECSigning.cs	300	le-to-less	boundary	if (exponent.Length <= Byte.MaxValue)
 DNS/DNSSEC/DNSSECSigningKey.cs	84	false-to-true	noise-region	#region (static) Generate(Zone, Algorithm, KeySigningKey = false, RSAKeySize = 2048, TimeToLive = null)
-DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	branch	a => (a.KeyTag == liveKeyTag || a.KeyTag == keyTag) &&
-DNS/DNSSEC/DNSSECZoneSigner.cs	173	equality-to-inequality	branch	if (keyKeys. Length == 0) keyKeys  = keys;
-DNS/DNSSEC/DenialOfExistence.cs	118	logical-and-to-or	branch	var usable     = Records.Where(nsec3 => nsec3.HashAlgorithm == reference.HashAlgorithm &&
-DNS/DNSSEC/DNSSECSigning.cs	323	false-to-true	branch	var parameters = ecdsa.ExportParameters(false);
-DNS/DNSSEC/DNSSECSigningKey.cs	96	false-to-true	branch	Boolean     KeySigningKey   = false,
-DNS/DNSSEC/DNSSECZoneSigner.cs	204	false-to-true	rejection	return false;
-DNS/DNSSEC/DenialOfExistence.cs	119	logical-and-to-or	branch	nsec3.Iterations    == reference.Iterations    &&
-DNS/DNSSEC/DNSSECCanonical.cs	200	less-to-less-or-equal	boundary	for (var i = 0; i < length; i++)
-DNS/DNSSEC/DNSSECValidator.cs	237	greater-to-ge	boundary	if (removed > 0)
-DNS/DNSSEC/DNSSECZoneSigner.cs	207	logical-or-to-and	branch	return Record.Type == DNSResourceRecordTypes.DS ||
-DNS/DNSSEC/DenialOfExistence.cs	212	le-to-less	boundary	for (var skip = 1; skip <= labels.Length; skip++)
-DNS/DNSSEC/DNSSECValidator.cs	238	true-to-false	branch	modified = true;
-DNS/DNSSEC/DNSSECZoneSigner.cs	207	equality-to-inequality	branch	return Record.Type == DNSResourceRecordTypes.DS ||
-DNS/DNSSEC/DenialOfExistence.cs	218	equality-to-inequality	branch	Records.Any(nsec => CompareCanonical(nsec.DomainName.ToString(), wildcard) == 0))
-DNS/DNSSEC/DNSSECValidator.cs	259	logical-and-to-or	branch	a => a.KeyTag    == keyTag &&
-DNS/DNSSEC/DNSSECZoneSigner.cs	208	equality-to-inequality	branch	Record.Type == DNSResourceRecordTypes.NSEC;
-DNS/DNSSEC/DenialOfExistence.cs	278	greater-to-ge	boundary	var afterLow = CompareHashes(hash, owner) >  0;
-DNS/DNSSEC/DNSSECValidator.cs	259	equality-to-inequality	branch	a => a.KeyTag    == keyTag &&
-DNS/DNSSEC/DNSSECZoneSigner.cs	238	equality-to-inequality	branch	var signers = rrset.Key.Type == DNSResourceRecordTypes.DNSKEY
-DNS/DNSSEC/DenialOfExistence.cs	279	less-to-less-or-equal	boundary	var beforeHi = CompareHashes(hash, next)  <  0;
-DNS/DNSSEC/DNSSECValidator.cs	260	equality-to-inequality	branch	a.Algorithm == key.Algorithm
+DNS/DNSSEC/DNSSECValidator.cs	253	false-to-true	host-only	).ConfigureAwait(false);
 DNS/DNSSEC/DNSSECZoneSigner.cs	381	logical-or-to-and	branch	if (dot < 0 || dot + 1 >= name.Length)
-DNS/DNSSEC/DenialOfExistence.cs	284	ge-to-greater	boundary	var wraps    = CompareHashes(owner, next) >= 0;
-DNS/DNSSEC/DNSSECValidator.cs	293	ge-to-greater	boundary	if (Timestamp.Now - pending.FirstSeen >= AddHoldDownTime)
+DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	boundary	if (nsecs.Length > 0)
+DNS/DNSSEC/DNSSECValidator.cs	486	false-to-true	host-only	=> await ValidateAsync(Response, null, Now, CancellationToken).ConfigureAwait(false);
 DNS/DNSSEC/DNSSECZoneSigner.cs	381	less-to-less-or-equal	boundary	if (dot < 0 || dot + 1 >= name.Length)
-DNS/DNSSEC/DenialOfExistence.cs	286	logical-or-to-and	branch	if (wraps ? (afterLow || beforeHi)
-DNS/DNSSEC/DNSSECValidator.cs	297	true-to-false	branch	modified = true;
+DNS/DNSSEC/DenialOfExistence.cs	157	logical-and-to-or	branch	return match is not null && IsDelegation(match)
+DNS/DNSSEC/DNSSECValidator.cs	536	false-to-true	host-only	).ConfigureAwait(false);
 DNS/DNSSEC/DNSSECZoneSigner.cs	381	ge-to-greater	boundary	if (dot < 0 || dot + 1 >= name.Length)
-DNS/DNSSEC/DenialOfExistence.cs	287	logical-and-to-or	branch	: (afterLow && beforeHi))
-DNS/DNSSEC/DNSSECValidator.cs	326	false-to-true	rejection	return false;
-DNS/DNSSEC/DenialOfExistence.cs	308	logical-or-to-and	branch	if (label is null || label.Length == 0)
-DNS/DNSSEC/DNSSECValidator.cs	357	logical-and-to-or	branch	=> trustAnchors.RemoveAll(a => a.KeyTag == KeyTag && a.Algorithm == Algorithm) > 0;
-DNS/DNSSEC/DenialOfExistence.cs	332	less-to-less-or-equal	boundary	for (var i = 0; i < shared; i++)
-DNS/DNSSEC/DenialOfExistence.cs	334	less-to-less-or-equal	boundary	return Left[i] < Right[i] ? -1 : 1;
-DNS/DNSSEC/DenialOfExistence.cs	353	greater-to-ge	boundary	var above  = CompareCanonical(Name, owner) > 0;
-DNS/DNSSEC/DNSSECValidator.cs	357	greater-to-ge	boundary	=> trustAnchors.RemoveAll(a => a.KeyTag == KeyTag && a.Algorithm == Algorithm) > 0;
-DNS/DNSSEC/DenialOfExistence.cs	354	less-to-less-or-equal	boundary	var below  = CompareCanonical(Name, next)  < 0;
-DNS/DNSSEC/DNSSECValidator.cs	378	false-to-true	host-only	=> await ValidateAsync(Response, null, CancellationToken).ConfigureAwait(false);
-DNS/DNSSEC/DenialOfExistence.cs	357	ge-to-greater	boundary	return CompareCanonical(owner, next) >= 0
-DNS/DNSSEC/DNSSECValidator.cs	407	logical-and-to-or	branch	if (Question is not null &&
-DNS/DNSSEC/DenialOfExistence.cs	358	logical-or-to-and	branch	? above || below
-DNS/DNSSEC/DNSSECValidator.cs	414	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DenialOfExistence.cs	359	logical-and-to-or	branch	: above && below;
-DNS/DNSSEC/DNSSECValidator.cs	442	logical-and-to-or	branch	.Where(rr => rr.Type == rrsig.TypeCovered &&
-DNS/DNSSEC/DenialOfExistence.cs	401	less-to-less-or-equal	boundary	return comparison < 0 ? -1 : 1;
-DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	branch	if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
-DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	boundary	if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
-DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	boundary	if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
-DNS/DNSSEC/DNSSECValidator.cs	460	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECValidator.cs	469	logical-and-to-or	branch	key => ComputeKeyTag(key) == rrsig.KeyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	487	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECValidator.cs	523	logical-or-to-and	branch	return anchorName.Length == 0 ||
-DNS/DNSSEC/DNSSECValidator.cs	523	equality-to-inequality	branch	return anchorName.Length == 0 ||
-DNS/DNSSEC/DNSSECValidator.cs	577	logical-or-to-and	branch	if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
-DNS/DNSSEC/DNSSECValidator.cs	577	less-to-less-or-equal	boundary	if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
-DNS/DNSSEC/DNSSECValidator.cs	577	greater-to-ge	boundary	if (now < rrsig.SignatureInception || now > rrsig.SignatureExpiration)
-DNS/DNSSEC/DNSSECValidator.cs	584	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECValidator.cs	590	logical-and-to-or	branch	var matchingKey  = dnskeys.FirstOrDefault(key => ComputeKeyTag(key) == rrsig.KeyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	597	inequality-to-equality	branch	if (sigResult != DNSSECValidationResult.Secure)
-DNS/DNSSEC/DNSSECValidator.cs	605	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECValidator.cs	607	inequality-to-equality	branch	if (chainResult != DNSSECValidationResult.Secure)
-DNS/DNSSEC/DNSSECValidator.cs	863	less-to-less-or-equal	boundary	for (var depth = 0; depth < 20; depth++)
-DNS/DNSSEC/DNSSECValidator.cs	871	logical-and-to-or	branch	if (anchor.KeyTag    == keyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	871	equality-to-inequality	branch	if (anchor.KeyTag    == keyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	872	equality-to-inequality	branch	anchor.Algorithm == currentKey.Algorithm)
-DNS/DNSSEC/DNSSECValidator.cs	896	logical-and-to-or	branch	if (anchor.KeyTag    == kskKeyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	914	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECValidator.cs	948	false-to-true	host-only	).ConfigureAwait(false);
-DNS/DNSSEC/DNSSECValidator.cs	960	equality-to-inequality	branch	.Where(rr => rr.TypeCovered == DNSResourceRecordTypes.DNSKEY)
-DNS/DNSSEC/DNSSECValidator.cs	963	equality-to-inequality	branch	if (parentRrsigs.Count == 0)
-DNS/DNSSEC/DNSSECValidator.cs	971	logical-and-to-or	branch	key => ComputeKeyTag(key) == parentRrsig.KeyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	971	equality-to-inequality	branch	key => ComputeKeyTag(key) == parentRrsig.KeyTag &&
-DNS/DNSSEC/DNSSECValidator.cs	972	equality-to-inequality	branch	key.Algorithm      == parentRrsig.Algorithm
-DNS/DNSSEC/DNSSECValidator.cs	1042	false-to-true	branch	_  => false
-DNS/DNSSEC/DNSSECValidator.cs	1254	logical-or-to-and	branch	if (String.IsNullOrEmpty(normalized) || normalized == ".")
-DNS/DNSSEC/DNSSECValidator.cs	1259	less-to-less-or-equal	boundary	if (dotIndex < 0)
+DNS/DNSSEC/DenialOfExistence.cs	165	logical-and-to-or	branch	return closestEncloser is not null &&
+DNS/DNSSEC/DNSSECValidator.cs	551	false-to-true	host-only	return await ProveAllUnsigned(owners, now, CancellationToken).ConfigureAwait(false);
+DNS/DNSSEC/DenialOfExistence.cs	166	logical-and-to-or	branch	!IsDelegation(closestEncloser) &&
+DNS/DNSSEC/DNSSECValidator.cs	597	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DenialOfExistence.cs	213	equality-to-inequality	branch	if (nsec3s.Length == 0)
+DNS/DNSSEC/DNSSECValidator.cs	613	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DenialOfExistence.cs	218	le-to-less	boundary	for (var skip = 1; skip <= labels.Length; skip++)
+DNS/DNSSEC/DNSSECValidator.cs	647	false-to-true	host-only	return await ProveAllUnsigned(unsigned, now, CancellationToken).ConfigureAwait(false);
+DNS/DNSSEC/DenialOfExistence.cs	246	logical-and-to-or	branch	return nsec3s.Where(nsec3 => nsec3.HashAlgorithm == reference.HashAlgorithm &&
+DNS/DNSSEC/DNSSECValidator.cs	684	logical-or-to-and	branch	if (!Verified.Contains((dnameOwner, DNSResourceRecordTypes.DNAME)) ||
+DNS/DNSSEC/DenialOfExistence.cs	246	equality-to-inequality	branch	return nsec3s.Where(nsec3 => nsec3.HashAlgorithm == reference.HashAlgorithm &&
+DNS/DNSSEC/DNSSECValidator.cs	685	logical-or-to-and	branch	owner == dnameOwner                                            ||
+DNS/DNSSEC/DenialOfExistence.cs	247	logical-and-to-or	branch	nsec3.Iterations    == reference.Iterations    &&
+DNS/DNSSEC/DNSSECValidator.cs	685	equality-to-inequality	branch	owner == dnameOwner                                            ||
+DNS/DNSSEC/DenialOfExistence.cs	247	equality-to-inequality	branch	nsec3.Iterations    == reference.Iterations    &&
+DNS/DNSSEC/DNSSECValidator.cs	687	false-to-true	rejection	return false;
+DNS/DNSSEC/DenialOfExistence.cs	259	logical-and-to-or	branch	=>  ADNSResourceRecord.TypeBitMapContains(BitMap, DNSResourceRecordTypes.NS) &&
+DNS/DNSSEC/DNSSECValidator.cs	689	equality-to-inequality	branch	var prefix = dnameOwner.Length == 0
+DNS/DNSSEC/DenialOfExistence.cs	300	le-to-less	boundary	for (var skip = 1; skip <= labels.Length; skip++)
+DNS/DNSSEC/DNSSECValidator.cs	693	equality-to-inequality	branch	return target == (dnameTarget.Length == 0
+DNS/DNSSEC/DenialOfExistence.cs	370	greater-to-ge	boundary	if (queryName.Length > 0 &&
+DNS/DNSSEC/DenialOfExistence.cs	450	greater-to-ge	boundary	var afterLow = CompareHashes(hash, owner) >  0;
+DNS/DNSSEC/DNSSECValidator.cs	720	equality-to-inequality	branch	return anchorName.Length == 0 ||
+DNS/DNSSEC/DenialOfExistence.cs	506	less-to-less-or-equal	boundary	return Left[i] < Right[i] ? -1 : 1;
+DNS/DNSSEC/DNSSECValidator.cs	789	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DenialOfExistence.cs	525	greater-to-ge	boundary	var above  = CompareCanonical(Name, owner) > 0;
+DNS/DNSSEC/DNSSECValidator.cs	802	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DenialOfExistence.cs	573	less-to-less-or-equal	boundary	return comparison < 0 ? -1 : 1;
+DNS/DNSSEC/DNSSECValidator.cs	1101	less-to-less-or-equal	boundary	for (var depth = 0; depth < 20; depth++)
+DNS/DNSSEC/DNSSECValidator.cs	1143	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1176	false-to-true	host-only	CancellationToken).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1178	logical-or-to-and	branch	if (proof != DNSSECValidationResult.Insecure || provenBy is null)
+DNS/DNSSEC/DNSSECValidator.cs	1178	inequality-to-equality	branch	if (proof != DNSSECValidationResult.Insecure || provenBy is null)
+DNS/DNSSEC/DNSSECValidator.cs	1202	logical-or-to-and	branch	if (signer == currentZone              ||
+DNS/DNSSEC/DNSSECValidator.cs	1203	logical-or-to-and	branch	!IsAtOrBelow(currentZone, signer)  ||
+DNS/DNSSEC/DNSSECValidator.cs	1214	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1350	logical-or-to-and	branch	if (parent == Zone || !IsAtOrBelow(Zone, parent))
+DNS/DNSSEC/DNSSECValidator.cs	1360	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1406	logical-and-to-or	branch	or DNSResourceRecordTypes.NSEC3) &&
+DNS/DNSSEC/DNSSECValidator.cs	1422	logical-and-to-or	branch	if (rrSet.Count > 0 &&
+DNS/DNSSEC/DNSSECValidator.cs	1422	greater-to-ge	boundary	if (rrSet.Count > 0 &&
+DNS/DNSSEC/DNSSECValidator.cs	1423	logical-and-to-or	branch	rrSetSigs.Any(rrsig => WithinValidityWindow(rrsig, Now) &&
+DNS/DNSSEC/DNSSECValidator.cs	1457	false-to-true	host-only	var result = await ProveUnsigned(owner, names, Now, CancellationToken).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1557	false-to-true	host-only	step           = await AnchoredZone(anchor, Now, CancellationToken).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1572	ge-to-greater	boundary	for (var index = labels.Length - depth - 1; index >= 0; index--)
+DNS/DNSSEC/DNSSECValidator.cs	1579	false-to-true	host-only	step         = await NameBelow(name, zone, keys, Now, CancellationToken).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1630	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1675	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1681	equality-to-inequality	branch	Where(ds => Normalize(ds.DomainName.FullName) == Name).
+DNS/DNSSEC/DNSSECValidator.cs	1692	logical-and-to-or	branch	Any(rrsig => Normalize(rrsig.SignerName.FullName) == Zone &&
+DNS/DNSSEC/DNSSECValidator.cs	1692	equality-to-inequality	branch	Any(rrsig => Normalize(rrsig.SignerName.FullName) == Zone &&
+DNS/DNSSEC/DNSSECValidator.cs	1693	logical-and-to-or	branch	WithinValidityWindow(rrsig, Now)              &&
+DNS/DNSSEC/DNSSECValidator.cs	1706	false-to-true	host-only	).ConfigureAwait(false);
+DNS/DNSSEC/DNSSECValidator.cs	1713	equality-to-inequality	branch	Where(rrsig => Normalize(rrsig.SignerName.FullName) == Name).
+DNS/DNSSEC/DNSSECValidator.cs	1733	equality-to-inequality	branch	return DenialOfExistenceValidator.Verify(name, DNSResourceRecordTypes.DS, proof) == DenialOfExistence.NoDataForType
+DNS/DNSSEC/DNSSECValidator.cs	1854	logical-and-to-or	branch	Where(rrsig => rrsig.TypeCovered == TypeCovered &&
+DNS/DNSSEC/DNSSECValidator.cs	2152	less-to-less-or-equal	boundary	if (dotIndex < 0)

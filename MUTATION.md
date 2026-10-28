@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 227 | measured, **1 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **37 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
@@ -55,6 +55,10 @@ when they were typed, and nothing caught them because the column looks measured
 and only two of its rows were. The `tsig` sweep is what found it: it announced 94
 mutants against a row promising 70.
 
+The `dnssec` row says 323 now for a different reason, and a good one: the
+validator was rewritten, and the block was measured a second time, against
+`bbbf88b6`. 227 is still right for `53f20591`.
+
 The four rows that were right — `records`, `core`, `client`, `server` — are right to
 the mutant. `core` counts 479 today rather than the 478 it was measured at, which
 is not an error: finding 57's fix and the compression-table fix each added a
@@ -68,7 +72,7 @@ comparison. The measured figure stays, because it is what was measured.
 
 ---
 
-## The hundred and seven that no test host can see
+## The hundred and seventeen that no test host can see
 
 `await x.ConfigureAwait(false)` says: do not resume on the caller's
 synchronization context. Read as `true` it says the opposite, and the two
@@ -77,14 +81,15 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. A hundred and seven of these sit across the measured
+same as equivalent**. A hundred and seventeen of these sit across the measured
 blocks, and not one of them is work waiting to be done: no test written for a DNS
 conformance suite will ever close one.
 
 The count was thirty-nine when the class was named. The `client` block added
 sixty-eight in one sweep, which is the shape of the thing: the transports are
 where a DNS library awaits most, so they are where the rule it never states
-matters most.
+matters most. The second `dnssec` sweep added ten more, net, in the code the
+validator's rewrite brought.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -95,14 +100,16 @@ neither.
 |---|---:|---:|---:|
 | `records` | 240 | 0 | — |
 | `core` | 132 | 0 | 1 |
-| `dnssec` | 75 | **1** | 9 |
+| `dnssec` | 46 | **37** | 19 |
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
 | `client` | 245 | **86** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
-these. What is actually left there is one: the depth limit of the chain walk,
-where both readings are conformant because no RFC names a limit.
+these. What was actually left there was one: the depth limit of the chain walk,
+where both readings are conformant because no RFC names a limit. The row above
+is the second sweep of the block, after the validator was rewritten, and all
+but three of its thirty-seven are in new code — see *The result: DNSSEC, measured again*.
 
 **The argument had already been written twice before it had a name.** One entry
 in the core ledger and one in the DNSSEC ledger had each worked out, separately,
@@ -1667,7 +1674,164 @@ specification has something to say about which way it should read.**
 
 ---
 
+## The result: DNSSEC, measured again
+
+The first measurement of this block, in the chapter below, was taken at Hermod
+`53f20591`, and in twelve rounds every gap it found was closed but one. Then
+the validator was rewritten. The fixes for findings 65 and 67 to 73 made it
+verify the signatures it used to only look for, read a denial only from records
+whose signatures verified, and call an answer Insecure only where a delegation
+proves it. `DNSSECValidator.cs` went from 1270 lines to 2163, and none of the
+new ones had been swept.
+
+Measured against Hermod **`bbbf88b6`**, the same folder and the same two
+passes, in a worktree of its own: the sweep writes its mutants into Hermod's
+source for three and a half hours, and any other build of that checkout in the
+meantime would have built them too.
+
+| | `53f20591` | `bbbf88b6` |
+|---|---:|---:|
+| mutants | 227 | 323 |
+| not viable (would not compile) | 35 | 60 |
+| killed by Dnssec | 102 | 196 |
+| killed by another project | 0 | **0** |
+| survived everywhere | 85 | 67 |
+| refused by the harness | 5 | 0 |
+| real gaps | 75 | 46 |
+| host-only | 9 | 19 |
+| declared equivalent | 9 | 9 |
+| **open** | 1 | **37** |
+
+The first column is the first sweep as its ledger counts it today; the table in
+its own chapter says 84 real gaps because it was written before `host-only` had
+a name. Sixty-seven mutants survived and the classification has 66 rows,
+because line 693 carries two `==` and the triage keys a row by file, line and
+operator.
+
+The verdicts are `results/dnssec-pass1.tsv` and `dnssec-pass2.tsv`, classified
+in `dnssec-classified.tsv`. The first sweep's files moved to
+`results/dnssec-53f20591/` unchanged, and the ledger tables that closed its
+gaps stay in the history of `make_closed_folder.py`. None was carried over by
+number, and none needed to be: a gap a test had closed is killed by that test in
+the new pass 1 and never reaches the classification. Thirty-nine of the
+sixty-five were killed again, and twenty-five sit on lines the rewrite replaced,
+whose successors were measured as new mutants. The sixty-fifth is below.
+
+**Pass 2 bought nothing here, again**, and for the reason the first chapter
+gives: DNSSEC is touched by one project, and there is no second opinion
+available for this code.
+
+Where the 37 are:
+
+| what | open | lines |
+|---|---:|---|
+| what may count as the proof that a delegation is unsigned | 14 | `DenialOfExistence.cs` 157–259, `DNSSECValidator.cs` 1406–1423 |
+| the DS step of the walk up from an answer | 6 | 720, 1178 (two), 1202, 1203, 1350 |
+| the walk down from the anchor, for an answer that came unsigned | 7 | 1572, 1681, 1692 (two), 1693, 1713, 1733 |
+| a CNAME synthesised from a verified DNAME | 6 | 684, 685 (two), 687, 689, 693 |
+| the rest | 4 | `DenialOfExistence.cs` 300, 370; `DNSSECValidator.cs` 1101, 1854 |
+
+### The proofs nobody forges
+
+The tests that came with findings 72 and 73 say what a proof is *for*: an
+answer below a proven unsigned delegation is Insecure, a missing DS without a
+proof is Bogus. What survives is the other half — what the proof itself has to
+be — and almost every row is a refusal no test asks for.
+
+`match is not null && IsDelegation(match)`, read as `||`, takes the NSEC at the
+child's name as proof whether or not its bitmap holds NS. RFC 6840 §4.4 says the
+validator "MUST check for the presence of the NS bit", and the method's own
+remarks say why: without it the genuine NSEC of any ordinary name proves a
+zone cut there unsigned, and an attacker who invents the cut and signs below it
+with a key of their own gets Insecure instead of Bogus. `IsDelegation` read with
+`||` at 259 is the same hole from the other side. The opt-out conditions at 165
+and 166, and the parameter set at 246 and 247 that an NSEC3 has to share to be
+part of the chain at all, are the same story for NSEC3.
+
+In `DenialSignedBy`, `rrSet.Count > 0 && rrSetSigs.Any(...)` read as `||` puts
+every NSEC in the authority section into the proof whether its signature
+verifies or not, and the `&&` at 1423 read as `||` accepts a signature that is
+inside its validity window and verifies nothing. That is finding 70, *a denial
+was read from NSEC records nobody signed*, one path over: the DS path came with
+the fixes for findings 72 and 73 and makes the check finding 70's fix made, and
+no test of it hands the validator an NSEC whose signature does not verify.
+`NameBelow`'s check on the DS RRset's own signature, at 1692 and 1693, is the
+same shape on the way down.
+
+### The walk down, and a name it never asks about
+
+`ProveUnsigned` starts at the closest anchor and asks about every name between
+there and the owner, one label at a time. `index >= 0` read as `> 0` stops one
+step short and never asks about the owner itself — which matters exactly when
+the owner *is* the unsigned delegation, an A record at the apex of an unsigned
+child. The test that proves a delegation unsigned asks about `www.u.p.test`,
+one label below `u.p.test`, and no test asks about the delegation's own name.
+
+### A CNAME with nothing behind it
+
+`SynthesizedFromAVerifiedDNAME` lets an unsigned CNAME through when a verified
+DNAME of the same answer implies it, by RFC 6672 §2.2's substitution. Every
+condition inside the search survives, `return false` read as `true` among
+them, which would count a CNAME as synthesised from a DNAME nobody verified or
+one it does not even lie under. They survive because **no test hands the
+validator a DNAME at all**. The suite's DNAME tests ask what Hermod's server
+sends and what its client follows; the one that validates a DNAME answer is
+`delv`'s, and it judges the server. The function's first line, which refuses
+anything that is not a CNAME, is caught — it runs on every unsigned record —
+and the search behind it has never been given anything to search.
+
+### Two lines that had been closed
+
+**`CoveredByATrustAnchor` lost its caller.** The first sweep's round on it,
+*Two readings that fail in opposite directions*, killed both mutations of its
+first condition, through `ValidateAsync`'s branch for an answer with no proof. The
+fix for finding 72 replaced that branch: `ProveUnsigned` picks the closest
+anchor itself. The predicate is left with two callers in the DS step of the walk
+up, and from there one of its two readings is still caught — `&&`, the root
+anchor that covers nothing — and the other is not. `!=` makes an anchor below
+the root cover every name there is, and the test that would see it needs that
+anchor and a signed zone outside it whose DS is missing. The function did not
+change, and its test is still green and still right. What changed is that
+nothing reaches the line through the door the test was written for.
+
+**`DenialOfExistence.cs:300` was never closed at all.** The first sweep recorded
+it `KILLED`, one failing test of 260, and so it never entered the
+classification. Planted again at `53f20591`, with fresh fixtures because that
+revision's own have expired and a baseline that is green first, it fails
+nothing. It cannot: `skip <= labels.Length` against `<` decides whether the root
+is tried as a closest encloser, and `FindMatch` compares hashes, so the root
+matches only an NSEC3 whose owner is the hash of the root — which exists only in
+a root zone signed with NSEC3. No test signs one and no fixture is one. Whatever
+failed that day had nothing to do with the line, and the first ledger's one open
+line was two.
+
+**A kill is one red test, and the harness never asks which.** It is the right
+rule: a test that fails is a test that noticed. But 51 of the 196 kills here,
+and 28 of the first sweep's 102, rest on a single failing test, and one of those
+28 was a test failing for its own reasons. A kill by one test, on a line no test
+could reach, is the shape to suspect.
+
+### What carried over
+
+**All nine equivalent mutants survived again**, on lines whose text did not
+change, and each argument was read again against the new code rather than moved
+with its number — what makes a mutation equivalent is usually a caller, and the
+callers changed. All nine hold. Two are worded anew: `GetParentZone`'s last
+caller asks only whether the answer is null, and `Covers` has gained a caller
+that sits behind the same NODATA loop as the others.
+
+**The depth limit is still open**, at 1101 now, for the reason it always was:
+both readings are conformant, because no RFC names a limit.
+
+**`host-only` went from nine to nineteen**: twelve awaits in the new code, and
+two gone with the code they were in. The measured blocks hold 117 of them now.
+
+---
+
 ## The result: DNSSEC
+
+*The first measurement, and the twelve rounds that closed it. Its line numbers
+are `53f20591`'s.*
 
 Measured against Hermod **`53f20591`**, `libs/Hermod/Hermod/DNS/DNSSEC/**`, judged
 in pass 1 by Dnssec and in pass 2 by the remaining seven projects.
@@ -1735,7 +1899,8 @@ verdict is SURVIVED and the first attempt was a hiccup in a forty-four-minute ru
 The row was corrected in `dnssec-pass1.tsv` and the file as it was measured is
 kept beside it as `dnssec-pass1.as-measured.tsv`, which is the same treatment the
 contaminated pass-2 file got in the records block. A result that is quietly
-rewritten is not a measurement any more.
+rewritten is not a measurement any more. Both are in `results/dnssec-53f20591/`
+since the block was measured again.
 
 ---
 

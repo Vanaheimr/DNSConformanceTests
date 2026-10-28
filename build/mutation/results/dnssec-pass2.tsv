@@ -1,90 +1,67 @@
-DNS/DNSSEC/CDSAcceptance.cs	134	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECCanonical.cs	140	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECSigning.cs	289	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECSigningKey.cs	64	inequality-to-equality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	195	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	34	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 332 failed; measured at cc8323d5, not at this block's sweep revision	0
-DNS/DNSSEC/DNSSECSigning.cs	300	le-to-less	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECSigningKey.cs	84	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	233	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	173	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	118	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECCanonical.cs	140	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 332 failed; measured at cc8323d5, not at this block's sweep revision	1
-DNS/DNSSEC/DNSSECSigning.cs	323	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECSigningKey.cs	96	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	233	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 332 failed; measured at cc8323d5, not at this block's sweep revision, where the line is 243	1
-DNS/DNSSEC/DNSSECZoneSigner.cs	204	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	119	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECCanonical.cs	200	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	237	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	207	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	212	le-to-less	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	238	true-to-false	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	207	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	218	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	259	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	208	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	278	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	259	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	238	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	279	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	260	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	381	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	284	ge-to-greater	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	293	ge-to-greater	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	381	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	286	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	297	true-to-false	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECZoneSigner.cs	381	ge-to-greater	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	287	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	326	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	308	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	357	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	332	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 332 failed; measured at cc8323d5, not at this block's sweep revision, where the line is 367	0
-DNS/DNSSEC/DenialOfExistence.cs	334	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	357	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 332 failed; measured at cc8323d5, not at this block's sweep revision, where the line is 367	1
-DNS/DNSSEC/DenialOfExistence.cs	353	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	357	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	354	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	378	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	357	ge-to-greater	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	407	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	358	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	414	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	359	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	442	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DenialOfExistence.cs	401	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	452	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	452	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	452	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	460	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	469	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	487	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	523	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	523	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	577	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	577	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	577	greater-to-ge	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	584	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	590	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	597	inequality-to-equality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	605	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	607	inequality-to-equality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	863	less-to-less-or-equal	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	871	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	871	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	872	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	896	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	914	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	948	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	960	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	963	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	971	logical-and-to-or	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	971	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	972	equality-to-inequality	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	1042	false-to-true	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	1254	logical-or-to-and	SURVIVED-EVERYWHERE	
-DNS/DNSSEC/DNSSECValidator.cs	1259	less-to-less-or-equal	SURVIVED-EVERYWHERE	
+DNS/DNSSEC/DNSSECSigningKey.cs	84	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	253	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECZoneSigner.cs	381	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	97	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	486	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECZoneSigner.cs	381	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	157	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	536	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECZoneSigner.cs	381	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	165	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	551	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	166	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	597	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	213	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	613	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	218	le-to-less	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	647	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	246	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	684	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	246	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	685	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	247	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	685	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	247	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	687	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	259	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	689	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	300	le-to-less	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	693	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	370	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	693	equality-to-inequality	SURVIVED-EVERYWHERE		1
+DNS/DNSSEC/DenialOfExistence.cs	450	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	720	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	506	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	789	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	525	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	802	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DenialOfExistence.cs	573	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1101	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1143	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1176	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1178	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1178	inequality-to-equality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1202	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1203	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1214	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1350	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1360	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1406	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1422	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1422	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1423	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1457	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1557	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1572	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1579	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1630	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1675	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1681	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1692	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1692	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1693	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1706	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1713	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1733	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	1854	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/DNSSEC/DNSSECValidator.cs	2152	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
