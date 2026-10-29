@@ -94,6 +94,44 @@ public class FramedTransportQueryTests
     }
 
 
+    /// <summary>
+    /// Every question type a TCP server was asked, over however many queries the
+    /// client made of the given types.
+    /// </summary>
+    private static async Task<UInt16[]> TypesAskedOverTcp(DNSResourceRecordTypes[] Types)
+    {
+
+        await using var server = new ScriptedTcpServer(AnAnswer);
+
+        await using var client = new DNSTCPClient(IPv4Address.Localhost,
+                                                  Port:          IPPort.Parse((UInt16) server.Port),
+                                                  QueryTimeout:  Timeout);
+
+        await client.Query(DNSServiceName.Parse("framed.example."), Types, Timeout);
+
+        return [.. server.Requests.SelectMany(request => RawDnsReader.Parse(request).Questions.Select(question => question.Type))];
+
+    }
+
+
+    /// <summary>The same over DoT.</summary>
+    private static async Task<UInt16[]> TypesAskedOverTls(DNSResourceRecordTypes[] Types)
+    {
+
+        await using var server = new ScriptedTlsServer(AnAnswer);
+
+        await using var client = new DNSTLSClient(IPv4Address.Localhost,
+                                                  TCPPort:                     IPPort.Parse((UInt16) server.Port),
+                                                  QueryTimeout:                Timeout,
+                                                  RemoteCertificateValidator:  (_, _, _, _, _) => TLSValidationResult.Success());
+
+        await client.Query(DNSServiceName.Parse("framed.example."), Types, Timeout);
+
+        return [.. server.Requests.SelectMany(request => RawDnsReader.Parse(request).Questions.Select(question => question.Type))];
+
+    }
+
+
     /// <summary>The same over DoT.</summary>
     private static async Task<RawDnsMessage> OverTls(Boolean?                   ClientRecursion        = null,
                                                      Boolean                    ClearClientRecursion   = false,
@@ -189,20 +227,22 @@ public class FramedTransportQueryTests
     #endregion
 
 
-    #region The question section (RFC 1035 §4.1.2, §4.1.4)
+    #region The question section (RFC 1035 §4.1.2)
 
     [Test]
     [Property("RFC", "1035 §4.1.2")]
     public async Task The_Types_Asked_For_Are_The_Types_Sent()
     {
 
-        // Two named types must travel as two questions of those types. The guard
-        // that substitutes ANY exists for a caller who named none, and a client
-        // that reached for it anyway would ask for everything at a name and then
+        // Two named types must travel as questions of those types — since RFC 9619
+        // §4 as two queries of one question each, which OneQuestionPerQueryTests
+        // holds the clients to. What this one asks is which types: the guard that
+        // substitutes ANY exists for a caller who named none, and a client that
+        // reached for it anyway would ask for everything at a name and then
         // filter — answering the question from a larger answer, over a transport
         // where the larger answer is never truncated to make it obvious.
-        var overTcp = (await OverTcp(Types: TwoTypes)).Questions.Select(question => question.Type).ToArray();
-        var overTls = (await OverTls(Types: TwoTypes)).Questions.Select(question => question.Type).ToArray();
+        var overTcp = await TypesAskedOverTcp(TwoTypes);
+        var overTls = await TypesAskedOverTls(TwoTypes);
 
         Assert.Multiple(() => {
 
@@ -211,32 +251,6 @@ public class FramedTransportQueryTests
 
             Assert.That(overTls, Is.EquivalentTo(new UInt16[] { RawDnsType.A, RawDnsType.AAAA }),
                         "and so does DoT");
-
-        });
-
-    }
-
-
-    [Test]
-    [Property("RFC", "1035 §4.1.4")]
-    public async Task Each_Question_Carries_Its_Name_In_Full()
-    {
-
-        // Two types at one name make two questions, so the second name is a
-        // candidate for the pointer §4.1.4 describes. Legal on paper, and sent by
-        // nothing: the section is written around repeated names in resource
-        // records, a query gains two octets, and what it can lose is a responder
-        // that never had a reason to expect a pointer inside a question.
-        //
-        // Behaviour rather than a MUST, which is why this cites the section that
-        // permits compression rather than one that forbids it here.
-        var overTcp = (await OverTcp(Types: TwoTypes)).Questions.All(question => !question.Name.Compressed);
-        var overTls = (await OverTls(Types: TwoTypes)).Questions.All(question => !question.Name.Compressed);
-
-        Assert.Multiple(() => {
-
-            Assert.That(overTcp, Is.True, "TCP spells both names out");
-            Assert.That(overTls, Is.True, "and so does DoT");
 
         });
 

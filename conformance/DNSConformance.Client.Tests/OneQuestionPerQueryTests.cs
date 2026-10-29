@@ -4,7 +4,6 @@ using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.HTTP;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -76,7 +75,6 @@ public class OneQuestionPerQueryTests
     /// Finding 86, over UDP.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Udp_Query_For_Two_Types_Asks_One_Question_At_A_Time()
     {
 
@@ -96,7 +94,6 @@ public class OneQuestionPerQueryTests
     /// Finding 86, over TCP.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Tcp_Query_For_Two_Types_Asks_One_Question_At_A_Time()
     {
 
@@ -116,7 +113,6 @@ public class OneQuestionPerQueryTests
     /// Finding 86, over TLS.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Dot_Query_For_Two_Types_Asks_One_Question_At_A_Time()
     {
 
@@ -138,7 +134,6 @@ public class OneQuestionPerQueryTests
     /// per request already, because its API has no way to ask two.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Doh_Query_For_Two_Types_Asks_One_Question_At_A_Time()
     {
 

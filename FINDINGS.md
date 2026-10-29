@@ -3,9 +3,8 @@
 What this suite caught. Eighty-six RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 86, the transport clients asking
-two questions in one query, is open, and its trackers are red on purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -102,7 +101,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 83 | Every known answer went into one query, however large | Medium | 6762 §7.2, §17 | ✅ fixed |
 | 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ✅ fixed |
 | 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ✅ fixed |
-| 86 | The transport clients asked for two types in one query of two questions | Medium | 9619 §4 | ⏳ **open** |
+| 86 | The transport clients asked for two types in one query of two questions | Medium | 9619 §4 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5009,10 +5008,19 @@ sorting the client block's open mutation rows on 2026-10-29. No mutant pointed a
 it: the multi-type path of the transport clients had no test at all.
 
 **Repro**: `OneQuestionPerQueryTests`, one case per transport, each asking for A
-and AAAA and counting the questions in every message that arrives. Red at the
-pinned `b514b630`, they carry `KnownIssue`.
+and AAAA and counting the questions in every message that arrives. Red at
+`b514b630`, passes from `f3c0517c` on.
 
-**The fix**: ⏳ open.
+**The fix**: the four transport clients ask each type with a query of its own, all
+at once, and merge the answers as `DNSClient` does. The merge moved out of
+`DNSClient` into one place both use, and `DNSClient`'s comment, which had cited
+RFC 1035 §4.1.2 as allowing several questions, cites RFC 9619. Three suite tests
+had pinned the old behaviour as the rule. `Json_Mode_Asks_For_Each_Type_Separately_And_Binary_Mode_Does_Not`
+expected RFC 8484's format to ask once, and is now `Both_Modes_Ask_For_Each_Type_Separately`.
+The two `Each_Question_Carries_Its_Name_In_Full` tests, for UDP and for TCP and
+TLS, checked name compression between two questions of one query, a message
+that may no longer be sent; they are withdrawn.
+Merged as [Vanaheimr/Hermod#180](https://github.com/Vanaheimr/Hermod/pull/180).
 
 ---
 

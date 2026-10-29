@@ -154,22 +154,18 @@ public class DohConnectionTests
         // ran out: the resolver did not answer slowly, it could not be reached at
         // all, and "try again in a moment" is the wrong advice for that.
         //
-        // Connection retries are switched off, and that is a choice about what
-        // this test asks rather than a convenience. With them on, the client goes
-        // on reconnecting past its own deadline — 8.2 s for a 3 s query, measured
-        // — and the deadline it has overrun is then honestly reported as one.
-        // That is a different defect with a different fix; this test is about the
-        // label on a failure that took no deadline to happen.
+        // With the client's connection retries as they come. Before the fix, the
+        // client reconnected past its own deadline — 8.2 s for a 3 s query,
+        // measured — and then reported the timeout it had run into.
         //
         // Wall-clock time rather than DNSInfo.Runtime, because a failure reports
-        // its timeout there instead of the time it took. A deadline of its own,
-        // twice the usual: Windows answers a refused loopback connect after about
-        // two seconds of SYN retries, and the margin is for that, not for Hermod.
+        // its timeout there instead of the time it took. The deadline is twice
+        // the usual: Windows answers a refused loopback connect after about two
+        // seconds of SYN retries, and the margin is for that, not for Hermod.
         var deadline = TimeSpan.FromSeconds(6);
 
         await using var client = new DNSHTTPSClient(URL.Parse($"http://127.0.0.1:{ClosedPort()}/dns-query"),
-                                                    QueryTimeout:        deadline,
-                                                    MaxNumberOfRetries:  0);
+                                                    QueryTimeout: deadline);
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var info  = await client.Query(DNSServiceName.Parse("refused.example."), [ DNSResourceRecordTypes.A ], deadline);
@@ -179,6 +175,39 @@ public class DohConnectionTests
             Assert.That(info.Answers,   Is.Empty, "nothing was answered");
             Assert.That(info.IsTimeout, Is.False, "and nothing timed out: the connection was refused");
             Assert.That(clock.Elapsed,  Is.LessThan(deadline), "which was known before the deadline");
+        });
+
+    }
+
+
+    [Test]
+    public async Task A_Doh_Server_Gone_Between_Two_Queries_Is_A_Failure_And_Not_A_Timeout()
+    {
+
+        // The connection the first query used is still open on this side when the
+        // server goes away, so the client has to notice that it is closed before it
+        // can learn that a new one is refused. It used to notice only inside the
+        // HTTP layer, whose retries met the refusal once per attempt and spent the
+        // deadline doing so: 4.2 s for a 3 s query, reported as a timeout.
+        var deadline = TimeSpan.FromSeconds(6);
+
+        var peer = new ScriptedDoHServer(OneAddress);
+
+        await using var client = new DNSHTTPSClient(URL.Parse(peer.Url), QueryTimeout: deadline);
+
+        var first = await client.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], deadline);
+
+        await peer.DisposeAsync();
+
+        var clock  = System.Diagnostics.Stopwatch.StartNew();
+        var second = await client.Query(DNSServiceName.Parse("after.example."), [ DNSResourceRecordTypes.A ], deadline);
+        clock.Stop();
+
+        Assert.Multiple(() => {
+            Assert.That(first. Answers.Count(), Is.EqualTo(1), "the first query was answered");
+            Assert.That(second.Answers,         Is.Empty,      "the second could not be");
+            Assert.That(second.IsTimeout,       Is.False,      "because the server was gone, which is not a timeout");
+            Assert.That(clock.Elapsed,          Is.LessThan(deadline), "and that was known before the deadline");
         });
 
     }
