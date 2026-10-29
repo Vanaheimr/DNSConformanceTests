@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Sockets;
+
 using NUnit.Framework;
 
 using org.GraphDefined.Vanaheimr.Hermod;
@@ -85,18 +88,58 @@ public class EncryptedClientConstructionTests
         // to this machine. Loopback is no exemption: RFC 8484 §5 makes no
         // exception for it, and a local forwarder is still a different process
         // that a caller chose to reach over TLS.
-        await using var peer   = new ScriptedDoHServer(OneAddress);
+        //
+        // Read off the wire rather than asked of a scripted HTTP server, because
+        // that server proved nothing here: with TLS switched off it still saw no
+        // question. This machine is both loopbacks, the constructor dials [::1]
+        // unless told otherwise, and the server listened on 127.0.0.1 alone — and
+        // with the address agreed, HttpListener still turned the clear-text
+        // request away before it became an exchange. So the test asks for bytes
+        // and for the first of them to open a TLS handshake: content type 22
+        // (RFC 8446 §5.1). Clear text would begin with an HTTP method.
+        var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
 
-        await using var client = new DNSHTTPSClient(IPPort.Parse((UInt16) peer.Port),
-                                                    QueryTimeout:    Timeout,
-                                                    ConnectTimeout:  Timeout);
+        try
+        {
 
-        var info = await client.Query(DNSServiceName.Parse("loopback.example."), [ DNSResourceRecordTypes.A ], Timeout);
+            var port      = ((IPEndPoint) listener.LocalEndpoint).Port;
 
-        Assert.Multiple(() => {
-            Assert.That(peer.Exchanges, Is.Empty, "no question in clear text, to this machine either");
-            Assert.That(info.Answers,   Is.Empty);
-        });
+            var firstByte = Task.Run(async () => {
+                using var connection = await listener.AcceptTcpClientAsync();
+                var buffer = new Byte[1];
+                var read   = await connection.GetStream().ReadAtLeastAsync(buffer, 1, throwOnEndOfStream: false);
+                return read == 1 ? (Int32?) buffer[0] : null;
+            });
+
+            await using var client = new DNSHTTPSClient(IPPort.Parse((UInt16) port),
+                                                        PreferIPv4:      IPVersionPreference.PreferIPv4,
+                                                        QueryTimeout:    Timeout,
+                                                        ConnectTimeout:  Timeout);
+
+            var info  = await client.Query(DNSServiceName.Parse("loopback.example."), [ DNSResourceRecordTypes.A ], Timeout);
+
+            // Silence is an outcome too, and a wrong one: it is not clear text,
+            // but it is not the TLS the constructor promises either.
+            Int32? first = null;
+            try
+            {
+                first = await firstByte.WaitAsync(Timeout);
+            }
+            catch (TimeoutException)
+            { }
+
+            Assert.Multiple(() => {
+                Assert.That(first,        Is.Not.Null,     "the client sent something");
+                Assert.That(first,        Is.EqualTo(22),  "and what it sent opened TLS; clear text would begin with an HTTP method");
+                Assert.That(info.Answers, Is.Empty,        "a handshake nobody answers is no answer");
+            });
+
+        }
+        finally
+        {
+            listener.Stop();
+        }
 
     }
 
