@@ -60,6 +60,15 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
     public Int32                    ResponsesWritten => responsesWritten;
     private Int32                   responsesWritten;
 
+    /// <summary>
+    /// Connections the client ended — by closing its side or by resetting it —
+    /// as opposed to the ones this server ended or that are still open. A test
+    /// asking whether a client let go of its connections can count them here
+    /// rather than infer it from a port.
+    /// </summary>
+    public Int32                    ClosedByPeer     => closedByPeer;
+    private Int32                   closedByPeer;
+
 
     /// <param name="Responder">The scripted response logic.</param>
     /// <param name="Options">Framing options.</param>
@@ -123,13 +132,19 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
                 var lengthBytes = new Byte[2];
 
                 if (!await ReadExactly(stream, lengthBytes))
-                    return;                                     // peer closed
+                {
+                    Interlocked.Increment(ref closedByPeer);    // peer closed
+                    return;
+                }
 
                 var length  = (lengthBytes[0] << 8) | lengthBytes[1];
                 var message = new Byte[length];
 
                 if (!await ReadExactly(stream, message))
+                {
+                    Interlocked.Increment(ref closedByPeer);
                     return;
+                }
 
                 Requests.Enqueue(message);
 
@@ -169,6 +184,11 @@ public sealed class ScriptedTcpServer : IAsyncDisposable
 
         }
         catch (OperationCanceledException) { }
+        catch (IOException)                when (!cts.IsCancellationRequested)
+        {
+            // A reset rather than a close, which is still the peer ending it.
+            Interlocked.Increment(ref closedByPeer);
+        }
         catch (IOException)                { }
         catch (ObjectDisposedException)    { }
 
