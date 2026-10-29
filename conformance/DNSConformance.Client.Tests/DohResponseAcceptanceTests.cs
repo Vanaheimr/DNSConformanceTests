@@ -156,18 +156,19 @@ public class DohResponseAcceptanceTests
     #region One type per JSON request
 
     [Test]
-    public async Task Json_Mode_Asks_For_Each_Type_Separately_And_Binary_Mode_Does_Not()
+    public async Task Both_Modes_Ask_For_Each_Type_Separately()
     {
 
-        // Not an RFC rule: the JSON API of Google and Cloudflare is not an IETF
-        // standard, and its shape is the constraint — ?type= takes one value, so
-        // two types need two requests. The wire format has no such limit, because
-        // a question section holds as many questions as it likes.
+        // Two constraints and one outcome. The JSON API of Google and Cloudflare
+        // is not an IETF standard, and its shape is the constraint there — ?type=
+        // takes one value, so two types need two requests. RFC 8484's wire format
+        // carries a DNS message, and RFC 9619 §4 is the constraint there: "A DNS
+        // message with OPCODE = 0 MUST NOT include a QDCOUNT parameter whose value
+        // is greater than 1."
         //
-        // So one guard decides two things, and getting either half wrong is
-        // silent: a JSON client that sends both types in one request loses one of
-        // them, and a wire-format client that fans out sends two messages where
-        // one would do and then has to merge what comes back.
+        // This test said the opposite for the wire format until finding 86 — that
+        // a question section holds as many questions as it likes, so one message
+        // would do. It pinned the defect as the rule.
         await using var jsonPeer = new ScriptedDoHServer(_ => null) {
                                        JSONResponse = """
                                                       {"Status":0,"RA":true,"Answer":[{"name":"probe.example.","type":1,"TTL":60,"data":"192.0.2.13"}]}
@@ -198,8 +199,8 @@ public class DohResponseAcceptanceTests
             Assert.That(jsonPeer.Exchanges, Has.Count.EqualTo(2),
                         "two types, and a query parameter that holds one, make two requests");
 
-            Assert.That(binaryPeer.Exchanges, Has.Count.EqualTo(1),
-                        "and a question section that holds both makes one");
+            Assert.That(binaryPeer.Exchanges, Has.Count.EqualTo(2),
+                        "and so do two types in RFC 8484's format, one question each");
 
         });
 

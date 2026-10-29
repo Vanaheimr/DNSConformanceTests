@@ -18,7 +18,12 @@ public sealed record DoHExchange(
     // so that every reader here stays non-nullable: the twelve places that parse
     // this are all wire-mode exchanges, and a nullable field would cost each of
     // them a suppression to say something none of them has to worry about.
-    Byte[]   DnsMessage
+    Byte[]   DnsMessage,
+
+    // The client's TCP port, which is what tells one connection from the next:
+    // HttpListener has no connection object to compare, and a client that opened
+    // a new connection had to bind a new local port to do it.
+    Int32    ClientPort   = 0
 );
 
 
@@ -75,6 +80,26 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
     /// 200 on offer neither edge can be reached.
     /// </remarks>
     public Int32                         StatusCode             { get; init; } = 200;
+
+    /// <summary>
+    /// Send every answer with the chunked transfer coding instead of a Content-Length.
+    /// </summary>
+    /// <remarks>
+    /// RFC 9112 §7.1: "A recipient MUST be able to parse and decode the chunked
+    /// transfer coding." Nothing in RFC 8484 narrows that for DoH, and a server
+    /// streaming its answer out of a proxy is exactly the one that uses it.
+    /// </remarks>
+    public Boolean                       Chunked                { get; init; }
+
+    /// <summary>
+    /// Answer every request with <c>Connection: close</c> and close the connection after it.
+    /// </summary>
+    /// <remarks>
+    /// RFC 9112 §9.6: "A client that receives a "close" connection option MUST
+    /// cease sending requests on that connection and close the connection after
+    /// reading the response message containing the "close" connection option".
+    /// </remarks>
+    public Boolean                       CloseAfterEachResponse { get; init; }
 
 
     public ScriptedDoHServer(Func<Byte[], Byte[]?> Responder)
@@ -157,17 +182,11 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
                     request.Url?.Query,
                     request.ContentType,
                     request.Headers["Accept"],
-                    []
+                    [],
+                    request.RemoteEndPoint?.Port ?? 0
                 ));
 
-                var json = System.Text.Encoding.UTF8.GetBytes(JSONResponse);
-
-                response.StatusCode       = StatusCode;
-                response.ContentType      = "application/dns-json";
-                response.ContentLength64  = json.Length;
-
-                await response.OutputStream.WriteAsync(json, cts.Token);
-                response.Close();
+                await Send(response, "application/dns-json", System.Text.Encoding.UTF8.GetBytes(JSONResponse));
                 return;
 
             }
@@ -225,7 +244,8 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
                 rawDnsParam,
                 request.ContentType,
                 request.Headers["Accept"],
-                dnsMessage
+                dnsMessage,
+                request.RemoteEndPoint?.Port ?? 0
             ));
 
             if (StrictContentType &&
@@ -246,11 +266,7 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
                 return;
             }
 
-            response.StatusCode       = StatusCode;
-            response.ContentType      = "application/dns-message";
-            response.ContentLength64  = answer.Length;
-            await response.OutputStream.WriteAsync(answer, cts.Token);
-            response.Close();
+            await Send(response, "application/dns-message", answer);
 
         }
         catch
@@ -262,6 +278,41 @@ public sealed class ScriptedDoHServer : IAsyncDisposable
             }
             catch { }
         }
+
+    }
+
+
+    /// <summary>
+    /// The one place an answer leaves, so that the framing a test asked for applies
+    /// to both protocols this server speaks.
+    /// </summary>
+    private async Task Send(HttpListenerResponse  Response,
+                            String                ContentType,
+                            Byte[]                Body)
+    {
+
+        Response.StatusCode   = StatusCode;
+        Response.ContentType  = ContentType;
+        Response.KeepAlive    = !CloseAfterEachResponse;
+
+        // Two writes rather than one when chunked, so that the answer really is
+        // more than one chunk: a single write would put the whole message in one,
+        // and a client that only ever read the first chunk would look correct.
+        if (Chunked)
+        {
+            Response.SendChunked = true;
+            var half = Body.Length / 2;
+            await Response.OutputStream.WriteAsync(Body.AsMemory(0, half),    cts.Token);
+            await Response.OutputStream.FlushAsync(cts.Token);
+            await Response.OutputStream.WriteAsync(Body.AsMemory(half),       cts.Token);
+        }
+        else
+        {
+            Response.ContentLength64 = Body.Length;
+            await Response.OutputStream.WriteAsync(Body, cts.Token);
+        }
+
+        Response.Close();
 
     }
 

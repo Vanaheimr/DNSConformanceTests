@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Eighty-five RFC deviations in the Hermod DNS stack, each
+What this suite caught. Eighty-six RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -101,6 +101,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 83 | Every known answer went into one query, however large | Medium | 6762 §7.2, §17 | ✅ fixed |
 | 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ✅ fixed |
 | 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ✅ fixed |
+| 86 | The transport clients asked for two types in one query of two questions | Medium | 9619 §4 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -4969,6 +4970,57 @@ is kept as the half that shows it. Red at `925c80d5`, passes from `b514b630` on.
 and of several with that priority the one heard last — so a changed port or host
 still takes effect at once. When the record in use expires, the next preferred one
 takes its place. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 86 — The transport clients asked for two types in one query of two questions
+
+*RFC 9619 §4*, which updates RFC 1035: "A DNS message with OPCODE = 0 MUST NOT
+include a QDCOUNT parameter whose value is greater than 1. It follows that the
+Question section of a DNS message with OPCODE = 0 MUST NOT contain more than one
+question." And for the receiving end, in the same section: "A DNS message with
+OPCODE = 0 and QDCOUNT > 1 MUST be treated as an incorrectly formatted message.
+The value of the RCODE parameter in the response message MUST be set to 1
+(FORMERR)."
+
+`IDNSClient.Query` takes a list of types, and the four transport clients — UDP,
+TCP, TLS and DoH in RFC 8484's own format — hand that list to `DNSPacket.Query`,
+which makes one question of each type. Two types are one message with QDCOUNT 2.
+The UDP client retransmits that same message when it is not answered, so an
+unanswered lookup for A and AAAA put two such datagrams on the wire.
+
+`DNSClient` is not affected: it asks one type per query and merges the answers,
+which is what `MultiTypeQueryTests` pins. Neither is the JSON mode of
+`DNSHTTPSClient`, whose API has no way to ask two types at once and which fans out
+for that reason. The four affected clients are public classes of their own,
+implementing the same interface with the same signature.
+
+**What it costs.** A server following RFC 9619 answers FORMERR, so a caller asking
+a transport client directly for two types gets no answer for either. And a server
+that answers anyway cannot answer meaningfully, which is the reason §1 gives for the
+rule: response fields "such as AA and RCODE have no defined meaning when the message
+contains multiple queries as there is no way to signal which question those
+parameters relate to." A name error for one type and an answer for the other have
+one RCODE between them.
+
+**How it was found.** Reading `DNSPacket.Query(..., [.. resourceRecordTypes])` while
+sorting the client block's open mutation rows on 2026-10-29. No mutant pointed at
+it: the multi-type path of the transport clients had no test at all.
+
+**Repro**: `OneQuestionPerQueryTests`, one case per transport, each asking for A
+and AAAA and counting the questions in every message that arrives. Red at
+`b514b630`, passes from `f3c0517c` on.
+
+**The fix**: the four transport clients ask each type with a query of its own, all
+at once, and merge the answers as `DNSClient` does. The merge moved out of
+`DNSClient` into one place both use, and `DNSClient`'s comment, which had cited
+RFC 1035 §4.1.2 as allowing several questions, cites RFC 9619. Three suite tests
+had pinned the old behaviour as the rule. `Json_Mode_Asks_For_Each_Type_Separately_And_Binary_Mode_Does_Not`
+expected RFC 8484's format to ask once, and is now `Both_Modes_Ask_For_Each_Type_Separately`.
+The two `Each_Question_Carries_Its_Name_In_Full` tests, for UDP and for TCP and
+TLS, checked name compression between two questions of one query, a message
+that may no longer be sent; they are withdrawn.
+Merged as [Vanaheimr/Hermod#180](https://github.com/Vanaheimr/Hermod/pull/180).
 
 ---
 
