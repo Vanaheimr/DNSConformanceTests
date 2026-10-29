@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Seventy-seven RFC deviations in the Hermod DNS stack, each
+What this suite caught. Eighty-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
@@ -93,6 +93,14 @@ what is queued, what is out of scope — are not here at all; they live in
 | 75 | A cached NODATA answer came back as whatever the name was cached with last | Medium | 2308 §5 | ✅ fixed |
 | 76 | The root's own wildcard `*.` was not a name Hermod would parse | Low | 4592 §2.1.1, 5155 §7.2.2, §8.4 | ✅ fixed |
 | 77 | The zone signer could not sign a root zone with NSEC3 | Low | 5155 §3, §7.1 | ✅ fixed |
+| 78 | A retransmitted question kept asking for a unicast reply | Low (SHOULD NOT) | 6762 §5.4 | ✅ fixed |
+| 79 | An unanswered query was repeated every half second | Medium | 6762 §5.2 | ✅ fixed |
+| 80 | A browser's first query went out at once | Low (SHOULD) | 6762 §5.2 | ✅ fixed |
+| 81 | A browser asked again what another host had just asked | Low (SHOULD) | 6762 §7.3 | ✅ fixed |
+| 82 | A known answer was listed until its last second | Low (SHOULD NOT) | 6762 §7.1 | ✅ fixed |
+| 83 | Every known answer went into one query, however large | Medium | 6762 §7.2, §17 | ✅ fixed |
+| 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ✅ fixed |
+| 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -4730,6 +4738,240 @@ Apex` everywhere else. Merged with finding 76 as
 
 ---
 
+## Findings 78 to 85: the querier side of Multicast DNS
+
+Eight findings from one afternoon, and one reason for all of them. Until
+2026-10-29 every test in the Multicast project was about the responder: none of
+the thirty-one built a `MulticastDNSClient` or a `MulticastDNSBrowser`, and the
+first mutation sweep of the block, measured that day, killed none of the client's
+107 mutants and none of the browser's 85. The tests written in answer,
+`MulticastQuerierConformanceTests` and `MulticastBrowserConformanceTests`, put the
+suite on the link as the other host: it builds every answer the client hears with
+`RawDnsWriter` and reads every query it sends with `RawDnsReader`. Fifty-seven of
+their sixty-six cases passed at once. The other nine are these eight findings.
+
+---
+
+## 78 — A retransmitted question kept asking for a unicast reply
+
+*RFC 6762 §5.4:* "When a question is retransmitted (as described in Section 5.2),
+the unicast-response bit SHOULD NOT be set in subsequent retransmissions of that
+question. Subsequent retransmissions SHOULD be usual "QM" questions."
+
+`MulticastDNSClient.Query` builds its questions once, with the unicast-response
+bit taken from the `RequestUnicastResponses` option, and sends that same array
+every time it retransmits. A lookup left unanswered for three and a half seconds
+went out eight times, every time as a QU question.
+
+**What it costs.** The point of reverting to QM is that the answer is multicast and
+every cache on the link sees it (§5.4, Appendix D). Every retransmission asks
+again for an answer only this host will see.
+
+**Repro**: `MulticastQuerierConformanceTests.Only_The_First_Transmission_Of_A_Question_Asks_For_A_Unicast_Reply`.
+Red at `925c80d5`, passes from `b514b630` on.
+
+**The fix**: the retransmissions are built from the same types without the bit.
+Setting it on the *first* question is not part of this finding — see
+[Interpretations](#interpretations). Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 79 — An unanswered query was repeated every half second
+
+*RFC 6762 §5.2:* "when retransmitting Multicast DNS queries to implement this kind
+of continuous monitoring, the interval between the first two queries MUST be at
+least one second, the intervals between successive queries MUST increase by at
+least a factor of two".
+
+`MulticastDNSClientOptions.RetransmissionInterval` defaults to 500 ms, and the
+query loop waits that long between every two transmissions. The tracker saw eight
+queries in three and a half seconds, 500 ms apart each time; the RFC allows three.
+
+**Whether §5.2 applies.** The sentence stands in the section on continuous
+querying, and a lookup that ends with its first answer is not obviously that. It is
+nonetheless the only place the RFC says how to retransmit, and §5.4 refers back to
+it for exactly that — "When a question is retransmitted (as described in Section
+5.2)". §5.2 names "looking up the IPv4 and IPv6 addresses of another host" as one
+of its operations. And the one-shot querier of §5.1, which it does not govern, is
+the simple resolver whose queries "MUST NOT be sent using UDP source port 5353" —
+Hermod's client sends from 5353 and is therefore the other kind.
+
+**What it costs.** Eight queries where three would do, for every name nobody
+answers, on a link where every host hears every one of them.
+
+**Repro**: `MulticastQuerierConformanceTests.Retransmissions_Start_A_Second_Apart_And_At_Least_Double`.
+Red at `925c80d5`, passes from `b514b630` on.
+
+**The fix**: `RetransmissionInterval` defaults to 1 s and names the first
+interval; it doubles after every retransmission. A wait the deadline cuts short
+now ends the query rather than sending one more packet at the deadline — with the
+doubling in place, that packet would have come sooner than §5.2 allows. Merged as
+[Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 80 — A browser's first query went out at once
+
+*RFC 6762 §5.2:* "a Multicast DNS querier SHOULD also delay the first query of the
+series by a randomly chosen amount in the range 20-120 ms."
+
+`MulticastDNSBrowser`'s query loop sends before it first waits. The tracker
+measured the first query 0.1 ms after `BrowseAsync` was called.
+
+**What it costs.** The RFC gives the reason itself: "To avoid accidental
+synchronization when, for some reason, multiple clients begin querying at exactly
+the same moment" — a link coming up, a shared trigger. Without it they all ask at once, and keep doing so in
+step, since the intervals that follow are the same for everyone.
+
+**Repro**: `MulticastBrowserConformanceTests.The_First_Browse_Query_Waits_Twenty_To_A_Hundred_And_Twenty_Milliseconds`.
+Red at `925c80d5`, passes from `b514b630` on.
+
+**The fix**: the query loop waits a random 20-120 ms before its first query
+(`MinInitialBrowseDelay`, `MaxInitialBrowseDelay`). Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 81 — A browser asked again what another host had just asked
+
+*RFC 6762 §7.3:* "If a host is planning to transmit (or retransmit) a query, and it
+sees another host on the network send a query containing the same "QM" question,
+and the Known-Answer Section of that query does not contain any records that this
+host would not also put in its own Known-Answer Section, then this host SHOULD
+treat its own query as having been sent."
+
+The client cannot do this: `OnDatagramReceivedAsync` drops every message that is
+not a response before looking at it, so another host's query never reaches the
+client or its browsers. The tracker lets the other host ask the browser's own
+question, with the same empty known-answer list, half a second before the browser's
+second query is due; the browser sends it anyway.
+
+**What it costs.** One query per querier instead of one per link, for every
+question several hosts are watching — which on a link of browsing laptops is most
+of them.
+
+**Repro**: `MulticastBrowserConformanceTests.A_Question_Another_Host_Just_Asked_Is_Not_Asked_Again`.
+Red at `925c80d5`, passes from `b514b630` on.
+
+**The fix**: multicast queries from other hosts on the link now reach the
+browsers instead of being dropped, and a browser that sees its own QM question asked
+with no known answer it would not list itself treats its next query as sent. A
+truncated query does not count: the rest of its known answers is still on the way.
+Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 82 — A known answer was listed until its last second
+
+*RFC 6762 §7.1:* "a Multicast DNS querier SHOULD NOT include records in the
+Known-Answer list whose remaining TTL is less than half of their original TTL.
+Doing so would simply consume space in the message without achieving the goal of
+suppressing responses and would, therefore, be a pointless waste of network
+capacity."
+
+`MulticastDNSBrowser.QueryNowAsync` lists every cached pointer with more than one
+second to live, and `MulticastDNSClient.KnownAnswers` does the same. A responder
+answers anyway when the listed TTL is below half the true one (§7.1 makes that a
+MUST), so the record costs room in the query and suppresses nothing.
+
+**Repro**: `MulticastBrowserConformanceTests.A_Pointer_Below_Half_Its_Ttl_Is_No_Known_Answer`,
+with sixty of a hundred seconds left (listed, as it should be) and then forty.
+Red at `925c80d5`, passes from `b514b630` on.
+
+**The fix**: `MulticastDNSCacheEntry.IsKnownAnswerAt` is the half-TTL rule, the
+original TTL being the time from reception to expiry, and both the client and the
+browser list known answers through it. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 83 — Every known answer went into one query, however large
+
+*RFC 6762 §7.2:* a querier with too many known answers for one packet "should issue
+a Multicast DNS query containing a question and as many Known-Answer records as
+will fit. It MUST then set the TC (Truncated) bit in the header before sending the
+query. It MUST immediately follow the packet with another query packet containing
+no questions and as many more Known-Answer records as will fit." *§17:* a packet
+larger than the interface MTU "MUST NOT contain more than one resource record", and
+"Even when fragmentation is used, a Multicast DNS packet, including IP and UDP
+headers, MUST NOT exceed 9000 bytes."
+
+`MulticastDNSClient.SendQueryAsync` serializes all questions and all known answers
+into a single message and never sets TC; nothing in the client or the browser
+splits a query. A browser that knew 250 instances sent one query of 23,785 bytes.
+
+**What it costs.** More than the waste. A datagram that size is fragmented on any
+real link, and a receiver that reads into 9000 bytes never sees it whole —
+Hermod's own `UDPMulticastDNSTransport` drops it with `SocketError.MessageSize`.
+The query is then answered by nobody: the browser that knows the most services is
+the one that stops hearing about new ones. Hermod's responder knows what a TC
+query is — its 400-500 ms deferral is configured and tested — but its client never
+sends one.
+
+**Repro**: `MulticastBrowserConformanceTests.Known_Answers_That_Do_Not_Fit_One_Packet_Continue_In_Truncated_Packets`,
+which measures "will fit" against an Ethernet MTU less the IPv4 and UDP headers,
+1472 bytes — the size Hermod's responder already keeps its answers to. Red at
+`925c80d5`, passes from `b514b630` on.
+
+**The fix**: `SendQueryAsync` packs the questions and as many known answers as fit
+into `MaxQuerySize` (1472 bytes by default) and continues in packets without
+questions, every one but the last with the TC bit set. A known answer too large for
+a packet goes alone, as §17 allows. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 84 — An empty TXT record was reported as a change to an instance that had none
+
+*RFC 6763 §6.1:* "DNS-SD clients MUST treat the following as equivalent": a TXT
+record containing a single zero byte, an empty (zero-length) TXT record, and "No
+TXT record."
+
+A browser reports an instance as soon as host and port are known, without a TXT
+record, which is right. When the TXT record then turns out to be the empty string,
+`MulticastDNSBrowser.Apply` compares it with nothing, finds a difference, and
+raises `OnInstanceUpdated` — for a change between two states the client is required
+to treat as one. Both the single empty string and the zero-length record do it.
+
+**What it costs.** A spurious update, and an instance whose `TXT` property is
+`null` in one moment and an empty record the next. An application that told the
+two apart would be doing what §6.1 forbids, and this is what invites it.
+
+**Repro**: `MulticastBrowserConformanceTests.An_Empty_Txt_Record_Is_No_Change_To_An_Instance_That_Had_None`,
+both cases. Red at `925c80d5`, pass from `b514b630` on. A zero-length TXT
+record does not cost the instance anything else (`A_Zero_Length_Txt_Record_Does_Not_Cost_Its_Instance`
+passes).
+
+**The fix**: a TXT record holding nothing or a single empty string counts as the
+same as none. One that arrives for an instance without a TXT record is kept, and
+raises no event. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
+## 85 — An instance with two SRV records was described by the last one heard
+
+*RFC 6763 §5:* "In the event that more than one SRV is returned, clients MUST
+correctly interpret the priority and weight fields -- i.e., lower-numbered priority
+servers should be used in preference to higher-numbered priority servers".
+
+`MulticastDNSServiceInstance` has one host, one port, one priority and one weight,
+and `MulticastDNSBrowser.Apply` overwrites them with every SRV record that arrives.
+Two SRV records in one response leave the instance describing whichever came
+second. With the preferred record first, the browser reports the fallback.
+
+**What it costs.** An application connects where the service asked not to be
+reached first. RFC 6763 calls a second SRV record unusual, and it is — but the
+priority field exists for that case, and in that case the browser reads it
+backwards half the time.
+
+**Repro**: `MulticastBrowserConformanceTests.The_Preferred_Srv_Record_Describes_The_Instance`,
+in both orders; the "preferred record last" case passes by the luck of the order and
+is kept as the half that shows it. Red at `925c80d5`, passes from `b514b630` on.
+
+**The fix**: the instance takes the cached SRV record with the lowest priority,
+and of several with that priority the one heard last — so a changed port or host
+still takes effect at once. When the record in use expires, the next preferred one
+takes its place. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
@@ -4841,6 +5083,17 @@ rather than an unauthenticated one; NOTAUTH would be defensible too. What is
 *not* defensible is serving it, which is why this is asserted at all: a server
 that checks only the outermost record lets a sender attach a valid signature of
 the kind that is checked and a decorative one of the kind that is not.
+
+**The first question of a lookup asks for a unicast reply.** RFC 6762 §5.4 wants
+the unicast-response bit on the questions a host sends "immediately on wake from
+sleep or interface activation", and says questions created afterwards "SHOULD NOT
+have the unicast-response bit set on the first question of the series". Hermod's
+client sets it on every lookup's first question by default (`RequestUnicastResponses`),
+so that an answer a responder multicast less than a second ago — and may not
+multicast again yet (§6) — still reaches it at once. That is a reason, and a SHOULD
+NOT is precisely the requirement that admits one, so the suite asserts only that
+the first question carries the bit and records the choice here. Repeating the bit
+on retransmissions has no such reason and is finding 78.
 
 ## Where the coverage ends
 
