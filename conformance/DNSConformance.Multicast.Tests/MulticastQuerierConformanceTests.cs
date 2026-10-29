@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -347,7 +346,6 @@ public sealed class MulticastQuerierConformanceTests
     /// </remarks>
     [Test]
     [Property("RFC", "6762 §5.4")]
-    [Category(TestCategories.KnownIssue)]
     public async Task Only_The_First_Transmission_Of_A_Question_Asks_For_A_Unicast_Reply()
     {
 
@@ -390,7 +388,6 @@ public sealed class MulticastQuerierConformanceTests
     /// </remarks>
     [Test]
     [Property("RFC", "6762 §5.2")]
-    [Category(TestCategories.KnownIssue)]
     public async Task Retransmissions_Start_A_Second_Apart_And_At_Least_Double()
     {
 

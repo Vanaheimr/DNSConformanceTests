@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -351,7 +350,6 @@ public sealed class MulticastBrowserConformanceTests
     /// </summary>
     [Test]
     [Property("RFC", "6762 §5.2")]
-    [Category(TestCategories.KnownIssue)]
     public async Task The_First_Browse_Query_Waits_Twenty_To_A_Hundred_And_Twenty_Milliseconds()
     {
 
@@ -381,7 +379,6 @@ public sealed class MulticastBrowserConformanceTests
     /// </summary>
     [Test]
     [Property("RFC", "6762 §7.3")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Question_Another_Host_Just_Asked_Is_Not_Asked_Again()
     {
 
@@ -455,7 +452,6 @@ public sealed class MulticastBrowserConformanceTests
     /// </summary>
     [Test]
     [Property("RFC", "6762 §7.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Pointer_Below_Half_Its_Ttl_Is_No_Known_Answer()
     {
 
@@ -502,7 +498,6 @@ public sealed class MulticastBrowserConformanceTests
     /// </remarks>
     [Test]
     [Property("RFC", "6762 §7.2, §17")]
-    [Category(TestCategories.KnownIssue)]
     public async Task Known_Answers_That_Do_Not_Fit_One_Packet_Continue_In_Truncated_Packets()
     {
 
@@ -620,7 +615,6 @@ public sealed class MulticastBrowserConformanceTests
     [TestCase(new Byte[] { 0 }, TestName = "A single empty string")]
     [TestCase(new Byte[0],      TestName = "A zero-length TXT record")]
     [Property("RFC", "6763 §6.1")]
-    [Category(TestCategories.KnownIssue)]
     public async Task An_Empty_Txt_Record_Is_No_Change_To_An_Instance_That_Had_None(Byte[] Rdata)
     {
 
@@ -671,7 +665,6 @@ public sealed class MulticastBrowserConformanceTests
     [TestCase(true,  TestName = "Preferred record first")]
     [TestCase(false, TestName = "Preferred record last")]
     [Property("RFC", "6763 §5")]
-    [Category(TestCategories.KnownIssue)]
     public async Task The_Preferred_Srv_Record_Describes_The_Instance(Boolean PreferredFirst)
     {
 

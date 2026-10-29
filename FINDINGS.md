@@ -3,9 +3,8 @@
 What this suite caught. Eighty-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last eight is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Findings 78 to 85, the querier side of
-Multicast DNS, are open, and their trackers are red on purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -94,14 +93,14 @@ what is queued, what is out of scope — are not here at all; they live in
 | 75 | A cached NODATA answer came back as whatever the name was cached with last | Medium | 2308 §5 | ✅ fixed |
 | 76 | The root's own wildcard `*.` was not a name Hermod would parse | Low | 4592 §2.1.1, 5155 §7.2.2, §8.4 | ✅ fixed |
 | 77 | The zone signer could not sign a root zone with NSEC3 | Low | 5155 §3, §7.1 | ✅ fixed |
-| 78 | A retransmitted question kept asking for a unicast reply | Low (SHOULD NOT) | 6762 §5.4 | ⏳ **open** |
-| 79 | An unanswered query was repeated every half second | Medium | 6762 §5.2 | ⏳ **open** |
-| 80 | A browser's first query went out at once | Low (SHOULD) | 6762 §5.2 | ⏳ **open** |
-| 81 | A browser asked again what another host had just asked | Low (SHOULD) | 6762 §7.3 | ⏳ **open** |
-| 82 | A known answer was listed until its last second | Low (SHOULD NOT) | 6762 §7.1 | ⏳ **open** |
-| 83 | Every known answer went into one query, however large | Medium | 6762 §7.2, §17 | ⏳ **open** |
-| 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ⏳ **open** |
-| 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ⏳ **open** |
+| 78 | A retransmitted question kept asking for a unicast reply | Low (SHOULD NOT) | 6762 §5.4 | ✅ fixed |
+| 79 | An unanswered query was repeated every half second | Medium | 6762 §5.2 | ✅ fixed |
+| 80 | A browser's first query went out at once | Low (SHOULD) | 6762 §5.2 | ✅ fixed |
+| 81 | A browser asked again what another host had just asked | Low (SHOULD) | 6762 §7.3 | ✅ fixed |
+| 82 | A known answer was listed until its last second | Low (SHOULD NOT) | 6762 §7.1 | ✅ fixed |
+| 83 | Every known answer went into one query, however large | Medium | 6762 §7.2, §17 | ✅ fixed |
+| 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ✅ fixed |
+| 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -4769,10 +4768,11 @@ every cache on the link sees it (§5.4, Appendix D). Every retransmission asks
 again for an answer only this host will see.
 
 **Repro**: `MulticastQuerierConformanceTests.Only_The_First_Transmission_Of_A_Question_Asks_For_A_Unicast_Reply`.
-Red at the pinned `925c80d5`, carries `KnownIssue`.
+Red at `925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open. Setting the bit on the *first* question is not part of this
-finding — see [Interpretations](#interpretations).
+**The fix**: the retransmissions are built from the same types without the bit.
+Setting it on the *first* question is not part of this finding — see
+[Interpretations](#interpretations). Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4800,9 +4800,13 @@ Hermod's client sends from 5353 and is therefore the other kind.
 answers, on a link where every host hears every one of them.
 
 **Repro**: `MulticastQuerierConformanceTests.Retransmissions_Start_A_Second_Apart_And_At_Least_Double`.
-Red at the pinned `925c80d5`, carries `KnownIssue`.
+Red at `925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open.
+**The fix**: `RetransmissionInterval` defaults to 1 s and names the first
+interval; it doubles after every retransmission. A wait the deadline cuts short
+now ends the query rather than sending one more packet at the deadline — with the
+doubling in place, that packet would have come sooner than §5.2 allows. Merged as
+[Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4820,9 +4824,10 @@ the same moment" — a link coming up, a shared trigger. Without it they all ask
 step, since the intervals that follow are the same for everyone.
 
 **Repro**: `MulticastBrowserConformanceTests.The_First_Browse_Query_Waits_Twenty_To_A_Hundred_And_Twenty_Milliseconds`.
-Red at the pinned `925c80d5`, carries `KnownIssue`.
+Red at `925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open.
+**The fix**: the query loop waits a random 20-120 ms before its first query
+(`MinInitialBrowseDelay`, `MaxInitialBrowseDelay`). Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4845,9 +4850,13 @@ question several hosts are watching — which on a link of browsing laptops is m
 of them.
 
 **Repro**: `MulticastBrowserConformanceTests.A_Question_Another_Host_Just_Asked_Is_Not_Asked_Again`.
-Red at the pinned `925c80d5`, carries `KnownIssue`.
+Red at `925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open.
+**The fix**: multicast queries from other hosts on the link now reach the
+browsers instead of being dropped, and a browser that sees its own QM question asked
+with no known answer it would not list itself treats its next query as sent. A
+truncated query does not count: the rest of its known answers is still on the way.
+Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4866,9 +4875,11 @@ MUST), so the record costs room in the query and suppresses nothing.
 
 **Repro**: `MulticastBrowserConformanceTests.A_Pointer_Below_Half_Its_Ttl_Is_No_Known_Answer`,
 with sixty of a hundred seconds left (listed, as it should be) and then forty.
-Red at the pinned `925c80d5`, carries `KnownIssue`.
+Red at `925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open.
+**The fix**: `MulticastDNSCacheEntry.IsKnownAnswerAt` is the half-TTL rule, the
+original TTL being the time from reception to expiry, and both the client and the
+browser list known answers through it. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4897,10 +4908,13 @@ sends one.
 
 **Repro**: `MulticastBrowserConformanceTests.Known_Answers_That_Do_Not_Fit_One_Packet_Continue_In_Truncated_Packets`,
 which measures "will fit" against an Ethernet MTU less the IPv4 and UDP headers,
-1472 bytes — the size Hermod's responder already keeps its answers to. Red at the
-pinned `925c80d5`, carries `KnownIssue`.
+1472 bytes — the size Hermod's responder already keeps its answers to. Red at
+`925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open.
+**The fix**: `SendQueryAsync` packs the questions and as many known answers as fit
+into `MaxQuerySize` (1472 bytes by default) and continues in packets without
+questions, every one but the last with the TC bit set. A known answer too large for
+a packet goes alone, as §17 allows. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4921,11 +4935,13 @@ to treat as one. Both the single empty string and the zero-length record do it.
 two apart would be doing what §6.1 forbids, and this is what invites it.
 
 **Repro**: `MulticastBrowserConformanceTests.An_Empty_Txt_Record_Is_No_Change_To_An_Instance_That_Had_None`,
-both cases. Red at the pinned `925c80d5`, carry `KnownIssue`. A zero-length TXT
+both cases. Red at `925c80d5`, pass from `b514b630` on. A zero-length TXT
 record does not cost the instance anything else (`A_Zero_Length_Txt_Record_Does_Not_Cost_Its_Instance`
 passes).
 
-**The fix**: ⏳ open.
+**The fix**: a TXT record holding nothing or a single empty string counts as the
+same as none. One that arrives for an instance without a TXT record is kept, and
+raises no event. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
@@ -4947,9 +4963,12 @@ backwards half the time.
 
 **Repro**: `MulticastBrowserConformanceTests.The_Preferred_Srv_Record_Describes_The_Instance`,
 in both orders; the "preferred record last" case passes by the luck of the order and
-is kept as the half that shows it. Red at the pinned `925c80d5`, carries `KnownIssue`.
+is kept as the half that shows it. Red at `925c80d5`, passes from `b514b630` on.
 
-**The fix**: ⏳ open.
+**The fix**: the instance takes the cached SRV record with the lowest priority,
+and of several with that priority the one heard last — so a changed port or host
+still takes effect at once. When the record in use expires, the next preferred one
+takes its place. Merged as [Vanaheimr/Hermod#169](https://github.com/Vanaheimr/Hermod/pull/169).
 
 ---
 
