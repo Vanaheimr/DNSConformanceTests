@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -190,6 +191,51 @@ public class ClientLifecycleTests
             Assert.That(info.Answers.Count(), Is.EqualTo(1),  "the query was answered");
             Assert.That(before,               Is.False,       "not connected before it");
             Assert.That(client.IsConnected,   Is.False,       "and not connected after it either");
+        });
+
+    }
+
+    #endregion
+
+
+    #region A query whose client goes away
+
+    [TestCaseSource(typeof(TransportPeers), nameof(TransportPeers.Transports))]
+    [Category(TestCategories.KnownIssue)]
+    public async Task A_Query_Whose_Client_Is_Disposed_Ends_As_A_Failure(String Transport)
+    {
+
+        // Disposing a client is how a caller says it wants no more answers from
+        // it, and a query still in flight is owed one about that: it failed, and
+        // it did not run out of time. The stream clients threw
+        // ObjectDisposedException out of the query instead - DisposeAsync
+        // disposed the lock the query held, and releasing it on the way out threw
+        // - and UDP, whose query has a socket of its own, carried on to the end of
+        // its deadline and called that a timeout.
+        var deadline = TimeSpan.FromSeconds(6);
+
+        await using var peer = TransportPeers.Silent(Transport, deadline);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var query = peer.Client.Query(DNSServiceName.Parse("abandoned.example."), [ DNSResourceRecordTypes.A ], deadline);
+
+        // Disposed before the server has the question, this would be a test of a
+        // query that never left.
+        Assert.That(await peer.SawAQueryWithin(TimeSpan.FromSeconds(3)), Is.True, "the query reached the server");
+
+        await peer.Client.DisposeAsync();
+
+        DNSInfo? info = null;
+
+        Assert.That(async () => info = await query, Throws.Nothing, "the query comes back rather than throwing");
+
+        clock.Stop();
+
+        Assert.Multiple(() => {
+            Assert.That(info!.IsValid,  Is.False,                    "without an answer");
+            Assert.That(info.IsTimeout, Is.False,                    "and not as a timeout: the client went away, the deadline did not pass");
+            Assert.That(clock.Elapsed,  Is.LessThan(deadline / 2),   "and at once rather than at the deadline");
+            Assert.That(info.Runtime,   Is.LessThan(deadline / 2),   "which is what its runtime says, too");
         });
 
     }
