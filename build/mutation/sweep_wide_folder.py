@@ -15,6 +15,16 @@ Three outcomes:
   KILLED-ELSEWHERE     another project caught it — the first pass was too narrow
   SURVIVED-EVERYWHERE  no test in any of these projects notices the change
   BUILD-FAILED         not a viable mutant (pass 1 should have filtered these)
+
+A replay is the same loop with the block's own judge as the whole bench, for when
+that judge's tests changed after pass 1. It plants every survivor at the revision
+pass 1 measured, so it runs in a checkout of the new tests pinned to that
+revision, with every tracker that revision fails marked KnownIssue:
+
+    python build/mutation/sweep_wide_folder.py multicast --replay
+
+  KILLED-ON-REPLAY     the new tests catch what the old ones did not
+  SURVIVED-ON-REPLAY   still nothing in the judge notices
 """
 
 import io
@@ -74,13 +84,18 @@ def build(proj):
     return run(["dotnet", "build", proj, "-v", "q", "--nologo"])
 
 
-def build_all():
+def build_all(bench):
     """One build for the whole bench rather than seven.
 
     A mutant that survives everywhere pays for every project in the bench, and
     seven `dotnet build` invocations cost fourteen seconds more than one over
     the solution — measured, not assumed. Over a few hundred survivors that is
-    an hour of the run spent starting the same tool again."""
+    an hour of the run spent starting the same tool again.
+
+    A replay's bench is one project, and the solution would build the other
+    eleven for nothing."""
+    if len(bench) == 1:
+        return run(["dotnet", "build", project(bench[0])] + BUILD_FLAGS)
     return run(["dotnet", "build", os.path.join(ROOT, "DNSConformanceTests.slnx")]
                + BUILD_FLAGS)
 
@@ -108,16 +123,25 @@ def run_tests(proj, timeout=1800):
 
 def main():
 
-    if len(sys.argv) < 2 or sys.argv[1] not in BLOCKS:
-        sys.exit("usage: sweep_wide_folder.py <%s> [limit]" % "|".join(sorted(BLOCKS)))
+    args    = [a for a in sys.argv[1:] if a != "--replay"]
+    replay  = len(args) < len(sys.argv) - 1
 
-    name    = sys.argv[1]
-    limit   = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+    if not args or args[0] not in BLOCKS:
+        sys.exit("usage: sweep_wide_folder.py <%s> [limit] [--replay]" % "|".join(sorted(BLOCKS)))
+
+    name    = args[0]
+    limit   = int(args[1]) if len(args) > 1 else 0
     block   = BLOCKS[name]
-    bench   = [b for b in BENCH if b != block["judge"]]
+
+    # A replay asks the block's own judge again and nothing else: what the rest
+    # of the bench says about these mutants is pass 2's answer, and it stays true.
+    bench   = [block["judge"]] if replay else [b for b in BENCH if b != block["judge"]]
+
+    killed, survived = (("KILLED-ON-REPLAY", "SURVIVED-ON-REPLAY") if replay else
+                        ("KILLED-ELSEWHERE", "SURVIVED-EVERYWHERE"))
 
     pass1   = os.path.join(HERE, "results", "%s-pass1.tsv" % name)
-    results = os.path.join(HERE, "results", "%s-pass2.tsv" % name)
+    results = os.path.join(HERE, "results", "%s-%s.tsv" % (name, "replay" if replay else "pass2"))
 
     if not os.path.exists(pass1):
         sys.exit("no first pass to read: " + pass1)
@@ -172,7 +196,7 @@ def main():
 
     # A green baseline on every bench project, and the test count each one has,
     # so a mutant that changes the count is visible rather than averaged away.
-    if build_all().returncode != 0:
+    if build_all(bench).returncode != 0:
         sys.exit("baseline build of the solution failed")
 
     expected = {}
@@ -259,13 +283,13 @@ def main():
                 record(rel, line_no, op, "SETUP-ERROR", "marker not on disk")
                 continue
 
-            verdict, detail = "SURVIVED-EVERYWHERE", ""
+            verdict, detail = survived, ""
 
             # Break on the first kill: one project noticing is the whole answer,
             # and the remaining builds would cost a minute each to confirm it.
             before = {b: os.path.getmtime(assembly(b)) for b in bench}
 
-            built = build_all()
+            built = build_all(bench)
 
             if built.returncode != 0:
 
@@ -304,12 +328,12 @@ def main():
 
                 failed, total = counted
                 if failed > 0:
-                    verdict = "KILLED-ELSEWHERE"
+                    verdict = killed
                     detail  = "%s: %d of %d failed" % (b, failed, total)
                     break
 
                 if total != expected[b]:
-                    verdict = "KILLED-ELSEWHERE"
+                    verdict = killed
                     detail  = "%s: the test count moved from %d to %d" % (b, expected[b], total)
                     break
 

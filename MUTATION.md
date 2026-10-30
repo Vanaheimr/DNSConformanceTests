@@ -20,7 +20,7 @@ round; naming it twice only guarantees one of the two goes stale.
 
 ---
 
-## Seven blocks, five measured
+## Seven blocks, six measured
 
 The DNS code lives in seven folders and the sweep started with one of them. That
 was not a judgement about the others — it was where the work began, and saying so
@@ -34,17 +34,19 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 598 | not measured |
+| `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
 a warning here: its judge had **four tests** for 598 mutable places, so whatever
 that block reported would have been a statement about the tests rather than about
-mDNS. It now has **thirty-one**, written against RFC 6762 and 6763 before the
-block was ever swept, which is the order that makes a measurement worth taking —
-first the tests a reading of the RFC asks for, then the sweep to say what they
-still do not reach. The warning stands for any block measured the other way
-round.
+mDNS. By the time it was swept it had **thirty-one**, written against RFC 6762
+and 6763 first, which is the order that makes a measurement worth taking — first
+the tests a reading of the RFC asks for, then the sweep to say what they still do
+not reach. The sweep then said something the warning had not foreseen: all
+thirty-one were about the responder, and not one of the querier's 192 mutants
+died. See *The result: multicast*. The warning stands for any block measured the
+other way round, and for any half of a block nobody wrote tests for.
 
 **Three of those counts used to be wrong, and how they were wrong is worth
 keeping.** The table said 70 for `tsig`, 202 for `dnssec` and 551 for `multicast`;
@@ -57,7 +59,9 @@ mutants against a row promising 70.
 
 The `dnssec` row says 323 now for a different reason, and a good one: the
 validator was rewritten, and the block was measured a second time, against
-`bbbf88b6`. 227 is still right for `53f20591`.
+`bbbf88b6`. 227 is still right for `53f20591`. The `multicast` row says 592 for
+the same kind of reason: 598 was right for `53f20591`, and three of the folder's
+files changed before the sweep measured `925c80d5`.
 
 The four rows that were right — `records`, `core`, `client`, `server` — are right to
 the mutant. `core` counts 479 today rather than the 478 it was measured at, which
@@ -72,7 +76,7 @@ comparison. The measured figure stays, because it is what was measured.
 
 ---
 
-## The hundred and seventeen that no test host can see
+## The hundred and ninety-nine that no test host can see
 
 `await x.ConfigureAwait(false)` says: do not resume on the caller's
 synchronization context. Read as `true` it says the opposite, and the two
@@ -81,7 +85,7 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. A hundred and seventeen of these sit across the measured
+same as equivalent**. A hundred and ninety-nine of these sit across the measured
 blocks, and not one of them is work waiting to be done: no test written for a DNS
 conformance suite will ever close one.
 
@@ -89,7 +93,10 @@ The count was thirty-nine when the class was named. The `client` block added
 sixty-eight in one sweep, which is the shape of the thing: the transports are
 where a DNS library awaits most, so they are where the rule it never states
 matters most. The second `dnssec` sweep added ten more, net, in the code the
-validator's rewrite brought.
+validator's rewrite brought. And `multicast` added eighty-two, the most of any
+block — thirty-seven in the responder alone, which awaits every probe, every
+announcement and every send, and the rest in the client, the browser, the two
+transports and the hybrid client.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -104,6 +111,7 @@ neither.
 | `tsig` | 41 | **1** | — |
 | `server` | 86 | **34** | 29 |
 | `client` | 245 | **86** | 68 |
+| `multicast` | 293 | **219** | 82 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -230,6 +238,184 @@ literal and refuses to run on a repeated key. Self-tested by planting one:
 the same key appears twice in a ledger table, so Python kept only the last of them:
   line 142: 'DNS/DNSZoneFile.cs'
 ```
+
+
+## The result: multicast
+
+Measured against Hermod **`925c80d5`**, `libs/Hermod/Hermod/DNS/Multicast/**`,
+in a worktree of its own. Pass 1 was judged by Multicast and pass 2 by the
+remaining seven projects. Because the judge's tests changed between the two, a
+replay judged the survivors by Multicast once more.
+
+| | |
+|---|---:|
+| mutants | 592 |
+| not viable (would not compile) | 107 |
+| killed by Multicast, pass 1 | 98 |
+| killed by another project | 0 |
+| survived everywhere | 387 |
+| real gaps | **293** |
+| killed by the querier tests, on replay | 71 |
+| equivalent | 1 |
+| the line is gone | 2 |
+| open | **219** |
+
+The 387 are 293 real gaps, 82 host-only and 12 that are not code. 99 of the 107
+that do not compile are `greater-to-ge` on a generic argument list, the class the
+client block named.
+
+### Thirty-one tests, and every one of them about the responder
+
+Pass 1 killed 98, and all of them in code the responder runs through: the
+responder itself, the message, the record extensions, the type bitmap, the
+helpers and the in-memory link. `MulticastDNSClient.cs` has 107 mutants and
+`MulticastDNSBrowser.cs` 85, and pass 1 killed **none of the 192**. Not one of
+the thirty-one tests built a client or a browser.
+
+Pass 2 did not help. The other seven projects killed none of the 387. As with
+DNSSEC, the folder has one judge, and nothing else to ask.
+
+So the querier tests were written while the sweep was still running: 66 cases,
+with the suite as the other host on the link. Every answer the client hears is
+built with `RawDnsWriter`, and every query it sends is read back with
+`RawDnsReader`. They found eight deviations, findings 78 to 85, all fixed since.
+
+### A replay, because the judge changed
+
+A verdict belongs to the tests that gave it, and the querier tests are newer
+than pass 1. To ask what they catch of what pass 1 left, the survivors have to be
+planted again under them at the revision pass 1 measured. That is
+`sweep_wide_folder.py multicast --replay`. Its bench is the block's own judge and
+nothing else, in a checkout of the tracker commit pinned to `925c80d5`. The
+trackers of findings 78 to 85 fail there by design, and the replay leaves them
+out as KnownIssue. That gives 87 tests and 387 survivors, and the replay reported
+72 kills.
+
+**One of the 72 was not a kill.** `UDPMulticastDNSTransport.cs:566` is a branch
+in the enumeration of network interfaces, and the replay reported it as "1 of 87
+failed". No conformance test constructs that transport. The replay ran
+alongside pass 2, which kept the machine busy for twelve hours, and it recorded
+how many tests failed but not which.
+
+So every kill was planted a third time, on a quiet machine, after five clean
+baselines, with the failing tests named. 71 of them fail again, and the names
+fit the lines: the NSEC bitmap kills fail the NSEC tests, and the browser's SRV
+comparison fails `A_Changed_Port_Is_Reported_As_An_Update`. 70 fail exactly as
+many tests as on replay. `MulticastDNSClient.cs:698` failed 41 on replay and 40
+now; it is still a kill, and the one extra failure was most likely the same
+flake. 566 fails nothing. The 71 are the ledger's `querier` round, and 566 is
+open.
+
+The first attempt at that third planting measured nothing. At the console
+logger's `normal` verbosity, `dotnet test` prints its summary in a form the
+summary regexes do not match. The script recorded its baselines instead of
+requiring them, so 77 runs went by as `PARSE-ERROR` before anything said so.
+This is the third time the summary's two forms have cost a run.
+
+### Ten survivors the triage could not see
+
+The sweep numbers occurrences, because one line can carry the same operator
+twice and pass 2 has to plant the occurrence that survived. The three scripts
+after it did not. `classify_folder.py` kept the first occurrence of each file,
+line and operator and dropped the rest, and `make_closed_folder.py` and
+`standing.py` keyed on the same three. In this block that hid ten survivors.
+On two lines, the replay kills one occurrence and not the other:
+
+```csharp
+if (length == 0 || length > 32 || offset + length > TypeBitMaps.Length)   // MulticastDNSTypeBitmap.cs:105
+if (refresh.Count == 0 && expired.Count == 0)                              // MulticastDNSBrowser.cs:676
+```
+
+On the first line, `offset + length >= TypeBitMaps.Length` refuses every bitmap
+that ends where the record does, and the NSEC tests fail. `length >= 32` refuses
+only a full 32-octet block, which no test sends. On the second line,
+`refresh.Count != 0` dies, and `expired.Count != 0` does not.
+
+All three scripts now carry the occurrence, as a sixth column of the
+classification and a seventh of the ledger. A ledger entry can name a line, a
+line and an operator, or all three and the occurrence. The check for stray
+entries now asks whether each entry closed something, where it used to ask
+whether anything on the entry's line was closed. That was the one question that
+could not tell two occurrences apart.
+
+For the six blocks measured before, the ledgers and the standing come out byte
+for byte as they were. Their pass-2 files hold 28 more such rows: 19 in
+`records`, 5 in `client`, and one each in `core`, `tsig`, `dnssec` and `server`.
+Classifying those is a round of its own.
+
+### Three defaults the RFC decides
+
+By the rule in *A default is noise when nothing on the wire reaches it*, two of
+this block's parameter defaults were policy all along. The replay showed it:
+both were classified as noise and both died.
+
+- **`UnicastResponseRequested = false`** (line 70) is the QU bit the browser's
+  questions go out with, and RFC 6762 §5.4 decides it.
+- **`Truncated = false`** on a query (line 319) is the TC bit every query the
+  client sends goes out with, and §18.5 and §7.2 decide what it means.
+
+Both are listed by name now, together with **`CacheFlush = false`** (line 114).
+The records a probe proposes go out on that default, and §10.2 allows the
+cache-flush bit only in the resource record sections of responses.
+
+A name-based listing covers both places a name appears in the file, and the
+second place of each pair says something:
+
+- `UnicastResponseRequested` on the record's primary constructor (line 39) is
+  passed by every caller. It is in the ledger as equivalent, with that reason.
+- `Truncated` on a *response* (line 351) is the open row of this block that says
+  the most. Every response the responder sends goes out on it, §18.5 says "In
+  multicast response messages, the TC bit MUST be zero on transmission", and no
+  test looks.
+
+`SourceIsOnLocalLink = false` and `OwnsClients = false` stay noise. Every call
+passes the first, and no RFC has anything to say about the second.
+
+### Where the 219 are
+
+| file | open | what it is |
+|---|---:|---|
+| `UDPMulticastDNSTransport.cs` | 60 | the sockets: interfaces, group membership, and §11's link check |
+| `MulticastDNSResponder.cs` | 37 | probe and announcement counts and delays, conflicts, goodbyes, splitting a response, the rate limit |
+| `MulticastDNSClient.cs` | 32 | the options' defaults, the cache path, the query loop's timing, cache flush and expiry |
+| `MulticastDNSBrowser.cs` | 29 | the interval cap, address updates, when an instance counts as resolved |
+| `MulticastDNSMessage.cs` | 28 | the parser's refusals, the header bits it reads, the TC and cache-flush defaults |
+| `MulticastDNS.cs` | 8 | which names are link-local: §3's `.local` and §4's reverse zones |
+| `MulticastDNSTypeBitmap.cs` | 7 | the NSEC bitmap: trimming its trailing zeros, and the bounds it reads within |
+| `InMemoryMulticastDNSNetwork.cs` | 7 | the test link itself |
+| `HybridDNSClient.cs` | 6 | defaults and disposal |
+| `MulticastDNSRecordExtensions.cs` | 5 | comparing two records in a conflict |
+
+**Sixty of them are in a file the bench cannot reach.** The conformance tests run
+over `InMemoryMulticastDNSNetwork`. Only the native `dns-sd` interop builds
+`UDPMulticastDNSTransport`, and the interop lane is not in the bench, by design.
+Most of the sixty are socket options and interface selection, which a wire test
+has no way to ask about.
+
+One group is different. Fifteen of the sixty are `IsSourceOnLocalLink` and the
+prefix comparison beneath it, which decide whether a source is on the local link.
+§11 says a querier "MUST only accept responses to that query that
+originate from the local link". The in-memory link hands that verdict to the
+client and the responder as an input, `SourceIsOnLocalLink`. The querier tests
+use it, and kill the client's reading of it at line 687. The computation behind
+it has no test.
+
+### What is now stale
+
+The fix for findings 78 to 85 (`b4f1e201`) rewrote parts of
+`MulticastDNSClient.cs` and `MulticastDNSBrowser.cs` after the sweep: 313 lines
+added, 37 removed.
+
+- At `f3c0517c`, the suite's pin today, the folder has 632 mutants, 40 more than
+  were measured. All 40 are in those two files, and none has been swept.
+- Two rows had their line replaced. Both are the `> now + 1 s` that was finding
+  82, and both are superseded.
+- Two rows sit on lines the fix edited without removing what was mutated:
+  `MulticastDNSClient.cs:490`'s `<` and `:921`'s `&&`. They are open, at line
+  numbers that no longer point at them.
+
+The block wants sweeping again at the new revision before the next round of tests
+is written for it.
 
 
 ## The result: the client

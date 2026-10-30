@@ -1,0 +1,80 @@
+# Gaps of the 'multicast' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why	occurrence
+DNS/Multicast/MulticastDNSMessage.cs	39	false-to-true	equivalent		UnicastResponseRequested = false on the record's primary constructor. Every caller passes it: the parser from the QU bit it read, the constructor at line 70 from its own parameter, and the suite's two direct callers go through that one. The default the browser's questions go out on is line 70's, and the querier tests kill it there	0
+DNS/Multicast/IMulticastDNSTransport.cs	48	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSMessage.cs	70	false-to-true	killed	querier		0
+DNS/Multicast/IMulticastDNSTransport.cs	49	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	188	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	215	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	216	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSMessage.cs	319	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	258	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSMessage.cs	325	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	374	greater-to-ge	superseded		finding 82: `ExpiresAt > now + 1 s` was the defect, and IsKnownAnswerAt replaced it	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	greater-to-ge	killed	querier		1
+DNS/Multicast/MulticastDNSBrowser.cs	375	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	108	less-to-less-or-equal	killed	querier		0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	112	inequality-to-equality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	476	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	440	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	511	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	461	greater-to-ge	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	483	true-to-false	killed	querier		0
+DNS/Multicast/MulticastDNSMessage.cs	525	greater-to-ge	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	496	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSMessage.cs	532	inequality-to-equality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	661	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	662	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	540	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	540	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	676	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	676	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	652	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	653	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	653	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	654	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	776	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	654	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	778	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	687	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	779	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	687	inequality-to-equality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	779	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	697	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	780	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	698	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	780	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	698	inequality-to-equality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	781	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	699	inequality-to-equality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	782	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	707	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	791	true-to-false	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	796	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	797	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	731	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	800	true-to-false	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	732	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	732	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	806	false-to-true	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	733	logical-or-to-and	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	733	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	734	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	777	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	808	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	847	true-to-false	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	816	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSBrowser.cs	855	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	816	greater-to-ge	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	817	logical-and-to-or	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	820	true-to-false	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	825	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	875	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	882	equality-to-inequality	killed	querier		0
+DNS/Multicast/MulticastDNSClient.cs	921	greater-to-ge	superseded		finding 82: `ExpiresAt > now + 1 s` was the defect, and IsKnownAnswerAt replaced it	0
+DNS/Multicast/MulticastDNSClient.cs	995	false-to-true	killed	querier		0

@@ -56,11 +56,18 @@ def main():
     unmeasured = [r for r in survivors if r[3].startswith("unmeasured")]
     hostOnly   = [r for r in survivors if r[3] == "host-only"]
 
-    done  = {(r[0], r[1], r[2]): r[3] for r in closed}
+    # Keyed on the occurrence as well where the files carry one: a line with the
+    # same operator twice is two mutants, and one of them can be closed while
+    # the other is not. The classification has it in its sixth column, the
+    # ledger in its seventh.
+    def key(r, at):
+        return (r[0], r[1], r[2], r[at] if len(r) > at else "")
 
-    killed     = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "killed")
-    equivalent = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "equivalent")
-    superseded = sum(1 for r in real if done.get((r[0], r[1], r[2])) == "superseded")
+    done  = {key(r, 6): r[3] for r in closed}
+
+    killed     = sum(1 for r in real if done.get(key(r, 5)) == "killed")
+    equivalent = sum(1 for r in real if done.get(key(r, 5)) == "equivalent")
+    superseded = sum(1 for r in real if done.get(key(r, 5)) == "superseded")
     still_open = len(real) - killed - equivalent - superseded
 
     if not survivors:
@@ -100,7 +107,7 @@ def main():
 
     by_kind = {}
     for r in real:
-        if (r[0], r[1], r[2]) not in done:
+        if key(r, 5) not in done:
             by_kind[r[3]] = by_kind.get(r[3], 0) + 1
 
     print("  what is left, by kind:")
@@ -110,7 +117,7 @@ def main():
 
     by_file = {}
     for r in real:
-        if (r[0], r[1], r[2]) not in done:
+        if key(r, 5) not in done:
             name = r[0].split("/")[-1]
             by_file[name] = by_file.get(name, 0) + 1
 

@@ -50,6 +50,13 @@ POLICY_DEFAULTS = {
     # A key generated without an opinion is a zone signing key, not a key
     # signing key - the two sit at different places in the chain of trust.
     ("DNS/DNSSEC/DNSSECSigningKey.cs", "KeySigningKey"),
+    # RFC 6762 §5.4, §18.5 and §10.2: the QU bit, the TC bit and the cache-flush
+    # bit. The browser's questions, every query and every response, and the
+    # records a probe proposes all go out on these defaults, and the RFC says
+    # which way each of them must read. Two of them the querier tests kill.
+    ("DNS/Multicast/MulticastDNSMessage.cs", "UnicastResponseRequested"),
+    ("DNS/Multicast/MulticastDNSMessage.cs", "Truncated"),
+    ("DNS/Multicast/MulticastDNSMessage.cs", "CacheFlush"),
 }
 
 
@@ -141,39 +148,60 @@ def main():
         if len(p) >= 4:
             entries.append(p)
 
+    # A line can carry the same operator more than once, and the sweep has told
+    # the occurrences apart in a sixth column since sweep_folder.py learned to.
+    # This key had not: it kept the first occurrence and dropped the others, so
+    # a survivor that shared a line and an operator with another one was not in
+    # this file at all — ten of them in the multicast block, and on two of those
+    # lines the querier tests kill one occurrence and not the other. A pass
+    # written before the column existed has its occurrences in order and
+    # unnumbered, and keeps the old key rather than a guessed one.
+    def occurrence(p):
+        return p[5] if len(p) >= 6 and p[5] != "" else None
+
+    def key_of(p):
+        return (p[0], p[1], p[2], occurrence(p))
+
+    def row(p, kind, text):
+        r = (p[0], p[1], p[2], kind, text)
+        return r if occurrence(p) is None else r + (occurrence(p),)
+
     seen, rows = set(), []
 
     # The measured ones first, so a key that got an answer keeps it even when
     # another row for the same key was refused.
     for p in entries:
         if p[3] == "SURVIVED-EVERYWHERE":
-            key = (p[0], p[1], p[2])
+            key = key_of(p)
             if key in seen:
                 continue
             seen.add(key)
             kind, text = classify(p[0], int(p[1]), p[2])
-            rows.append((p[0], p[1], p[2], kind, text))
+            rows.append(row(p, kind, text))
 
     for p in entries:
         if p[3] in UNMEASURED:
-            key = (p[0], p[1], p[2])
+            key = key_of(p)
             if key in seen:
                 continue
             seen.add(key)
             _, text = classify(p[0], int(p[1]), p[2])
-            rows.append((p[0], p[1], p[2], UNMEASURED[p[3]], text))
+            rows.append(row(p, UNMEASURED[p[3]], text))
 
     with io.open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write("# Every mutant of the '%s' block that survived every project,\n" % name)
         f.write("# classified against Hermod %s — the revision the sweep measured.\n" % revision)
         f.write("# Line numbers move; this file does not.\n")
-        f.write("# file\tline\toperator\tkind\tsource\n")
+        if any(len(r) > 5 for r in rows):
+            f.write("# file\tline\toperator\tkind\tsource\toccurrence\n")
+        else:
+            f.write("# file\tline\toperator\tkind\tsource\n")
         for r in rows:
             f.write("\t".join(r) + "\n")
 
     kinds = {}
-    for _, _, _, kind, _ in rows:
-        kinds[kind] = kinds.get(kind, 0) + 1
+    for r in rows:
+        kinds[r[3]] = kinds.get(r[3], 0) + 1
 
     print("block     %s" % name)
     print("revision  %s" % revision)

@@ -1465,12 +1465,107 @@ CLIENT_SUPERSEDED = {
 }
 
 
+# ---------------------------------------------------------------------------
+#  multicast
+# ---------------------------------------------------------------------------
+
+# Line numbers are the sweep's own: Hermod 925c80d5, judged in pass 1 by the 31
+# responder tests the Multicast project had then. The querier tests came after
+# pass 1, and `sweep_wide_folder.py multicast --replay` planted every survivor
+# again at 925c80d5 under them, and reported 72 kills.
+#
+# 71 of them are below. Every kill was planted a third time, on a quiet machine,
+# with the failing tests named (results/multicast-replay-verified.tsv, five
+# clean baselines first). 71 failed again, 70 of them exactly as many tests as
+# on replay and 698 one fewer, to tests that name what the line decides. The 72nd,
+# UDPMulticastDNSTransport.cs:566, failed nothing: no conformance test builds
+# that transport, and the replay ran while pass 2 loaded the machine, so its one
+# red test was failing for its own reasons. It stays open.
+#
+# Where a line keeps a survivor beside the kill, the entry names the operator,
+# and on two lines the occurrence as well.
+
+MULTICAST_KILLED = {
+
+    # RFC 6762 §5 to §11 and §18, and RFC 6763 §4 to §6: the querier side, the
+    # client and the browser, with the suite as the other host on the link. One
+    # round of tests, grouped here by file; which test fails for which row is in
+    # results/multicast-replay-verified.tsv.
+    "querier": {
+
+        # Whether a datagram came in over the group, which is where §6's
+        # "unicast answer nobody asked for" starts.
+        "DNS/Multicast/IMulticastDNSTransport.cs": {48, 49},
+
+        # The QU bit a question goes out with, the TC bit of a query, the
+        # header of a query, and reading a record's class and cache-flush bit.
+        "DNS/Multicast/MulticastDNSMessage.cs": {70, 319, 325, 525, 532},
+
+        # §6.1: an NSEC's type bitmap, read only as far as it is well-formed.
+        "DNS/Multicast/MulticastDNSTypeBitmap.cs": {(105, "equality-to-inequality"),
+                                                    (105, "greater-to-ge", 1), 108, 112},
+
+        # What a querier ignores, which answer answers which question, NSEC as a
+        # negative answer, the cache's expiry and its one-second grace, and the
+        # query loop that waits for them.
+        "DNS/Multicast/MulticastDNSClient.cs": {215, 216, 258, 440, 461, 483, 496, 540,
+                                                (652, "logical-and-to-or"), 653, 654,
+                                                687, 697, 698, 699, 707,
+                                                731, 732, 733, 734,
+                                                (777, "logical-and-to-or"),
+                                                808, 816, 817, 820, 825, 875, 882, 995},
+
+        # The browser: when it refreshes, what it lists as known, and when an
+        # SRV or a TXT is news about an instance and when it is the same again.
+        "DNS/Multicast/MulticastDNSBrowser.cs": {188, 375, 476, (511, "equality-to-inequality"),
+                                                 661, (662, "logical-and-to-or"),
+                                                 (676, "equality-to-inequality", 0),
+                                                 (676, "logical-and-to-or"),
+                                                 776, 778, 779, 780, 781, 782,
+                                                 791, 796, 797, 800, 806, 847, 855},
+
+    },
+
+}
+
+MULTICAST_EQUIVALENT = {
+
+    "DNS/Multicast/MulticastDNSMessage.cs": {
+
+        39: "UnicastResponseRequested = false on the record's primary constructor. Every "
+            "caller passes it: the parser from the QU bit it read, the constructor at line 70 "
+            "from its own parameter, and the suite's two direct callers go through that one. "
+            "The default the browser's questions go out on is line 70's, and the querier "
+            "tests kill it there",
+
+    },
+
+}
+
+MULTICAST_SUPERSEDED = {
+
+    # Finding 82. A cached record was listed as a known answer while it had more
+    # than a second left; RFC 6762 §7.1 wants at least half its TTL. The fix
+    # replaced the comparison with IsKnownAnswerAt, which no sweep has measured
+    # yet. The `&&` beside it on 921 is still there, and stays open.
+    "DNS/Multicast/MulticastDNSBrowser.cs": {
+        (374, "greater-to-ge"): "finding 82: `ExpiresAt > now + 1 s` was the defect, and IsKnownAnswerAt replaced it",
+    },
+
+    "DNS/Multicast/MulticastDNSClient.cs": {
+        (921, "greater-to-ge"): "finding 82: `ExpiresAt > now + 1 s` was the defect, and IsKnownAnswerAt replaced it",
+    },
+
+}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
     "dnssec": (DNSSEC_KILLED, DNSSEC_EQUIVALENT, DNSSEC_SUPERSEDED),
     "server": (SERVER_KILLED, SERVER_EQUIVALENT, SERVER_SUPERSEDED),
     "client": (CLIENT_KILLED, CLIENT_EQUIVALENT, CLIENT_SUPERSEDED),
+    "multicast": (MULTICAST_KILLED, MULTICAST_EQUIVALENT, MULTICAST_SUPERSEDED),
 }
 
 
@@ -1504,14 +1599,22 @@ def no_duplicate_keys():
                  "last of them:" + chr(10) + "  " + (chr(10) + "  ").join(duplicate))
 
 
-def listed(entries, line, operator):
+def listed(entries, line, operator, occurrence=None):
     """A line may carry more than one mutation, and they need not share a verdict:
-    where they do not, the entry names the operator as well."""
-    return line in entries or (line, operator) in entries
+    where they do not, the entry names the operator as well — and where the same
+    operator occurs on the line twice and the two still differ, the occurrence.
+
+    Returns the entry that matched, the most specific first, so the caller can
+    tell an entry that closed something from one that never did."""
+    for entry in ((line, operator, occurrence), (line, operator), line):
+        if entry in entries:
+            return entry
+    return None
 
 
-def keyed(table, line, operator):
-    return table.get((line, operator)) or table.get(line)
+def keyed(table, line, operator, occurrence=None):
+    entry = listed(table, line, operator, occurrence)
+    return (entry, table[entry]) if entry is not None else (None, None)
 
 
 def main():
@@ -1533,7 +1636,7 @@ def main():
     if not os.path.exists(classified):
         sys.exit("no classification to read: " + classified)
 
-    rows = []
+    rows, used = [], set()
 
     for line in io.open(classified, encoding="utf-8"):
 
@@ -1556,41 +1659,54 @@ def main():
 
         rel, ln, op = p[0], int(p[1]), p[2]
 
+        # The occurrence travels with the row when the classification has one,
+        # so a line whose two `>` read differently stays two rows here too.
+        occ  = int(p[5]) if len(p) > 5 and p[5] != "" else None
+        tail = () if occ is None else (str(occ),)
+
         for round_name, files in killed.items():
-            if listed(files.get(rel, ()), ln, op):
-                rows.append((rel, str(ln), op, "killed", round_name, ""))
+            entry = listed(files.get(rel, ()), ln, op, occ)
+            if entry is not None:
+                used.add(("killed/" + round_name, rel, entry))
+                rows.append((rel, str(ln), op, "killed", round_name, "") + tail)
                 break
 
         else:
-            why = keyed(equivalent.get(rel, {}), ln, op)
+            entry, why = keyed(equivalent.get(rel, {}), ln, op, occ)
             if why:
-                rows.append((rel, str(ln), op, "equivalent", "", why))
+                used.add(("equivalent", rel, entry))
+                rows.append((rel, str(ln), op, "equivalent", "", why) + tail)
             else:
-                why = keyed(superseded.get(rel, {}), ln, op)
+                entry, why = keyed(superseded.get(rel, {}), ln, op, occ)
                 if why:
-                    rows.append((rel, str(ln), op, "superseded", "", why))
+                    used.add(("superseded", rel, entry))
+                    rows.append((rel, str(ln), op, "superseded", "", why) + tail)
 
     # A table entry that matched nothing is a mistake, and a silent one: a line
     # number that no longer exists, a path spelled a shade differently, or an
     # entry lost because a dict literal had the same key twice — which Python
     # resolves by keeping the last and saying nothing. The count of what is left
     # still adds up in every one of those cases, so it has to be checked here.
-    seen  = {(r[0], int(r[1])) for r in rows}
+    #
+    # Per entry, not per line. Asking only whether something on the entry's line
+    # was closed let an entry for one occurrence pass on the strength of the
+    # other, which is exactly the case occurrences were added to tell apart.
     stray = []
+
+    def shown(entry):
+        return ":".join(str(x) for x in entry) if isinstance(entry, tuple) else str(entry)
 
     for round_name, files in killed.items():
         for rel, entries in files.items():
             for entry in entries:
-                ln = entry[0] if isinstance(entry, tuple) else entry
-                if (rel, ln) not in seen:
-                    stray.append("killed/%s %s:%s" % (round_name, rel, ln))
+                if ("killed/" + round_name, rel, entry) not in used:
+                    stray.append("killed/%s %s:%s" % (round_name, rel, shown(entry)))
 
     for table, what in ((equivalent, "equivalent"), (superseded, "superseded")):
         for rel, entries in table.items():
             for entry in entries:
-                ln = entry[0] if isinstance(entry, tuple) else entry
-                if (rel, ln) not in seen:
-                    stray.append("%s %s:%s" % (what, rel, ln))
+                if (what, rel, entry) not in used:
+                    stray.append("%s %s:%s" % (what, rel, shown(entry)))
 
     if stray:
         sys.exit("these ledger entries match no gap in %s-classified.tsv:" % name
@@ -1603,7 +1719,10 @@ def main():
         f.write("# 'killed' means a mutation taken from this sweep's output now fails a test.\n")
         f.write("# 'equivalent' means the mutation is real and the program is the same either way.\n")
         f.write("# 'superseded' means the line the verdict belongs to was replaced by a fix.\n")
-        f.write("# file\tline\toperator\tstate\tround\twhy\n")
+        if any(len(r) > 6 for r in rows):
+            f.write("# file\tline\toperator\tstate\tround\twhy\toccurrence\n")
+        else:
+            f.write("# file\tline\toperator\tstate\tround\twhy\n")
         for r in rows:
             f.write("\t".join(r) + "\n")
 
