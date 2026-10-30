@@ -1,7 +1,7 @@
 # Every mutant of the 'server' block that survived every project,
 # classified against Hermod cc8323d5 — the revision the sweep measured.
 # Line numbers move; this file does not.
-# file	line	operator	kind	source
+# file	line	operator	kind	source	occurrence
 DNS/Server/AuthoritativeDNSRequestHandler.cs	90	false-to-true	noise-default	Boolean        RequireDNSCookies    = false)
 DNS/Server/DNSCookies.cs	159	logical-or-to-and	branch	if (ServerCookie.Length != ServerCookieSize ||
 DNS/Server/DNSMessagePipeline.cs	150	less-to-less-or-equal	boundary	if (RequestBytes.Length < 12)
@@ -122,5 +122,6 @@ DNS/Server/DNSServer.cs	1421	false-to-true	host-only	await StartHTTP2UnicastAsyn
 DNS/Server/DNSServer.cs	1474	false-to-true	host-only	await httpsUnicastListener.Stop().ConfigureAwait(false);
 DNS/Server/DNSServer.cs	1486	false-to-true	host-only	await http2UnicastListener.Stop().ConfigureAwait(false);
 DNS/Server/DNSServer.cs	1497	false-to-true	host-only	ConfigureAwait(false);
-DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	branch	unsigned is null || sig is null || !sig.IsTransactionSignature)
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	branch	unsigned is null || sig is null || !sig.IsTransactionSignature)	0
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	branch	unsigned is null || sig is null || !sig.IsTransactionSignature)	1
 DNS/Server/DNSServer.cs	297	false-to-true	unmeasured-timeout	var retry  = false;

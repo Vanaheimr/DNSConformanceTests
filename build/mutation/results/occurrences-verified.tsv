@@ -1,0 +1,79 @@
+# Every occurrence a ledger entry covered without its round having planted it,
+# planted again on its own; and DNSZoneFile.cs:270's two equivalent readings,
+# which had been argued rather than planted. Hermod f3c0517c, suite b7feade, on
+# the line whose text is identical to the measured one: identical text gives
+# identical candidates, so occurrence k there is occurrence k here. A mutant the
+# block's judge did not notice is then judged by each other project (the
+# indented verdicts). Tests run with TestCategory!=KnownIssue.
+# DNSSECValidator.cs:693 is the run's positive control: its round had planted
+# both occurrences already.
+# BASELINE	project	run	verdict	failed of total	failing tests	time
+# block	file	measured line	operator	occurrence	line at f3c0517c	verdict	project: failed of total	failing tests	mutated line
+BASELINE	WireFormat	1	SURVIVED	0 of 136		2 s
+BASELINE	Edns	1	SURVIVED	0 of 32		2 s
+BASELINE	Dnssec	1	SURVIVED	0 of 379		7 s
+BASELINE	Dnssec	2	SURVIVED	0 of 379		8 s
+BASELINE	Server	1	SURVIVED	0 of 154		16 s
+BASELINE	Server	2	SURVIVED	0 of 154		16 s
+BASELINE	Client	1	SURVIVED	0 of 199		39 s
+BASELINE	Client	2	SURVIVED	0 of 199		39 s
+BASELINE	SecureTransports	1	SURVIVED	0 of 164		14 s
+BASELINE	Multicast	1	SURVIVED	0 of 97		29 s
+BASELINE	ResourceRecords	1	SURVIVED	0 of 458		3 s
+BASELINE	ResourceRecords	2	SURVIVED	0 of 458		3 s
+dnssec	DNS/DNSSEC/DNSSECValidator.cs	693	equality-to-inequality	0	693	KILLED	Dnssec 2 of 379	A_Cname_Synthesized_From_A_Signed_Dname_Needs_No_Signature,A_Cname_The_Dname_Does_Not_Produce_Is_Bogus	return target != (dnameTarget.Length == 0
+dnssec	DNS/DNSSEC/DNSSECValidator.cs	693	equality-to-inequality	1	693	KILLED	Dnssec 1 of 379	A_Cname_Synthesized_From_A_Signed_Dname_Needs_No_Signature	return target == (dnameTarget.Length != 0
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	SURVIVED	Server 0 of 154		unsigned is null && sig is null || !sig.IsTransactionSignature)
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	WireFormat 0 of 136	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	Edns 0 of 32	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	Dnssec 0 of 379	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	Client 0 of 199	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	SecureTransports 0 of 164	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	Multicast 0 of 97	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	0	419	  SURVIVED	ResourceRecords 0 of 458	
+server	DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	1	419	KILLED	Server 1 of 154	A_Sig_That_Covers_A_Type_Is_Not_A_Transaction_Signature	unsigned is null || sig is null && !sig.IsTransactionSignature)
+client	DNS/Client/DNSClient.cs	889	logical-and-to-or	0	1001	KILLED	Client 3 of 199	A_Chain_Stops_At_A_Name_That_Does_Not_Exist,A_Client_Told_Not_To_Follow_Returns_The_Alias_Alone,A_Server_That_Cannot_Be_Dialled_Still_Produces_An_Answer	if (FollowCNAMEs || firstResponse is not null &&
+client	DNS/Client/DNSClient.cs	889	logical-and-to-or	1	1001	KILLED	Client 3 of 199	A_Chain_Stops_At_A_Name_That_Does_Not_Exist,A_Client_Told_Not_To_Follow_Returns_The_Alias_Alone,A_Server_That_Cannot_Be_Dialled_Still_Produces_An_Answer	if (FollowCNAMEs && firstResponse is not null ||
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	SURVIVED	ResourceRecords 0 of 458		if (depth != 0 && joined.Length == 0 && line.Trim().Length == 0)
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	WireFormat 0 of 136	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	Edns 0 of 32	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	Dnssec 0 of 379	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	Server 0 of 154	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	Client 0 of 199	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	SecureTransports 0 of 164	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	0	270	  SURVIVED	Multicast 0 of 97	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	SURVIVED	ResourceRecords 0 of 458		if (depth == 0 && joined.Length != 0 && line.Trim().Length == 0)
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	WireFormat 0 of 136	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	Edns 0 of 32	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	Dnssec 0 of 379	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	Server 0 of 154	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	Client 0 of 199	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	SecureTransports 0 of 164	
+core	DNS/DNSZoneFile.cs	270	equality-to-inequality	1	270	  SURVIVED	Multicast 0 of 97	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	0	340	KILLED	ResourceRecords 1 of 458	Https_Splits_Its_Parameters_The_Same_Way	if (Input[i] != '"' && (i == 0 || Input[i - 1] != '\\'))
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	SURVIVED	ResourceRecords 0 of 458		if (Input[i] == '"' && (i != 0 || Input[i - 1] != '\\'))
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	WireFormat 0 of 136	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	Edns 0 of 32	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	Dnssec 0 of 379	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	Server 0 of 154	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	Client 0 of 199	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	SecureTransports 0 of 164	
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	  SURVIVED	Multicast 0 of 97	
+records	DNS/ResourceRecords/LOC.cs	471	logical-or-to-and	1	471	KILLED	ResourceRecords 3 of 458	The_Hemisphere_Letter_Is_Consumed_And_Not_Read_Twice,north,south	if (parts[idx] == "N" || parts[idx] == "n" && parts[idx] == "S" || parts[idx] == "s") idx++;
+records	DNS/ResourceRecords/LOC.cs	471	logical-or-to-and	2	471	KILLED	ResourceRecords 3 of 458	The_Hemisphere_Letter_Is_Consumed_And_Not_Read_Twice,south	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" && parts[idx] == "s") idx++;
+records	DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	1	471	KILLED	ResourceRecords 1 of 458	north	if (parts[idx] == "N" || parts[idx] != "n" || parts[idx] == "S" || parts[idx] == "s") idx++;
+records	DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	2	471	KILLED	ResourceRecords 2 of 458	The_Hemisphere_Letter_Is_Consumed_And_Not_Read_Twice,south	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] != "S" || parts[idx] == "s") idx++;
+records	DNS/ResourceRecords/LOC.cs	471	equality-to-inequality	3	471	KILLED	ResourceRecords 1 of 458	south	if (parts[idx] == "N" || parts[idx] == "n" || parts[idx] == "S" || parts[idx] != "s") idx++;
+records	DNS/ResourceRecords/LOC.cs	486	equality-to-inequality	1	486	KILLED	ResourceRecords 4 of 458	A_Loc_May_Stop_Before_Its_Altitude,north,south	if (parts[idx] == "W" || parts[idx] != "w") lonMs = -lonMs;
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	SURVIVED	ResourceRecords 0 of 458		if (Input[i] == '"' && (i != 0 || Input[i - 1] != '\\'))
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	WireFormat 0 of 136	
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	Edns 0 of 32	
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	Dnssec 0 of 379	
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	Server 0 of 154	
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	Client 0 of 199	
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	SecureTransports 0 of 164	
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	  SURVIVED	Multicast 0 of 97	
+records	DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	0	338	KILLED	ResourceRecords 4 of 458	0x7F,,a	if (character < 0x20 && character > 0x7E || character == '=')
+records	DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	1	338	KILLED	ResourceRecords 3 of 458	0x7F,,a,an	if (character < 0x20 || character > 0x7E && character == '=')
+records	DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	0	510	KILLED	ResourceRecords 5 of 458	A_Value_Keeps_Every_Equals_Sign_After_The_First,An_Empty_Value_Is_Not_The_Same_As_No_Value,Both_Ends_Of_The_Printable_Range_Are_Keys,Only_The_First_Occurrence_Of_A_Key_Counts,The_Section_6_4_Reading_Of_Four_Strings	if (text.Length != 0 || text[0] == '=')
+records	DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	1	510	KILLED	ResourceRecords 5 of 458	A_Value_Keeps_Every_Equals_Sign_After_The_First,An_Empty_Value_Is_Not_The_Same_As_No_Value,Both_Ends_Of_The_Printable_Range_Are_Keys,Only_The_First_Occurrence_Of_A_Key_Counts,The_Section_6_4_Reading_Of_Four_Strings	if (text.Length == 0 || text[0] != '=')

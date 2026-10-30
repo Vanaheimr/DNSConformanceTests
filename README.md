@@ -438,11 +438,12 @@ Four tests here turned out to be the second kind, every one found by accident.
 this repository that was not chosen by whoever wrote the tests. Changes are made
 to Hermod's resource-record code one at a time — a comparison shifted, a
 condition inverted, a rejection made to succeed — and the suite is run against
-each. **Of 585 such changes, 358 went unnoticed; 240 of those are real gaps
+each. **Of 605 such changes, 370 went unnoticed; 252 of those are real gaps
 rather than equivalent code.** About half of what can be changed in that code,
-this suite did not watch. Every one of them has since been answered: 182 closed by
-a test, 54 unreachable rather than untested, and 4 whose line a fix removed — none
-left open. Closing them turned up four more
+this suite did not watch. All but two have since been answered: 192 closed by a
+test, 54 unreachable rather than untested, and 4 whose line a fix removed. The two
+are one line in SVCB and its copy in HTTPS, a parameter splitter no test hands an
+escaped quote. Closing the others turned up four more
 deviations — [findings 54, 55 and 56](FINDINGS.md), plus `DNSSRVEndpoint`'s
 broken `Equals` and `CompareTo` — each of them a survivor that no test could
 kill, because no input could reach it.

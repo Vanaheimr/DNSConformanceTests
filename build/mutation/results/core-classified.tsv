@@ -1,7 +1,7 @@
 # Every mutant of the 'core' block that survived every project,
 # classified against Hermod e592b5e7 — the revision the sweep measured.
 # Line numbers move; this file does not.
-# file	line	operator	kind	source
+# file	line	operator	kind	source	occurrence
 DNS/DNSInfo.cs	48	false-to-true	noise-default	Boolean                          AuthenticData      = false,
 DNS/DNSNamePattern.cs	40	true-to-false	branch	=> DNSNamePattern?.FullName.IsNullOrEmpty() ?? true;
 DNS/DNSQuestion.cs	95	true-to-false	noise-region	#region Serialize(Stream, CurrentOffset, UseCompression = true, CompressionOffsets = null)
@@ -71,7 +71,7 @@ DNS/DNSNamePattern.cs	259	false-to-true	rejection	return false;
 DNS/DNSQuestion.cs	227	logical-and-to-or	branch	=> DNSQuestion is not null &&
 DNS/DNSServiceInstanceName.cs	189	false-to-true	noise-attribute	[NotNullWhen(false)] out String?   ErrorResponse)
 DNS/DNSServiceName.cs	184	true-to-false	noise-attribute	[NotNullWhen(true)]  out String[]?   Labels,
-DNS/DNSZoneFile.cs	270	equality-to-inequality	branch	if (depth == 0 && joined.Length == 0 && line.Trim().Length == 0)
+DNS/DNSZoneFile.cs	270	equality-to-inequality	branch	if (depth == 0 && joined.Length == 0 && line.Trim().Length == 0)	0
 DNS/DomainName.cs	372	true-to-false	noise-attribute	[NotNullWhen(true)]  out DomainName?  DomainName,
 DNS/Helpers/DNSTools.cs	243	greater-to-ge	boundary	if (lengthByte > 63)
 DNS/DNSInfo.cs	326	inequality-to-equality	branch	var RA               = (Byte3 & 0x80) != 0;
@@ -79,6 +79,7 @@ DNS/DNSNamePattern.cs	268	false-to-true	rejection	return false;
 DNS/DNSQuestion.cs	229	logical-and-to-or	branch	DomainName.Equals(DNSQuestion.DomainName) &&
 DNS/DNSServiceInstanceName.cs	194	equality-to-inequality	branch	if (Labels.Count == 0)
 DNS/DNSServiceName.cs	185	false-to-true	noise-attribute	[NotNullWhen(false)] out String?      ErrorResponse)
+DNS/DNSZoneFile.cs	270	equality-to-inequality	branch	if (depth == 0 && joined.Length == 0 && line.Trim().Length == 0)	1
 DNS/DomainName.cs	373	false-to-true	noise-attribute	[NotNullWhen(false)] out String?      ErrorResponse)
 DNS/DNSNamePattern.cs	279	true-to-false	branch	return true;
 DNS/DNSQuestion.cs	230	logical-and-to-or	branch	QueryType. Equals(DNSQuestion.QueryType)  &&

@@ -29,9 +29,9 @@ test project that exercises each:
 
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
-| `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
+| `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **2 open** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **1 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
@@ -105,19 +105,19 @@ neither.
 
 | block | real gaps | of those open | host-only |
 |---|---:|---:|---:|
-| `records` | 240 | 0 | — |
-| `core` | 132 | 0 | 1 |
-| `dnssec` | 46 | **1** | 19 |
-| `tsig` | 41 | **1** | — |
-| `server` | 86 | **34** | 29 |
-| `client` | 245 | **86** | 68 |
+| `records` | 252 | **2** | — |
+| `core` | 133 | 0 | 1 |
+| `dnssec` | 47 | **1** | 19 |
+| `tsig` | 42 | **2** | — |
+| `server` | 87 | **34** | 29 |
+| `client` | 246 | **86** | 68 |
 | `multicast` | 293 | **219** | 82 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
 where both readings are conformant because no RFC names a limit. The row above
 is the second sweep of the block, after the validator was rewritten. It found
-thirty-seven, all but three in new code, and what the rounds since have left is
+thirty-eight, all but three in new code, and what the rounds since have left is
 the same depth limit — see *The result: DNSSEC, measured again*.
 
 **The argument had already been written twice before it had a name.** One entry
@@ -240,6 +240,133 @@ the same key appears twice in a ledger table, so Python kept only the last of th
 ```
 
 
+## One row per mutant
+
+The multicast ledger found that the triage kept one row per file, line and
+operator, and dropped every other occurrence of that operator on the line. Six
+blocks had been classified that way before. Their pass-2 files held 28 more
+survivors than their classifications did: 19 in `records`, 5 in `client`, and one
+each in `core`, `tsig`, `dnssec` and `server`. Each block was classified again,
+one row per mutant, and each new row was held against the ledger entry on its
+line. That entry had been written for one row and now covers several.
+
+| block | survivors | real gaps | open | the new rows |
+|---|---:|---:|---:|---|
+| `records` | 358 → 370 | 240 → 252 | 0 → **2** | twelve more mutants on eight lines, eleven killed, and the quote test of SVCB and HTTPS open in both |
+| `core` | 204 → 205 | 132 → 133 | 0 | `DNSZoneFile.cs:270`, its second equivalent reading |
+| `tsig` | 41 → 42 | 41 → 42 | 1 → **2** | `DNSTransactionSecurity.cs:73`, the second reading of a line already open |
+| `dnssec` | 66 → 67 | 46 → 47 | **1** | `DNSSECValidator.cs:693`, killed |
+| `server` | 122 → 123 | 86 → 87 | **34** | `DNSMessagePipeline.cs:419`, split: one killed, one equivalent |
+| `client` | 379 → 384 | 245 → 246 | **86** | `DNSClient.cs:889`, killed, and four `#region` defaults |
+
+Tallies written in the rounds before this section count rows the old way. The
+tables at the top, the block summaries and *Standing state* count mutants.
+
+### Seven rows that were not survivors
+
+`records` was swept by the first harness, before the occurrence column existed.
+Its pass 2 left the records project out of the bench, as every pass 2 leaves out
+the block's own judge. But it re-planted every occurrence on a line where any of
+them had survived pass 1, because it had no way to say which. So seven of its
+`SURVIVED-EVERYWHERE` rows are mutants the records tests had already killed in
+pass 1: six on LOC's three hemisphere lines and one on SVCB's quoted-string
+scanner. Keyed by line and operator, that could not show, because each of those
+lines has a real survivor as well. Counted by occurrence, the seven would have
+been gaps, and the ledger's bare line numbers would have filed them as killed by
+rounds that never planted them.
+
+So `classify.py` now numbers the occurrences of both passes and keeps a mutant
+only when it survived both. The numbering is by order, and that was checked
+rather than assumed. `genmut.py` lists a line's occurrences left to right, both
+passes walked its catalogue in that order, and pass 1 holds all 672 mutants
+`genmut.py` finds at `973fed31`, with the same count on every line. The nineteen
+hidden rows are twelve survivors.
+
+### What the ledgers had claimed unseen
+
+A ledger entry that names a bare line covers every occurrence on it. For each new
+row, the question was whether the round that wrote the entry had planted that
+occurrence, or only the one the old row stood for.
+
+Where a round's own results say so, nothing more was needed:
+
+- `records-bounds2.tsv` planted all three `&&` of the printable range in HTTPS
+  and in SVCB.
+- `records-branch2.tsv` planted every spelling of LOC's eastern hemisphere.
+- The DNAME round planted "all seven mutants of the six rows", and the seventh is
+  the second `==` of `DNSSECValidator.cs:693`.
+
+The rest were planted again, one occurrence at a time, at Hermod `f3c0517c`, on
+the line whose text is identical to the measured one. Identical text gives
+identical candidates, so occurrence *k* there is occurrence *k* here. A mutant
+the block's judge did not notice went on to the other seven projects.
+`DNSZoneFile.cs:270`'s two readings had been argued equivalent rather than
+planted, and went in as well. So did the DNAME line, as the run's positive
+control.
+
+| line | occurrences | verdict |
+|---|---|---|
+| `DNSSECValidator.cs:693` | both | killed, by `A_Cname_Synthesized_From_A_Signed_Dname_Needs_No_Signature` |
+| `DNSClient.cs:889` | both | killed, by `A_Client_Told_Not_To_Follow_Returns_The_Alias_Alone` among three |
+| `DNSMessagePipeline.cs:419` | the second `\|\|` | killed, by `A_Sig_That_Covers_A_Type_Is_Not_A_Transaction_Signature` |
+| `DNSMessagePipeline.cs:419` | the first `\|\|` | survives all eight projects: equivalent, for the reason line 418 is |
+| `DNSZoneFile.cs:270` | the two that survived pass 1 | survive all eight projects: equivalent, as argued |
+| `LOC.cs:471`, `:486` | six | killed, by the hemisphere tests |
+| `TXT.cs:338`, `:503` | four | killed |
+| `HTTPS.cs:340` | the first `==` | killed, by `Https_Splits_Its_Parameters_The_Same_Way` |
+| `HTTPS.cs:340`, `SVCB.cs:434` | the second `==` | **survives all eight projects** |
+
+The verdicts, with every failing test named, are
+`results/occurrences-verified.tsv`. Three ledger entries changed. Line 419 of
+the pipeline is now an occurrence in `SERVER_KILLED` and another in
+`SERVER_EQUIVALENT`, where the round that closed half of it had to file the
+whole line and leave a paragraph saying which half. The other two are below.
+
+### The quote nobody escapes
+
+The two survivors are one line in two files. HTTPS has its own copy of SVCB's
+parameter splitter, which is why the `branch` round wrote its test twice.
+
+```csharp
+if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+    inQuote = !inQuote;
+```
+
+The splitter cuts the SvcParams at spaces, except inside quotes, and a quote with
+a backslash before it opens and closes nothing. The round's tests put a space
+inside quotes, `alpn="h2 h3"`, and that kills the first `==`, the test of whether
+the character is a quote at all. The second `==`, `i == 0`, guards the look
+behind. Read as `i != 0`, every quote after the first character toggles,
+escaped or not, and a quote at the first character reads `Input[-1]` and throws.
+No test writes a backslash before a quote, so nothing can tell the two readings
+apart.
+
+The ledger listed both lines as killed, as bare line numbers. In HTTPS that
+claim covered an occurrence the round never planted. In SVCB it was worse: the
+first `==` had died in pass 1, so the only survivor on the line was the one no
+test kills, and the entry closed exactly that. They are open, and not equivalent.
+RFC 1035 §5.1's backslash is "used to quote that character so that its special
+meaning does not apply", and the look behind is the splitter honouring it.
+Closing them takes a test that writes one, in each of the two types.
+
+So `make_closed.py` takes the same entries `make_closed_folder.py` does, a line,
+a line and an operator, or both and the occurrence. These two lines are claimed
+operator by operator now, and the second `==` is left out. An entry naming an
+operator that closes nothing is refused, as it is in the folder ledger. **The
+`records` block is no longer closed: 2 open.**
+
+### The records headline
+
+`report.py` counted keys too, and the records numbers in this file and in the
+README came from it. It also read the working tree rather than `973fed31`, and
+by now that tree classified 255 real gaps where the pinned triage had 240. It
+counts mutants now and reads `records-classified.tsv`, the file `standing.py`
+reads. Of the 605 viable mutants, the record tests catch 179 and another project
+56, and 370 survive: 118 not really code and 252 real gaps. The score as
+measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
+48.6 %.
+
+
 ## The result: multicast
 
 Measured against Hermod **`925c80d5`**, `libs/Hermod/Hermod/DNS/Multicast/**`,
@@ -338,10 +465,11 @@ entries now asks whether each entry closed something, where it used to ask
 whether anything on the entry's line was closed. That was the one question that
 could not tell two occurrences apart.
 
-For the six blocks measured before, the ledgers and the standing come out byte
-for byte as they were. Their pass-2 files hold 28 more such rows: 19 in
+For the six blocks measured before, the ledgers and the standing came out byte
+for byte as they were. Their pass-2 files held 28 more such rows: 19 in
 `records`, 5 in `client`, and one each in `core`, `tsig`, `dnssec` and `server`.
-Classifying those is a round of its own.
+They had a round of their own, and seven of the nineteen turned out not to be
+survivors at all — see *One row per mutant*.
 
 ### Three defaults the RFC decides
 
@@ -449,8 +577,8 @@ would be expected to hang rather than answer.
 All six open findings are fixed in Hermod, one commit each. The mutation consequence
 is a category that had been empty in this block until now: **37 rows superseded**,
 the line the sweep measured either gone or somewhere else. Client block **119 → 86
-open**, and the ledger reconciles — 96 killed, 26 equivalent, 37 superseded, 86 open,
-245 real gaps.
+open**, and the ledger reconciles — 97 killed, 26 equivalent, 37 superseded, 86 open,
+246 real gaps.
 
 Four of the thirty-seven had to leave `CLIENT_EQUIVALENT` first, because **the reason
 they were equivalent was the defect**. That is the shape worth taking away from this
@@ -1152,11 +1280,11 @@ back — precisely so that Hermod never supplies both halves of a verdict. Hermo
 client is barely on the path at all. **The low number is not a thin bench; it is
 the bench being independent**, measured from the other side.
 
-That has a consequence for the 245 gaps below, and it is a question rather than an
+That has a consequence for the 246 gaps below, and it is a question rather than an
 answer: a suite that deliberately does not use Hermod's client may not be able to
 close gaps in it at all from here. The lane that could is `interop`, which drives
 Hermod against foreign servers and `dig` — four projects and 131 tests, of which
-98 run today and 33 skip. Which of the 245 are structural in that sense is not
+98 run today and 33 skip. Which of the 246 are structural in that sense is not
 known yet, and the first cluster worked will start to say.
 
 The 33 were put down here as "none of which run while Docker is down", which was
@@ -1172,11 +1300,11 @@ timeout somewhere unrelated". The diagnosis had come from running `docker info`
 in a Windows shell that has no `docker` client at all, and reading "command not
 found" as "daemon down".
 
-### 245 real gaps, and the one that vanished
+### 246 real gaps, and the one that vanished
 
 | file | gaps |
 |---|---:|
-| `DNSClient.cs` | 67 |
+| `DNSClient.cs` | 68 |
 | `DNSHTTPSClient.cs` | 54 |
 | `Cache/DNSCache.cs` | 37 |
 | `IDNSClient.cs` | 33 |
@@ -1222,7 +1350,7 @@ was checked against the file before it was trusted: 398 rows under the old test,
 
 **And the line turned out to be dead.** Re-measured across all seven other
 projects, `DNSClient.cs:558` comes back `KILLED-ELSEWHERE` — something in another
-project's tests already catches it. It was never one of the 245; it was a mutant
+project's tests already catches it. It was never one of the 246; it was a mutant
 with an answer that nobody had gone to collect. Which is the least dramatic
 possible ending and the reason the hole was worth closing anyway: the cost of
 losing a row is not that a gap goes unfixed, it is that nobody can tell which of
@@ -1280,9 +1408,11 @@ stops matching, which is the point: nothing may look at it.
 now have different answers, which is what was predicted and is why the line was
 left open two rounds ago rather than claimed as equivalent. The first connective
 guards a null `TryStripSIG0` cannot produce and stays. The second is the
-type-covered test itself, and it is now dead. The ledger keys on file, line and
-operator and cannot say *one of two*, so the line is filed under the round that
-closed half of it and this paragraph carries which half.
+type-covered test itself, and it is now dead. The ledger keyed on file, line and
+operator then and could not say *one of two*, so the line was filed under the
+round that closed half of it, and this paragraph carried which half. It keys on
+the occurrence now: the second `||` is killed by this round, and the first is
+equivalent, for the reason line 418 is — see *One row per mutant*.
 
 ### DNSServer.cs, where a black-box suite has nothing to say
 
@@ -1884,16 +2014,17 @@ meantime would have built them too.
 | killed by another project | 0 | **0** |
 | survived everywhere | 85 | 67 |
 | refused by the harness | 5 | 0 |
-| real gaps | 75 | 46 |
+| real gaps | 75 | 47 |
 | host-only | 9 | 19 |
 | declared equivalent | 9 | 9 |
-| **open** | 1 | **37** |
+| **open** | 1 | **38** |
 
 The first column is the first sweep as its ledger counts it today; the table in
 its own chapter says 84 real gaps because it was written before `host-only` had
-a name. Sixty-seven mutants survived and the classification has 66 rows,
-because line 693 carries two `==` and the triage keys a row by file, line and
-operator.
+a name. Sixty-seven mutants survived, and the classification had 66 rows until
+it learned to tell occurrences apart: line 693 carries two `==`, and the triage
+kept one row per file, line and operator. It has 67 now, and the second column
+says 47 real gaps — see *One row per mutant*.
 
 The verdicts are `results/dnssec-pass1.tsv` and `dnssec-pass2.tsv`, classified
 in `dnssec-classified.tsv`. The first sweep's files moved to
@@ -1908,14 +2039,14 @@ whose successors were measured as new mutants. The sixty-fifth is below.
 gives: DNSSEC is touched by one project, and there is no second opinion
 available for this code.
 
-Where the 37 are:
+Where the 38 are:
 
 | what | open | lines |
 |---|---:|---|
 | what may count as the proof that a delegation is unsigned | 14 | `DenialOfExistence.cs` 157–259, `DNSSECValidator.cs` 1406–1423 |
 | the DS step of the walk up from an answer | 6 | 720, 1178 (two), 1202, 1203, 1350 |
 | the walk down from the anchor, for an answer that came unsigned | 7 | 1572, 1681, 1692 (two), 1693, 1713, 1733 |
-| a CNAME synthesised from a verified DNAME | 6 | 684, 685 (two), 687, 689, 693 |
+| a CNAME synthesised from a verified DNAME | 7 | 684, 685 (two), 687, 689, 693 (two) |
 | the rest | 4 | `DenialOfExistence.cs` 300, 370; `DNSSECValidator.cs` 1101, 1854 |
 
 ### The proofs nobody forges
@@ -2142,7 +2273,7 @@ All thirty-one mutants of these rows were planted one at a time against the
 whole project. The twenty-seven failed the tests written for them and nothing
 else, and the four above survived.
 
-**The `dnssec` block: 46 real gaps, 33 closed, 12 equivalent, 1 open.**
+**The `dnssec` block: 47 real gaps, 34 closed, 12 equivalent, 1 open.**
 
 ---
 
@@ -2919,7 +3050,7 @@ pass 1 by SecureTransports and in pass 2 by the remaining seven projects.
 | refused by the harness | 2 |
 
 **Every one of the 40 is a real gap.** That is the first thing this block said and
-it is not how the other two went: the records sweep called 118 of its 358
+it is not how the other two went: the records sweep called 118 of its 370
 survivors noise, and `core` called 71 of 203. Here the triage found none at all.
 `DNS/TSIG` is almost pure logic — no `#region` names, no attributes, no parameter
 defaults for the classifier to throw away — so the survivor count and the gap
@@ -3196,14 +3327,17 @@ judged by all seven conformance projects that need neither Docker nor WSL.
 
 | | |
 |---|---:|
-| viable mutants | **585** |
-| caught by the record tests | 171 |
+| viable mutants | **605** |
+| caught by the record tests | 179 |
 | caught **only** by another project | 56 |
-| caught by nothing | 358 |
+| caught by nothing | 370 |
 | — of those, not really code | 118 |
-| — of those, **real gaps** | **240** |
+| — of those, **real gaps** | **252** |
 
-**Score as measured: 38.8 %. With the noise removed: 48.6 %.**
+**Score as measured: 38.8 %. With the noise removed: 48.3 %.**
+
+These count mutants. The table first counted file, line and operator, and gave
+585, 171, 358 and 240 — see *One row per mutant*.
 
 About half of the changes that can be made to Hermod's resource-record code go
 unnoticed by every test in this repository.
@@ -3308,8 +3442,8 @@ readings answer the same, because `MaxLength - MeasuredLength` *is* `octets` whe
 the two are equal. `Block_Length_Arithmetic_A_Ceiling_On_The_Boundary_Does_Not_Bite`
 pads 85 octets to 468 against a ceiling of 468 and still cannot tell them apart.
 
-**The `core` block is closed.** 478 mutants, 203 survivors, 132 of them real gaps:
-114 killed by a test, 17 shown unreachable or without observable effect, one line
+**The `core` block is closed.** 478 mutants, 205 survivors, 133 of them real gaps:
+114 killed by a test, 18 shown unreachable or without observable effect, one line
 replaced by a fix. Two blocks down — `records` and `core` — and five to go.
 
 ### The name with a rule about what a person may write in it
@@ -3540,7 +3674,7 @@ The triage knew that and tested for it with `^\[`, which matches a line that
 block's "real gaps" were that same extension method in five files. The rule now
 searches the whole line, and the count moved from 137 to 132.
 
-The records block is untouched by the change: none of its 240 had this shape,
+The records block is untouched by the change: none of its 252 had this shape,
 which is why nobody noticed. And it was not found by reading the rule — it was
 found by writing a test for the line and watching the mutation survive anyway.
 
@@ -3564,7 +3698,7 @@ narrowly and the method manufactures work.
 
 ---
 
-## The 240, by kind
+## The 252, by kind
 
 The kinds matter more than the count, because they call for different tests.
 
@@ -3592,7 +3726,7 @@ TXT.cs:478                  if (byteCount > MaxCharacterStringLength)    the 255
 
 The first is the exact boundary that findings 2, 3 and 4 were about.
 
-### Branches — 94
+### Branches — 106
 
 Conditions whose two sides are never both taken.
 
@@ -3630,7 +3764,7 @@ build/mutation/
   sweep.py        pass 1 — mutate, build, run one test project, record
   sweep_wide.py   pass 2 — re-judge only the survivors against six more projects
   control.py      the self-test: does the bench notice a change it must notice
-  report.py       triage and the gap list, read against the working tree
+  report.py       the headline and the gap list, one row per mutant
   classify.py     the same triage, pinned to the revision the sweep measured
   make_closed.py  the ledger of what each round closed
   standing.py     how much is closed, derived from files rather than typed
@@ -3644,6 +3778,8 @@ build/mutation/
                                 claims, mutated again and judged
   results/records-branch2.tsv   the seventh, over the branches and the last
                                 rejections, in three passes
+  results/occurrences-verified.tsv  every occurrence a ledger covered unseen,
+                                planted on its own
   results/        the raw verdicts, one row per mutant
 ```
 
@@ -3788,12 +3924,14 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **182 of the 240 are closed** and **54 were declared equivalent
+Since the sweep, **192 of the 252 are closed** and **54 were declared equivalent
 rather than chased**. **4 more are gone**: the lines their verdicts were measured
 on were replaced by fixes, which is neither of the other two things.
 
-That leaves **none**. Every mutant this sweep could not kill has since been
-killed, shown unreachable, or had its line replaced.
+That leaves **two**: the second `==` of the quote test in SVCB's and HTTPS's
+parameter splitter. For a long time this said *none*, and the ledger agreed,
+because it counted a line where it should have counted mutants — see *One row
+per mutant*.
 
 Do not trust that sentence. Print it:
 
@@ -3874,8 +4012,9 @@ appendix had not — which is the same mistake as stopping at the first `grep`
 result, one document larger.
 
 The record block set out to find where this suite believed it was looking and was
-not, and it has been walked end to end. Nothing is left in it to map — which is a
-statement about one folder of six, and the map above says which.
+not, and it has been walked end to end. Nothing was left in it to map until the
+occurrences were counted, and two rows came back — which is a statement about one
+folder of seven, and the map above says which.
 
 Four defects came out of that walk, and none of them by a test failing.
 [Findings 54, 55 and 56](FINDINGS.md), and `DNSSRVEndpoint`'s `Equals` and
