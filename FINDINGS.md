@@ -1,12 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Eighty-eight RFC deviations in the Hermod DNS stack, each
+What this suite caught. Eighty-nine RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last two is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Findings 87 and 88, a TCP or TLS client
-that does not pipeline and SvcParam values read without their escapes decoded,
-are open, and their trackers are red on purpose. It stays because the tests do not explain
+Every one of them but the last three is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Findings 87 to 89, a TCP or TLS client
+that does not pipeline and SvcParam values read without their escapes decoded or
+their keys' wire formats, are open, and their trackers are red on purpose. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -106,6 +106,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 86 | The transport clients asked for two types in one query of two questions | Medium | 9619 §4 | ✅ fixed |
 | 87 | A TCP or TLS client waited for each answer before sending its next query | Low | 7766 §6.2.1.1, 7858 §3.3 | ⏳ **open** |
 | 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ⏳ **open** |
+| 89 | A SvcParam value was kept as the text that wrote it, not in its key's wire format | High | 9460 §2.1, §7, §8 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5104,6 +5105,52 @@ escaped quote inside a quoted value, decimal escapes at both ends of the range
 and for the backslash, and Hermod's own round trip. Six trackers, red at the
 pinned `4f116936`, carry `KnownIssue`. Two controls, values with nothing to
 decode, pass.
+
+**The fix**: ⏳ open.
+
+---
+
+## 89 — A SvcParam value was kept as the text that wrote it, not in its key's wire format
+
+*RFC 9460 §2.1*: "The SvcParamValue is parsed using the character-string
+decoding algorithm (Appendix A), producing a value. The value is then validated
+and converted into wire format in a manner specific to each key." §7 gives the
+formats. For "port": "The wire format of the SvcParamValue is the corresponding
+2-octet numeric value in network byte order." For "alpn": "The wire-format value
+for "alpn" consists of at least one alpn-id prefixed by its length as a single
+octet". For the address hints: "a sequence of IP addresses in network byte
+order". And for "mandatory" (§8): "In wire format, the keys are represented by
+their numeric values in network byte order, concatenated in strictly increasing
+numeric order."
+
+Hermod's SVCB and HTTPS readers keep every value as the ASCII of its text.
+`port=443` goes on the wire as the three octets `443` rather than the two of
+0x01BB; `alpn=h2,h3` as the five octets `h2,h3` rather than the six of
+`\002h2\002h3`; an address hint as its dotted text. The writer does the converse:
+a port read off the wire as 0x0035 is written `port="\0005"` rather than
+`port=53`, and `alpn` as its length octets escaped.
+
+**What it costs.** Every SVCB or HTTPS record Hermod reads from a zone file, or
+from the "data" field of a DNS JSON answer, which goes through the same reader,
+carries values in the wrong format when it is served or cached: a port of three
+octets is malformed for any client that reads it. And every such record Hermod
+reads off the wire and writes into a zone file is written in a form that any
+other implementation reads as different octets. Hermod's own round trip held,
+because the reader and the writer made the same mistake, and so did every test
+until now: they compared Hermod's text with Hermod's text, or counted
+parameters.
+
+**How it was found.** Writing finding 88's trackers on 2026-10-30. The reader
+that kept the backslashes kept everything else as text as well, and a port's
+format is the first thing §7 has to say.
+
+**Repro**: `SvcParamTestVectorTests`, RFC 9460 Appendix D.2's nine ServiceMode
+vectors, each for SVCB and for HTTPS and in both directions: the presentation
+form must read as the wire format the RFC prints beside it, and the wire format
+must be written in the key's own presentation and read back unchanged. Of the 34
+cases, 26 are trackers, red at the pinned `4f116936` and carrying `KnownIssue`.
+Figure 6, a decimal escape, is finding 88's, and Figure 10's two spellings of an
+escaped comma need both fixes. Figures 3 and 5, which need neither, pass.
 
 **The fix**: ⏳ open.
 
