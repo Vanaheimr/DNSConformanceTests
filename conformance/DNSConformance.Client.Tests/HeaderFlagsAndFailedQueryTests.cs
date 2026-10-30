@@ -232,8 +232,10 @@ public class HeaderFlagsAndFailedQueryTests
         // Finding 53's distinction, from the side that has to stay distinct: a
         // network error, a closed connection or an unreadable response is not a
         // deadline, and a caller deciding whether to wait longer or move to
-        // another server needs the two apart.
-        var failed = DNSInfo.Failed(Nowhere, 4711, TimeSpan.FromSeconds(2));
+        // another server needs the two apart. The same goes for how long it
+        // took: a refused connection is known long before the deadline, so the
+        // runtime is the one the query had, not the timeout it was given.
+        var failed = DNSInfo.Failed(Nowhere, 4711, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(23));
 
         Assert.Multiple(() => {
 
@@ -246,6 +248,9 @@ public class HeaderFlagsAndFailedQueryTests
             Assert.That(failed.IsTimeout,           Is.False, "this one is not a deadline, and that is the point of it");
 
             Assert.That(failed.ResponseCode,        Is.EqualTo(DNSResponseCodes.ServerFailure));
+
+            Assert.That(failed.Timeout,             Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(failed.Runtime,             Is.EqualTo(TimeSpan.FromMilliseconds(23)), "how long it took, not how long it was allowed");
 
         });
 
