@@ -39,9 +39,20 @@ KILLED = {
     # Branches: conditions whose two sides were never both taken. Only the lines
     # actually mutated and seen to fall are listed; the neighbouring ones that a
     # test happens to cover are not claimed without a verdict.
+    #
+    # The quote test of SVCB's and HTTPS's parameter splitter carries two `==`,
+    #     if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
+    # and the first falls: to pass 1 in SVCB, to this round's tests in HTTPS. The
+    # second, i != 0, only matters for a quote with a backslash before it, and
+    # none of this round's tests writes one: planted on its own it survived every
+    # project. So these two lines are claimed operator by operator here, and the
+    # second == is the 'quote' round's.
     "branch": {"DNS/ResourceRecords/SSHFP.cs":     {169, 172},
-               "DNS/ResourceRecords/SVCB.cs":      {434, 437},
-               "DNS/ResourceRecords/HTTPS.cs":     {340, 343},
+               "DNS/ResourceRecords/SVCB.cs":      {(434, "logical-or-to-and"), (434, "inequality-to-equality"),
+                                                    437},
+               "DNS/ResourceRecords/HTTPS.cs":     {(340, "logical-and-to-or"), (340, "logical-or-to-and"),
+                                                    (340, "equality-to-inequality", 0),
+                                                    (340, "inequality-to-equality"), 343},
                "DNS/ResourceRecords/IPSECKEY.cs":  {166, 175, 187},
                "DNS/ResourceRecords/LOC.cs":       {470, 471, 486},
                "DNS/ResourceRecords/ADNSResourceRecord.cs": {656, 690},
@@ -93,6 +104,15 @@ KILLED = {
     # conversion, and loc_ntoa gives 'S' to latval < 0 and 'N' to everything
     # else. Zero is northern, and eastern, because the RFC's own code says so.
     "loc":     {"DNS/ResourceRecords/LOC.cs": {549, 558}},
+
+    # The two the occurrences brought back: the look-behind of the parameter
+    # splitter, i == 0 read as i != 0, so that a quote with a backslash before
+    # it ends the value it is in. RFC 1035 §5.1's backslash takes the special
+    # meaning from the character after it. Each type has its own copy of the
+    # splitter and its own test, and each mutant fails that test and nothing
+    # else.
+    "quote":   {"DNS/ResourceRecords/SVCB.cs":  {(434, "equality-to-inequality", 1)},
+                "DNS/ResourceRecords/HTTPS.cs": {(340, "equality-to-inequality", 1)}},
 }
 
 # Mutations that are real and unobservable: the program is the same either way.
@@ -225,7 +245,14 @@ SUPERSEDED = {
     },
 }
 
-rows = []
+def listed(entries, line, operator, occurrence):
+    for entry in ((line, operator, occurrence), (line, operator), line):
+        if entry in entries:
+            return entry
+    return None
+
+
+rows, used = [], set()
 for line in io.open(CLASSIFIED, encoding="utf-8"):
     if line.startswith("#"):
         continue
@@ -234,25 +261,51 @@ for line in io.open(CLASSIFIED, encoding="utf-8"):
         continue
     rel, ln, op = p[0], int(p[1]), p[2]
 
+    # A bare line number claims every operator on the line and every occurrence
+    # of each, and a line can carry one operator up to four times. Where a round
+    # did not see all of them, the entry names the operator, or the operator and
+    # the occurrence, as make_closed_folder.py's entries can. Each row keeps its
+    # occurrence, which standing.py reads as a seventh column. MUTATION.md, "One
+    # row per mutant", has which lines needed it.
+    occ  = int(p[5]) if len(p) > 5 else None
+    tail = () if occ is None else (str(occ),)
+
     for round_name, files in KILLED.items():
-        if ln in files.get(rel, ()):
-            rows.append((rel, str(ln), op, "killed", round_name, ""))
+        entry = listed(files.get(rel, ()), ln, op, occ)
+        if entry is not None:
+            used.add((round_name, rel, entry))
+            rows.append((rel, str(ln), op, "killed", round_name, "") + tail)
             break
     else:
         why = EQUIVALENT.get(rel, {}).get(ln)
         if why:
-            rows.append((rel, str(ln), op, "equivalent", "", why))
+            rows.append((rel, str(ln), op, "equivalent", "", why) + tail)
         else:
             why = SUPERSEDED.get(rel, {}).get(ln)
             if why:
-                rows.append((rel, str(ln), op, "superseded", "", why))
+                rows.append((rel, str(ln), op, "superseded", "", why) + tail)
+
+# An entry that names an operator or an occurrence and closes nothing is a typo
+# that leaves its row open without a word, so it is refused. A bare line that
+# matches nothing is the older form and keeps the older leniency.
+stray = ["%s %s:%s" % (round_name, rel, ":".join(str(x) for x in entry))
+         for round_name, files in KILLED.items()
+         for rel, entries in files.items()
+         for entry in entries
+         if isinstance(entry, tuple) and (round_name, rel, entry) not in used]
+if stray:
+    raise SystemExit("these ledger entries match no gap in records-classified.tsv:\n  "
+                     + "\n  ".join(sorted(stray)))
 
 with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
     f.write("# Gaps that are no longer gaps, keyed to the same revision as the verdicts.\n")
     f.write("# 'killed' means a mutation taken from this sweep's output now fails a test.\n")
     f.write("# 'equivalent' means the mutation is real and the program is the same either way.\n")
     f.write("# 'superseded' means the line the verdict belongs to was replaced by a fix.\n")
-    f.write("# file\tline\toperator\tstate\tround\twhy\n")
+    if any(len(r) > 6 for r in rows):
+        f.write("# file\tline\toperator\tstate\tround\twhy\toccurrence\n")
+    else:
+        f.write("# file\tline\toperator\tstate\tround\twhy\n")
     for r in rows:
         f.write("\t".join(r) + "\n")
 

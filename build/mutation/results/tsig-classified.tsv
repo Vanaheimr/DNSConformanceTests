@@ -1,11 +1,12 @@
 # Every mutant of the 'tsig' block that survived every project,
 # classified against Hermod 53f20591 — the revision the sweep measured.
 # Line numbers move; this file does not.
-# file	line	operator	kind	source
-DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	branch	=> TSIGKey is not null || SIG0Key is not null || SIG0ServerKeys.Any();
+# file	line	operator	kind	source	occurrence
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	branch	=> TSIGKey is not null || SIG0Key is not null || SIG0ServerKeys.Any();	0
 DNS/TSIG/SIG0Signer.cs	148	less-to-less-or-equal	boundary	if (Message.Length < 12)
 DNS/TSIG/TKEYExchange.cs	198	false-to-true	rejection	return false;
 DNS/TSIG/TSIGSigner.cs	103	less-to-less-or-equal	boundary	if (Message.Length < 12)
+DNS/TSIG/DNSTransactionSecurity.cs	73	logical-or-to-and	branch	=> TSIGKey is not null || SIG0Key is not null || SIG0ServerKeys.Any();	1
 DNS/TSIG/SIG0Signer.cs	241	logical-or-to-and	branch	if (!TryStripSIG0(SignedMessage, out _, out var sig) || sig is null)
 DNS/TSIG/TSIGAlgorithms.cs	86	logical-or-to-and	branch	Algorithm == HMACSHA384 ||
 DNS/TSIG/TSIGSigner.cs	148	logical-or-to-and	branch	if (!TryStripTSIG(SignedMessage, out var unsigned, out var tsig) ||

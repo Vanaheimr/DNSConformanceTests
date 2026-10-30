@@ -89,6 +89,26 @@ public class RecordBranchTests
 
     [Test]
     [Property("RFC", "9460 §2.1")]
+    [Property("RFC", "1035 §5.1")]
+    public void An_Escaped_Quote_Does_Not_End_A_Quoted_Value()
+    {
+
+        // RFC 1035 §5.1: a backslash before a character is "used to quote that
+        // character so that its special meaning does not apply", and inside a
+        // quoted value the special meaning of '"' is to end it. So the value
+        // below runs to the last quote, and port=8080 is part of it. A splitter
+        // that let the escaped quote close the value would cut there and read
+        // port=8080 as a parameter of its own - which a stray fragment that is
+        // not a key name would never show, because it is dropped unseen.
+        var record = SVCB.TryParseFromJSON(Name, Ttl, "1 . key65000=\"a\\\" port=8080\"");
+
+        Assert.That(record?.SVCParameters.Select(p => p.Key), Is.EqualTo(new UInt16[] { 65000 }),
+                    "port=8080 sits inside the quotes, behind an escaped quote");
+
+    }
+
+    [Test]
+    [Property("RFC", "9460 §2.1")]
     public void Https_Splits_Its_Parameters_The_Same_Way()
     {
 
@@ -98,6 +118,20 @@ public class RecordBranchTests
         var withSpace = HTTPS.TryParseFromJSON(Name, Ttl, "1 . alpn=\"h2 h3\" port=8080");
 
         Assert.That(withSpace?.SVCParameters.Count(), Is.EqualTo(2));
+
+    }
+
+    [Test]
+    [Property("RFC", "9460 §2.1")]
+    [Property("RFC", "1035 §5.1")]
+    public void Https_Lets_An_Escaped_Quote_Stay_Inside_The_Value_As_Well()
+    {
+
+        // The same rule, for HTTPS's own copy of the splitter.
+        var record = HTTPS.TryParseFromJSON(Name, Ttl, "1 . key65000=\"a\\\" port=8080\"");
+
+        Assert.That(record?.SVCParameters.Select(p => p.Key), Is.EqualTo(new UInt16[] { 65000 }),
+                    "port=8080 sits inside the quotes, behind an escaped quote");
 
     }
 
