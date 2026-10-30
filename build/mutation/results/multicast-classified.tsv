@@ -1,0 +1,391 @@
+# Every mutant of the 'multicast' block that survived every project,
+# classified against Hermod 925c80d5 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source	occurrence
+DNS/Multicast/HybridDNSClient.cs	96	false-to-true	noise-default	Boolean                      OwnsClients       = false,	0
+DNS/Multicast/IMulticastDNSTransport.cs	35	false-to-true	noise-default	Boolean               SourceIsOnLocalLink   = false)	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	73	true-to-false	branch	public Boolean       DeliverToSender     { get; set; } = true;	0
+DNS/Multicast/MulticastDNS.cs	196	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSBrowser.cs	94	logical-and-to-or	branch	=> HostName is not null && Port.HasValue;	0
+DNS/Multicast/MulticastDNSClient.cs	55	true-to-false	branch	public Boolean   UseCache                   { get; init; } = true;	0
+DNS/Multicast/MulticastDNSMessage.cs	39	false-to-true	branch	Boolean      UnicastResponseRequested   = false)	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	42	false-to-true	branch	Record.Serialize(stream, UseCompression: false, CompressionOffsets: []);	0
+DNS/Multicast/MulticastDNSResponder.cs	199	inequality-to-equality	branch	get => Volatile.Read(ref probeStarted) != 0;	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	65	equality-to-inequality	branch	while (length > 0 && bitmap[length - 1] == 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	40	true-to-false	branch	public Boolean               EnableIPv4                  { get; init; } = true;	0
+DNS/Multicast/HybridDNSClient.cs	113	false-to-true	noise-region	#region Query(DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = null, ForceUpdate = false, ...)	0
+DNS/Multicast/IMulticastDNSTransport.cs	48	logical-and-to-or	branch	=> DestinationAddress is not null &&	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	176	false-to-true	host-only	await handler(timestamp, Sender, Payload, Destination).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNS.cs	200	logical-or-to-and	branch	return name == "local"                             ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	128	greater-to-ge	boundary	Addresses.Count > 0  ? $" [{String.Join(", ", Addresses)}]" : ""	0
+DNS/Multicast/MulticastDNSClient.cs	62	true-to-false	branch	public Boolean   RequestUnicastResponses    { get; init; } = true;	0
+DNS/Multicast/MulticastDNSMessage.cs	70	false-to-true	branch	Boolean                 UnicastResponseRequested   = false,	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	67	le-to-less	boundary	return offset <= wire.Length	0
+DNS/Multicast/MulticastDNSResponder.cs	453	less-to-less-or-equal	boundary	if (this.Options.ProbeCount < 1)	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	65	greater-to-ge	boundary	while (length > 0 && bitmap[length - 1] == 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	45	true-to-false	branch	public Boolean               EnableIPv6                  { get; init; } = true;	0
+DNS/Multicast/HybridDNSClient.cs	122	false-to-true	branch	Boolean?                             ForceUpdate         = false,	0
+DNS/Multicast/IMulticastDNSTransport.cs	49	logical-or-to-and	branch	(DestinationAddress.Equals(MulticastDNS.IPv4Group) ||	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	190	logical-and-to-or	branch	else if (transport == Sender && !DeliverToSender)	0
+DNS/Multicast/MulticastDNS.cs	200	equality-to-inequality	branch	return name == "local"                             ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	188	logical-and-to-or	branch	=> cancellationTokenSource is not null && !cancellationTokenSource.IsCancellationRequested;	0
+DNS/Multicast/MulticastDNSClient.cs	78	false-to-true	branch	public Boolean   IncludeLinkLocalIPv6       { get; init; } = false;	0
+DNS/Multicast/MulticastDNSMessage.cs	88	equality-to-inequality	branch	(Class == DNSQueryClasses.ANY        || Record.Class == Class);	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	86	logical-and-to-or	branch	=> Record.Type == Other.Type &&	0
+DNS/Multicast/MulticastDNSResponder.cs	456	less-to-less-or-equal	boundary	if (this.Options.AnnouncementCount < 1)	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	97	le-to-less	boundary	while (offset + 2 <= TypeBitMaps.Length)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	60	false-to-true	branch	public Boolean               IncludeLoopbackInterface    { get; init; } = false;	0
+DNS/Multicast/HybridDNSClient.cs	131	false-to-true	noise-region	#region Query(DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = null, ForceUpdate = false, ...)	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	190	equality-to-inequality	branch	else if (transport == Sender && !DeliverToSender)	0
+DNS/Multicast/MulticastDNS.cs	201	logical-or-to-and	branch	name.EndsWith(".local",                     StringComparison.Ordinal) ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	295	true-to-false	branch	instance.Announced = true;	0
+DNS/Multicast/MulticastDNSClient.cs	148	greater-to-ge	boundary	=> ExpiresAt > Now ? ExpiresAt - Now : TimeSpan.Zero;	0
+DNS/Multicast/MulticastDNSMessage.cs	114	false-to-true	branch	Boolean             CacheFlush           = false,	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	87	logical-and-to-or	branch	PlainClass(Record.Class) == PlainClass(Other.Class) &&	0
+DNS/Multicast/MulticastDNSResponder.cs	481	false-to-true	host-only	await Transport.StartAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	logical-or-to-and	branch	if (length == 0 || length > 32 || offset + length > TypeBitMaps.Length)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	66	true-to-false	branch	public Boolean               MulticastLoopback           { get; init; } = true;	0
+DNS/Multicast/HybridDNSClient.cs	140	false-to-true	branch	Boolean?                             ForceUpdate         = false,	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	208	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNS.cs	202	logical-or-to-and	branch	name.EndsWith("254.169.in-addr.arpa",       StringComparison.Ordinal) ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	307	false-to-true	host-only	await QueryInstanceAsync(instance, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	215	logical-and-to-or	branch	=> Name.Equals(Record.DomainName) &&	0
+DNS/Multicast/MulticastDNSMessage.cs	305	false-to-true	noise-region	#region (static) Query   (Questions, KnownAnswers = null, Authorities = null, Truncated = false, TransactionId = 0)	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	152	less-to-less-or-equal	boundary	for (var i = 0; i < Math.Min(ours.Length, theirs.Length); i++)	0
+DNS/Multicast/MulticastDNSResponder.cs	503	false-to-true	host-only	await WithdrawAsync(publication, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	logical-or-to-and	branch	if (length == 0 || length > 32 || offset + length > TypeBitMaps.Length)	1
+DNS/Multicast/UDPMulticastDNSTransport.cs	72	false-to-true	branch	public Boolean               IncludeLinkLocalIPv6        { get; init; } = false;	0
+DNS/Multicast/HybridDNSClient.cs	161	true-to-false	branch	isDisposed = true;	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	255	logical-and-to-or	branch	=> isRunning && !isDisposed;	0
+DNS/Multicast/MulticastDNS.cs	203	logical-or-to-and	branch	name.EndsWith("8.e.f.ip6.arpa",             StringComparison.Ordinal) ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	342	false-to-true	host-only	await cts.CancelAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	216	logical-or-to-and	branch	(Types.Contains(DNSResourceRecordTypes.Any) || Types.Contains(Record.Type));	0
+DNS/Multicast/MulticastDNSMessage.cs	319	false-to-true	branch	Boolean                            Truncated       = false,	0
+DNS/Multicast/MulticastDNSResponder.cs	514	false-to-true	host-only	await cts.CancelAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	equality-to-inequality	branch	if (length == 0 || length > 32 || offset + length > TypeBitMaps.Length)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	136	logical-and-to-or	branch	=> cancellationTokenSource is not null && !cancellationTokenSource.IsCancellationRequested;	0
+DNS/Multicast/HybridDNSClient.cs	166	logical-or-to-and	branch	if (OwnsClients || madeUnicastClient)	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	314	false-to-true	branch	isRunning = false;	0
+DNS/Multicast/MulticastDNS.cs	204	logical-or-to-and	branch	name.EndsWith("9.e.f.ip6.arpa",             StringComparison.Ordinal) ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	348	false-to-true	host-only	await queryLoop.ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	258	logical-and-to-or	branch	=> cancellationTokenSource is not null && !cancellationTokenSource.IsCancellationRequested;	0
+DNS/Multicast/MulticastDNSMessage.cs	325	false-to-true	branch	false,	0
+DNS/Multicast/MulticastDNSResponder.cs	522	false-to-true	host-only	await Task.WhenAll(pending).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	greater-to-ge	boundary	if (length == 0 || length > 32 || offset + length > TypeBitMaps.Length)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	199	equality-to-inequality	branch	if (interfaces.Count == 0)	0
+DNS/Multicast/HybridDNSClient.cs	180	true-to-false	branch	isDisposed = true;	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	401	true-to-false	branch	isDisposed  = true;	0
+DNS/Multicast/MulticastDNS.cs	205	logical-or-to-and	branch	name.EndsWith("a.e.f.ip6.arpa",             StringComparison.Ordinal) ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	374	greater-to-ge	boundary	Where (entry => entry.ExpiresAt > now + TimeSpan.FromSeconds(1)).	0
+DNS/Multicast/MulticastDNSClient.cs	349	false-to-true	host-only	await Transport.StartAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	336	false-to-true	noise-region	#region (static) Response(Answers, Additionals = null, Questions = null, Truncated = false, TransactionId = 0)	0
+DNS/Multicast/MulticastDNSResponder.cs	534	true-to-false	noise-region	#region PublishAsync(Records, Probe = true, CancellationToken = default)	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	105	greater-to-ge	boundary	if (length == 0 || length > 32 || offset + length > TypeBitMaps.Length)	1
+DNS/Multicast/UDPMulticastDNSTransport.cs	206	logical-or-to-and	branch	Where(address => Options.IncludeLinkLocalIPv6 || !address.IsIPv6LinkLocal).	0
+DNS/Multicast/HybridDNSClient.cs	183	false-to-true	host-only	await MulticastClient.DisposeAsync().ConfigureAwait(false);	0
+DNS/Multicast/InMemoryMulticastDNSNetwork.cs	402	false-to-true	branch	isRunning   = false;	0
+DNS/Multicast/MulticastDNSBrowser.cs	375	false-to-true	branch	Select(entry => new MulticastDNSRecord(entry.Record, false, entry.RemainingTimeToLive(now)));	0
+DNS/Multicast/MulticastDNSClient.cs	375	false-to-true	host-only	await browser.StopAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	351	false-to-true	branch	Boolean                             Truncated       = false,	0
+DNS/Multicast/MulticastDNSResponder.cs	573	logical-and-to-or	branch	if (Probe && Options.ProbeUniqueRecords && publication.UniqueRecords.Any())	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	108	less-to-less-or-equal	boundary	for (var i = 0; i < length; i++)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	215	false-to-true	branch	ExclusiveAddressUse = false	0
+DNS/Multicast/HybridDNSClient.cs	185	logical-or-to-and	branch	if (OwnsClients || madeUnicastClient)	0
+DNS/Multicast/MulticastDNSBrowser.cs	400	false-to-true	host-only	await QueryNowAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	386	false-to-true	host-only	await cts.CancelAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	380	true-to-false	noise-attribute	[NotNullWhen(true)]  out MulticastDNSMessage?  Message,	0
+DNS/Multicast/MulticastDNSResponder.cs	573	logical-and-to-or	branch	if (Probe && Options.ProbeUniqueRecords && publication.UniqueRecords.Any())	1
+DNS/Multicast/MulticastDNSTypeBitmap.cs	110	less-to-less-or-equal	boundary	for (var bit = 0; bit < 8; bit++)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	218	true-to-false	branch	socket4.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress,        true);	0
+DNS/Multicast/HybridDNSClient.cs	186	false-to-true	host-only	await UnicastClient.  DisposeAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	413	false-to-true	host-only	await Task.Delay(interval, Client.TimeProvider, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	394	false-to-true	noise-region	#region Query(DomainName,     ResourceRecordTypes, Timeout = null, RecursionDesired = null, ForceUpdate = false, ...)	0
+DNS/Multicast/MulticastDNSMessage.cs	381	false-to-true	noise-attribute	[NotNullWhen(false)] out String?               ErrorResponse)	0
+DNS/Multicast/MulticastDNSResponder.cs	576	false-to-true	host-only	await SetStateAsync(publication, MulticastDNSPublicationState.Probing, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	112	inequality-to-equality	branch	if ((TypeBitMaps[offset + i] & (0x80 >> bit)) != 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	222	true-to-false	branch	socket4.SetSocketOption(SocketOptionLevel.IP,     SocketOptionName.PacketInformation,   true);	0
+DNS/Multicast/MulticastDNSBrowser.cs	422	greater-to-ge	boundary	if (interval > Client.Options.MaxBrowseInterval)	0
+DNS/Multicast/MulticastDNSClient.cs	403	false-to-true	branch	Boolean?                             ForceUpdate         = false,	0
+DNS/Multicast/MulticastDNSMessage.cs	387	less-to-less-or-equal	boundary	if (Packet.Length < HeaderLength)	0
+DNS/Multicast/MulticastDNSResponder.cs	579	greater-to-ge	boundary	if (initialDelay > TimeSpan.Zero)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	246	equality-to-inequality	branch	if (joined == 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	461	le-to-less	boundary	if (Client.Options.GoodbyeDelay <= TimeSpan.Zero &&	0
+DNS/Multicast/MulticastDNSClient.cs	415	false-to-true	noise-region	#region Query(DNSServiceName, ResourceRecordTypes, Timeout = null, RecursionDesired = null, ForceUpdate = false, ...)	0
+DNS/Multicast/MulticastDNSMessage.cs	390	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	580	false-to-true	host-only	await Task.Delay(initialDelay, TimeProvider, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	258	false-to-true	branch	ExclusiveAddressUse = false,	0
+DNS/Multicast/MulticastDNSBrowser.cs	476	false-to-true	branch	instance.RefreshRequested  = false;	0
+DNS/Multicast/MulticastDNSClient.cs	432	false-to-true	branch	Boolean?                             ForceUpdate         = false,	0
+DNS/Multicast/MulticastDNSMessage.cs	412	false-to-true	branch	using var stream      = new MemoryStream(buffer, false);	0
+DNS/Multicast/MulticastDNSResponder.cs	598	equality-to-inequality	branch	if (i == 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	259	false-to-true	branch	DualMode            = false	0
+DNS/Multicast/MulticastDNSBrowser.cs	493	false-to-true	branch	Announce(instance, added, updated, false);	0
+DNS/Multicast/MulticastDNSClient.cs	440	equality-to-inequality	branch	if (types.Length == 0)	0
+DNS/Multicast/MulticastDNSMessage.cs	425	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	599	true-to-false	branch	publication.ProbeStarted = true;	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	262	true-to-false	branch	socket6.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress,        true);	0
+DNS/Multicast/MulticastDNSBrowser.cs	507	logical-and-to-or	branch	if (changed && Record.Record is SRV && detailInstance.HostName is not null)	0
+DNS/Multicast/MulticastDNSClient.cs	453	logical-and-to-or	branch	if (Options.UseCache && ForceUpdate != true)	0
+DNS/Multicast/MulticastDNSMessage.cs	431	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	601	false-to-true	host-only	await SendAsync(probe, null, null, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	266	true-to-false	branch	socket6.SetSocketOption(SocketOptionLevel.IPv6,   SocketOptionName.PacketInformation,   true);	0
+DNS/Multicast/MulticastDNSBrowser.cs	507	logical-and-to-or	branch	if (changed && Record.Record is SRV && detailInstance.HostName is not null)	1
+DNS/Multicast/MulticastDNSClient.cs	453	inequality-to-equality	branch	if (Options.UseCache && ForceUpdate != true)	0
+DNS/Multicast/MulticastDNSMessage.cs	468	logical-or-to-and	branch	!TryParseSection(buffer, stream, ref offset, authorityCount,  authorities, warnings, "Authority",  out ErrorResponse) ||	0
+DNS/Multicast/MulticastDNSResponder.cs	603	false-to-true	host-only	await Task.Delay(Options.ProbeInterval, TimeProvider, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	271	logical-and-to-or	branch	foreach (var info in interfaces.Where(info => info.IPv6Addresses.Count > 0 && info.IPv6Index.HasValue))	0
+DNS/Multicast/MulticastDNSBrowser.cs	511	logical-and-to-or	branch	if (detailInstance.HostName is not null && detailInstance.Addresses.Count == 0)	0
+DNS/Multicast/MulticastDNSClient.cs	453	true-to-false	branch	if (Options.UseCache && ForceUpdate != true)	0
+DNS/Multicast/MulticastDNSMessage.cs	471	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	616	false-to-true	host-only	await SetStateAsync(publication, MulticastDNSPublicationState.Announcing, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	271	greater-to-ge	boundary	foreach (var info in interfaces.Where(info => info.IPv6Addresses.Count > 0 && info.IPv6Index.HasValue))	0
+DNS/Multicast/MulticastDNSBrowser.cs	511	equality-to-inequality	branch	if (detailInstance.HostName is not null && detailInstance.Addresses.Count == 0)	0
+DNS/Multicast/MulticastDNSClient.cs	457	logical-or-to-and	branch	Where(entry => types.Contains(DNSResourceRecordTypes.Any) || types.Contains(entry.Record.Type)).	0
+DNS/Multicast/MulticastDNSMessage.cs	480	inequality-to-equality	branch	(flags1 & 0x04) != 0,	0
+DNS/Multicast/MulticastDNSResponder.cs	624	greater-to-ge	boundary	if (i > 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	287	equality-to-inequality	branch	if (joined == 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	523	logical-and-to-or	branch	foreach (var hostInstance in instances.Values.Where(instance => instance.HostName is not null &&	0
+DNS/Multicast/MulticastDNSClient.cs	461	greater-to-ge	boundary	if (cached.Length > 0)	0
+DNS/Multicast/MulticastDNSMessage.cs	481	inequality-to-equality	branch	(flags1 & 0x02) != 0,	0
+DNS/Multicast/MulticastDNSResponder.cs	625	false-to-true	host-only	await Task.Delay(Options.AnnouncementInterval, TimeProvider, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	304	logical-and-to-or	branch	if (socket4 is null && socket6 is null)	0
+DNS/Multicast/MulticastDNSBrowser.cs	537	false-to-true	host-only	await QueryInstanceAsync(instance, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	481	false-to-true	host-only	await SendQueryAsync(questions, KnownAnswers(DNSServiceName, types), linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	482	inequality-to-equality	branch	(flags1 & 0x01) != 0,	0
+DNS/Multicast/MulticastDNSResponder.cs	630	false-to-true	host-only	await AnnounceAsync(publication.Records, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	339	false-to-true	host-only	await cts.CancelAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	539	false-to-true	host-only	await RaiseAsync(added, updated, removed, Timestamp, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	483	true-to-false	branch	while (true)	0
+DNS/Multicast/MulticastDNSMessage.cs	506	false-to-true	noise-attribute	[NotNullWhen(false)] out String?  ErrorResponse)	0
+DNS/Multicast/MulticastDNSResponder.cs	635	false-to-true	host-only	await SetStateAsync(publication, MulticastDNSPublicationState.Published, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	346	false-to-true	host-only	await Task.WhenAll(receiveLoops).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	572	logical-and-to-or	branch	if (instances.Remove(Key(ptr.Target.FullName), out var gone) && gone.Announced)	0
+DNS/Multicast/MulticastDNSClient.cs	487	le-to-less	boundary	if (remaining <= TimeSpan.Zero)	0
+DNS/Multicast/MulticastDNSMessage.cs	522	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	687	false-to-true	host-only	await RaiseStateChangedAsync(Publication, oldState, MulticastDNSPublicationState.Withdrawn, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	375	false-to-true	host-only	await sendLock.WaitAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	588	logical-and-to-or	branch	foreach (var hostInstance in instances.Values.Where(instance => instance.HostName is not null &&	0
+DNS/Multicast/MulticastDNSClient.cs	490	less-to-less-or-equal	boundary	var wait = remaining < Options.RetransmissionInterval ? remaining : Options.RetransmissionInterval;	0
+DNS/Multicast/MulticastDNSMessage.cs	525	greater-to-ge	boundary	if (offset + 10 > Buffer.Length)	0
+DNS/Multicast/MulticastDNSResponder.cs	690	logical-and-to-or	branch	MulticastDNSPublicationState.Published &&	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	384	equality-to-inequality	branch	var socket   = endPoint.AddressFamily == AddressFamily.InterNetworkV6 ? socket6 : socket4;	0
+DNS/Multicast/MulticastDNSBrowser.cs	602	logical-and-to-or	branch	foreach (var hostInstance in instances.Values.Where(instance => instance.HostName is not null &&	0
+DNS/Multicast/MulticastDNSClient.cs	494	false-to-true	host-only	var       completed = await Task.WhenAny(query.Signal.Task, delayTask).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	528	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	693	false-to-true	host-only	await SendGoodbyeAsync(Publication.Records, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	392	false-to-true	host-only	await socket.SendToAsync(Payload, SocketFlags.None, endPoint, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	618	false-to-true	host-only	await QueryInstanceAsync(instance, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	496	equality-to-inequality	branch	if (completed == query.Signal.Task)	0
+DNS/Multicast/MulticastDNSMessage.cs	532	inequality-to-equality	branch	var cacheFlush  = (rawClass & MulticastDNS.CacheFlushBit) != 0;	0
+DNS/Multicast/MulticastDNSResponder.cs	720	equality-to-inequality	branch	if (records.Length == 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	399	logical-or-to-and	branch	foreach (var info in interfaces.Where(info => !InterfaceIndex.HasValue            ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	620	false-to-true	host-only	await RaiseAsync([], updated, removed, Timestamp, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	499	false-to-true	host-only	await delayCTS.CancelAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	539	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	746	logical-or-to-and	branch	var goodbyeRecords = removed.Where(old => !MulticastDNS.IsUniqueRecordType(old.Type) ||	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	400	logical-or-to-and	branch	info.Index     == InterfaceIndex.Value ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	652	greater-to-ge	boundary	if (now - instance.LastSeen > MulticastDNS.SharedRecordTimeToLive)	0
+DNS/Multicast/MulticastDNSClient.cs	504	greater-to-ge	boundary	if (grace > Options.ResponseGracePeriod)	0
+DNS/Multicast/MulticastDNSMessage.cs	615	false-to-true	branch	question.Name.Serialize(stream, (Int32) stream.Position, false, null);	0
+DNS/Multicast/MulticastDNSResponder.cs	750	greater-to-ge	boundary	if (goodbyeRecords.Length > 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	400	equality-to-inequality	branch	info.Index     == InterfaceIndex.Value ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	661	logical-and-to-or	branch	if (!instance.RefreshRequested &&	0
+DNS/Multicast/MulticastDNSClient.cs	506	greater-to-ge	boundary	if (grace > TimeSpan.Zero)	0
+DNS/Multicast/MulticastDNSMessage.cs	628	false-to-true	branch	record.Record.Serialize(stream, UseCompression: false, CompressionOffsets: []);	0
+DNS/Multicast/MulticastDNSResponder.cs	751	false-to-true	host-only	await SendGoodbyeAsync(goodbyeRecords, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	401	logical-or-to-and	branch	info.IPv4Index == InterfaceIndex.Value ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	662	logical-and-to-or	branch	lifetime > TimeSpan.Zero &&	0
+DNS/Multicast/MulticastDNSClient.cs	507	false-to-true	host-only	await Task.Delay(grace, TimeProvider, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	671	inequality-to-equality	branch	TransactionId != 0 ? $" #{TransactionId}" : "",	0
+DNS/Multicast/MulticastDNSResponder.cs	753	less-to-less-or-equal	boundary	for (var i = 0; i < Options.AnnouncementCount; i++)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	401	equality-to-inequality	branch	info.IPv4Index == InterfaceIndex.Value ||	0
+DNS/Multicast/MulticastDNSBrowser.cs	662	greater-to-ge	boundary	lifetime > TimeSpan.Zero &&	0
+DNS/Multicast/MulticastDNSClient.cs	516	false-to-true	host-only	await SendQueryAsync(questions, KnownAnswers(DNSServiceName, types), linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	674	greater-to-ge	boundary	Warnings.Count > 0 ? $", {Warnings.Count} warning(s)" : ""	0
+DNS/Multicast/MulticastDNSResponder.cs	756	greater-to-ge	boundary	if (i > 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	402	equality-to-inequality	branch	info.IPv6Index == InterfaceIndex.Value))	0
+DNS/Multicast/MulticastDNSBrowser.cs	663	less-to-less-or-equal	boundary	remaining < lifetime * (1 - Client.Options.RefreshFraction))	0
+DNS/Multicast/MulticastDNSClient.cs	540	logical-and-to-or	branch	if (answers.Length == 0 && !query.IsNegative)	0
+DNS/Multicast/MulticastDNSMessage.cs	709	ge-to-greater	boundary	if (offset >= Packet.Length)	0
+DNS/Multicast/MulticastDNSResponder.cs	757	false-to-true	host-only	await Task.Delay(Options.AnnouncementInterval, TimeProvider, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	412	false-to-true	host-only	await socket4.SendToAsync(Payload, SocketFlags.None, new IPEndPoint(MulticastDNS.IPv4Group, port), CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	665	true-to-false	branch	instance.RefreshRequested = true;	0
+DNS/Multicast/MulticastDNSClient.cs	540	equality-to-inequality	branch	if (answers.Length == 0 && !query.IsNegative)	0
+DNS/Multicast/MulticastDNSMessage.cs	712	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	762	false-to-true	host-only	await AnnounceAsync(Publication.Records, linked.Token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	421	logical-and-to-or	branch	if (socket6 is not null && info.IPv6Addresses.Count > 0 && info.IPv6Index.HasValue)	0
+DNS/Multicast/MulticastDNSBrowser.cs	676	logical-and-to-or	branch	if (refresh.Count == 0 && expired.Count == 0)	0
+DNS/Multicast/MulticastDNSClient.cs	577	le-to-less	boundary	recentUnicastQuestions.RemoveAll(question => question.ExpiresAt <= now);	0
+DNS/Multicast/MulticastDNSMessage.cs	726	ge-to-greater	boundary	if (offset + 1 >= Packet.Length)	0
+DNS/Multicast/MulticastDNSResponder.cs	790	logical-or-to-and	branch	if (!Datagram.SourceIsOnLocalLink ||	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	421	logical-and-to-or	branch	if (socket6 is not null && info.IPv6Addresses.Count > 0 && info.IPv6Index.HasValue)	1
+DNS/Multicast/MulticastDNSBrowser.cs	676	equality-to-inequality	branch	if (refresh.Count == 0 && expired.Count == 0)	0
+DNS/Multicast/MulticastDNSClient.cs	585	false-to-true	host-only	await Transport.SendAsync(query.Serialize(), null, null, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	729	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	791	logical-or-to-and	branch	message.Opcode       != 0 ||	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	421	greater-to-ge	boundary	if (socket6 is not null && info.IPv6Addresses.Count > 0 && info.IPv6Index.HasValue)	0
+DNS/Multicast/MulticastDNSBrowser.cs	676	equality-to-inequality	branch	if (refresh.Count == 0 && expired.Count == 0)	1
+DNS/Multicast/MulticastDNSClient.cs	621	false-to-true	host-only	await browser.StartAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSMessage.cs	733	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSResponder.cs	798	false-to-true	host-only	await HandleQueryAsync(message, Datagram, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	429	false-to-true	host-only	CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	684	greater-to-ge	boundary	if (refresh.Count > 0)	0
+DNS/Multicast/MulticastDNSClient.cs	652	logical-and-to-or	branch	Where(entry => entry.ExpiresAt > now &&	0
+DNS/Multicast/MulticastDNSMessage.cs	740	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	800	false-to-true	host-only	await HandleResponseAsync(message, Datagram, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	465	false-to-true	host-only	var result     = await Socket.ReceiveMessageFromAsync(buffer, SocketFlags.None, AnyEndPoint, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	687	false-to-true	host-only	await QueryNowAsync(cts.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	652	greater-to-ge	boundary	Where(entry => entry.ExpiresAt > now &&	0
+DNS/Multicast/MulticastDNSMessage.cs	745	greater-to-ge	boundary	if (++labels > 128)	0
+DNS/Multicast/MulticastDNSResponder.cs	816	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	467	equality-to-inequality	branch	if (result.ReceivedBytes == 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	690	false-to-true	host-only	await QueryInstanceAsync(instance, cts.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	653	logical-and-to-or	branch	(Name is null || entry.Record.DomainName.Equals(Name)) &&	0
+DNS/Multicast/MulticastDNSMessage.cs	748	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSResponder.cs	833	false-to-true	host-only	await HandleProbeAsync(Query, Datagram, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	494	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	694	false-to-true	host-only	await RaiseAsync([], [], expired.Where(instance => instance.Announced).ToList(), now, cts.Token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	653	logical-or-to-and	branch	(Name is null || entry.Record.DomainName.Equals(Name)) &&	0
+DNS/Multicast/MulticastDNSResponder.cs	843	false-to-true	branch	var shared         = false;	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	539	inequality-to-equality	branch	if (networkInterface.OperationalStatus != OperationalStatus.Up)	0
+DNS/Multicast/MulticastDNSBrowser.cs	733	false-to-true	host-only	await Client.SendQueryAsync(questions, null, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	654	logical-or-to-and	branch	(!Type.HasValue || entry.Record.Type == Type.Value))];	0
+DNS/Multicast/MulticastDNSResponder.cs	848	inequality-to-equality	branch	if (question.Class != DNSQueryClasses.IN && question.Class != DNSQueryClasses.ANY)	1
+DNS/Multicast/UDPMulticastDNSTransport.cs	545	logical-and-to-or	branch	if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback && !Options.IncludeLoopbackInterface)	0
+DNS/Multicast/MulticastDNSBrowser.cs	776	logical-or-to-and	branch	var hostChanged = Instance.HostName is null || !Instance.HostName.Equals(srv.Target);	0
+DNS/Multicast/MulticastDNSClient.cs	654	equality-to-inequality	branch	(!Type.HasValue || entry.Record.Type == Type.Value))];	0
+DNS/Multicast/MulticastDNSResponder.cs	868	true-to-false	branch	shared = true;	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	545	equality-to-inequality	branch	if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback && !Options.IncludeLoopbackInterface)	0
+DNS/Multicast/MulticastDNSBrowser.cs	778	logical-and-to-or	branch	if (!hostChanged &&	0
+DNS/Multicast/MulticastDNSClient.cs	687	logical-or-to-and	branch	if (Datagram.RemoteSocket.Port != Transport.Port || !Datagram.SourceIsOnLocalLink)	0
+DNS/Multicast/MulticastDNSResponder.cs	888	logical-or-to-and	branch	question.Type == DNSResourceRecordTypes.NSEC ||	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	548	logical-and-to-or	branch	if (wanted is not null &&	0
+DNS/Multicast/MulticastDNSBrowser.cs	779	logical-and-to-or	branch	Instance.Port == srv.Port &&	0
+DNS/Multicast/MulticastDNSClient.cs	687	inequality-to-equality	branch	if (Datagram.RemoteSocket.Port != Transport.Port || !Datagram.SourceIsOnLocalLink)	0
+DNS/Multicast/MulticastDNSResponder.cs	889	inequality-to-equality	branch	(question.Class != DNSQueryClasses.IN && question.Class != DNSQueryClasses.ANY))	1
+DNS/Multicast/UDPMulticastDNSTransport.cs	549	logical-and-to-or	branch	!wanted.Contains(networkInterface.Name) &&	0
+DNS/Multicast/MulticastDNSBrowser.cs	779	equality-to-inequality	branch	Instance.Port == srv.Port &&	0
+DNS/Multicast/MulticastDNSClient.cs	697	logical-or-to-and	branch	if (!message.IsResponse ||	0
+DNS/Multicast/MulticastDNSResponder.cs	912	false-to-true	branch	unicastOnly = false;	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	563	equality-to-inequality	branch	if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)	0
+DNS/Multicast/MulticastDNSBrowser.cs	780	logical-and-to-or	branch	Instance.Priority == srv.Priority &&	0
+DNS/Multicast/MulticastDNSClient.cs	698	logical-or-to-and	branch	message.Opcode       != 0 ||	0
+DNS/Multicast/MulticastDNSResponder.cs	936	false-to-true	host-only	await Task.Delay(delay, TimeProvider, token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	566	equality-to-inequality	branch	else if (unicast.Address.AddressFamily == AddressFamily.InterNetworkV6)	0
+DNS/Multicast/MulticastDNSBrowser.cs	780	equality-to-inequality	branch	Instance.Priority == srv.Priority &&	0
+DNS/Multicast/MulticastDNSClient.cs	698	inequality-to-equality	branch	message.Opcode       != 0 ||	0
+DNS/Multicast/MulticastDNSResponder.cs	938	false-to-true	host-only	await SendResponseAsync(answers, additionals, unicast, legacy, answeringProbe, Query, Datagram, token).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	574	logical-and-to-or	branch	if (ipv4Addresses.Count == 0 && ipv6Addresses.Count == 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	781	equality-to-inequality	branch	Instance.Weight == srv.Weight)	0
+DNS/Multicast/MulticastDNSClient.cs	699	inequality-to-equality	branch	message.ResponseCode != DNSResponseCodes.NoError)	0
+DNS/Multicast/MulticastDNSResponder.cs	946	false-to-true	host-only	await SendResponseAsync(answers, additionals, unicast, legacy, answeringProbe, Query, Datagram, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	574	equality-to-inequality	branch	if (ipv4Addresses.Count == 0 && ipv6Addresses.Count == 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	782	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSClient.cs	707	logical-and-to-or	branch	if (!Datagram.WasReceivedViaMulticast && !IsExpectedUnicastResponse(message))	0
+DNS/Multicast/MulticastDNSResponder.cs	986	less-to-less-or-equal	boundary	if (ours.CompareLexicographically(theirs) < 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	574	equality-to-inequality	branch	if (ipv4Addresses.Count == 0 && ipv6Addresses.Count == 0)	1
+DNS/Multicast/MulticastDNSBrowser.cs	791	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSClient.cs	710	false-to-true	host-only	await HandleResponseAsync(message, Datagram, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSResponder.cs	992	false-to-true	host-only	await SetConflictAsync(publication, own, conflicting, Datagram.RemoteSocket, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	580	greater-to-ge	boundary	if (ipv4Addresses.Count > 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	796	logical-and-to-or	branch	if (Instance.TXT is not null && Instance.TXT.Strings.SequenceEqual(txt.Strings, StringComparer.Ordinal))	0
+DNS/Multicast/MulticastDNSClient.cs	727	le-to-less	boundary	recentUnicastQuestions.RemoveAll(question => question.ExpiresAt <= now);	0
+DNS/Multicast/MulticastDNSResponder.cs	1030	equality-to-inequality	branch	publication.State == MulticastDNSPublicationState.Probing)];	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	583	greater-to-ge	boundary	if (ipv6Addresses.Count > 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	797	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSClient.cs	731	logical-and-to-or	branch	answer => question.Name.Equals(answer.DomainName) &&	0
+DNS/Multicast/MulticastDNSResponder.cs	1053	false-to-true	host-only	await SetConflictAsync(publication, own, conflicting, Datagram.RemoteSocket, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	609	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSBrowser.cs	800	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSClient.cs	732	logical-or-to-and	branch	(question.Type == DNSResourceRecordTypes.Any ||	0
+DNS/Multicast/MulticastDNSResponder.cs	1074	false-to-true	host-only	await SetConflictAsync(publication, ours[0], conflicting, Datagram.RemoteSocket, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	612	equality-to-inequality	branch	info => (Source.AddressFamily == AddressFamily.InterNetwork	0
+DNS/Multicast/MulticastDNSBrowser.cs	803	logical-and-to-or	branch	case A a when Instance.HostName is not null && SameName(a.DomainName.FullName, Instance.HostName.FullName):	0
+DNS/Multicast/MulticastDNSClient.cs	732	equality-to-inequality	branch	(question.Type == DNSResourceRecordTypes.Any ||	0
+DNS/Multicast/MulticastDNSResponder.cs	1139	ge-to-greater	boundary	now - last >= Options.MinRecordMulticastInterval)];	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	614	equality-to-inequality	branch	: info.IPv6Index) == InterfaceIndex	0
+DNS/Multicast/MulticastDNSBrowser.cs	806	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSClient.cs	733	logical-or-to-and	branch	question.Type == answer.Type ||	0
+DNS/Multicast/MulticastDNSResponder.cs	1145	ge-to-greater	boundary	now - last >= Options.MinRecordMulticastInterval)];	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	625	equality-to-inequality	branch	Address.AddressFamily == AddressFamily.InterNetwork	0
+DNS/Multicast/MulticastDNSBrowser.cs	809	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSClient.cs	733	equality-to-inequality	branch	question.Type == answer.Type ||	0
+DNS/Multicast/MulticastDNSResponder.cs	1164	greater-to-ge	boundary	TimeToLiveOverride:  ttlOverride.HasValue && Record.TimeToLive > ttlOverride.Value	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	635	inequality-to-equality	branch	if (Left.AddressFamily != Right.AddressFamily)	0
+DNS/Multicast/MulticastDNSBrowser.cs	812	logical-and-to-or	branch	case AAAA aaaa when Instance.HostName is not null && SameName(aaaa.DomainName.FullName, Instance.HostName.FullName):	0
+DNS/Multicast/MulticastDNSClient.cs	734	equality-to-inequality	branch	answer.Type   == DNSResourceRecordTypes.NSEC)	0
+DNS/Multicast/MulticastDNSResponder.cs	1183	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	636	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSBrowser.cs	815	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSClient.cs	777	logical-and-to-or	branch	foreach (var entry in entries.Where(entry => now - entry.ReceivedAt > TimeSpan.FromSeconds(1) &&	0
+DNS/Multicast/MulticastDNSResponder.cs	1212	false-to-true	host-only	await SendAsync(announcement, null, null, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	643	logical-or-to-and	branch	if (PrefixLength < 0 || PrefixLength > leftBytes.Length * 8)	0
+DNS/Multicast/MulticastDNSBrowser.cs	818	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSClient.cs	777	greater-to-ge	boundary	foreach (var entry in entries.Where(entry => now - entry.ReceivedAt > TimeSpan.FromSeconds(1) &&	0
+DNS/Multicast/MulticastDNSResponder.cs	1237	false-to-true	host-only	await SendAsync(goodbye, null, null, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	643	less-to-less-or-equal	boundary	if (PrefixLength < 0 || PrefixLength > leftBytes.Length * 8)	0
+DNS/Multicast/MulticastDNSBrowser.cs	822	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSClient.cs	778	greater-to-ge	boundary	entry.ExpiresAt > now + TimeSpan.FromSeconds(1)))	0
+DNS/Multicast/MulticastDNSResponder.cs	1256	false-to-true	host-only	await Transport.SendAsync(Message.Serialize(), Destination, InterfaceIndex, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	643	greater-to-ge	boundary	if (PrefixLength < 0 || PrefixLength > leftBytes.Length * 8)	0
+DNS/Multicast/MulticastDNSBrowser.cs	832	logical-or-to-and	branch	=> !Instance.IsResolved ||	0
+DNS/Multicast/MulticastDNSClient.cs	787	logical-and-to-or	branch	if (existing is not null && existing.ExpiresAt > now + Options.GoodbyeDelay)	0
+DNS/Multicast/MulticastDNSResponder.cs	1262	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	644	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSBrowser.cs	833	logical-or-to-and	branch	Instance.TXT is null ||	0
+DNS/Multicast/MulticastDNSClient.cs	787	greater-to-ge	boundary	if (existing is not null && existing.ExpiresAt > now + Options.GoodbyeDelay)	0
+DNS/Multicast/MulticastDNSResponder.cs	1292	logical-and-to-or	branch	=> ActiveRecords.Where(record => Types.Contains(record.Type) &&	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	646	less-to-less-or-equal	boundary	for (var i = 0; i < fullBytes; i++)	0
+DNS/Multicast/MulticastDNSBrowser.cs	834	equality-to-inequality	branch	Instance.Addresses.Count == 0;	0
+DNS/Multicast/MulticastDNSClient.cs	808	logical-and-to-or	branch	var matches = Response.Answers.Where(record => !record.IsGoodbye && query.Matches(record.Record)).ToArray();	0
+DNS/Multicast/MulticastDNSResponder.cs	1353	logical-or-to-and	branch	if (size + recordSize > maxSize && (packetAnswers.Count > 0 || packetAdditionals.Count > 0))	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	647	inequality-to-equality	branch	if (leftBytes[i] != rightBytes[i])	0
+DNS/Multicast/MulticastDNSBrowser.cs	847	true-to-false	branch	Instance.Announced = true;	0
+DNS/Multicast/MulticastDNSClient.cs	816	logical-and-to-or	branch	if (negative.Length > 0 &&	0
+DNS/Multicast/MulticastDNSResponder.cs	1353	greater-to-ge	boundary	if (size + recordSize > maxSize && (packetAnswers.Count > 0 || packetAdditionals.Count > 0))	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	648	false-to-true	rejection	return false;	0
+DNS/Multicast/MulticastDNSBrowser.cs	855	logical-and-to-or	branch	if (Changed && !Updated.Contains(Instance))	0
+DNS/Multicast/MulticastDNSClient.cs	816	greater-to-ge	boundary	if (negative.Length > 0 &&	0
+DNS/Multicast/MulticastDNSResponder.cs	1353	greater-to-ge	boundary	if (size + recordSize > maxSize && (packetAnswers.Count > 0 || packetAdditionals.Count > 0))	1
+DNS/Multicast/UDPMulticastDNSTransport.cs	650	equality-to-inequality	branch	if (remaining == 0)	0
+DNS/Multicast/MulticastDNSBrowser.cs	871	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	817	logical-and-to-or	branch	!query.Types.Contains(DNSResourceRecordTypes.Any) &&	0
+DNS/Multicast/MulticastDNSResponder.cs	1353	greater-to-ge	boundary	if (size + recordSize > maxSize && (packetAnswers.Count > 0 || packetAdditionals.Count > 0))	2
+DNS/Multicast/UDPMulticastDNSTransport.cs	651	true-to-false	branch	return true;	0
+DNS/Multicast/MulticastDNSBrowser.cs	877	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	820	true-to-false	branch	query.IsNegative = true;	0
+DNS/Multicast/MulticastDNSResponder.cs	1377	greater-to-ge	boundary	if (packetAnswers.Count > 0 || packetAdditionals.Count > 0)	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	665	equality-to-inequality	branch	=> Address.AddressFamily == AddressFamily.InterNetworkV6	0
+DNS/Multicast/MulticastDNSBrowser.cs	883	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	825	equality-to-inequality	branch	if (matches.Length == 0)	0
+DNS/Multicast/MulticastDNSResponder.cs	1377	greater-to-ge	boundary	if (packetAnswers.Count > 0 || packetAdditionals.Count > 0)	1
+DNS/Multicast/UDPMulticastDNSTransport.cs	703	true-to-false	branch	isDisposed = true;	0
+DNS/Multicast/MulticastDNSBrowser.cs	907	true-to-false	branch	isDisposed = true;	0
+DNS/Multicast/MulticastDNSClient.cs	829	logical-and-to-or	branch	query.Additionals.AddRange(records.Where(record => !record.IsGoodbye && !matches.Contains(record)).	0
+DNS/Multicast/MulticastDNSResponder.cs	1404	false-to-true	host-only	await RaiseStateChangedAsync(Publication, oldState, NewState, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/UDPMulticastDNSTransport.cs	705	false-to-true	host-only	await StopAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSBrowser.cs	909	false-to-true	host-only	await StopAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	844	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSResponder.cs	1435	false-to-true	host-only	await RaiseStateChangedAsync(Publication, oldState, MulticastDNSPublicationState.Conflict, CancellationToken).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	851	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSResponder.cs	1440	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	872	le-to-less	boundary	expired.AddRange(entries.Where(entry => entry.ExpiresAt <= now));	0
+DNS/Multicast/MulticastDNSResponder.cs	1473	false-to-true	host-only	await Work(token).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	873	le-to-less	boundary	entries.RemoveAll(entry => entry.ExpiresAt <= now);	0
+DNS/Multicast/MulticastDNSResponder.cs	1503	le-to-less	boundary	if (Max <= Min)	0
+DNS/Multicast/MulticastDNSClient.cs	875	equality-to-inequality	branch	if (entries.Count == 0)	0
+DNS/Multicast/MulticastDNSResponder.cs	1528	true-to-false	branch	isDisposed = true;	0
+DNS/Multicast/MulticastDNSClient.cs	882	equality-to-inequality	branch	if (expired.Count == 0)	0
+DNS/Multicast/MulticastDNSResponder.cs	1530	false-to-true	host-only	await StopAsync().ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	895	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Multicast/MulticastDNSClient.cs	921	logical-and-to-or	branch	Where (entry => entry.ExpiresAt > now + TimeSpan.FromSeconds(1) &&	0
+DNS/Multicast/MulticastDNSClient.cs	921	greater-to-ge	boundary	Where (entry => entry.ExpiresAt > now + TimeSpan.FromSeconds(1) &&	0
+DNS/Multicast/MulticastDNSClient.cs	923	false-to-true	branch	Select(entry => new MulticastDNSRecord(entry.Record, false, entry.RemainingTimeToLive(now)));	0
+DNS/Multicast/MulticastDNSClient.cs	986	true-to-false	branch	true,	0
+DNS/Multicast/MulticastDNSClient.cs	987	false-to-true	branch	false,	0
+DNS/Multicast/MulticastDNSClient.cs	988	false-to-true	branch	false,	0
+DNS/Multicast/MulticastDNSClient.cs	989	false-to-true	branch	false,	0
+DNS/Multicast/MulticastDNSClient.cs	994	true-to-false	branch	true,	0
+DNS/Multicast/MulticastDNSClient.cs	995	false-to-true	branch	false,	0
+DNS/Multicast/MulticastDNSClient.cs	1021	true-to-false	branch	isDisposed = true;	0
+DNS/Multicast/MulticastDNSClient.cs	1023	false-to-true	host-only	await StopAsync().ConfigureAwait(false);	0
