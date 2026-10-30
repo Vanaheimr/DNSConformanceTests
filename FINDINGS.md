@@ -1,10 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Eighty-six RFC deviations in the Hermod DNS stack, each
+What this suite caught. Eighty-eight RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last two is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Findings 87 and 88, a TCP or TLS client
+that does not pipeline and SvcParam values read without their escapes decoded,
+are open, and their trackers are red on purpose. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -102,6 +104,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ✅ fixed |
 | 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ✅ fixed |
 | 86 | The transport clients asked for two types in one query of two questions | Medium | 9619 §4 | ✅ fixed |
+| 87 | A TCP or TLS client waited for each answer before sending its next query | Low | 7766 §6.2.1.1, 7858 §3.3 | ⏳ **open** |
+| 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5021,6 +5025,87 @@ The two `Each_Question_Carries_Its_Name_In_Full` tests, for UDP and for TCP and
 TLS, checked name compression between two questions of one query, a message
 that may no longer be sent; they are withdrawn.
 Merged as [Vanaheimr/Hermod#180](https://github.com/Vanaheimr/Hermod/pull/180).
+
+---
+
+## 87 — A TCP or TLS client waited for each answer before sending its next query
+
+*RFC 7766 §6.2.1.1*: "In order to achieve performance on par with UDP, DNS
+clients SHOULD pipeline their queries. When a DNS client sends multiple queries
+to a server, it SHOULD NOT wait for an outstanding reply before sending the next
+query." *RFC 7858 §3.3* says it again for a TLS session and cites that paragraph:
+"In order to minimize latency, clients SHOULD pipeline multiple queries over a TLS
+session."
+
+`DNSTCPClient` and `DNSTLSClient` hold one lock from writing a query to reading
+its answer. A connection carries one query at a time, and a second query waits
+for the first answer before it is written. Since finding 86, a query for two
+types is two queries, and the transport clients start both at once; over UDP
+both are on the wire together, over TCP and TLS the second follows the first
+answer.
+
+**What it costs.** One round trip per query, in sequence, where UDP pays one in
+total. And the second query's deadline runs from the moment it was asked, so a
+server that takes most of the timeout over the first answer leaves the second
+too little time of its own, though the server could have answered both.
+
+**How it was found.** Fixing finding 86 on 2026-10-29. A TCP test for two types
+had relied on a silent server to see both queries, and saw only one: the second
+was never written while the first was unanswered.
+
+**Repro**: `QueryPipeliningTests`. Its server reads every query the moment it
+arrives, on every connection, and holds all answers until it has seen two or a
+second has passed. Two trackers, TCP and DoT, each ask for A and AAAA and check
+that the second query was on the wire before the first answer. Red at the pinned
+`4f116936`, they carry `KnownIssue`. Two controls write two framed queries back
+to back over raw TCP and over TLS, and pass: the server can tell a client that
+pipelines from one that waits.
+
+**The fix**: ⏳ open.
+
+---
+
+## 88 — An escape in a SvcParam value was read as the characters that wrote it
+
+*RFC 9460 §2.1*: "The SvcParamValue is parsed using the character-string
+decoding algorithm (Appendix A), producing a value." For a key written as
+keyNNNNN, "the decoded value SHALL be used as its wire-format encoding".
+Appendix A names the algorithm as the one in RFC 1035 §5.1, where `\X` "is used
+to quote that character so that its special meaning does not apply", and `\DDD`
+"is the octet corresponding to the decimal number described by DDD".
+
+`SVCB.TryParseFromJSON` and `HTTPS.TryParseFromJSON`, which the zone-file reader
+calls for both types, take a value as it is written. They trim its quotes and
+keep everything between them, backslashes included. So `key65280="a\"b"` holds
+the four octets `a\"b` where it holds three, and `\034` is four octets rather
+than one quote.
+
+It is finding 56 again, in a second reader. That fix taught TXT's quoted-string
+reader both forms of escape; the SVCB and HTTPS readers never used it and do not
+decode anything.
+
+**What it costs.** Hermod's writer does its half: it quotes a value and writes
+`"`, `\` and every octet outside 0x20–0x7E as `\DDD`, which
+`A_SvcParam_Value_Escapes_Exactly_What_Is_Not_Printable` pins. So a record that
+Hermod writes into a zone file comes back with a different value when Hermod
+reads the file: nine octets became twenty-seven in the round-trip tracker. Any
+SvcParam that needs an escape — a quote, a backslash, a control or non-ASCII
+octet — changes on its way through a zone file, and the RDATA on the wire with
+it.
+
+**How it was found.** Closing the two `records` mutants of the parameter
+splitter's quote test on 2026-10-30 (MUTATION.md, *One row per mutant*). The
+tests written for them could only ask which parameters a value with an escaped
+quote produced, not what the value held, because the value still had its
+backslash in it.
+
+**Repro**: `SvcParamValueDecodingTests`, each case for SVCB and for HTTPS: an
+escaped quote inside a quoted value, decimal escapes at both ends of the range
+and for the backslash, and Hermod's own round trip. Six trackers, red at the
+pinned `4f116936`, carry `KnownIssue`. Two controls, values with nothing to
+decode, pass.
+
+**The fix**: ⏳ open.
 
 ---
 

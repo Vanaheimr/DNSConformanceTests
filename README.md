@@ -67,12 +67,19 @@ for 3 s against a refused port, and one more pins the same for a server gone
 between two queries; no RFC speaks to that, and the same Hermod change fixes it. With them the Client project is 199 ✅ · 0 ❌, and the offline suite
 1615 ✅ · 0 ❌ · 4 skips.
 
+And the tests for findings 87 and 88. Four cases for RFC 7766 §6.2.1.1, two of
+them the trackers of finding 87 and two the controls that show the test server
+can tell a client that pipelines from one that waits; and eight for RFC 9460
+§2.1, six of them the trackers of finding 88. All eight trackers are red at
+4f116936. With them the Client project is 201 ✅ · 2 ❌ and the ResourceRecords
+project 460 ✅ · 6 ❌.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 86 RFC deviations in Hermod. All are fixed;
+The suite has found 88 RFC deviations in Hermod. All but findings 87 and 88 are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
