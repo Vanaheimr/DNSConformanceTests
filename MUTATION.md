@@ -29,7 +29,7 @@ test project that exercises each:
 
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
-| `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **2 open** |
+| `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
@@ -105,7 +105,7 @@ neither.
 
 | block | real gaps | of those open | host-only |
 |---|---:|---:|---:|
-| `records` | 252 | **2** | — |
+| `records` | 252 | 0 | — |
 | `core` | 133 | 0 | 1 |
 | `dnssec` | 47 | **1** | 19 |
 | `tsig` | 42 | **2** | — |
@@ -252,7 +252,7 @@ line. That entry had been written for one row and now covers several.
 
 | block | survivors | real gaps | open | the new rows |
 |---|---:|---:|---:|---|
-| `records` | 358 → 370 | 240 → 252 | 0 → **2** | twelve more mutants on eight lines, eleven killed, and the quote test of SVCB and HTTPS open in both |
+| `records` | 358 → 370 | 240 → 252 | 0 → **2** → 0 | twelve more mutants on eight lines, eleven killed; the quote test of SVCB and HTTPS was open in both, and two tests close it |
 | `core` | 204 → 205 | 132 → 133 | 0 | `DNSZoneFile.cs:270`, its second equivalent reading |
 | `tsig` | 41 → 42 | 41 → 42 | 1 → **2** | `DNSTransactionSecurity.cs:73`, the second reading of a line already open |
 | `dnssec` | 66 → 67 | 46 → 47 | **1** | `DNSSECValidator.cs:693`, killed |
@@ -314,7 +314,7 @@ control.
 | `LOC.cs:471`, `:486` | six | killed, by the hemisphere tests |
 | `TXT.cs:338`, `:503` | four | killed |
 | `HTTPS.cs:340` | the first `==` | killed, by `Https_Splits_Its_Parameters_The_Same_Way` |
-| `HTTPS.cs:340`, `SVCB.cs:434` | the second `==` | **survives all eight projects** |
+| `HTTPS.cs:340`, `SVCB.cs:434` | the second `==` | **survives all eight projects**, until the tests below |
 
 The verdicts, with every failing test named, are
 `results/occurrences-verified.tsv`. Three ledger entries changed. Line 419 of
@@ -347,13 +347,33 @@ first `==` had died in pass 1, so the only survivor on the line was the one no
 test kills, and the entry closed exactly that. They are open, and not equivalent.
 RFC 1035 §5.1's backslash is "used to quote that character so that its special
 meaning does not apply", and the look behind is the splitter honouring it.
-Closing them takes a test that writes one, in each of the two types.
 
 So `make_closed.py` takes the same entries `make_closed_folder.py` does, a line,
-a line and an operator, or both and the occurrence. These two lines are claimed
-operator by operator now, and the second `==` is left out. An entry naming an
-operator that closes nothing is refused, as it is in the folder ledger. **The
-`records` block is no longer closed: 2 open.**
+a line and an operator, or both and the occurrence. An entry naming an operator
+that closes nothing is refused, as it is in the folder ledger. The two lines are
+claimed operator by operator in the `branch` round now, without their second
+`==`.
+
+That `==` has two tests of its own, `An_Escaped_Quote_Does_Not_End_A_Quoted_Value`
+for SVCB and `Https_Lets_An_Escaped_Quote_Stay_Inside_The_Value_As_Well` for
+HTTPS. Both hand the splitter the same parameters:
+
+```
+key65000="a\" port=8080"
+```
+
+Read as written, that is one parameter, `key65000`. With the escaped quote taken
+for the end of the value, `port=8080` comes out as a second one. The text behind
+the quote has to look like a parameter: the splitter's caller drops a fragment
+that names no key, and a stray `b"` would have left the result the same either
+way. The tests ask which parameters come out and not what the value holds,
+because the parser hands the value over with its backslash still in it, and that
+is a question of its own.
+
+Planted again under them, at Hermod `4f116936`, each mutant fails its own type's
+test and nothing else, and the first `==` of each line, the control, still falls.
+The ledger has the two as the `quote` round, and **the `records` block is closed
+again**.
 
 ### The records headline
 
@@ -3924,14 +3944,18 @@ The results in `build/mutation/results/` are a **snapshot pinned to Hermod
 `973fed31`**, not a live view. Line numbers move; a re-run is the only way to
 refresh them.
 
-Since the sweep, **192 of the 252 are closed** and **54 were declared equivalent
+Since the sweep, **194 of the 252 are closed** and **54 were declared equivalent
 rather than chased**. **4 more are gone**: the lines their verdicts were measured
 on were replaced by fixes, which is neither of the other two things.
 
-That leaves **two**: the second `==` of the quote test in SVCB's and HTTPS's
-parameter splitter. For a long time this said *none*, and the ledger agreed,
-because it counted a line where it should have counted mutants — see *One row
-per mutant*.
+That leaves **none**. Every mutant this sweep could not kill has since been
+killed, shown unreachable, or had its line replaced.
+
+That sentence was here before, and it was not true then. The ledger counted
+lines where it should have counted mutants, and two mutants on the quote test of
+SVCB's and HTTPS's parameter splitter were open under entries that claimed them.
+Counting occurrences found them, and two tests closed them — see *One row per
+mutant*.
 
 Do not trust that sentence. Print it:
 
@@ -4012,9 +4036,9 @@ appendix had not — which is the same mistake as stopping at the first `grep`
 result, one document larger.
 
 The record block set out to find where this suite believed it was looking and was
-not, and it has been walked end to end. Nothing was left in it to map until the
-occurrences were counted, and two rows came back — which is a statement about one
-folder of seven, and the map above says which.
+not, and it has been walked end to end. Nothing is left in it to map. Counting
+occurrences brought two rows back, and two tests closed them — which is a
+statement about one folder of seven, and the map above says which.
 
 Four defects came out of that walk, and none of them by a test failing.
 [Findings 54, 55 and 56](FINDINGS.md), and `DNSSRVEndpoint`'s `Equals` and

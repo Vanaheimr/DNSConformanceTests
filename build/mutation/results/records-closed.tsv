@@ -93,6 +93,7 @@ DNS/ResourceRecords/HTTPS.cs	335	false-to-true	killed	branch2		0
 DNS/ResourceRecords/HTTPS.cs	340	logical-and-to-or	killed	branch		0
 DNS/ResourceRecords/HTTPS.cs	340	logical-or-to-and	killed	branch		0
 DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	killed	branch		0
+DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	killed	quote		1
 DNS/ResourceRecords/HTTPS.cs	340	inequality-to-equality	killed	branch		0
 DNS/ResourceRecords/HTTPS.cs	343	logical-and-to-or	killed	branch		0
 DNS/ResourceRecords/HTTPS.cs	343	equality-to-inequality	killed	branch		0
@@ -180,6 +181,7 @@ DNS/ResourceRecords/SVCB.cs	376	greater-to-ge	killed	bounds		0
 DNS/ResourceRecords/SVCB.cs	382	ge-to-greater	equivalent		a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey	0
 DNS/ResourceRecords/SVCB.cs	383	ge-to-greater	equivalent		the same token: the key name has already dropped the parameter, whatever the value is	0
 DNS/ResourceRecords/SVCB.cs	434	logical-or-to-and	killed	branch		0
+DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	killed	quote		1
 DNS/ResourceRecords/SVCB.cs	434	inequality-to-equality	killed	branch		0
 DNS/ResourceRecords/SVCB.cs	437	logical-and-to-or	killed	branch		0
 DNS/ResourceRecords/SVCB.cs	437	equality-to-inequality	killed	branch		0

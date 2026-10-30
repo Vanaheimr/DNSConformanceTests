@@ -77,3 +77,20 @@ records	DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	0	338	KILLED	ResourceRe
 records	DNS/ResourceRecords/TXT.cs	338	logical-or-to-and	1	338	KILLED	ResourceRecords 3 of 458	0x7F,,a,an	if (character < 0x20 || character > 0x7E && character == '=')
 records	DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	0	510	KILLED	ResourceRecords 5 of 458	A_Value_Keeps_Every_Equals_Sign_After_The_First,An_Empty_Value_Is_Not_The_Same_As_No_Value,Both_Ends_Of_The_Printable_Range_Are_Keys,Only_The_First_Occurrence_Of_A_Key_Counts,The_Section_6_4_Reading_Of_Four_Strings	if (text.Length != 0 || text[0] == '=')
 records	DNS/ResourceRecords/TXT.cs	503	equality-to-inequality	1	510	KILLED	ResourceRecords 5 of 458	A_Value_Keeps_Every_Equals_Sign_After_The_First,An_Empty_Value_Is_Not_The_Same_As_No_Value,Both_Ends_Of_The_Printable_Range_Are_Keys,Only_The_First_Occurrence_Of_A_Key_Counts,The_Section_6_4_Reading_Of_Four_Strings	if (text.Length == 0 || text[0] != '=')
+#
+# The quote round: the two that survived above, planted again under the two tests
+# written for them, at Hermod 4f116936 with the same text on the same lines. The
+# first == of each line is the control.
+BASELINE	WireFormat	1	SURVIVED	0 of 136		2 s
+BASELINE	Edns	1	SURVIVED	0 of 32		2 s
+BASELINE	Dnssec	1	SURVIVED	0 of 379		7 s
+BASELINE	Server	1	SURVIVED	0 of 154		16 s
+BASELINE	Client	1	SURVIVED	0 of 199		39 s
+BASELINE	SecureTransports	1	SURVIVED	0 of 164		15 s
+BASELINE	Multicast	1	SURVIVED	0 of 97		29 s
+BASELINE	ResourceRecords	1	SURVIVED	0 of 460		3 s
+BASELINE	ResourceRecords	2	SURVIVED	0 of 460		3 s
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	0	340	KILLED	ResourceRecords 1 of 460	Https_Splits_Its_Parameters_The_Same_Way	if (Input[i] != '"' && (i == 0 || Input[i - 1] != '\\'))
+records	DNS/ResourceRecords/HTTPS.cs	340	equality-to-inequality	1	340	KILLED	ResourceRecords 1 of 460	Https_Lets_An_Escaped_Quote_Stay_Inside_The_Value_As_Well	if (Input[i] == '"' && (i != 0 || Input[i - 1] != '\\'))
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	0	434	KILLED	ResourceRecords 3 of 460	A_Space_Inside_A_Quoted_Value_Does_Not_End_The_Parameter,Every_Record_Type_Survives_A_Presentation_Round_Trip,Runs_Of_Spaces_Between_Parameters_Are_One_Separator	if (Input[i] != '"' && (i == 0 || Input[i - 1] != '\\'))
+records	DNS/ResourceRecords/SVCB.cs	434	equality-to-inequality	1	434	KILLED	ResourceRecords 1 of 460	An_Escaped_Quote_Does_Not_End_A_Quoted_Value	if (Input[i] == '"' && (i != 0 || Input[i - 1] != '\\'))

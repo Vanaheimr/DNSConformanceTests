@@ -43,10 +43,10 @@ KILLED = {
     # The quote test of SVCB's and HTTPS's parameter splitter carries two `==`,
     #     if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
     # and the first falls: to pass 1 in SVCB, to this round's tests in HTTPS. The
-    # second, i != 0, only matters for
-    # a quote with a backslash before it, and no test writes one: planted on its
-    # own it survives every project. So these two lines are claimed operator by
-    # operator, and the second == stays open.
+    # second, i != 0, only matters for a quote with a backslash before it, and
+    # none of this round's tests writes one: planted on its own it survived every
+    # project. So these two lines are claimed operator by operator here, and the
+    # second == is the 'quote' round's.
     "branch": {"DNS/ResourceRecords/SSHFP.cs":     {169, 172},
                "DNS/ResourceRecords/SVCB.cs":      {(434, "logical-or-to-and"), (434, "inequality-to-equality"),
                                                     437},
@@ -104,6 +104,15 @@ KILLED = {
     # conversion, and loc_ntoa gives 'S' to latval < 0 and 'N' to everything
     # else. Zero is northern, and eastern, because the RFC's own code says so.
     "loc":     {"DNS/ResourceRecords/LOC.cs": {549, 558}},
+
+    # The two the occurrences brought back: the look-behind of the parameter
+    # splitter, i == 0 read as i != 0, so that a quote with a backslash before
+    # it ends the value it is in. RFC 1035 §5.1's backslash takes the special
+    # meaning from the character after it. Each type has its own copy of the
+    # splitter and its own test, and each mutant fails that test and nothing
+    # else.
+    "quote":   {"DNS/ResourceRecords/SVCB.cs":  {(434, "equality-to-inequality", 1)},
+                "DNS/ResourceRecords/HTTPS.cs": {(340, "equality-to-inequality", 1)}},
 }
 
 # Mutations that are real and unobservable: the program is the same either way.
