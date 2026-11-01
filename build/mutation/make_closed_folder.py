@@ -637,12 +637,11 @@ SERVER_KILLED = {
     # request, so the request is unsigned and has to be served as one.
     #
     # The line carries the same operator twice and the two mutants disagree. The
-    # first connective guards a null TryStripSIG0 cannot produce and stays; the
-    # second drops the type-covered test itself, and that one now fails a test.
-    # The ledger keys on (file, line, operator) and cannot say "one of two", so
-    # the line is recorded here and MUTATION.md carries which half is which.
+    # first connective guards a null TryStripSIG0 cannot produce, and is in
+    # SERVER_EQUIVALENT beside 418; the second drops the type-covered test
+    # itself, and that one now fails a test.
     "the-sig-that-is-not-a-signature": {
-        "DNS/Server/DNSMessagePipeline.cs": {419},
+        "DNS/Server/DNSMessagePipeline.cs": {(419, "logical-or-to-and", 1)},
     },
 
 }
@@ -737,6 +736,9 @@ SERVER_EQUIVALENT = {
              "when the first is false",
         350: "unsigned is null || tsig is null, the same chain one term along",
         418: "!TryStripSIG0(...) || unsigned is null - the same, for the other kind",
+        (419, "logical-or-to-and", 0):
+             "unsigned is null || sig is null, that chain one term along. The second || "
+             "on the line is the type-covered test, and a test kills it",
 
         374: "result.Error == BADTIME ? key : null, and equivalent only because of what "
              "BuildErrorResponse does with that key: nothing. It builds every refusal with "
@@ -878,8 +880,10 @@ CLIENT_KILLED = {
     # a denial showing its working rather than an invitation to take another step.
     #
     # Every mutant on each of these lines is killed, not just one of them: 980
-    # carries two and both fail. That is worth saying because this ledger keys on
-    # (file, line) and would close the others silently if they were not.
+    # carries two and both fail, and so does 889, whose second && the triage
+    # kept out of sight until it counted occurrences. That is worth saying
+    # because a bare line here closes every mutant on it, and would close the
+    # others silently if they were not.
     "following-an-alias-and-asking-again": {
         "DNS/Client/DNSClient.cs": {889, 890, 901, 980, 1549},
     },

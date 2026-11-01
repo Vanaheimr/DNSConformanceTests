@@ -70,28 +70,47 @@ def classify(rel, line_no, op):
     return "branch", text
 
 
-seen = set()
+# A line can carry the same operator more than once, and this block's two passes
+# predate the column that numbers the occurrences. They are numbered here, by
+# order, and that is not a guess: both passes walked genmut's catalogue in its
+# own order, which is left to right along the line, and pass 1 holds all 672
+# mutants genmut finds at 973fed31 with the same count on every line.
+#
+# Numbering is not the whole of it. Pass 2's bench left the records project out,
+# and it re-planted every occurrence on a line where any of them had survived
+# pass 1 - so seven of its SURVIVED-EVERYWHERE rows are occurrences the records
+# tests had already killed. Keying on (file, line, operator) hid that, because
+# each of those lines also has a real survivor. A mutant survived everywhere
+# when it survived both passes, and only those are kept.
+def numbered(path):
+    out, tally = [], {}
+    for line in io.open(path, encoding="utf-8"):
+        p = line.rstrip("\n").split("\t")
+        if line.startswith("#") or len(p) < 4:
+            continue
+        key = (p[0], p[1], p[2])
+        out.append((key, tally.get(key, 0), p[3]))
+        tally[key] = tally.get(key, 0) + 1
+    return out
+
+first = {(key, k): verdict for key, k, verdict in numbered(PASS1)}
+
 rows = []
 
-for line in io.open(IN, encoding="utf-8"):
-    p = line.rstrip("\n").split("\t")
-    if len(p) >= 5 and p[3] == "SURVIVED-EVERYWHERE":
-        key = (p[0], p[1], p[2])
-        if key in seen:
-            continue
-        seen.add(key)
-        kind, text = classify(p[0], int(p[1]), p[2])
-        rows.append((p[0], p[1], p[2], kind, text))
+for key, k, verdict in numbered(IN):
+    if verdict == "SURVIVED-EVERYWHERE" and first.get((key, k)) == "SURVIVED":
+        kind, text = classify(key[0], int(key[1]), key[2])
+        rows.append(key + (kind, text, str(k)))
 
 with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
     f.write("# Every mutant that survived every project, classified against Hermod %s —\n" % REVISION)
     f.write("# the revision the sweep measured. Line numbers move; this file does not.\n")
-    f.write("# file\tline\toperator\tkind\tsource\n")
+    f.write("# file\tline\toperator\tkind\tsource\toccurrence\n")
     for r in rows:
         f.write("\t".join(r) + "\n")
 
 kinds = {}
-for _, _, _, kind, _ in rows:
+for _, _, _, kind, _, _ in rows:
     kinds[kind] = kinds.get(kind, 0) + 1
 
 print("wrote %s" % OUT)

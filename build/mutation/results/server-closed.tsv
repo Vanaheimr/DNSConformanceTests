@@ -3,7 +3,7 @@
 # 'killed' means a mutation taken from this sweep's output now fails a test.
 # 'equivalent' means the mutation is real and the program is the same either way.
 # 'superseded' means the line the verdict belongs to was replaced by a fix.
-# file	line	operator	state	round	why
+# file	line	operator	state	round	why	occurrence
 DNS/Server/DNSCookies.cs	159	logical-or-to-and	killed	cookie-window-and-lengths	
 DNS/Server/DNSMessagePipeline.cs	150	less-to-less-or-equal	killed	sizes-and-edges	
 DNS/Server/AuthoritativeDNSRequestHandler.cs	188	false-to-true	equivalent		the return false of HasValidServerCookie when no cookie secret is set. Its one caller opens with DNSCookieSecret is not null, so the method never runs in the state this line answers for
@@ -55,4 +55,5 @@ DNS/Server/ZoneDenialOfExistence.cs	565	ge-to-greater	equivalent		Skip >= Labels
 DNS/Server/ZoneDenialOfExistence.cs	597	equality-to-inequality	killed	apex-only-zone	
 DNS/Server/InMemoryDNSZone.cs	894	greater-to-ge	equivalent		return Records.Length > 0 in TryGetRecords. Add never creates an empty list, and Remove drops the key as soon as its list empties, so a TryGetValue that succeeded has found records
 DNS/Server/InMemoryDNSZone.cs	984	ge-to-greater	killed	signed-answers-and-the-apex	
-DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	killed	the-sig-that-is-not-a-signature	
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	equivalent		unsigned is null || sig is null, that chain one term along. The second || on the line is the type-covered test, and a test kills it	0
+DNS/Server/DNSMessagePipeline.cs	419	logical-or-to-and	killed	the-sig-that-is-not-a-signature		1
