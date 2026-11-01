@@ -3,10 +3,8 @@
 What this suite caught. Eighty-nine RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last three is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Findings 87 to 89, a TCP or TLS client
-that does not pipeline and SvcParam values read without their escapes decoded or
-their keys' wire formats, are open, and their trackers are red on purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -104,9 +102,9 @@ what is queued, what is out of scope — are not here at all; they live in
 | 84 | An empty TXT record was reported as a change to an instance that had none | Low | 6763 §6.1 | ✅ fixed |
 | 85 | An instance with two SRV records was described by the last one heard | Low | 6763 §5 | ✅ fixed |
 | 86 | The transport clients asked for two types in one query of two questions | Medium | 9619 §4 | ✅ fixed |
-| 87 | A TCP or TLS client waited for each answer before sending its next query | Low | 7766 §6.2.1.1, 7858 §3.3 | ⏳ **open** |
-| 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ⏳ **open** |
-| 89 | A SvcParam value was kept as the text that wrote it, not in its key's wire format | High | 9460 §2.1, §7, §8 | ⏳ **open** |
+| 87 | A TCP or TLS client waited for each answer before sending its next query | Low | 7766 §6.2.1.1, 7858 §3.3 | ✅ fixed |
+| 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ✅ fixed |
+| 89 | A SvcParam value was kept as the text that wrote it, not in its key's wire format | High | 9460 §2.1, §7, §8 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5057,12 +5055,25 @@ was never written while the first was unanswered.
 **Repro**: `QueryPipeliningTests`. Its server reads every query the moment it
 arrives, on every connection, and holds all answers until it has seen two or a
 second has passed. Two trackers, TCP and DoT, each ask for A and AAAA and check
-that the second query was on the wire before the first answer. Red at the pinned
-`4f116936`, they carry `KnownIssue`. Two controls write two framed queries back
-to back over raw TCP and over TLS, and pass: the server can tell a client that
-pipelines from one that waits.
+that the second query was on the wire before the first answer. Red at
+`4f116936`, they pass from `cbdd1bb1` on. Two controls write two framed queries
+back to back over raw TCP and over TLS, and pass: the server can tell a client
+that pipelines from one that waits.
 
-**The fix**: ⏳ open.
+**The fix**: `DNSStreamPipeline`, shared by `DNSTCPClient` and `DNSTLSClient`,
+keeps the queries outstanding on a connection. A client holds its stream lock
+only to connect and to write one query, and registers the query before it writes
+it, so an answer that arrives at once already has somewhere to go. Whichever
+waiting query gets the read turn reads one message and hands it to the query it
+answers, which may be another one: by ID, and on DoT by that query's TSIG check
+as well. A message that answers none is skipped, as RFC 7766 §7 has it. No reader
+runs that nobody waits on, so dispose has nothing to stop. Connections are
+counted, so a query still reading an old one never takes a new one for its own or
+closes it, and a connection that breaks under a query still gives it one more try
+on a new one. RFC 7828 §3.2.2 came along: a TIMEOUT of 0 that arrives with other
+queries outstanding closes the connection once they are answered, and the idle
+timer closes only a connection with nothing outstanding.
+Merged as [Vanaheimr/Hermod#192](https://github.com/Vanaheimr/Hermod/pull/192).
 
 ---
 
@@ -5102,11 +5113,18 @@ backslash in it.
 
 **Repro**: `SvcParamValueDecodingTests`, each case for SVCB and for HTTPS: an
 escaped quote inside a quoted value, decimal escapes at both ends of the range
-and for the backslash, and Hermod's own round trip. Six trackers, red at the
-pinned `4f116936`, carry `KnownIssue`. Two controls, values with nothing to
+and for the backslash, and Hermod's own round trip. Six trackers, red at
+`4f116936`, pass from `cbdd1bb1` on. Two controls, values with nothing to
 decode, pass.
 
-**The fix**: ⏳ open.
+**The fix**: SVCB and HTTPS share one presentation reader and writer,
+`SVCParameterPresentation`, where each had its own copy. The reader takes each
+value as RFC 9460 Appendix A's character-string, quoted or contiguous, and
+decodes both of RFC 1035 §5.1's escapes before it does anything else with it. A
+decimal escape must have three digits and name an octet, 255 at most; a value
+that ends in a backslash, or an unquoted one with a bare quote in it, is refused
+rather than guessed at. Together with finding 89, merged as
+[Vanaheimr/Hermod#191](https://github.com/Vanaheimr/Hermod/pull/191).
 
 ---
 
@@ -5148,11 +5166,23 @@ format is the first thing §7 has to say.
 vectors, each for SVCB and for HTTPS and in both directions: the presentation
 form must read as the wire format the RFC prints beside it, and the wire format
 must be written in the key's own presentation and read back unchanged. Of the 34
-cases, 26 are trackers, red at the pinned `4f116936` and carrying `KnownIssue`.
+cases, 26 are trackers, red at `4f116936` and passing from `cbdd1bb1` on.
 Figure 6, a decimal escape, is finding 88's, and Figure 10's two spellings of an
 escaped comma need both fixes. Figures 3 and 5, which need neither, pass.
 
-**The fix**: ⏳ open.
+**The fix**: the reader of finding 88 converts each decoded value into its key's
+wire format, as §7 and §8 give them. `mandatory` becomes the numbers of the keys
+it lists, sorted, and may list neither itself nor a key twice. `alpn` is split as
+Appendix A.1's value list, where `\,` is a comma inside an alpn-id, and each id
+goes out behind its length. `no-default-alpn` takes no value. `port` is two
+octets, and the address hints are addresses of their own family in network byte
+order. A key written as keyNNNNN stays opaque whatever its number, because §2.1
+says the decoded value "SHALL be used as its wire-format encoding" for that form;
+that is how §7.1.1 can offer `key1=\002h2` for an alpn-id the list cannot carry.
+The writer gives each key its own presentation, `port=53` and `alpn="h2,h3-19"`,
+and falls back to keyNNNNN with the octets escaped where they are not a valid
+value of their key, so nothing is lost either way. Merged as
+[Vanaheimr/Hermod#191](https://github.com/Vanaheimr/Hermod/pull/191).
 
 ---
 

@@ -3,8 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -60,7 +58,6 @@ public class SvcParamValueDecodingTests
     /// Finding 88: an escaped quote is a quote.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [TestCase("SVCB")]
     [TestCase("HTTPS")]
     public void An_Escaped_Quote_Inside_A_Quoted_Value_Is_One_Quote(String Type)
@@ -77,7 +74,6 @@ public class SvcParamValueDecodingTests
     /// Finding 88: \DDD is one octet.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [TestCase("SVCB")]
     [TestCase("HTTPS")]
     public void A_Decimal_Escape_Is_The_One_Octet_It_Names(String Type)
@@ -94,7 +90,6 @@ public class SvcParamValueDecodingTests
     /// Finding 88: what Hermod writes, Hermod reads back as it was.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [TestCase("SVCB")]
     [TestCase("HTTPS")]
     public void A_Value_Survives_Hermods_Own_Presentation_Round_Trip(String Type)

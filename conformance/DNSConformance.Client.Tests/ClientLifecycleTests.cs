@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -201,7 +200,6 @@ public class ClientLifecycleTests
     #region A query whose client goes away
 
     [TestCaseSource(typeof(TransportPeers), nameof(TransportPeers.Transports))]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Query_Whose_Client_Is_Disposed_Ends_As_A_Failure(String Transport)
     {
 

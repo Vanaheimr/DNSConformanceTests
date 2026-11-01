@@ -3,8 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -42,7 +40,7 @@ public class SvcParamTestVectorTests
 
     /// <summary>
     /// Figure, RDATA in presentation format, RDATA on the wire, the finding it
-    /// tracks (null for the vectors Hermod already reads right), and the
+    /// tracked (null for the vectors Hermod read right before it), and the
     /// presentation the writer must give back for it.
     /// </summary>
     private static readonly (String Figure, String Rdata, String Wire, Int32? Finding, String? Written)[] Vectors = [
@@ -98,7 +96,7 @@ public class SvcParamTestVectorTests
                 var data = new TestCaseData(type, rdata, wire, written).
                                SetName($"{Direction} {type}, Figure {figure}");
 
-                yield return finding is null ? data : data.SetCategory(TestCategories.KnownIssue);
+                yield return data;
 
             }
     }

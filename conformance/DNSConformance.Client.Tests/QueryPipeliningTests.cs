@@ -9,7 +9,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
 
@@ -357,7 +356,6 @@ public class QueryPipeliningTests
     /// Finding 87, over TCP.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Tcp_Client_Sends_Its_Second_Query_Before_The_First_Is_Answered()
     {
 
@@ -379,7 +377,6 @@ public class QueryPipeliningTests
     /// </summary>
     [Test]
     [Property("RFC", "7858 §3.3")]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Dot_Client_Sends_Its_Second_Query_Before_The_First_Is_Answered()
     {
 

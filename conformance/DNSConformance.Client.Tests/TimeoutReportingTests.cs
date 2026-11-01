@@ -4,7 +4,6 @@ using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.HTTP;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Scripted;
 
 namespace DNSConformance.Client.Tests;
@@ -143,7 +142,6 @@ public class TimeoutReportingTests
     #region One deadline for a query of two types
 
     [TestCaseSource(typeof(TransportPeers), nameof(TransportPeers.Transports))]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Query_For_Two_Types_Runs_Out_Of_Time_Once(String Transport)
     {
 
@@ -175,7 +173,6 @@ public class TimeoutReportingTests
     #region A failure says how long it took
 
     [TestCaseSource(typeof(TransportPeers), nameof(TransportPeers.Transports))]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Failure_Reports_The_Time_It_Took(String Transport)
     {
 
