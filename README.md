@@ -81,9 +81,11 @@ them the trackers of finding 87 and two the controls that show the test server
 can tell a client that pipelines from one that waits; and eight for RFC 9460
 §2.1, six of them the trackers of finding 88; and thirty-four for RFC 9460's
 own test vectors, twenty-six of them the trackers of finding 89. All of the
-trackers were red at 4f116936 and pass from cbdd1bb1 on. With them the Client
-project is 215 ✅ · 0 ❌, the ResourceRecords project 500 ✅ · 0 ❌, and the
-offline suite 1673 ✅ · 0 ❌ · 4 skips.
+trackers were red at 4f116936 and pass from cbdd1bb1 on. With them, and the two
+`RecordBranchTests` cases that keep an escaped quote inside a quoted SvcParam
+value (MUTATION.md, *One row per mutant*), the Client project is 215 ✅ · 0 ❌,
+the ResourceRecords project 502 ✅ · 0 ❌, and the offline suite 1675 ✅ · 0 ❌ ·
+4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
