@@ -138,4 +138,67 @@ public class TimeoutReportingTests
 
     #endregion
 
+
+    #region One deadline for a query of two types
+
+    [TestCaseSource(typeof(TransportPeers), nameof(TransportPeers.Transports))]
+    public async Task A_Query_For_Two_Types_Runs_Out_Of_Time_Once(String Transport)
+    {
+
+        // RFC 9619 §4 makes a query for two types two queries, and over a stream
+        // the two share one connection, one at a time. The deadline is still the
+        // caller's, and one: the second half must not be given a fresh one when
+        // the first is done with the connection. Over TCP and DoT it was, because
+        // the deadline began only once the connection was free - 2.0 s and 2.2 s
+        // for a 1 s query to a server that never answered.
+        var deadline = TimeSpan.FromSeconds(1);
+
+        await using var peer = TransportPeers.Silent(Transport, deadline);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var info  = await peer.Client.Query(DNSServiceName.Parse("silent.example."),
+                                            [ DNSResourceRecordTypes.A, DNSResourceRecordTypes.AAAA ],
+                                            deadline);
+        clock.Stop();
+
+        Assert.Multiple(() => {
+            Assert.That(info.IsTimeout, Is.True,                                         "neither type was answered");
+            Assert.That(clock.Elapsed,  Is.LessThan(deadline + TimeSpan.FromSeconds(0.5)), "and that was known once, at the deadline");
+        });
+
+    }
+
+    #endregion
+
+    #region A failure says how long it took
+
+    [TestCaseSource(typeof(TransportPeers), nameof(TransportPeers.Transports))]
+    public async Task A_Failure_Reports_The_Time_It_Took(String Transport)
+    {
+
+        // A refused connection is known long before any deadline: at once for a
+        // UDP port, after about two seconds of SYN retries for a TCP one on
+        // Windows. Its runtime was the timeout all the same - every failure's
+        // was - so a caller reading Runtime, or a test asking how long something
+        // took, was told a number the query had nothing to do with.
+        var deadline = TimeSpan.FromSeconds(6);
+
+        await using var client = TransportPeers.Refused(Transport, deadline);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var info  = await client.Query(DNSServiceName.Parse("refused.example."), [ DNSResourceRecordTypes.A ], deadline);
+        clock.Stop();
+
+        Assert.Multiple(() => {
+            Assert.That(info.IsTimeout, Is.False,                       "a refusal is not a timeout");
+            Assert.That(info.Runtime,   Is.LessThan(deadline),          "its runtime is not its timeout");
+            Assert.That(info.Runtime,   Is.LessThanOrEqualTo(clock.Elapsed), "and no longer than the caller waited");
+            Assert.That(clock.Elapsed - info.Runtime, Is.LessThan(TimeSpan.FromMilliseconds(500)),
+                        "but the time it took, give or take what the call costs around it");
+        });
+
+    }
+
+    #endregion
+
 }

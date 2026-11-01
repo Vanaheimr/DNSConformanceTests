@@ -64,15 +64,33 @@ them the trackers of finding 86, red at b514b630 and passing from f3c0517c on.
 Two older tests went with that fix, because what they checked was a query of two
 questions. One of the new ones found a DoH query running past its deadline, 8.2 s
 for 3 s against a refused port, and one more pins the same for a server gone
-between two queries; no RFC speaks to that, and the same Hermod change fixes it. With them the Client project is 199 ✅ · 0 ❌, and the offline suite
-1615 ✅ · 0 ❌ · 4 skips.
+between two queries; no RFC speaks to that, and the same Hermod change fixes it.
+With them the Client project is 199 ✅ · 0 ❌, and the offline suite 1615 ✅ ·
+0 ❌ · 4 skips.
+
+Twelve more followed, three for each transport client: a query whose client is
+disposed under it, a query for two types against a server that never answers,
+and the runtime a failure reports. None of the three is an RFC matter. All
+twelve were red at f3c0517c, except the two-type cases for UDP and DoH, which
+are the control. Vanaheimr/Hermod#184 fixed them, and #186 and #190 a race it
+left, in which a TCP query whose client went away came back as a timeout once in
+a full run; they pass at cbdd1bb1.
+
+And the tests for findings 87 to 89. Four cases for RFC 7766 §6.2.1.1, two of
+them the trackers of finding 87 and two the controls that show the test server
+can tell a client that pipelines from one that waits; and eight for RFC 9460
+§2.1, six of them the trackers of finding 88; and thirty-four for RFC 9460's
+own test vectors, twenty-six of them the trackers of finding 89. All of the
+trackers were red at 4f116936 and pass from cbdd1bb1 on. With them the Client
+project is 215 ✅ · 0 ❌, the ResourceRecords project 500 ✅ · 0 ❌, and the
+offline suite 1673 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 86 RFC deviations in Hermod. All are fixed;
+The suite has found 89 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
