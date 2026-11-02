@@ -1,10 +1,11 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Eighty-nine RFC deviations in the Hermod DNS stack, each
+What this suite caught. Ninety RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 90, two of RFC 9460's failure
+vectors read as records, is open, and its trackers are red on purpose. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -105,6 +106,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 87 | A TCP or TLS client waited for each answer before sending its next query | Low | 7766 §6.2.1.1, 7858 §3.3 | ✅ fixed |
 | 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ✅ fixed |
 | 89 | A SvcParam value was kept as the text that wrote it, not in its key's wire format | High | 9460 §2.1, §7, §8 | ✅ fixed |
+| 90 | Two of RFC 9460's failure vectors were read as records | Low | 9460 §2.1, §2.4.3, §8 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5183,6 +5185,55 @@ The writer gives each key its own presentation, `port=53` and `alpn="h2,h3-19"`,
 and falls back to keyNNNNN with the octets escaped where they are not a valid
 value of their key, so nothing is lost either way. Merged as
 [Vanaheimr/Hermod#191](https://github.com/Vanaheimr/Hermod/pull/191).
+
+---
+
+## 90 — Two of RFC 9460's failure vectors were read as records
+
+*RFC 9460 §2.1*: "Each SvcParamKey SHALL appear at most once in the SvcParams",
+and in presentation format "keys MUST NOT be repeated". *§8*, of "mandatory":
+"For self-consistency (Section 2.4.3), listed keys MUST also appear in the
+SvcParams." *§2.4.3*: "Clients MUST reject any RR whose recognized SvcParams are
+not self-consistent and MAY reject the entire RRset. To help zone operators
+avoid this condition, zone-file implementations SHOULD enforce self-consistency
+as well." Appendix D.3 turns both into test vectors, "not compliant with this
+document": `key123=abc key123=def` (Figure 11) and `mandatory=key123` with no
+key123 beside it (Figure 14).
+
+Hermod's SVCB and HTTPS readers take both. Since finding 89 they check every
+value against its key's format, and they refuse the other four figures of D.3,
+each of which is one value its key cannot take. Figures 11 and 14 are not about
+one value. They are about the SvcParams together, and the reader converts each
+SvcParam on its own and appends it to a list: nothing looks at what is already
+in it. §7.1.1's own self-consistency rule goes the same way: "When
+"no-default-alpn" is specified in an RR, "alpn" must also be specified", and
+`no-default-alpn` alone is read.
+
+**What it costs.** A key written twice goes on the wire as two SvcParams with
+one key, side by side. §2.2 tells every client to "consider an RR malformed" if
+its "SvcParamKeys are not in strictly increasing numeric order", and then "the
+client MUST reject the entire RRset and fall back to non-SVCB connection
+establishment". So one duplicated key in one record of a zone file switches off
+every SVCB or HTTPS record of that name for every client that follows the RFC,
+and the server that loaded the file gave no sign of it. A mandatory key the
+record does not hold costs the record rather than the RRset, by §2.4.3. Both are
+the mistake §2.4.3 asks zone-file implementations to catch, because the zone
+operator is the only party who can still correct it.
+
+**How it was found.** Reading `SVCParameterPresentation.Read` during the mutation
+sweep of Hermod#191 on 2026-11-02, to classify its survivors (MUTATION.md, *The
+result: the SvcParam presentation, measured again*). A mutant can only alter a
+check that exists, so no survivor points at this one. What showed it was the
+absence of a check for anything spanning two SvcParams, next to a check for
+everything inside one.
+
+**Repro**: `SvcParamFailureVectorTests`, all six figures of Appendix D.3, each
+for SVCB and for HTTPS. Figures 11 and 14 are trackers, red at `cbdd1bb1`; the
+other four are refused and pass, and a control reads Figures 14 and 16 written
+compliantly. `A_No_Default_Alpn_Without_Alpn_Is_Refused` tracks §7.1.1's rule.
+Six tracker cases in all.
+
+**The fix**: ⏳ open.
 
 ---
 
