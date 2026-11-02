@@ -33,17 +33,18 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
+| `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 124 | a slice, measured, **1 open**, 3 that never finish |
-| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 163 | a slice, not yet measured |
+| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 163 | a slice, measured, **7 open** |
 
 The last two rows are not blocks. They are the files a fix rewrote after its
 block had been measured, swept again at the fix's revision with the block's
 judge, and given ledgers of their own: findings 88 and 89 rewrote the SvcParam
 presentation, and finding 87 the TCP and TLS clients' queries. See *The result:
-the SvcParam presentation, measured again*.
+the SvcParam presentation, measured again* and *The result: the stream clients,
+measured*.
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
 a warning here: its judge had **four tests** for 598 mutable places, so whatever
@@ -118,7 +119,7 @@ neither.
 | `dnssec` | 47 | **1** | 19 |
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
-| `client` | 246 | **86** | 68 |
+| `client` | 246 | **79** | 68 |
 | `multicast` | 293 | **219** | 82 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
@@ -393,6 +394,261 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 56, and 370 survive: 118 not really code and 252 real gaps. The score as
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
+
+
+## The result: the stream clients, measured
+
+Finding 87 was fixed after its block had been measured. The `client` block was
+swept at `cc8323d5`, and Vanaheimr/Hermod#192 then gave both stream clients a
+pipeline: `DNSStreamPipeline.cs`, 461 lines that keep the queries outstanding on
+a connection and hand each answer to the query it belongs to, and new query paths
+in `DNSTCPClient.cs` and `DNSTLSClient.cs` that hold the stream lock only to
+connect and to write. `DNSKeepalivePolicy.cs` learned to ask whether anything is
+still outstanding before it closes an idle connection. `streams` is those four
+files, judged by the Client project and measured at **`cbdd1bb1`** in a worktree
+of its own, like the `svcparam` slice. The `client` ledger stays keyed to
+`cc8323d5`, and the rows it still held open in these four files are closed there
+by what this slice measured (*What moved in the client ledger*, below).
+
+| | |
+|---|---:|
+| mutants | 163 |
+| not viable (would not compile) | 39 |
+| killed by Client, pass 1 | 22 |
+| killed by another project | 8 |
+| survived everywhere | 94 |
+| real gaps | **47** |
+| killed by the new tests, on replay | 26 |
+| equivalent | 14 |
+| open | **7** |
+
+The 94 are 47 real gaps, 43 `ConfigureAwait(false)` that no test host can see,
+and 4 `#region` lines. Of the 8 that another project killed, every one died in
+SecureTransports, whose KeepaliveTests and DoT tests drive the same two clients.
+
+### Two crashes that pass 1 filed as survivors
+
+Two of pass 1's survivors were not survivors. `DNSTCPClient.cs:272` and
+`DNSTLSClient.cs:469` are the same line in the two clients:
+`if (resourceRecordTypes.Count > 1)` sends a query for more than one type through
+`OneQuestionPerQuery`, which asks once per type by calling `Query` again. With
+`>=` in its place a query for one type does the same, and `Query` calls itself
+until the stack runs out. The test host died after 41 of the Client project's
+215 tests, and pass 1 recorded "0 of 41 failed" and filed SURVIVED. Pass 2 has
+always called a test count that moved a kill, and here it said so for the TLS
+line, in SecureTransports. For the TCP line the Server project's host died before
+it printed any summary at all, which pass 2 records as no verdict.
+
+`sweep_folder.py` now judges the way pass 2 does: a total that moved is a run
+that did not finish. The two rows in `streams-pass1.tsv` are judged again from the
+counts they already carried, and say KILLED. Their pass-2 rows are gone, because
+pass 2 sees only what pass 1 left alive. The originals are kept beside them as
+`.before-verdict-fix`. The TCP line was also planted by hand: the Client project's
+host died in `A_Reused_Connection_Still_Carries_One_Cookie_Per_Query`, its first
+test that asks a TCP query, after 41 of 215.
+
+### What the Client project did not ask
+
+The tests the stream clients had were written for a client that waited for each
+answer. They ask one query at a time, against servers that answer each query
+before they read the next one and treat every connection alike. The survivors are
+where the pipeline does things those servers can never see happen.
+
+`StreamScriptServer` is the server the new tests needed. It reads a query the
+moment it arrives, on every connection, tells its connections apart, and leaves
+every move to the test: answer, hold, cut the answer off half way, close, reset.
+
+- **`ConnectionTeardownTests`**, RFC 7766 §6.2.4. Close or reset a connection
+  between queries, and the next query is asked again on a new one. A server that
+  ends every connection it is given gets the query and one retry, and the caller
+  gets a failure rather than a client that opens connections until the deadline.
+  RFC 7858 §7 says why the bound matters. The two halves of the retry condition,
+  "broken" and "first attempt", had nothing that told them apart; now all eight
+  mutants of them die here.
+- **`PipelinedKeepaliveTests`**, RFC 7828 §3.2.2 with an answer still
+  outstanding. Nothing more goes out on the connection that said TIMEOUT 0, the
+  outstanding answer is waited for on it rather than asked again elsewhere, and
+  the close is done once. A DoT client built from a URL keeps an idle timeout the
+  same as one built from an address: the two constructors build their keepalive
+  policies separately.
+- **`AnswerHandoverTests`**, RFC 7766 §7. Three queries pipelined, the third
+  answered first, and it returns while the other two are still held. A reader that
+  handed over an answer and then made its owner wait for the turn to read would
+  process responses in the order the requests were sent after all.
+- **`ClientLifecycleTests`** gained two. A disposed client refuses the next query
+  with `ObjectDisposedException` and sends nothing. And a client whose first
+  connection was refused connects for the next query (*A refused connection*,
+  below).
+
+### Three replays
+
+The first replay planted the 102 rows pass 1 had left alive under the tests as
+they were first written, and 23 of the 33 real gaps that are not equivalent
+died. Two of its verdicts were not what the tests had been written for. The
+reset test never reached the write it was about, and a TCP mutant died in a test
+about TIMEOUT 0 by timing alone. Both were followed up, the second with a test of
+its own, and a second replay planted the 33 again: 25 died. What it said about
+the reset test was not yet right either (*A reset that was a close, and then
+late*, below), and a third replay planted the 33 once more under the tests as
+they stand. That one is the record, `results/streams-replay.tsv`. The two before
+it are kept beside it as `streams-replay.round1.tsv` and `.round2.tsv`. Of the
+33, 26 died in the third replay: the 23 of the first, the reconnect after a
+refused connect over DoT at `DNSTLSClient.cs:558`, and the write's retry at
+`DNSTCPClient.cs:406` and `DNSTLSClient.cs:587`.
+
+### A reset that was a close, and then late
+
+The reset test was written for the write. A reset that reaches the client while
+nothing is outstanding is met by nobody, so the next query's write is what has
+to fail and be asked again: the `catch (IOException) when (!disposed && attempt
+== 1)` around the write, at `DNSTCPClient.cs:406` and `DNSTLSClient.cs:587`. Its
+`attempt != 1` mutant survived the first replay on both lines.
+
+The server did not reset. `StreamScriptServer.Reset()` set a linger of zero and
+called `TcpClient.Close()`, and `TcpClient.Close()` shuts the socket down before
+it closes it. The shutdown sends a FIN, and the client takes that for an orderly
+close: a read returns 0, and a write goes through. Only the RST the server sends
+back for that write makes the next one fail. Two bare sockets on the same
+machine show it, read for read and write for write. With `Socket.Close(0)`
+instead, a RST and nothing before it, the first read and the first write both
+throw, forty times in forty. So the test had been asking the same thing as the
+close test next to it, and the write's catch was never reached.
+
+`Reset()` closes the socket now, and the second replay killed the TCP mutant.
+The TLS mutant survived it, and a run of the whole project with the TCP mutant
+planted by hand let that one through as well. The reset was still the server's
+to send, from its query handler, after its answer. Over DoT that came after the
+client's next write: traced, the write went through and the read after it broke,
+in three runs of three. Over TCP it did under the load of a full run. Why the
+handler is that late was not chased, because the test no longer depends on it.
+And a reset sent early is no better. On Windows a RST that reaches a connection
+before the client has read what arrived on it discards what arrived, twenty
+times in twenty on two bare sockets, and the answer to the first query would go
+with it.
+
+The test sends the reset itself now, once the first query has returned, and
+waits 250 ms before the second. Planted by hand, both mutants die in eight runs
+of eight against the class, and in two runs of two against the whole project,
+and the third replay kills both.
+
+### A refused connection, and an equivalence that was never one
+
+The `client` ledger recorded `!IsConnected || tcpClient is null` as equivalent
+(`DNSTLSClient 455` and `DNSTCPClient 276` at `cc8323d5`). The argument was that
+with `&&`, a client that is disconnected but still holds its `TcpClient` writes
+into it, the write throws, and a `catch (IOException)` eight lines below
+reconnects and asks again. The same line survived pass 2 here, at TCP 383 and TLS
+558. Read again, the argument does not hold, and did not at `cc8323d5` either.
+`GetStream()` comes before that `try`, then and now. A `TcpClient` that is not
+connected throws there, `InvalidOperationException` or `ObjectDisposedException`,
+and no retry catches either one. The test that seemed to confirm the argument
+closes the connection from the server's side. That leaves `Connected` true until
+something fails, so the original does not reconnect there either, and the
+`catch (IOException)` is what both of them reach.
+
+And there is a way to hold such a client. `ATCPClient` puts the new `TcpClient`
+in its field before it connects, and a connect that is refused disposes it
+without taking it out again. The original sees `!IsConnected` at the next query
+and connects again. The mutant sees a client that is not null, does not
+reconnect, and fails that query and every query after it, for as long as the
+client lives.
+`A_Stream_Client_Whose_Connection_Was_Refused_Connects_For_The_Next_Query` asks
+once with nothing listening and once with a server up on the same port. Planted
+by hand, each mutant fails it, and nothing else in its two classes, in two runs
+of two, and the second and third replays kill both.
+
+The first replay had killed the TCP line already, in
+`After_Timeout_Zero_No_Query_Goes_Out_On_The_Connection_And_Its_Outstanding_Answer_Is_Waited_For`
+over TCP. That kill came from timing. In the whole project the mutant died in
+five runs of five, in its own class alone in two runs of three, and with the
+line traced, in neither of two. The TLS line survived the same test. The kill is
+not counted for it.
+
+The two `client` ledger entries are withdrawn. They are superseded now, with the
+line they moved to and the test that kills it there, and the reason they were
+wrong.
+
+### Fourteen equivalents
+
+Four are `ForceUpdate = false`, a parameter that both stream clients forward and
+nothing reads. The client ledger's `DNSClient 1467` grepped for a reader at
+`cc8323d5` and found one, in `DNSClient`, and the pipeline left that alone. Two
+are the empty option list that `OPT`'s constructor turns into the same empty list
+null becomes. Two are the `UseCompression` flag of a query that, since finding
+86, has one question and no other name but the OPT record's root, which is
+written as a single zero octet without asking. Two are in `DNSKeepalivePolicy`:
+an idleness default no caller leaves to it, and the flag that makes `Dispose`
+idempotent around a timer that is already idempotent.
+
+The last four are in the pipeline, and each is a condition the code decides
+twice. A busy period's first registration may skip making a fresh "drained"
+signal, because by the time anything waits on it a second registration has made
+one. `>=` on the number of queries `End` ended adds only the case where the
+signal is already complete. `||` in the hand-over loop changes who releases a
+read turn that was granted to a query whose answer had already arrived, and not
+whether it is released. And offering a message to more candidates offers it to
+queries that refuse it: another ID fails the first line of
+`DNSInfo.ReadResponse`, and a TSIG that does not verify returns null rather than
+throwing. Each is in the ledger with the line that makes it so.
+
+### Seven left open
+
+Six can be reached only through a race, and a race is not a test.
+
+- `DNSStreamPipeline.cs:235` `==`→`!=` and `:237` `&&`→`||`. Both matter only when
+  `End` closes one connection while another one has queries outstanding. A client
+  holds one connection at a time, and the old one's queries are ended before a
+  new one is made, except in the window finding 92 opens.
+- `DNSTCPClient.cs:406` and `DNSTLSClient.cs:587` `&&`→`||`, the guard on asking
+  again after a write fails. They differ from the original when the client is
+  disposed in the middle of the first write, or when the second write fails
+  too, which needs the new connection to be reset between its connect and its
+  first write.
+- `DNSTCPClient.cs:590` `||`→`&&` and `DNSTLSClient.cs:882` `&&`→`||`, the check
+  that a stream still belongs to the connection asking for it. They differ only
+  while a query of an older connection is still reading and a newer connection
+  is up. A connection is replaced only after its queries were ended, or by a
+  close that finding 92 lands on the wrong connection.
+
+One is open because the RFCs are. `DNSStreamPipeline.cs:409` skips a framed
+message shorter than the 12-octet header. With `<=` a message of exactly 12
+octets is skipped too. That changes one case: a header with the query's ID that
+claims a question it does not carry. Hermod reads past its end, the read throws,
+and the query fails. With the mutant the message is skipped and the query waits
+for its answer. RFC 5452 §9.1 has a response whose question does not match
+"considered invalid", and RFC 7766 §7 has one that does not match skipped. A
+message whose question cannot be read at all is in neither sentence. A test would
+pin which of the two Hermod chose, so the row stays open, with the reason here.
+
+### What moved in the client ledger
+
+The `client` block still held seven rows open in these four files, and the
+streams slice answers all of them. `DNSTLSClient.cs:355` and `:375`, the URL
+constructor's `true` to its base class and its `RecursionDesired ?? true`, moved
+to lines 390 and 410 and were killed there in pass 1: they are superseded, with
+the line they moved to. `DNSTCPClient.cs:208` and `:228` and `DNSTLSClient.cs:395`
+and `:415` are the `ForceUpdate` defaults, and `DNSKeepalivePolicy.cs:203` is the
+idempotent `Dispose`. They are equivalent at `cc8323d5` for the reasons their
+successors are here. The block now has **79** open rows, down from 86. And two
+rows that had been closed as equivalent are superseded instead, `DNSTLSClient.cs:455`
+and `DNSTCPClient.cs:276` (*A refused connection*, above): 97 killed, 29
+equivalent, 41 superseded, 79 open.
+
+`DNSTLSClient.cs:674` stays where it was, without a verdict, because a row the
+harness never measured cannot take a ledger entry. It was the read loop of a
+framed response, `while (totalRead < responseLength)`, and timed out with `<=`.
+The pipeline moved that loop into `DNSStreamPipeline.cs:373`, where the same
+mutant is measured and killed in pass 1, 12 of 215.
+
+### What is still unmeasured
+
+The slice measured the four files of #192 and nothing else. The rest of the
+client folder changed since `cc8323d5` too. `OneQuestionPerQuery.cs` is new with
+finding 86 and has never been swept. `DNSHTTPSClient.cs`, `DNSUDPClient.cs`,
+`DNSClient.cs` and `IDNSClient.cs` were all changed by fixes since, and the
+`client` ledger's rows on them are kept true by superseded entries rather than
+by a measurement of what is there now. The next measurement of this folder should
+be the whole `client` block again, at the revision the suite pins by then.
 
 
 ## The result: the SvcParam presentation, measured again

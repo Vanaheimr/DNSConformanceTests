@@ -95,12 +95,22 @@ six of them the trackers of finding 90, red at cbdd1bb1. With them the
 ResourceRecords project is 554 ✅ · 6 ❌, and the offline suite 1727 ✅ · 6 ❌ ·
 4 skips.
 
+And the tests it asked for when it measured finding 87's fix (MUTATION.md, *The
+result: the stream clients, measured*): twenty-four cases against a server that
+reads every query as it arrives and tells its connections apart. Ten ask what a
+client does with a connection that ends under a query, nine what it does with
+an edns-tcp-keepalive TIMEOUT, of 0 above all, two whether an answer out of order
+reaches its caller at once, and three what comes next for a client that was
+disposed, or whose connection was refused. Eight of them are the trackers of findings 91
+and 92, red at cbdd1bb1. With them the Client project is 231 ✅ · 8 ❌, and the
+offline suite 1743 ✅ · 14 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 90 RFC deviations in Hermod. All but finding 90 are fixed;
+The suite has found 92 RFC deviations in Hermod. All but findings 90 to 92 are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

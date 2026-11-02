@@ -1197,13 +1197,13 @@ CLIENT_EQUIVALENT = {
              "record itself is not at stake: it exists because UDPPayloadSize > 0, not "
              "because the option list is non-null",
 
-        455: "!IsConnected || tcpClient is null, the pre-emptive reconnect. The mutant's && "
-             "means a disconnected-but-non-null client is not reconnected before the write - "
-             "and the write then throws, into a `catch (IOException)` eight lines below that "
-             "reconnects and retries the whole exchange. Same answer, one failed round trip "
-             "later. TcpFallbackAndFramingTests already exercises a server closing the "
-             "connection and passes with the mutant planted, which is what pointed at the "
-             "second recovery rather than at a missing test",
+        395: "ForceUpdate = false, a parameter default nothing reads. The transport forwards it "
+             "to the overload that takes a DNSServiceName and from there to nowhere: see "
+             "DNSClient 1467, which grepped the folder for a reader and found one, in "
+             "DNSClient itself. The streams slice measures the same defaults at cbdd1bb1 "
+             "(DNSTLSClient 430 and 450, DNSTCPClient 233 and 253) and records them "
+             "equivalent for the same reason",
+        415: "ForceUpdate = false, a parameter default - see DNSTLSClient 395",
 
     },
 
@@ -1214,8 +1214,19 @@ CLIENT_EQUIVALENT = {
 
         247: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 434",
 
-        276: "!IsConnected || tcpClient is null - see DNSTLSClient 455. This is the file the "
-             "`catch (IOException)` was read in",
+        208: "ForceUpdate = false, a parameter default - see DNSTLSClient 395",
+        228: "ForceUpdate = false, a parameter default - see DNSTLSClient 395",
+
+    },
+
+    "DNS/Client/DNSKeepalivePolicy.cs": {
+
+        203: "disposed = true, the flag that makes Dispose idempotent. What it guards already "
+             "is: Timer.Change on a timer that has been disposed returns false rather than "
+             "throwing, and a second Timer.Dispose returns at once - both in TimerQueueTimer, "
+             "which checks its own _canceled first. A second Dispose with the flag never set "
+             "does the same nothing the flag prevents. The streams slice records the same line "
+             "at cbdd1bb1, DNSKeepalivePolicy 216, for the same reason",
 
     },
 
@@ -1364,8 +1375,8 @@ CLIENT_EQUIVALENT = {
 
 CLIENT_SUPERSEDED = {
 
-    # Thirty-seven rows that the six fixes closed by moving or removing the line the
-    # sweep had measured. CORE_SUPERSEDED's finding-57 entry sets the shape: a fix does
+    # Forty-one rows that fixes closed by moving or removing the line the sweep had
+    # measured: thirty-seven by the six of the client round, and four by finding 87's. CORE_SUPERSEDED's finding-57 entry sets the shape: a fix does
     # not let a row off, it relocates the rule, and the rule is re-measured where the fix
     # put it.
     #
@@ -1459,11 +1470,41 @@ CLIENT_SUPERSEDED = {
     "DNS/Client/DNSTCPClient.cs": {
         207: "see IDNSClient.cs:64",
         227: "see IDNSClient.cs:64",
+
+        276: "!IsConnected || tcpClient is null - moved by finding 87's fix to line 383, and "
+             "killed there in the streams slice by the refused-connection test. See "
+             "DNSTLSClient 455 for why it was never equivalent",
     },
 
     "DNS/Client/DNSTLSClient.cs": {
+
         394: "see IDNSClient.cs:64",
         414: "see IDNSClient.cs:64",
+
+        # Vanaheimr/Hermod#192 (finding 87) rewrote both stream clients' queries
+        # and moved every line below them. Its four files were swept again at
+        # cbdd1bb1 as the streams slice, and these two lines of the URL
+        # constructor are measured there.
+        355: "the `true` the URL constructor hands its base class - moved by finding 87's "
+             "fix to line 390, and killed there in the streams slice's first pass",
+        375: "RecursionDesired ?? true in the URL constructor - moved by finding 87's fix to "
+             "line 410, and killed there in the streams slice's first pass",
+
+        # These two were recorded equivalent, and wrongly. The argument was that a
+        # client disconnected but still holding its TcpClient writes into it, the
+        # write throws, and a `catch (IOException)` below reconnects and asks again.
+        # But GetStream() came before that try, at cc8323d5 as at cbdd1bb1, and on a
+        # TcpClient that is not connected it throws InvalidOperationException or
+        # ObjectDisposedException, which no retry catches. And the state is
+        # reachable: ATCPClient puts the new TcpClient in its field before it
+        # connects, and a refused connect disposes it without taking it out again.
+        # The test that seemed to confirm the argument closed the connection from the
+        # server's side, which leaves Connected true until something fails.
+        455: "!IsConnected || tcpClient is null - moved by finding 87's fix to line 558, and "
+             "killed there in the streams slice by the refused-connection test: a client "
+             "whose first connect was refused keeps the disposed TcpClient in its field, and "
+             "the mutant never connects again",
+
     },
 
 }
@@ -1665,6 +1706,150 @@ SVCPARAM_EQUIVALENT = {
 SVCPARAM_SUPERSEDED = {}
 
 
+# The 'streams' slice: DNSTCPClient.cs, DNSTLSClient.cs, DNSStreamPipeline.cs and
+# DNSKeepalivePolicy.cs swept again at cbdd1bb1, after Vanaheimr/Hermod#192 put
+# both stream clients' queries on a pipeline (finding 87). The client block's
+# own ledger stays keyed to cc8323d5; the rows it still held open in these files
+# are closed there by what this slice measured. Line numbers here are cbdd1bb1's.
+
+#
+# 94 survived pass 1 and every project of pass 2: 47 real gaps, 43 host-only and
+# 4 #region lines. One round of tests, replayed three times: results/
+# streams-replay.tsv planted the 33 real gaps that are not equivalent under the
+# tests as they stand. streams-replay.round1.tsv is the first replay, before the
+# reset test's server sent a reset and before the refused-connection test, and
+# .round2.tsv the second, while the reset was still the server's to send
+# (MUTATION.md, "Three replays").
+
+STREAMS_KILLED = {
+
+    "pipeline": {
+
+        # The pipeline's own bookkeeping. Whether the last withdrawal drained it,
+        # which a TIMEOUT 0 waits for (PipelinedKeepaliveTests: 210). Which
+        # queries End ends, and whether that drains it (ConnectionTeardownTests
+        # and PipelinedKeepaliveTests: 234 and 237). Whether a query whose answer
+        # arrived before its read turn returns at once, and whether the turn it
+        # was granted is handed on (AnswerHandoverTests: 283 and 290).
+        "DNS/Client/DNSStreamPipeline.cs": {
+            210, 234, (237, "equality-to-inequality"),
+            (283, "equality-to-inequality"), 290,
+        },
+
+        # Both clients alike. The close a TIMEOUT 0 asks for while answers are
+        # outstanding, put off until they are in and then done once
+        # (PipelinedKeepaliveTests: 626/908 and 376/549). The reconnect after a
+        # refused connect (ClientLifecycleTests: 383/558). The write's retry on a
+        # connection reset between queries (ConnectionTeardownTests: 406/587),
+        # and the retry condition after a connection broke under a query, all
+        # four mutants of it on each client (ConnectionTeardownTests: 435/616).
+        # And the flag that makes a disposed client refuse the next query
+        # (ClientLifecycleTests: 1081/1434).
+        "DNS/Client/DNSTCPClient.cs": {
+            376, 383, (406, "equality-to-inequality"), 435, 626, 1081,
+        },
+
+        # And two of the TLS client's own. The URL constructor's keepalive policy,
+        # which asks whether anything is outstanding before an idle close: the
+        # address constructor's twin died in SecureTransports, and this one in
+        # PipelinedKeepaliveTests' DoT client built from a URL. And
+        # CloseConnectionOf's "unless a newer connection has taken its place",
+        # whose TCP twin pass 1 killed, and which ConnectionTeardownTests' server
+        # that ends every connection kills over DoT.
+        "DNS/Client/DNSTLSClient.cs": {
+            413, 549, 558, (587, "equality-to-inequality"), 616, 891, 908, 1434,
+        },
+
+    },
+
+}
+
+STREAMS_EQUIVALENT = {
+
+    "DNS/Client/DNSTLSClient.cs": {
+
+        430: "ForceUpdate = false, a parameter default nothing reads. The DomainName overload "
+             "forwards it to the DNSServiceName overload, and that one to its own recursion "
+             "for more than one type, and nowhere else. The client ledger's DNSClient 1467 "
+             "grepped the folder for a reader at cc8323d5 and found one, in DNSClient itself; "
+             "the pipeline left that as it was",
+        450: "ForceUpdate = false - see DNSTLSClient 430",
+
+        491: "EDNSOptions.Count > 0 ? EDNSOptions : null, with >= in its place: the empty list "
+             "goes where null went, and OPT's constructor does `this.Options = Options ?? []`, "
+             "so the record is the same object state before anything is written. The client "
+             "ledger's DNSTLSClient 434 is the same line at cc8323d5",
+
+        802: "the `false` handed to Serialize as UseCompression. Since finding 86 a query "
+             "carries one question, so its name is the first in the message and has nothing "
+             "behind it to point to. The only other name is the OPT record's owner, the root, "
+             "which OPT.Serialize writes as a single zero octet without asking. A TSIG or "
+             "SIG(0) record is appended to the octets afterwards. There is nothing for "
+             "compression to find",
+
+    },
+
+    "DNS/Client/DNSTCPClient.cs": {
+
+        233: "ForceUpdate = false - see DNSTLSClient 430",
+        253: "ForceUpdate = false - see DNSTLSClient 430",
+        294: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 491",
+        305: "the `false` handed to Serialize as UseCompression - see DNSTLSClient 802",
+
+    },
+
+    "DNS/Client/DNSKeepalivePolicy.cs": {
+
+        111: "IsIdle ?? (() => true), the default for a caller that passes no idleness test. "
+             "Every constructor of both callers passes one, () => pipeline.Outstanding == 0: "
+             "DNSTCPClient 220, DNSTLSClient 324 and 413",
+
+        216: "disposed = true, the flag that makes Dispose idempotent - see the client "
+             "ledger's DNSKeepalivePolicy 203, the same line at cc8323d5. Timer.Change on a "
+             "disposed timer returns false and a second Timer.Dispose returns at once, so a "
+             "second Dispose without the flag does the nothing the flag prevents",
+
+    },
+
+    "DNS/Client/DNSStreamPipeline.cs": {
+
+        185: "if (pending.Count == 0) drained = new ..., the start of a busy period. With != "
+             "the first Register of a period leaves the completed TaskCompletionSource of the "
+             "last one in place, and every later Register of the period puts a fresh one "
+             "there. Drained is only waited on once a TIMEOUT 0 arrived with another query "
+             "still outstanding, and the answer it arrived with was withdrawn first, so the "
+             "period has had two registrations by then and the fresh one is in place. "
+             "Nothing registers while it is waited on: the waiter holds the stream lock, and "
+             "Register happens only under it",
+
+        (237, "greater-to-ge"): "ended.Count >= 0 && pending.Count == 0 adds one case, End "
+            "ending nothing with nothing pending. drained is complete then: only a Register "
+            "that finds nothing pending replaces it with an incomplete one, and every way back "
+            "to nothing pending completes it. TrySetResult on it does nothing",
+
+        (283, "logical-and-to-or"): "first == Exchange.Outcome.Task && !turn.IsCompleted, "
+            "with || in its place. The two disagree only when the answer has arrived and the "
+            "turn has been granted too. The original then takes the turn, finds the outcome "
+            "complete, releases the turn and returns it; the mutant hands the granted turn to "
+            "the continuation, which releases it because it ran to completion, and returns "
+            "the outcome. One release of one turn either way, and the same answer",
+
+        (417, "logical-and-to-or"): "exchange.Connection == Connection && exchange.TransactionId "
+            "== transactionId, with || in its place: the message is offered to more "
+            "candidates. One with another transaction ID refuses it at the first line of "
+            "DNSInfo.ReadResponse, and a DoT candidate whose TSIG does not verify returns null "
+            "rather than throwing, so neither is failed by it. One on another connection with "
+            "the same ID is the same query asked again only after the old exchange was "
+            "withdrawn, or two queries whose random IDs and questions coincide - and then the "
+            "answer is an answer to the question either one asked",
+
+    },
+
+}
+
+STREAMS_SUPERSEDED = {}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
@@ -1673,6 +1858,7 @@ LEDGERS = {
     "client": (CLIENT_KILLED, CLIENT_EQUIVALENT, CLIENT_SUPERSEDED),
     "multicast": (MULTICAST_KILLED, MULTICAST_EQUIVALENT, MULTICAST_SUPERSEDED),
     "svcparam": (SVCPARAM_KILLED, SVCPARAM_EQUIVALENT, SVCPARAM_SUPERSEDED),
+    "streams": (STREAMS_KILLED, STREAMS_EQUIVALENT, STREAMS_SUPERSEDED),
 }
 
 
