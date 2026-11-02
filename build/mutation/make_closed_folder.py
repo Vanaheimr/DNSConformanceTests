@@ -1563,6 +1563,108 @@ MULTICAST_SUPERSEDED = {
 }
 
 
+# The 'svcparam' slice: SVCB.cs, HTTPS.cs and SVCParameterPresentation.cs swept
+# again at cbdd1bb1, after Vanaheimr/Hermod#191 moved the SvcParam presentation
+# into a reader and a writer of its own (findings 88 and 89). The records block's
+# own ledger stays keyed to 973fed31, the revision it measured; this one is keyed
+# to cbdd1bb1, and its line numbers are that revision's.
+#
+# 34 survived pass 1 and every project of pass 2, and 4 of them are not code.
+# Three more never finished, which is their verdict and no row's here (MUTATION.md,
+# "Three that never come back"). One round of tests, in two classes; the replay
+# that planted the 37 again under them is results/svcparam-replay.tsv.
+
+SVCPARAM_KILLED = {
+
+    "svcparam": {
+
+        # The reader: where a key ends and whether an "=" follows it, at the end
+        # of the line and before another parameter; a decimal escape of two
+        # digits and a blank; the first character past ASCII; and each key's
+        # format up to its edges - the longest alpn-id, an empty no-default-alpn,
+        # the largest port and a signed one, a hint of the other family or with a
+        # zone index, a backslash in a list that escapes neither a comma nor a
+        # backslash. SvcParamKeyFormatTests.
+        #
+        # The writer: an empty value in the unknown-key form, and every key's
+        # check that its octets are well-formed enough for its own presentation,
+        # each handed octets that are not. SvcParamOpaqueFormTests.
+        "DNS/ResourceRecords/SVCParameterPresentation.cs": {
+            (121, "less-to-less-or-equal"),
+            (125, "logical-and-to-or"), (125, "less-to-less-or-equal"),
+            169, (242, "logical-or-to-and"), 266,
+            348, 363,
+            (375, "logical-or-to-and", 1), (375, "greater-to-ge"),
+            398, 399, 400,
+            (444, "logical-or-to-and"),
+            524, 557, 568, 591, 629,
+        },
+
+    },
+
+}
+
+SVCPARAM_EQUIVALENT = {
+
+    "DNS/ResourceRecords/SVCParameterPresentation.cs": {
+
+        145: "keyName.Length > 3 in the test for the unknown-key form. A name of three "
+             "characters reaches the line only if TryParseKey knows it, and the one it knows "
+             "is \"ech\", which does not start with \"key\"; \"key\" itself has no number and "
+             "was passed over above. So the next clause is false either way",
+
+        177: "Position >= Text.Length inside a quoted value, which is a quote that is never "
+             "closed. The mutant reads one character past the end instead, and the "
+             "IndexOutOfRangeException ends the read where the FormatException did: "
+             "SVCB.TryParseFromJSON and HTTPS.TryParseFromJSON catch every exception, and "
+             "the zone-file reader reaches them through those. The record is refused either "
+             "way and the error it reports is the same",
+
+        233: "Position + 1 >= Text.Length, a backslash at the end of the text. As at 177: "
+             "the mutant indexes past the end, and the exception it throws is caught where "
+             "the FormatException was",
+
+        (241, "ge-to-greater"): "Position + 3 >= Text.Length, a decimal escape cut short by "
+            "the end of the text. As at 177: the mutant indexes past the end, and the "
+            "exception it throws is caught where the FormatException was",
+
+        (241, "logical-or-to-and"): "the first || of the three-digit test. The mutant drops "
+            "the check of the second digit wherever the third is in reach, and the next "
+            "statement is Int32.Parse over all three - which throws a FormatException of its "
+            "own for a digit, a non-digit and a digit, since the first and the last are "
+            "checked. The blank after two digits, which Int32.Parse would forgive, is the "
+            "third character's case and line 243's",
+
+        (444, "ge-to-greater"): "i + 1 >= Value.Length, a backslash at the end of a list. "
+            "As at 177: the mutant indexes past the end, and the exception it throws is "
+            "caught where the FormatException was",
+
+        432: "!HasValue || Value.Length == 0 in ValueList. The mutant lets an \"=\" with "
+             "nothing after it through, and the loop below then finds no item at all and "
+             "throws at its own end: \"the list has an empty item\". The same refusal from "
+             "a line further down",
+
+    },
+
+    "DNS/ResourceRecords/SVCB.cs": {
+
+        374: "Value.Length > 0 in ToString(), which is the debugging text and not the "
+             "presentation format. The mutant calls EscapeValue on an empty value, which "
+             "returns an empty string - what the other branch wrote",
+
+    },
+
+    "DNS/ResourceRecords/HTTPS.cs": {
+
+        284: "Value.Length > 0 in ToString() - see SVCB.cs 374",
+
+    },
+
+}
+
+SVCPARAM_SUPERSEDED = {}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
@@ -1570,6 +1672,7 @@ LEDGERS = {
     "server": (SERVER_KILLED, SERVER_EQUIVALENT, SERVER_SUPERSEDED),
     "client": (CLIENT_KILLED, CLIENT_EQUIVALENT, CLIENT_SUPERSEDED),
     "multicast": (MULTICAST_KILLED, MULTICAST_EQUIVALENT, MULTICAST_SUPERSEDED),
+    "svcparam": (SVCPARAM_KILLED, SVCPARAM_EQUIVALENT, SVCPARAM_SUPERSEDED),
 }
 
 

@@ -5360,6 +5360,20 @@ NOT is precisely the requirement that admits one, so the suite asserts only that
 the first question carries the bit and records the choice here. Repeating the bit
 on retransmissions has no such reason and is finding 78.
 
+**A character past ASCII in a SvcParam value.** RFC 9460 Appendix A describes zone
+files as "representing arbitrary octet sequences in basic ASCII text", and its ABNF
+ends `non-special` at 0x7E: a character past 0x7F is outside the syntax, and every
+octet above 0x7E has `\DDD` for it. A reader that is handed octets can refuse such
+a character or pass it through. Hermod's SvcParam reader is handed text instead,
+a zone file already decoded or the "data" string of a DNS JSON answer, so it has
+to decide which octets a character stands for, and it takes the character's UTF-8
+encoding: what a reader of the file's own octets sees when the file is UTF-8.
+Refusing it would be just as defensible. One octet per character would not be,
+because it has no octet for U+0100 and above. The suite pins the edge rather
+than the choice: U+007F is one octet and U+0080 the first that is two
+(`A_Character_Past_Ascii_Is_Its_Utf8_Octets_From_The_First_One_On`), which is
+what the mutation sweep of Hermod#191 found unasked.
+
 ## Where the coverage ends
 
 Capabilities Hermod does not claim are **not** findings, and they are no longer

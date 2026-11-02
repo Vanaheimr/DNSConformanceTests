@@ -70,6 +70,18 @@ BLOCKS = {
     "server":    dict(root=r"DNS\Server",    exclude=(), judge="Server"),
     "records":   dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords"),
 
+    # Not blocks but slices of two: the files a fix rewrote after its block was
+    # measured, swept again at the fix's revision. Re-sweeping the whole block
+    # for them would cost ten hours for the client alone, and every other file in
+    # it would give the verdicts it gave before. Vanaheimr/Hermod#191 moved the
+    # SvcParam presentation out of SVCB and HTTPS into a reader of its own;
+    # #192 put the TCP and TLS clients' queries on a pipeline.
+    "svcparam":  dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords",
+                      only=("SVCB.cs", "HTTPS.cs", "SVCParameterPresentation.cs")),
+    "streams":   dict(root=r"DNS\Client", exclude=(), judge="Client",
+                      only=("DNSTCPClient.cs", "DNSTLSClient.cs",
+                            "DNSStreamPipeline.cs", "DNSKeepalivePolicy.cs")),
+
 }
 
 FAILED = re.compile(r"(?:Fehler|Failed):\s*(\d+)")
@@ -198,6 +210,8 @@ def mutants_in(block):
             continue
 
         for filename in sorted(names):
+            if "only" in block and filename not in block["only"]:
+                continue
             if filename.endswith(".cs"):
                 full = os.path.join(dirpath, filename)
                 rel  = os.path.relpath(full, SRCROOT).replace("\\", "/")
