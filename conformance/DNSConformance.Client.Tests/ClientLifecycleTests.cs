@@ -165,6 +165,95 @@ public class ClientLifecycleTests
     #endregion
 
 
+
+    #region A disposed client asks nothing more
+
+    [Test]
+    public async Task A_Disposed_Stream_Client_Refuses_A_Query_And_Sends_Nothing()
+    {
+
+        // The other half of disposing: what was let go of stays let go of. A
+        // query asked of a disposed client is refused with the exception .NET
+        // has for exactly that, and it never reaches the server - the client
+        // has no connection left and must not open one, because nothing would
+        // ever close it again.
+        await using var tcpServer = new ScriptedTcpServer(OneAddress);
+        await using var tlsServer = new ScriptedTlsServer(OneAddress);
+
+        var tcp = new DNSTCPClient(IPv4Address.Localhost,
+                                   Port:          IPPort.Parse((UInt16) tcpServer.Port),
+                                   QueryTimeout:  Timeout);
+
+        var tls = new DNSTLSClient(IPv4Address.Localhost,
+                                   TCPPort:                     IPPort.Parse((UInt16) tlsServer.Port),
+                                   QueryTimeout:                Timeout,
+                                   RemoteCertificateValidator:  (_, _, _, _, _) => TLSValidationResult.Success());
+
+        await tcp.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], Timeout);
+        await tls.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], Timeout);
+
+        await tcp.DisposeAsync();
+        await tls.DisposeAsync();
+
+        Assert.Multiple(() => {
+
+            Assert.That(async () => await tcp.Query(DNSServiceName.Parse("after.example."), [ DNSResourceRecordTypes.A ], Timeout),
+                        Throws.InstanceOf<ObjectDisposedException>(), "DNSTCPClient refuses the query");
+
+            Assert.That(async () => await tls.Query(DNSServiceName.Parse("after.example."), [ DNSResourceRecordTypes.A ], Timeout),
+                        Throws.InstanceOf<ObjectDisposedException>(), "DNSTLSClient refuses the query");
+
+            Assert.That(tcpServer.Requests.Count, Is.EqualTo(1), "and nothing more reached the TCP server");
+            Assert.That(tlsServer.Requests.Count, Is.EqualTo(1), "nor the DoT server");
+
+        });
+
+    }
+
+    #endregion
+
+
+    #region A connection that was never made is not held
+
+    [TestCaseSource(typeof(StreamScriptServer), nameof(StreamScriptServer.Transports))]
+    public async Task A_Stream_Client_Whose_Connection_Was_Refused_Connects_For_The_Next_Query(String Transport)
+    {
+
+        // Nothing listens on the port when the first query is asked, so its
+        // connection is refused. What the refused connect leaves behind is a
+        // socket that never connected, and a client that takes it for a
+        // connection it already has writes the next query into it - and fails
+        // that one too, and every one after it, for as long as it lives. The
+        // server is up by the time of the second query, and the second query
+        // has to find it.
+        var timeout = TimeSpan.FromSeconds(6);
+
+        var probe   = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        probe.Start();
+        var port    = ((System.Net.IPEndPoint) probe.LocalEndpoint).Port;
+        probe.Stop();
+
+        await using var client = StreamScriptServer.NewClient(Transport, port, timeout);
+
+        var refused  = await client.Query(DNSServiceName.Parse("refused.example."),  [ DNSResourceRecordTypes.A ], timeout);
+
+        await using var server = new StreamScriptServer(Transport, (connection, query) => connection.Answer(query), Port: port);
+
+        var answered = await client.Query(DNSServiceName.Parse("answered.example."), [ DNSResourceRecordTypes.A ], timeout);
+
+        Assert.Multiple(() => {
+
+            Assert.That(refused.IsValid,                                     Is.False,       "nothing listened when the first query was asked");
+            Assert.That(answered.IsValid && answered.Answers.Count() == 1,   Is.True,        "the next query connected and was answered");
+            Assert.That(server.ConnectionCount,                              Is.EqualTo(1),  "on a connection it made for itself");
+
+        });
+
+    }
+
+    #endregion
+
+
     #region A datagram client has no connection to report
 
     [Test]

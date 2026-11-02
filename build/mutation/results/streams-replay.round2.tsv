@@ -1,0 +1,33 @@
+DNS/Client/DNSStreamPipeline.cs	210	logical-and-to-or	KILLED-ON-REPLAY	Client: 2 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	413	equality-to-inequality	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSStreamPipeline.cs	210	equality-to-inequality	KILLED-ON-REPLAY	Client: 2 of 231 failed	0
+DNS/Client/DNSStreamPipeline.cs	234	equality-to-inequality	KILLED-ON-REPLAY	Client: 7 of 231 failed	0
+DNS/Client/DNSStreamPipeline.cs	235	equality-to-inequality	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSStreamPipeline.cs	237	logical-and-to-or	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSStreamPipeline.cs	237	equality-to-inequality	KILLED-ON-REPLAY	Client: 2 of 231 failed	0
+DNS/Client/DNSTCPClient.cs	376	false-to-true	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	549	false-to-true	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSStreamPipeline.cs	283	equality-to-inequality	KILLED-ON-REPLAY	Client: 2 of 231 failed	0
+DNS/Client/DNSStreamPipeline.cs	290	equality-to-inequality	KILLED-ON-REPLAY	Client: 2 of 231 failed	0
+DNS/Client/DNSTCPClient.cs	383	logical-or-to-and	KILLED-ON-REPLAY	Client: 2 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	558	logical-or-to-and	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTCPClient.cs	406	logical-and-to-or	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSTCPClient.cs	406	equality-to-inequality	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	587	logical-and-to-or	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSTLSClient.cs	587	equality-to-inequality	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSTCPClient.cs	435	logical-and-to-or	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTCPClient.cs	435	logical-and-to-or	KILLED-ON-REPLAY	Client: 1 of 231 failed	1
+DNS/Client/DNSTLSClient.cs	616	logical-and-to-or	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSStreamPipeline.cs	409	less-to-less-or-equal	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSTCPClient.cs	435	equality-to-inequality	KILLED-ON-REPLAY	Client: 3 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	616	logical-and-to-or	KILLED-ON-REPLAY	Client: 1 of 231 failed	1
+DNS/Client/DNSTCPClient.cs	435	equality-to-inequality	KILLED-ON-REPLAY	Client: 3 of 231 failed	1
+DNS/Client/DNSTLSClient.cs	616	equality-to-inequality	KILLED-ON-REPLAY	Client: 4 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	616	equality-to-inequality	KILLED-ON-REPLAY	Client: 4 of 231 failed	1
+DNS/Client/DNSTCPClient.cs	590	logical-or-to-and	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSTCPClient.cs	626	true-to-false	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTCPClient.cs	1081	true-to-false	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	882	logical-and-to-or	SURVIVED-ON-REPLAY		0
+DNS/Client/DNSTLSClient.cs	891	equality-to-inequality	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	908	true-to-false	KILLED-ON-REPLAY	Client: 1 of 231 failed	0
+DNS/Client/DNSTLSClient.cs	1434	true-to-false	KILLED-ON-REPLAY	Client: 1 of 231 failed	0

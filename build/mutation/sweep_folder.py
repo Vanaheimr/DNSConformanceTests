@@ -380,8 +380,14 @@ def main():
                 counts["PARSE-ERROR"] = counts.get("PARSE-ERROR", 0) + 1
                 continue
 
+            # A total that moved is a run that did not finish - a test host that
+            # died, typically of a stack overflow - and pass 2 has always called
+            # that a kill. This pass noted it and filed SURVIVED anyway: 0 of the
+            # 41 tests that ran before the host died had failed. Two mutants of
+            # the streams slice and two of the client block went to pass 2 as
+            # survivors that way, every one of them a query recursing into itself.
             failed, total = counted
-            verdict = "KILLED" if failed > 0 else "SURVIVED"
+            verdict = "KILLED" if failed > 0 or total != expected else "SURVIVED"
             detail  = "%d of %d failed" % (failed, total)
             if total != expected:
                 detail += " (total moved from %d)" % expected

@@ -9,22 +9,28 @@ DNS/Client/DNSTCPClient.cs	192	true-to-false	killed	inside-the-frame		0
 DNS/Client/DNSTLSClient.cs	286	true-to-false	killed	inside-the-frame		0
 DNS/Client/Cache/DNSCache.cs	130	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	197	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
+DNS/Client/DNSTLSClient.cs	355	true-to-false	superseded		the `true` the URL constructor hands its base class - moved by finding 87's fix to line 390, and killed there in the streams slice's first pass	0
 DNS/Client/Cache/DNSCache.cs	131	false-to-true	killed	answers-the-cache-made-itself		0
+DNS/Client/DNSTLSClient.cs	375	true-to-false	superseded		RecursionDesired ?? true in the URL constructor - moved by finding 87's fix to line 410, and killed there in the streams slice's first pass	0
 DNS/Client/Cache/DNSCache.cs	132	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	230	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
 DNS/Client/DNSTCPClient.cs	207	true-to-false	superseded		see IDNSClient.cs:64	0
 DNS/Client/DNSUDPClient.cs	229	true-to-false	superseded		see IDNSClient.cs:64	0
 DNS/Client/IDNSClient.cs	64	true-to-false	superseded		Boolean? RecursionDesired = true, a parameter default - finding 63. All twenty-nine of these now read `= null`, and nothing mutable is left on any of them. The change was not cosmetic: with the default at true the argument is never absent, so the client-wide field could never be consulted and `client.RecursionDesired = false` did nothing at all. Swapping the resolution order alone would not have helped. The rule these twenty-nine stood for - what a caller who says nothing gets - is re-measured where the fix put it, at the one expression each call now resolves to (DNSClient.cs:581 and DNSUDPClient.cs:262, true-to-false), and killed there	0
 DNS/Client/Cache/DNSCache.cs	140	true-to-false	killed	answers-the-cache-made-itself		0
+DNS/Client/DNSKeepalivePolicy.cs	203	true-to-false	equivalent		disposed = true, the flag that makes Dispose idempotent. What it guards already is: Timer.Change on a timer that has been disposed returns false rather than throwing, and a second Timer.Dispose returns at once - both in TimerQueueTimer, which checks its own _canceled first. A second Dispose with the flag never set does the same nothing the flag prevents. The streams slice records the same line at cbdd1bb1, DNSKeepalivePolicy 216, for the same reason	0
+DNS/Client/DNSTCPClient.cs	208	false-to-true	equivalent		ForceUpdate = false, a parameter default - see DNSTLSClient 395	0
 DNS/Client/Cache/DNSCache.cs	141	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSTLSClient.cs	394	true-to-false	superseded		see IDNSClient.cs:64	0
 DNS/Client/Cache/DNSCache.cs	172	true-to-false	killed	answers-the-cache-made-itself		0
+DNS/Client/DNSTLSClient.cs	395	false-to-true	equivalent		ForceUpdate = false, a parameter default nothing reads. The transport forwards it to the overload that takes a DNSServiceName and from there to nowhere: see DNSClient 1467, which grepped the folder for a reader and found one, in DNSClient itself. The streams slice measures the same defaults at cbdd1bb1 (DNSTLSClient 430 and 450, DNSTCPClient 233 and 253) and records them equivalent for the same reason	0
 DNS/Client/Cache/DNSCache.cs	173	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	260	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
 DNS/Client/DNSTCPClient.cs	227	true-to-false	superseded		see IDNSClient.cs:64	0
 DNS/Client/DNSUDPClient.cs	249	true-to-false	superseded		see IDNSClient.cs:64	0
 DNS/Client/Cache/DNSCache.cs	174	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	261	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
+DNS/Client/DNSTCPClient.cs	228	false-to-true	equivalent		ForceUpdate = false, a parameter default - see DNSTLSClient 395	0
 DNS/Client/IDNSClient.cs	94	true-to-false	superseded		see 64	0
 DNS/Client/Cache/DNSCache.cs	175	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	262	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
@@ -33,6 +39,7 @@ DNS/Client/DNSTLSClient.cs	414	true-to-false	superseded		see IDNSClient.cs:64	0
 DNS/Client/DNSUDPClient.cs	266	false-to-true	killed	which-datagrams-a-udp-client-may-act-on		0
 DNS/Client/Cache/DNSCache.cs	183	true-to-false	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSTCPClient.cs	245	true-to-false	killed	inside-the-frame		0
+DNS/Client/DNSTLSClient.cs	415	false-to-true	equivalent		ForceUpdate = false, a parameter default - see DNSTLSClient 395	0
 DNS/Client/DNSUDPClient.cs	267	false-to-true	killed	which-datagrams-a-udp-client-may-act-on		0
 DNS/Client/Cache/DNSCache.cs	184	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSTCPClient.cs	247	greater-to-ge	equivalent		EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 434	0
@@ -49,12 +56,12 @@ DNS/Client/DNSUDPClient.cs	274	true-to-false	killed	which-datagrams-a-udp-client
 DNS/Client/Cache/DNSCache.cs	348	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	291	false-to-true	killed	what-a-client-is-when-nothing-is-said		0
 DNS/Client/DNSHTTPSClient.cs	752	true-to-false	superseded		see IDNSClient.cs:64	0
-DNS/Client/DNSTCPClient.cs	276	logical-or-to-and	equivalent		!IsConnected || tcpClient is null - see DNSTLSClient 455. This is the file the `catch (IOException)` was read in	0
+DNS/Client/DNSTCPClient.cs	276	logical-or-to-and	superseded		!IsConnected || tcpClient is null - moved by finding 87's fix to line 383, and killed there in the streams slice by the refused-connection test. See DNSTLSClient 455 for why it was never equivalent	0
 DNS/Client/DNSUDPClient.cs	275	false-to-true	killed	which-datagrams-a-udp-client-may-act-on		0
 DNS/Client/IDNSClient.cs	126	true-to-false	superseded		see 64	0
 DNS/Client/Cache/DNSCache.cs	349	false-to-true	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	292	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
-DNS/Client/DNSTLSClient.cs	455	logical-or-to-and	equivalent		!IsConnected || tcpClient is null, the pre-emptive reconnect. The mutant's && means a disconnected-but-non-null client is not reconnected before the write - and the write then throws, into a `catch (IOException)` eight lines below that reconnects and retries the whole exchange. Same answer, one failed round trip later. TcpFallbackAndFramingTests already exercises a server closing the connection and passes with the mutant planted, which is what pointed at the second recovery rather than at a missing test	0
+DNS/Client/DNSTLSClient.cs	455	logical-or-to-and	superseded		!IsConnected || tcpClient is null - moved by finding 87's fix to line 558, and killed there in the streams slice by the refused-connection test: a client whose first connect was refused keeps the disposed TcpClient in its field, and the mutant never connects again	0
 DNS/Client/DNSUDPClient.cs	282	equality-to-inequality	killed	which-datagrams-a-udp-client-may-act-on		0
 DNS/Client/Cache/DNSCache.cs	354	true-to-false	killed	answers-the-cache-made-itself		0
 DNS/Client/DNSClient.cs	301	true-to-false	killed	what-a-client-is-when-nothing-is-said		0
