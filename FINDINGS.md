@@ -5230,7 +5230,7 @@ everything inside one.
 
 **Repro**: `SvcParamFailureVectorTests`, all six figures of Appendix D.3, each
 for SVCB and for HTTPS. Figures 11 and 14 are trackers, red at `cbdd1bb1` and
-passing from `4edc4c98` on; the other four were refused all along and pass, and a control reads Figures 14 and 16 written
+passing from `f11dad26` on; the other four were refused all along and pass, and a control reads Figures 14 and 16 written
 compliantly. `A_No_Default_Alpn_Without_Alpn_Is_Refused` tracks §7.1.1's rule.
 Six tracker cases in all.
 
@@ -5289,7 +5289,7 @@ Here it sends the length of an answer and half of its octets, and closes.
 `A_Query_Whose_Answer_Was_Cut_Off_Is_Asked_Again_On_A_New_One` asks one query.
 `A_Pipelined_Query_Is_Asked_Again_When_Another_Answer_Is_Cut_Off` pipelines a
 second query beside it, and that one receives nothing. Each runs over TCP and
-over DoT: four tracker cases, red at `cbdd1bb1` and passing from `4edc4c98` on.
+over DoT: four tracker cases, red at `cbdd1bb1` and passing from `f11dad26` on.
 The controls beside them pass. They cover a connection closed or reset between
 queries, and a server that ends
 every connection it is given, which gets the query and one retry and no more.
@@ -5364,7 +5364,7 @@ where two would do. That result is deterministic.
 the pipelined case. Either the query asked meanwhile failed, or it was answered
 and the query after it went out on a third connection; the tracker was red in
 both cases. Each runs over TCP and over DoT: four tracker cases, red at
-`cbdd1bb1` and passing from `4edc4c98` on, ten runs in a row.
+`cbdd1bb1` and passing from `f11dad26` on, ten runs in a row.
 `After_Timeout_Zero_No_Query_Goes_Out_On_The_Connection_And_Its_Outstanding_Answer_Is_Waited_For`
 pins the part of §3.2.2 that worked, and passes.
 

@@ -92,7 +92,7 @@ again (MUTATION.md, *The result: the SvcParam presentation, measured again*):
 thirty-four cases that ask each SvcParamKey at its edges and hand the writer
 octets its keys cannot hold, and twenty-four for RFC 9460's failure vectors,
 six of them the trackers of finding 90, red at cbdd1bb1 and passing from
-4edc4c98 on. With them the ResourceRecords project is 560 ✅ · 0 ❌.
+f11dad26 on. With them the ResourceRecords project is 560 ✅ · 0 ❌.
 
 And the tests it asked for when it measured finding 87's fix (MUTATION.md, *The
 result: the stream clients, measured*): twenty-four cases against a server that
@@ -101,7 +101,7 @@ client does with a connection that ends under a query, nine what it does with
 an edns-tcp-keepalive TIMEOUT, of 0 above all, two whether an answer out of order
 reaches its caller at once, and three what comes next for a client that was
 disposed, or whose connection was refused. Eight of them are the trackers of
-findings 91 and 92, red at cbdd1bb1 and passing from 4edc4c98 on. With them the
+findings 91 and 92, red at cbdd1bb1 and passing from f11dad26 on. With them the
 Client project is 239 ✅ · 0 ❌, and the offline suite 1757 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
