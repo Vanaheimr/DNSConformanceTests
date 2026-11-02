@@ -87,12 +87,20 @@ value (MUTATION.md, *One row per mutant*), the Client project is 215 ✅ · 0 �
 the ResourceRecords project 502 ✅ · 0 ❌, and the offline suite 1675 ✅ · 0 ❌ ·
 4 skips.
 
+And the tests the mutation sweep asked for when it measured finding 89's fix
+again (MUTATION.md, *The result: the SvcParam presentation, measured again*):
+thirty-four cases that ask each SvcParamKey at its edges and hand the writer
+octets its keys cannot hold, and twenty-four for RFC 9460's failure vectors,
+six of them the trackers of finding 90, red at cbdd1bb1. With them the
+ResourceRecords project is 554 ✅ · 6 ❌, and the offline suite 1727 ✅ · 6 ❌ ·
+4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 89 RFC deviations in Hermod. All are fixed;
+The suite has found 90 RFC deviations in Hermod. All but finding 90 are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -303,7 +311,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **8914** | Extended DNS Errors | info-code + extra-text |
 | **8945** | TSIG | MAC over message + §4.3.3 variables, checked against HMAC applied by hand; CLASS ANY, TTL 0, last in additional, ARCOUNT counts it; BADSIG / BADKEY / BADTIME kept distinct; the fudge window, a rewritten message ID, a response bound to its request's MAC. End to end: the server verifies signed queries and signs its replies, the client signs and checks the answer — including on the TCP retry after a truncated datagram, which used to go out unsigned. Both mechanisms ride every transport: UDP, TCP, DoT and DoH, the last two asserted by reading the message back out of the TLS framing and out of a `?dns=` parameter. §5.4 names the *reaction* to a reply that does not verify, not just the verdict — "continue to wait for a signed response until the request times out" ✅ (finding 53), where the client used to report a failure the moment the forgery arrived, which hands whoever sent it the power to end the request |
 | **8976** | ZONEMD | serial/scheme/hash |
-| **9460** | SVCB, HTTPS | alias and service mode, SvcParams parsed to RDLENGTH |
+| **9460** | SVCB, HTTPS | alias and service mode, SvcParams parsed to RDLENGTH. The presentation format both ways: §2.1's escapes decoded ✅ (finding 88), each key's value in its own wire format ✅ (finding 89), Appendix D.2's vectors in both directions, and each key up to its edges — the longest alpn-id, both ends of a port, a hint of the other family — with the writer falling back to `keyNNNNN` for octets its key cannot hold. Appendix D.3's failure vectors: the four that are one malformed value are refused, a key written twice and a `mandatory` naming a key the record lacks are read (finding 90, open) |
 
 All eight signature algorithms Hermod's validator claims are covered against
 real BIND signatures, each from a zone signed with that exact algorithm rather

@@ -1,0 +1,37 @@
+DNS/ResourceRecords/HTTPS.cs	228	true-to-false	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCB.cs	318	true-to-false	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	114	ge-to-greater	TIMED-OUT	ResourceRecords was still running after 120 s	0
+DNS/ResourceRecords/HTTPS.cs	237	true-to-false	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCB.cs	327	true-to-false	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	121	inequality-to-equality	TIMED-OUT	ResourceRecords was still running after 120 s	0
+DNS/ResourceRecords/HTTPS.cs	284	greater-to-ge	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCB.cs	374	greater-to-ge	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	121	less-to-less-or-equal	KILLED-ON-REPLAY	ResourceRecords: 6 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	logical-and-to-or	KILLED-ON-REPLAY	ResourceRecords: 10 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	equality-to-inequality	TIMED-OUT	ResourceRecords was still running after 120 s	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	less-to-less-or-equal	KILLED-ON-REPLAY	ResourceRecords: 6 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	145	greater-to-ge	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	169	less-to-less-or-equal	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	177	ge-to-greater	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	233	ge-to-greater	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	241	logical-or-to-and	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	241	ge-to-greater	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	242	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	266	less-to-less-or-equal	KILLED-ON-REPLAY	ResourceRecords: 1 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	348	greater-to-ge	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	363	greater-to-ge	KILLED-ON-REPLAY	ResourceRecords: 4 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	logical-or-to-and	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	1
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	greater-to-ge	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	398	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	399	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	400	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	432	logical-or-to-and	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	444	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	444	ge-to-greater	SURVIVED-ON-REPLAY		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	524	greater-to-ge	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	557	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	568	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 3 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	568	le-to-less	KILLED-ON-REPLAY	ResourceRecords: 1 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	591	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 2 of 554 failed	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	629	logical-or-to-and	KILLED-ON-REPLAY	ResourceRecords: 3 of 554 failed	0

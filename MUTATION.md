@@ -36,6 +36,14 @@ test project that exercises each:
 | `client` | `DNS/Client` | Client | 558 | measured, **86 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
+| `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 124 | a slice, measured, **1 open**, 3 that never finish |
+| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 163 | a slice, not yet measured |
+
+The last two rows are not blocks. They are the files a fix rewrote after its
+block had been measured, swept again at the fix's revision with the block's
+judge, and given ledgers of their own: findings 88 and 89 rewrote the SvcParam
+presentation, and finding 87 the TCP and TLS clients' queries. See *The result:
+the SvcParam presentation, measured again*.
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
 a warning here: its judge had **four tests** for 598 mutable places, so whatever
@@ -385,6 +393,158 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 56, and 370 survive: 118 not really code and 252 real gaps. The score as
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
+
+
+## The result: the SvcParam presentation, measured again
+
+Findings 88 and 89 were fixed after their block had been measured. The
+`records` block was swept at `973fed31` and is closed. Vanaheimr/Hermod#191 then
+took the SvcParam presentation out of `SVCB.cs` and `HTTPS.cs` and gave it a
+reader and a writer of its own, `SVCParameterPresentation.cs`: 685 lines, none
+of which any sweep had seen. Re-sweeping the whole block for it would have
+measured 739 mutants to learn about 124, so `sweep_folder.py` now takes
+*slices*: a block's root and judge, and the files the fix rewrote. `svcparam` is
+the three files of #191, measured at **`cbdd1bb1`**, the suite's pin, in a
+worktree of its own. Its results, its classification and its ledger are its own,
+keyed to that revision. The `records` ledger stays keyed to `973fed31`. Its rows
+on the old parameter splitter are still true of the code they were measured on,
+and this slice measures the code that replaced it.
+
+| | |
+|---|---:|
+| mutants | 124 |
+| not viable (would not compile) | 15 |
+| killed by ResourceRecords, pass 1 | 72 |
+| no verdict in pass 1 | 3 |
+| killed by another project | 0 |
+| survived everywhere | 34 |
+| real gaps | **30** |
+| killed by the new tests, on replay | 20 |
+| equivalent | 9 |
+| open | **1** |
+
+The 34 are 30 real gaps and 4 that are not code: the `UseCompression = true`
+default of each serialiser and the `#region` line that repeats it. Of the 124,
+98 are in `SVCParameterPresentation.cs`, and every one of the 30 gaps is there
+or in a `ToString()`.
+
+### The middle of every key, and none of its edges
+
+Finding 89's tests are RFC 9460's own vectors, Appendix D.2: a port of 53, two
+IPv6 hints, an alpn list with an escaped comma. They pin the middle of every
+key, and the sweep says that is all they pin. Each of `port`'s bounds could move
+by one, `alpn` could refuse an alpn-id of 255 octets, a hint could take an
+address of the other family or a zone index, a backslash in a list could escape
+anything, and a decimal escape could be two digits and a blank. No test noticed
+any of it.
+
+Nor did any test write a key on its own at the end of a line. The reader looks
+for an `=` after each key, and at the end of the line there is no character left
+to look at. Three mutants made it look anyway, and a fourth did the same to the
+value of an `=` that ends the line. Every test had a value after its last key.
+
+`SvcParamKeyFormatTests` asks each key at its edges, one step inside the rule and
+one step outside, for SVCB and for HTTPS. Two of its cases are about the text
+rather than a key. U+0080 is the first character the reader writes as two
+octets, which needed a reading of its own (FINDINGS.md, *Interpretations*). And
+an `=` with nothing after it has to read the same at the end of the line as in
+its middle, whichever of the two answers the reader gives.
+
+### A writer whose checks never failed
+
+The writer gives each key its own presentation where the octets are well formed
+for it, and falls back to `keyNNNNN` where they are not, so that nothing is lost
+either way. One check per key decides which. Every test so far handed them
+well-formed octets, so no check had ever said no, and the mutants that loosened
+them survived.
+
+`SvcParamOpaqueFormTests` reads eleven malformed values from the RFC 3597 generic
+form: a `mandatory` that is empty, odd, out of order, lists a key twice or lists
+itself; an alpn-id of no octets and one longer than its value; a port of three
+octets; hints of no address and of the wrong length. It writes each one, reads
+the line back and compares the octets. A second test writes an empty value in
+the `keyNNNNN` form, which must be the key alone.
+
+### Nine equivalents, six of them a refusal by another route
+
+Four survivors make the reader index one character past the end of its text
+instead of throwing a `FormatException` there: a quote never closed, a backslash
+at the end, a decimal escape cut short, and the same backslash in a list.
+`SVCB.TryParseFromJSON` and `HTTPS.TryParseFromJSON` catch every exception, and
+the zone-file reader reaches them through those, so the record is refused either
+way and the reason it reports is the same. A fifth drops the check of a decimal
+escape's second digit, and `Int32.Parse` then throws a `FormatException` of its
+own for it. A sixth lets an `=` with nothing after it into the list reader,
+which throws one line later because the list has no item.
+
+The other three refuse nothing. The test for the unknown-key form starts with
+`keyName.Length > 3`, and the one name of three characters that ever reaches it
+is `ech`, which fails the next clause either way: `key` alone has no number and
+was passed over above. The last two are `ToString()`, which is debugging text
+rather than the presentation format, and whose empty branch writes what
+`EscapeValue` writes for nothing.
+
+Every one of the nine is in the ledger with the line that makes it equivalent.
+
+### Three that never come back
+
+All three verdicts pass 1 could not give were the reader's main loop. A mutant
+gets ten times the clean run, which is 120 s for this judge, and none of the
+three finished in it. Each was planted by hand, and `SvcParamTestVectorTests`
+was run on its own with a bound of 600 s:
+
+| | with the mutant |
+|---|---|
+| `SVCParameterPresentation.cs:114` `>=`→`>` | **still running after 600 s** |
+| `SVCParameterPresentation.cs:121` `!=`→`==` | **still running after 600 s** |
+| `SVCParameterPresentation.cs:125` `==`→`!=` | **still running after 600 s** |
+
+They are the same mutant three times. The loop moves forward only by reading a
+key. If a key is ever read as the empty name, the loop passes it over and
+continues, and it continues from where it was. Line 114 makes that happen at the
+end of every line, and line 121 at the start of every parameter. Line 125 does it
+after the first `keyNNNNN=` that has a value, as two of RFC 9460's own vectors
+do. The reader then never returns, and neither does `TryParseZoneFileString`.
+
+This is the server block's `retry` flag again, and it keeps the verdict that one
+kept: TIMED-OUT, because nothing more is true. It differs in one respect. The
+server's loop spun in a background task and nothing on Hermod's surface showed
+it. Here the call itself never returns, which a test with a deadline could
+report. That test would not change the verdict. Every other test in the project
+that reads a SvcParam would hang beside it, so the project would still time out.
+The rows in `svcparam-pass1.tsv` record the recheck, and their pass-2 rows say
+TIMED-OUT too, so the triage does not count three hangs as gaps. Pass 2's
+SURVIVED-EVERYWHERE is true of the other seven projects and says nothing about
+the judge, and `.before-timeout-recheck` keeps it. The replay planted all three
+again under the new tests, and all three timed out again.
+
+### One left open, because the RFC leaves it open
+
+`SVCParameterPresentation.cs:375` is a single `if` for §7.2's port, and the first
+of its three `||` survives:
+
+```csharp
+if (text.Length == 0 || text.Length > 5 || !text.All(Char.IsAsciiDigit) ||
+    !UInt16.TryParse(text, out var port))
+```
+
+With `&&` there, the empty value still fails `TryParse`, so all that changes is
+a port longer than five digits: `000080` is read as 80 where it was refused.
+§7.2 asks for "a single decimal integer between 0 and 65535 in ASCII" and says
+nothing about leading zeros. Hermod reads `00080` and refuses `000080`, and no
+reading of the RFC prefers one over the other. A test would pin Hermod's choice
+rather than the RFC's, so the row stays open, with the reason here.
+
+### A check that does not exist
+
+A mutant can only alter a check that exists. Reading the reader to classify its
+survivors showed one that does not. Every value is checked against its key, and
+nothing looks at two keys together. RFC 9460 Appendix D.3 lists six failure
+cases, and Hermod refused four of them, each a single value its key cannot take.
+It read the other two: a key written twice, and a `mandatory` that lists a key
+the record does not hold. §7.1.1's own self-consistency rule, `no-default-alpn`
+without `alpn`, goes the same way. That is finding 90, open, and
+`SvcParamFailureVectorTests` tracks it.
 
 
 ## The result: multicast
