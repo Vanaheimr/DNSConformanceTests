@@ -3,11 +3,8 @@
 What this suite caught. Ninety-two RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last three is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Findings 90 to 92 are open: two of RFC
-9460's failure vectors read as records, a connection that ends inside an answer
-failing every query on it, and a TIMEOUT 0 outliving its connection. Their
-trackers are red on purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -108,9 +105,9 @@ what is queued, what is out of scope — are not here at all; they live in
 | 87 | A TCP or TLS client waited for each answer before sending its next query | Low | 7766 §6.2.1.1, 7858 §3.3 | ✅ fixed |
 | 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ✅ fixed |
 | 89 | A SvcParam value was kept as the text that wrote it, not in its key's wire format | High | 9460 §2.1, §7, §8 | ✅ fixed |
-| 90 | Two of RFC 9460's failure vectors were read as records | Low | 9460 §2.1, §2.4.3, §8 | ⏳ **open** |
-| 91 | A connection that ended in the middle of an answer failed every query on it, and asked none again | Low (SHOULD) | 7766 §6.2.4 | ⏳ **open** |
-| 92 | A TIMEOUT 0 outlived the connection it arrived on | Medium | 7828 §3.1, §3.2.2, 7766 §5 | ⏳ **open** |
+| 90 | Two of RFC 9460's failure vectors were read as records | Low | 9460 §2.1, §2.4.3, §8 | ✅ fixed |
+| 91 | A connection that ended in the middle of an answer failed every query on it, and asked none again | Low (SHOULD) | 7766 §6.2.4 | ✅ fixed |
+| 92 | A TIMEOUT 0 outlived the connection it arrived on | Medium | 7828 §3.1, §3.2.2, 7766 §5 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5204,14 +5201,14 @@ as well." Appendix D.3 turns both into test vectors, "not compliant with this
 document": `key123=abc key123=def` (Figure 11) and `mandatory=key123` with no
 key123 beside it (Figure 14).
 
-Hermod's SVCB and HTTPS readers take both. Since finding 89 they check every
-value against its key's format, and they refuse the other four figures of D.3,
+Hermod's SVCB and HTTPS readers took both. Since finding 89 they checked every
+value against its key's format, and they refused the other four figures of D.3,
 each of which is one value its key cannot take. Figures 11 and 14 are not about
-one value. They are about the SvcParams together, and the reader converts each
-SvcParam on its own and appends it to a list: nothing looks at what is already
-in it. §7.1.1's own self-consistency rule goes the same way: "When
+one value. They are about the SvcParams together, and the reader converted each
+SvcParam on its own and appended it to a list: nothing looked at what was
+already in it. §7.1.1's own self-consistency rule went the same way: "When
 "no-default-alpn" is specified in an RR, "alpn" must also be specified", and
-`no-default-alpn` alone is read.
+`no-default-alpn` alone was read.
 
 **What it costs.** A key written twice goes on the wire as two SvcParams with
 one key, side by side. §2.2 tells every client to "consider an RR malformed" if
@@ -5232,12 +5229,22 @@ absence of a check for anything spanning two SvcParams, next to a check for
 everything inside one.
 
 **Repro**: `SvcParamFailureVectorTests`, all six figures of Appendix D.3, each
-for SVCB and for HTTPS. Figures 11 and 14 are trackers, red at `cbdd1bb1`; the
-other four are refused and pass, and a control reads Figures 14 and 16 written
+for SVCB and for HTTPS. Figures 11 and 14 are trackers, red at `cbdd1bb1` and
+passing from `4edc4c98` on; the other four were refused all along and pass, and a control reads Figures 14 and 16 written
 compliantly. `A_No_Default_Alpn_Without_Alpn_Is_Refused` tracks §7.1.1's rule.
 Six tracker cases in all.
 
-**The fix**: ⏳ open.
+**The fix**: `SVCParameterPresentation.Read` looks at the SvcParams together
+once each has been read. A key written twice is refused whichever form names it,
+since `alpn` and `key1` are one key. In ServiceMode a key that `mandatory` lists
+and the record does not hold is refused too, read from the wire format so that
+`key0=` is held to it as well, and so is `no-default-alpn` without `alpn`.
+AliasMode is exempt from those two: §2.4.2 has "recipients MUST ignore any
+SvcParams that are present" there, and "Zone-file parsers MAY emit a warning",
+which is not a refusal. `SvcParamOpaqueFormTests` gave its three malformed
+`mandatory` values the keys they list, so what they ask about is still the
+writer's fallback and not self-consistency. Merged as
+[Vanaheimr/Hermod#209](https://github.com/Vanaheimr/Hermod/pull/209).
 
 ---
 
@@ -5247,20 +5254,20 @@ Six tracker cases in all.
 closes before receiving all outstanding responses. No specific retry algorithm is
 specified in this document."
 
-Both stream clients do retry, once and on a new connection, when a connection
-breaks under a query: a reset, a write that fails, a stream that ends where the
-next message's length should be. `DNSStreamPipeline.ReadOneAsync` ends such a
-connection as `Broken`, and the client asks again. The one place it does not is a
-stream that ends inside a message: the length has been read, part of the body
-has arrived, and then a read returns 0. That branch ends the connection as
-`Failed`, and the client hands `Failed` to its callers as it is. The comment just
-above the loop says the opposite: "The connection goes instead, and every query
+Both stream clients did retry, once and on a new connection, when a connection
+broke under a query: a reset, a write that fails, a stream that ends where the
+next message's length should be. `DNSStreamPipeline.ReadOneAsync` ended such a
+connection as `Broken`, and the client asked again. The one place it did not was
+a stream that ends inside a message: the length has been read, part of the body
+has arrived, and then a read returns 0. That branch ended the connection as
+`Failed`, and the client handed `Failed` to its callers as it was. The comment
+just above the loop said the opposite: "The connection goes instead, and every query
 still on it may be asked again on a new one." A reset at the same point, an
-`IOException`, is asked again. Only the orderly close is not.
+`IOException`, was asked again. Only the orderly close was not.
 
-The branch is older than the pipeline. At `4f116936` both clients already
-returned `Failed` for a read of 0 inside a body. What finding 87 changed is how
-many queries it ends. `End(Connection, Failed)` ends every query outstanding on
+The branch was older than the pipeline. At `4f116936` both clients already
+returned `Failed` for a read of 0 inside a body. What finding 87 changed was how
+many queries it ended. `End(Connection, Failed)` ended every query outstanding on
 the connection: the one whose answer was cut off, and every one pipelined beside
 it, whose answers had not begun.
 
@@ -5282,13 +5289,18 @@ Here it sends the length of an answer and half of its octets, and closes.
 `A_Query_Whose_Answer_Was_Cut_Off_Is_Asked_Again_On_A_New_One` asks one query.
 `A_Pipelined_Query_Is_Asked_Again_When_Another_Answer_Is_Cut_Off` pipelines a
 second query beside it, and that one receives nothing. Each runs over TCP and
-over DoT: four tracker cases, red at `cbdd1bb1`. The controls beside them pass.
-They cover a connection closed or reset between queries, and a server that ends
+over DoT: four tracker cases, red at `cbdd1bb1` and passing from `4edc4c98` on.
+The controls beside them pass. They cover a connection closed or reset between
+queries, and a server that ends
 every connection it is given, which gets the query and one retry and no more.
 *RFC 7858 §7*: "To minimize state on DNS servers and connection startup time,
 clients SHOULD minimize the creation of new TCP connections."
 
-**The fix**: ⏳ open.
+**The fix**: a read of 0 inside a message ends the connection as `Broken`, as a
+reset at the same point does, and every query on it gets the one retry a reset
+gives it. Hermod's own `DNSTCPTeardown_Tests` pins the single query over TCP.
+Merged as
+[Vanaheimr/Hermod#210](https://github.com/Vanaheimr/Hermod/pull/210).
 
 ---
 
@@ -5303,28 +5315,28 @@ has received all outstanding responses." And for the connection that comes after
 it, *RFC 7766 §5*: "If the resolver already has an open TCP connection to the
 server, it SHOULD reuse this connection."
 
-Each stream client has one `DNSKeepalivePolicy` for its whole life, and the
-policy keeps the last timeout a server advertised in `ServerTimeout`. Finding 37
+Each stream client had one `DNSKeepalivePolicy` for its whole life, and the
+policy kept the last timeout a server advertised in `ServerTimeout`. Finding 37
 made a response without the option re-arm the timeout in force rather than
 withdraw it. That is right for the connection that advertised the timeout, but
-nothing resets the timeout when that connection goes. After a TIMEOUT 0, every
-later response without the option applies the 0 again, to whichever connection
-the client holds by then. A new connection that never mentioned keepalive is
-closed after its first answer, and so is the one after it. The client opens one
-connection per query, with a TCP handshake each and on DoT a TLS handshake each.
-That lasts for the life of the client, or until a response names a timeout other
-than 0. This half predates the pipeline: at `4f116936` there was already one
-policy per client, and it already kept the 0.
+nothing reset the timeout when that connection went. After a TIMEOUT 0, every
+later response without the option applied the 0 again, to whichever connection
+the client held by then. A new connection that never mentioned keepalive was
+closed after its first answer, and so was the one after it. The client opened
+one connection per query, with a TCP handshake each and on DoT a TLS handshake
+each. That lasted for the life of the client, or until a response named a
+timeout other than 0. This half predated the pipeline: at `4f116936` there was
+already one policy per client, and it already kept the 0.
 
-Since finding 87 the close can also land on a connection that is still being
-opened. A TIMEOUT 0 with other queries outstanding makes the next query wait for
+Since finding 87 the close could also land on a connection that was still being
+opened. A TIMEOUT 0 with other queries outstanding made the next query wait for
 them under the stream lock, close the connection, and open a new one. The answer
-to the last outstanding query is read on the old connection and goes through
-`ApplyAsync`, which still finds the 0 in force. It then closes "the" connection
-without taking the lock. By then that is the new connection, often in the middle
-of being opened, and the query that opened it fails without being written. Over
-TCP that happens in every run of the tracker below. Over DoT it happens less
-often, because the TLS handshake usually outlasts the close. Before the pipeline,
+to the last outstanding query was read on the old connection and went through
+`ApplyAsync`, which still found the 0 in force. It then closed "the" connection
+without taking the lock. By then that was the new connection, often in the
+middle of being opened, and the query that opened it failed without being
+written. Over TCP that happened in every run of the tracker below. Over DoT it
+happened less often, because the TLS handshake usually outlasted the close. Before the pipeline,
 `ApplyAsync` ran under the lock and could only reach the connection its own
 answer came on.
 
@@ -5349,13 +5361,26 @@ asks three queries one after another. The first connection answers with TIMEOUT
 0 and the second without the option, and the client opens three connections
 where two would do. That result is deterministic.
 `A_Query_Asked_While_A_Timeout_Zero_Drains_Is_Answered_On_The_Next_Connection` is
-the pipelined case. Either the query asked meanwhile fails, or it is answered and
-the query after it goes out on a third connection; the tracker is red in both
-cases. Each runs over TCP and over DoT: four tracker cases, red at `cbdd1bb1`.
+the pipelined case. Either the query asked meanwhile failed, or it was answered
+and the query after it went out on a third connection; the tracker was red in
+both cases. Each runs over TCP and over DoT: four tracker cases, red at
+`cbdd1bb1` and passing from `4edc4c98` on, ten runs in a row.
 `After_Timeout_Zero_No_Query_Goes_Out_On_The_Connection_And_Its_Outstanding_Answer_Is_Waited_For`
-pins the part of §3.2.2 that works, and passes.
+pins the part of §3.2.2 that worked, and passes.
 
-**The fix**: ⏳ open.
+**The fix**: `DNSKeepalivePolicy` knows which connection it speaks for. The
+client tells it when it counts a new connection, and what the server said about
+the last one is forgotten. A response read on a connection that has been
+replaced is ignored, and the idle timer remembers the connection it was armed
+for. A TIMEOUT of 0 marks its connection. The answer that brings it closes the
+connection itself only if nothing is outstanding and it gets the stream lock
+without waiting; otherwise the next query finds the mark, waits for the
+outstanding answers under the lock, and closes it. Nothing closes a connection
+without the lock any more, so no close can land in the middle of a connect. The
+drain moved out of both clients into the policy, whose remarks say why it is
+shared: it had been written into each client before. Hermod's own
+`DNSTCPKeepalive_Tests` pin both halves over TCP. Merged as
+[Vanaheimr/Hermod#211](https://github.com/Vanaheimr/Hermod/pull/211).
 
 ---
 

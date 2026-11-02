@@ -171,7 +171,6 @@ public class ConnectionTeardownTests
     /// Finding 91: the answer whose octets stopped coming.
     /// </summary>
     [TestCaseSource(typeof(StreamScriptServer), nameof(StreamScriptServer.Transports))]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Query_Whose_Answer_Was_Cut_Off_Is_Asked_Again_On_A_New_One(String Transport)
     {
 
@@ -202,7 +201,6 @@ public class ConnectionTeardownTests
     /// Finding 91: the query on the same connection whose answer never began.
     /// </summary>
     [TestCaseSource(typeof(StreamScriptServer), nameof(StreamScriptServer.Transports))]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Pipelined_Query_Is_Asked_Again_When_Another_Answer_Is_Cut_Off(String Transport)
     {
 

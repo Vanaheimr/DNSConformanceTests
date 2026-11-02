@@ -598,7 +598,7 @@ Six can be reached only through a race, and a race is not a test.
 - `DNSStreamPipeline.cs:235` `==`→`!=` and `:237` `&&`→`||`. Both matter only when
   `End` closes one connection while another one has queries outstanding. A client
   holds one connection at a time, and the old one's queries are ended before a
-  new one is made, except in the window finding 92 opens.
+  new one is made, except in the window finding 92 opened.
 - `DNSTCPClient.cs:406` and `DNSTLSClient.cs:587` `&&`→`||`, the guard on asking
   again after a write fails. They differ from the original when the client is
   disposed in the middle of the first write, or when the second write fails
@@ -608,7 +608,7 @@ Six can be reached only through a race, and a race is not a test.
   that a stream still belongs to the connection asking for it. They differ only
   while a query of an older connection is still reading and a newer connection
   is up. A connection is replaced only after its queries were ended, or by a
-  close that finding 92 lands on the wrong connection.
+  close that finding 92 landed on the wrong connection.
 
 One is open because the RFCs are. `DNSStreamPipeline.cs:409` skips a framed
 message shorter than the 12-octet header. With `<=` a message of exactly 12
@@ -649,6 +649,15 @@ finding 86 and has never been swept. `DNSHTTPSClient.cs`, `DNSUDPClient.cs`,
 `client` ledger's rows on them are kept true by superseded entries rather than
 by a measurement of what is there now. The next measurement of this folder should
 be the whole `client` block again, at the revision the suite pins by then.
+
+The fixes for findings 90 to 92 came after both slices, and they are not
+measured either. Vanaheimr/Hermod#210 changed one branch of
+`DNSStreamPipeline.ReadOneAsync`, and #211 rewrote `DNSKeepalivePolicy`
+to speak for one connection and moved the TIMEOUT 0 drain out of both clients
+into it. #209 added the check of the SvcParams together to
+`SVCParameterPresentation.Read`. Both slices stay keyed to `cbdd1bb1`, and their
+rows on those lines describe code that is gone. The next sweep should be the two
+slices again, at the pin that carries the fixes.
 
 
 ## The result: the SvcParam presentation, measured again
@@ -799,8 +808,8 @@ nothing looks at two keys together. RFC 9460 Appendix D.3 lists six failure
 cases, and Hermod refused four of them, each a single value its key cannot take.
 It read the other two: a key written twice, and a `mandatory` that lists a key
 the record does not hold. §7.1.1's own self-consistency rule, `no-default-alpn`
-without `alpn`, goes the same way. That is finding 90, open, and
-`SvcParamFailureVectorTests` tracks it.
+without `alpn`, goes the same way. That was finding 90, fixed since, and
+`SvcParamFailureVectorTests` pins it.
 
 
 ## The result: multicast
