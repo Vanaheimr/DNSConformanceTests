@@ -1,11 +1,13 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Ninety RFC deviations in the Hermod DNS stack, each
+What this suite caught. Ninety-two RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 90, two of RFC 9460's failure
-vectors read as records, is open, and its trackers are red on purpose. It stays because the tests do not explain
+Every one of them but the last three is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Findings 90 to 92 are open: two of RFC
+9460's failure vectors read as records, a connection that ends inside an answer
+failing every query on it, and a TIMEOUT 0 outliving its connection. Their
+trackers are red on purpose. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -107,6 +109,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 88 | An escape in a SvcParam value was read as the characters that wrote it | Medium | 9460 §2.1, 1035 §5.1 | ✅ fixed |
 | 89 | A SvcParam value was kept as the text that wrote it, not in its key's wire format | High | 9460 §2.1, §7, §8 | ✅ fixed |
 | 90 | Two of RFC 9460's failure vectors were read as records | Low | 9460 §2.1, §2.4.3, §8 | ⏳ **open** |
+| 91 | A connection that ended in the middle of an answer failed every query on it, and asked none again | Low (SHOULD) | 7766 §6.2.4 | ⏳ **open** |
+| 92 | A TIMEOUT 0 outlived the connection it arrived on | Medium | 7828 §3.1, §3.2.2, 7766 §5 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5232,6 +5236,124 @@ for SVCB and for HTTPS. Figures 11 and 14 are trackers, red at `cbdd1bb1`; the
 other four are refused and pass, and a control reads Figures 14 and 16 written
 compliantly. `A_No_Default_Alpn_Without_Alpn_Is_Refused` tracks §7.1.1's rule.
 Six tracker cases in all.
+
+**The fix**: ⏳ open.
+
+---
+
+## 91 — A connection that ended in the middle of an answer failed every query on it, and asked none again
+
+*RFC 7766 §6.2.4*: "DNS clients SHOULD retry unanswered queries if the connection
+closes before receiving all outstanding responses. No specific retry algorithm is
+specified in this document."
+
+Both stream clients do retry, once and on a new connection, when a connection
+breaks under a query: a reset, a write that fails, a stream that ends where the
+next message's length should be. `DNSStreamPipeline.ReadOneAsync` ends such a
+connection as `Broken`, and the client asks again. The one place it does not is a
+stream that ends inside a message: the length has been read, part of the body
+has arrived, and then a read returns 0. That branch ends the connection as
+`Failed`, and the client hands `Failed` to its callers as it is. The comment just
+above the loop says the opposite: "The connection goes instead, and every query
+still on it may be asked again on a new one." A reset at the same point, an
+`IOException`, is asked again. Only the orderly close is not.
+
+The branch is older than the pipeline. At `4f116936` both clients already
+returned `Failed` for a read of 0 inside a body. What finding 87 changed is how
+many queries it ends. `End(Connection, Failed)` ends every query outstanding on
+the connection: the one whose answer was cut off, and every one pipelined beside
+it, whose answers had not begun.
+
+**What it costs.** A server that closes in the middle of an answer, because it
+is restarting or shedding load, or because a middlebox gave up on the flow, turns
+into a failure for every query on that connection. A new connection would have
+answered them. Most of the cost falls on queries that had received nothing at
+all, which are §6.2.4's "unanswered queries" in the plainest sense. The client
+gives up on them because of an answer that was not theirs.
+
+**How it was found.** Reading `DNSStreamPipeline.ReadOneAsync` during the
+mutation sweep of Hermod#192 on 2026-11-02, to classify the survivors of the
+streams slice (MUTATION.md, *The result: the stream clients, measured*). The
+comment and the branch under it disagree, and the trackers settled which of the
+two the code does.
+
+**Repro**: `ConnectionTeardownTests`. Its server tells its connections apart.
+Here it sends the length of an answer and half of its octets, and closes.
+`A_Query_Whose_Answer_Was_Cut_Off_Is_Asked_Again_On_A_New_One` asks one query.
+`A_Pipelined_Query_Is_Asked_Again_When_Another_Answer_Is_Cut_Off` pipelines a
+second query beside it, and that one receives nothing. Each runs over TCP and
+over DoT: four tracker cases, red at `cbdd1bb1`. The controls beside them pass.
+They cover a connection closed or reset between queries, and a server that ends
+every connection it is given, which gets the query and one retry and no more.
+*RFC 7858 §7*: "To minimize state on DNS servers and connection startup time,
+clients SHOULD minimize the creation of new TCP connections."
+
+**The fix**: ⏳ open.
+
+---
+
+## 92 — A TIMEOUT 0 outlived the connection it arrived on
+
+*RFC 7828 §3.1*: TIMEOUT is "an idle timeout value for the TCP connection".
+*§3.3.2*: "Servers MUST specify the TIMEOUT value that is currently associated
+with the TCP session." *§3.2.2*: "A DNS client that receives a response that
+includes the edns-tcp-keepalive option with a TIMEOUT value of 0 SHOULD send no
+more queries on that connection and initiate closing the connection as soon as it
+has received all outstanding responses." And for the connection that comes after
+it, *RFC 7766 §5*: "If the resolver already has an open TCP connection to the
+server, it SHOULD reuse this connection."
+
+Each stream client has one `DNSKeepalivePolicy` for its whole life, and the
+policy keeps the last timeout a server advertised in `ServerTimeout`. Finding 37
+made a response without the option re-arm the timeout in force rather than
+withdraw it. That is right for the connection that advertised the timeout, but
+nothing resets the timeout when that connection goes. After a TIMEOUT 0, every
+later response without the option applies the 0 again, to whichever connection
+the client holds by then. A new connection that never mentioned keepalive is
+closed after its first answer, and so is the one after it. The client opens one
+connection per query, with a TCP handshake each and on DoT a TLS handshake each.
+That lasts for the life of the client, or until a response names a timeout other
+than 0. This half predates the pipeline: at `4f116936` there was already one
+policy per client, and it already kept the 0.
+
+Since finding 87 the close can also land on a connection that is still being
+opened. A TIMEOUT 0 with other queries outstanding makes the next query wait for
+them under the stream lock, close the connection, and open a new one. The answer
+to the last outstanding query is read on the old connection and goes through
+`ApplyAsync`, which still finds the 0 in force. It then closes "the" connection
+without taking the lock. By then that is the new connection, often in the middle
+of being opened, and the query that opened it fails without being written. Over
+TCP that happens in every run of the tracker below. Over DoT it happens less
+often, because the TLS handshake usually outlasts the close. Before the pipeline,
+`ApplyAsync` ran under the lock and could only reach the connection its own
+answer came on.
+
+**What it costs.** A TIMEOUT 0 is RFC 7828 §3.3.2's way for a server to say its
+resources are low. A server that sends it once has no reason to send it again on
+a connection it accepts later. From that one response on, the client stops
+reusing connections, against RFC 7766 §5 and, on DoT, against RFC 7858 §7's
+"clients SHOULD minimize the creation of new TCP connections". That is the
+opposite of what a server short of resources asked for. A query asked while the
+0 drains can also fail outright, against a server that would have answered it.
+
+**How it was found.** Running the streams slice's new tests over and over before
+the replay, on 2026-11-02. A test that asked a third query while a TIMEOUT 0
+drained passed on its first run and then failed over TCP on every run after it:
+the third query never reached the server. With the client's log attached, two
+closes showed up, the waiting query's and the answer's. Whether the second one
+came before or after the reconnect decided which way the run went.
+
+**Repro**: `PipelinedKeepaliveTests`.
+`A_Connection_That_Never_Sent_Timeout_Zero_Is_Not_Closed_For_The_One_That_Did`
+asks three queries one after another. The first connection answers with TIMEOUT
+0 and the second without the option, and the client opens three connections
+where two would do. That result is deterministic.
+`A_Query_Asked_While_A_Timeout_Zero_Drains_Is_Answered_On_The_Next_Connection` is
+the pipelined case. Either the query asked meanwhile fails, or it is answered and
+the query after it goes out on a third connection; the tracker is red in both
+cases. Each runs over TCP and over DoT: four tracker cases, red at `cbdd1bb1`.
+`After_Timeout_Zero_No_Query_Goes_Out_On_The_Connection_And_Its_Outstanding_Answer_Is_Waited_For`
+pins the part of §3.2.2 that works, and passes.
 
 **The fix**: ⏳ open.
 
