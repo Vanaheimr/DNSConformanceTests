@@ -104,6 +104,14 @@ disposed, or whose connection was refused. Eight of them are the trackers of
 findings 91 and 92, red at cbdd1bb1 and passing from f11dad26 on. With them the
 Client project is 239 ✅ · 0 ❌, and the offline suite 1757 ✅ · 0 ❌ · 4 skips.
 
+And the test it asked for when it measured the fixes for findings 90 to 92
+(MUTATION.md, *The result: both slices again, after findings 90 to 92*): two
+cases that read AliasMode records, one SVCB and one HTTPS. RFC 9460 §2.4.2 has a
+recipient ignore an AliasMode record's SvcParams, so `mandatory` without its key
+and `no-default-alpn` without `alpn` are read there, while §2.1's key written
+twice is refused in every mode. With them the ResourceRecords project is
+562 ✅ · 0 ❌, and the offline suite 1759 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

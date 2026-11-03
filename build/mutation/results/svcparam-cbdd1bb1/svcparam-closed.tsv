@@ -1,0 +1,35 @@
+# Gaps of the 'svcparam' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why	occurrence
+DNS/ResourceRecords/HTTPS.cs	284	greater-to-ge	equivalent		Value.Length > 0 in ToString() - see SVCB.cs 374	0
+DNS/ResourceRecords/SVCB.cs	374	greater-to-ge	equivalent		Value.Length > 0 in ToString(), which is the debugging text and not the presentation format. The mutant calls EscapeValue on an empty value, which returns an empty string - what the other branch wrote	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	121	less-to-less-or-equal	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	logical-and-to-or	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	less-to-less-or-equal	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	145	greater-to-ge	equivalent		keyName.Length > 3 in the test for the unknown-key form. A name of three characters reaches the line only if TryParseKey knows it, and the one it knows is "ech", which does not start with "key"; "key" itself has no number and was passed over above. So the next clause is false either way	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	169	less-to-less-or-equal	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	177	ge-to-greater	equivalent		Position >= Text.Length inside a quoted value, which is a quote that is never closed. The mutant reads one character past the end instead, and the IndexOutOfRangeException ends the read where the FormatException did: SVCB.TryParseFromJSON and HTTPS.TryParseFromJSON catch every exception, and the zone-file reader reaches them through those. The record is refused either way and the error it reports is the same	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	233	ge-to-greater	equivalent		Position + 1 >= Text.Length, a backslash at the end of the text. As at 177: the mutant indexes past the end, and the exception it throws is caught where the FormatException was	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	241	logical-or-to-and	equivalent		the first || of the three-digit test. The mutant drops the check of the second digit wherever the third is in reach, and the next statement is Int32.Parse over all three - which throws a FormatException of its own for a digit, a non-digit and a digit, since the first and the last are checked. The blank after two digits, which Int32.Parse would forgive, is the third character's case and line 243's	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	241	ge-to-greater	equivalent		Position + 3 >= Text.Length, a decimal escape cut short by the end of the text. As at 177: the mutant indexes past the end, and the exception it throws is caught where the FormatException was	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	242	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	266	less-to-less-or-equal	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	348	greater-to-ge	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	363	greater-to-ge	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	logical-or-to-and	killed	svcparam		1
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	greater-to-ge	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	398	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	399	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	400	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	432	logical-or-to-and	equivalent		!HasValue || Value.Length == 0 in ValueList. The mutant lets an "=" with nothing after it through, and the loop below then finds no item at all and throws at its own end: "the list has an empty item". The same refusal from a line further down	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	444	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	444	ge-to-greater	equivalent		i + 1 >= Value.Length, a backslash at the end of a list. As at 177: the mutant indexes past the end, and the exception it throws is caught where the FormatException was	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	524	greater-to-ge	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	557	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	568	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	568	le-to-less	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	591	logical-or-to-and	killed	svcparam		0
+DNS/ResourceRecords/SVCParameterPresentation.cs	629	logical-or-to-and	killed	svcparam		0

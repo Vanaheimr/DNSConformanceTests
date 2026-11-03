@@ -1605,41 +1605,32 @@ MULTICAST_SUPERSEDED = {
 
 
 # The 'svcparam' slice: SVCB.cs, HTTPS.cs and SVCParameterPresentation.cs swept
-# again at cbdd1bb1, after Vanaheimr/Hermod#191 moved the SvcParam presentation
-# into a reader and a writer of its own (findings 88 and 89). The records block's
-# own ledger stays keyed to 973fed31, the revision it measured; this one is keyed
-# to cbdd1bb1, and its line numbers are that revision's.
+# a third time at 4edc4c98, the tree Hermod's master has as f11dad26, after
+# Vanaheimr/Hermod#209 taught the reader to refuse a key written twice and a
+# ServiceMode record that is not self-consistent (finding 90). Line numbers are
+# that revision's. The sweep before, at cbdd1bb1, kept its files in
+# results/svcparam-cbdd1bb1/ and its ledger in this file's history. The tests its
+# round wrote were in place for this sweep's pass 1, and what they killed then
+# they killed again.
 #
-# 34 survived pass 1 and every project of pass 2, and 4 of them are not code.
-# Three more never finished, which is their verdict and no row's here (MUTATION.md,
-# "Three that never come back"). One round of tests, in two classes; the replay
-# that planted the 37 again under them is results/svcparam-replay.tsv.
+# 16 survived pass 1 and every project of pass 2, and 4 of them are not code.
+# Three more never finished, the same three as at cbdd1bb1 (MUTATION.md, "Three
+# that never come back"). Of the 12 real gaps, nine are the equivalents found at
+# cbdd1bb1 on their new lines, one is the port's leading zeros the RFC leaves
+# open, and two are new: the ServiceMode argument #209 added. One test, in
+# SvcParamFailureVectorTests; the replay that planted the 19 again under it is
+# results/svcparam-replay.tsv.
 
 SVCPARAM_KILLED = {
 
-    "svcparam": {
+    "aliasmode": {
 
-        # The reader: where a key ends and whether an "=" follows it, at the end
-        # of the line and before another parameter; a decimal escape of two
-        # digits and a blank; the first character past ASCII; and each key's
-        # format up to its edges - the longest alpn-id, an empty no-default-alpn,
-        # the largest port and a signed one, a hint of the other family or with a
-        # zone index, a backslash in a list that escapes neither a comma nor a
-        # backslash. SvcParamKeyFormatTests.
-        #
-        # The writer: an empty value in the unknown-key form, and every key's
-        # check that its octets are well-formed enough for its own presentation,
-        # each handed octets that are not. SvcParamOpaqueFormTests.
-        "DNS/ResourceRecords/SVCParameterPresentation.cs": {
-            (121, "less-to-less-or-equal"),
-            (125, "logical-and-to-or"), (125, "less-to-less-or-equal"),
-            169, (242, "logical-or-to-and"), 266,
-            348, 363,
-            (375, "logical-or-to-and", 1), (375, "greater-to-ge"),
-            398, 399, 400,
-            (444, "logical-or-to-and"),
-            524, 557, 568, 591, 629,
-        },
+        # RFC 9460 §2.4.2: an AliasMode record's SvcParams are ignored, so the
+        # self-consistency checks of §2.4.3 are ServiceMode's alone - but a key
+        # is still written once (§2.1). With priority >= 0 the reader holds
+        # AliasMode to ServiceMode's rules. SvcParamFailureVectorTests.
+        "DNS/ResourceRecords/SVCB.cs":  {299},
+        "DNS/ResourceRecords/HTTPS.cs": {209},
 
     },
 
@@ -1649,38 +1640,38 @@ SVCPARAM_EQUIVALENT = {
 
     "DNS/ResourceRecords/SVCParameterPresentation.cs": {
 
-        145: "keyName.Length > 3 in the test for the unknown-key form. A name of three "
+        164: "keyName.Length > 3 in the test for the unknown-key form. A name of three "
              "characters reaches the line only if TryParseKey knows it, and the one it knows "
              "is \"ech\", which does not start with \"key\"; \"key\" itself has no number and "
              "was passed over above. So the next clause is false either way",
 
-        177: "Position >= Text.Length inside a quoted value, which is a quote that is never "
+        243: "Position >= Text.Length inside a quoted value, which is a quote that is never "
              "closed. The mutant reads one character past the end instead, and the "
              "IndexOutOfRangeException ends the read where the FormatException did: "
              "SVCB.TryParseFromJSON and HTTPS.TryParseFromJSON catch every exception, and "
              "the zone-file reader reaches them through those. The record is refused either "
              "way and the error it reports is the same",
 
-        233: "Position + 1 >= Text.Length, a backslash at the end of the text. As at 177: "
+        299: "Position + 1 >= Text.Length, a backslash at the end of the text. As at 243: "
              "the mutant indexes past the end, and the exception it throws is caught where "
              "the FormatException was",
 
-        (241, "ge-to-greater"): "Position + 3 >= Text.Length, a decimal escape cut short by "
-            "the end of the text. As at 177: the mutant indexes past the end, and the "
+        (307, "ge-to-greater"): "Position + 3 >= Text.Length, a decimal escape cut short by "
+            "the end of the text. As at 243: the mutant indexes past the end, and the "
             "exception it throws is caught where the FormatException was",
 
-        (241, "logical-or-to-and"): "the first || of the three-digit test. The mutant drops "
+        (307, "logical-or-to-and"): "the first || of the three-digit test. The mutant drops "
             "the check of the second digit wherever the third is in reach, and the next "
             "statement is Int32.Parse over all three - which throws a FormatException of its "
             "own for a digit, a non-digit and a digit, since the first and the last are "
             "checked. The blank after two digits, which Int32.Parse would forgive, is the "
-            "third character's case and line 243's",
+            "third character's case and line 309's",
 
-        (444, "ge-to-greater"): "i + 1 >= Value.Length, a backslash at the end of a list. "
-            "As at 177: the mutant indexes past the end, and the exception it throws is "
+        (510, "ge-to-greater"): "i + 1 >= Value.Length, a backslash at the end of a list. "
+            "As at 243: the mutant indexes past the end, and the exception it throws is "
             "caught where the FormatException was",
 
-        432: "!HasValue || Value.Length == 0 in ValueList. The mutant lets an \"=\" with "
+        498: "!HasValue || Value.Length == 0 in ValueList. The mutant lets an \"=\" with "
              "nothing after it through, and the loop below then finds no item at all and "
              "throws at its own end: \"the list has an empty item\". The same refusal from "
              "a line further down",
@@ -1689,7 +1680,7 @@ SVCPARAM_EQUIVALENT = {
 
     "DNS/ResourceRecords/SVCB.cs": {
 
-        374: "Value.Length > 0 in ToString(), which is the debugging text and not the "
+        376: "Value.Length > 0 in ToString(), which is the debugging text and not the "
              "presentation format. The mutant calls EscapeValue on an empty value, which "
              "returns an empty string - what the other branch wrote",
 
@@ -1697,7 +1688,7 @@ SVCPARAM_EQUIVALENT = {
 
     "DNS/ResourceRecords/HTTPS.cs": {
 
-        284: "Value.Length > 0 in ToString() - see SVCB.cs 374",
+        286: "Value.Length > 0 in ToString() - see SVCB.cs 376",
 
     },
 
@@ -1707,80 +1698,37 @@ SVCPARAM_SUPERSEDED = {}
 
 
 # The 'streams' slice: DNSTCPClient.cs, DNSTLSClient.cs, DNSStreamPipeline.cs and
-# DNSKeepalivePolicy.cs swept again at cbdd1bb1, after Vanaheimr/Hermod#192 put
-# both stream clients' queries on a pipeline (finding 87). The client block's
-# own ledger stays keyed to cc8323d5; the rows it still held open in these files
-# are closed there by what this slice measured. Line numbers here are cbdd1bb1's.
-
+# DNSKeepalivePolicy.cs swept a second time at 4edc4c98, the tree Hermod's master
+# has as f11dad26, after Vanaheimr/Hermod#210 had an orderly close in the middle
+# of an answer asked again (finding 91) and #211 made DNSKeepalivePolicy speak for
+# one connection (finding 92). Line numbers are that revision's. The sweep
+# before, at cbdd1bb1, kept its files in results/streams-cbdd1bb1/ and its ledger
+# in this file's history; the tests its round wrote were in place for this
+# sweep's pass 1. The client block's own ledger stays keyed to cc8323d5.
 #
-# 94 survived pass 1 and every project of pass 2: 47 real gaps, 43 host-only and
-# 4 #region lines. One round of tests, replayed three times: results/
-# streams-replay.tsv planted the 33 real gaps that are not equivalent under the
-# tests as they stand. streams-replay.round1.tsv is the first replay, before the
-# reset test's server sent a reset and before the refused-connection test, and
-# .round2.tsv the second, while the reset was still the server's to send
-# (MUTATION.md, "Three replays").
+# No round of tests: every real gap pass 2 left is equivalent, or reachable only
+# through a race, or open because the RFCs are (MUTATION.md, "The result: both
+# slices again").
 
-STREAMS_KILLED = {
-
-    "pipeline": {
-
-        # The pipeline's own bookkeeping. Whether the last withdrawal drained it,
-        # which a TIMEOUT 0 waits for (PipelinedKeepaliveTests: 210). Which
-        # queries End ends, and whether that drains it (ConnectionTeardownTests
-        # and PipelinedKeepaliveTests: 234 and 237). Whether a query whose answer
-        # arrived before its read turn returns at once, and whether the turn it
-        # was granted is handed on (AnswerHandoverTests: 283 and 290).
-        "DNS/Client/DNSStreamPipeline.cs": {
-            210, 234, (237, "equality-to-inequality"),
-            (283, "equality-to-inequality"), 290,
-        },
-
-        # Both clients alike. The close a TIMEOUT 0 asks for while answers are
-        # outstanding, put off until they are in and then done once
-        # (PipelinedKeepaliveTests: 626/908 and 376/549). The reconnect after a
-        # refused connect (ClientLifecycleTests: 383/558). The write's retry on a
-        # connection reset between queries (ConnectionTeardownTests: 406/587),
-        # and the retry condition after a connection broke under a query, all
-        # four mutants of it on each client (ConnectionTeardownTests: 435/616).
-        # And the flag that makes a disposed client refuse the next query
-        # (ClientLifecycleTests: 1081/1434).
-        "DNS/Client/DNSTCPClient.cs": {
-            376, 383, (406, "equality-to-inequality"), 435, 626, 1081,
-        },
-
-        # And two of the TLS client's own. The URL constructor's keepalive policy,
-        # which asks whether anything is outstanding before an idle close: the
-        # address constructor's twin died in SecureTransports, and this one in
-        # PipelinedKeepaliveTests' DoT client built from a URL. And
-        # CloseConnectionOf's "unless a newer connection has taken its place",
-        # whose TCP twin pass 1 killed, and which ConnectionTeardownTests' server
-        # that ends every connection kills over DoT.
-        "DNS/Client/DNSTLSClient.cs": {
-            413, 549, 558, (587, "equality-to-inequality"), 616, 891, 908, 1434,
-        },
-
-    },
-
-}
+STREAMS_KILLED = {}
 
 STREAMS_EQUIVALENT = {
 
     "DNS/Client/DNSTLSClient.cs": {
 
-        430: "ForceUpdate = false, a parameter default nothing reads. The DomainName overload "
+        425: "ForceUpdate = false, a parameter default nothing reads. The DomainName overload "
              "forwards it to the DNSServiceName overload, and that one to its own recursion "
              "for more than one type, and nowhere else. The client ledger's DNSClient 1467 "
              "grepped the folder for a reader at cc8323d5 and found one, in DNSClient itself; "
              "the pipeline left that as it was",
-        450: "ForceUpdate = false - see DNSTLSClient 430",
+        445: "ForceUpdate = false - see DNSTLSClient 425",
 
-        491: "EDNSOptions.Count > 0 ? EDNSOptions : null, with >= in its place: the empty list "
+        486: "EDNSOptions.Count > 0 ? EDNSOptions : null, with >= in its place: the empty list "
              "goes where null went, and OPT's constructor does `this.Options = Options ?? []`, "
              "so the record is the same object state before anything is written. The client "
              "ledger's DNSTLSClient 434 is the same line at cc8323d5",
 
-        802: "the `false` handed to Serialize as UseCompression. Since finding 86 a query "
+        796: "the `false` handed to Serialize as UseCompression. Since finding 86 a query "
              "carries one question, so its name is the first in the message and has nothing "
              "behind it to point to. The only other name is the OPT record's owner, the root, "
              "which OPT.Serialize writes as a single zero octet without asking. A TSIG or "
@@ -1791,50 +1739,47 @@ STREAMS_EQUIVALENT = {
 
     "DNS/Client/DNSTCPClient.cs": {
 
-        233: "ForceUpdate = false - see DNSTLSClient 430",
-        253: "ForceUpdate = false - see DNSTLSClient 430",
-        294: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 491",
-        305: "the `false` handed to Serialize as UseCompression - see DNSTLSClient 802",
+        228: "ForceUpdate = false - see DNSTLSClient 425",
+        248: "ForceUpdate = false - see DNSTLSClient 425",
+        289: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 486",
+        300: "the `false` handed to Serialize as UseCompression - see DNSTLSClient 796",
 
     },
 
     "DNS/Client/DNSKeepalivePolicy.cs": {
 
-        111: "IsIdle ?? (() => true), the default for a caller that passes no idleness test. "
+        140: "IsIdle ?? (() => true), the default for a caller that passes no idleness test. "
              "Every constructor of both callers passes one, () => pipeline.Outstanding == 0: "
-             "DNSTCPClient 220, DNSTLSClient 324 and 413",
-
-        216: "disposed = true, the flag that makes Dispose idempotent - see the client "
-             "ledger's DNSKeepalivePolicy 203, the same line at cc8323d5. Timer.Change on a "
-             "disposed timer returns false and a second Timer.Dispose returns at once, so a "
-             "second Dispose without the flag does the nothing the flag prevents",
+             "DNSTCPClient 215, DNSTLSClient 319 and 408, and nothing else constructs the "
+             "policy",
 
     },
 
     "DNS/Client/DNSStreamPipeline.cs": {
 
-        185: "if (pending.Count == 0) drained = new ..., the start of a busy period. With != "
+        184: "if (pending.Count == 0) drained = new ..., the start of a busy period. With != "
              "the first Register of a period leaves the completed TaskCompletionSource of the "
              "last one in place, and every later Register of the period puts a fresh one "
-             "there. Drained is only waited on once a TIMEOUT 0 arrived with another query "
-             "still outstanding, and the answer it arrived with was withdrawn first, so the "
-             "period has had two registrations by then and the fresh one is in place. "
-             "Nothing registers while it is waited on: the waiter holds the stream lock, and "
-             "Register happens only under it",
+             "there. Drained is waited on by a query that finds its connection marked by a "
+             "TIMEOUT 0. If nothing is outstanding then, the original's signal is complete "
+             "too. If something is, it was outstanding beside the answer that carried the 0, "
+             "so the period has had two registrations and the fresh one is in place. Nothing "
+             "registers while it is waited on: the waiter holds the stream lock, and Register "
+             "happens only under it",
 
-        (237, "greater-to-ge"): "ended.Count >= 0 && pending.Count == 0 adds one case, End "
+        (236, "greater-to-ge"): "ended.Count >= 0 && pending.Count == 0 adds one case, End "
             "ending nothing with nothing pending. drained is complete then: only a Register "
             "that finds nothing pending replaces it with an incomplete one, and every way back "
             "to nothing pending completes it. TrySetResult on it does nothing",
 
-        (283, "logical-and-to-or"): "first == Exchange.Outcome.Task && !turn.IsCompleted, "
+        (282, "logical-and-to-or"): "first == Exchange.Outcome.Task && !turn.IsCompleted, "
             "with || in its place. The two disagree only when the answer has arrived and the "
             "turn has been granted too. The original then takes the turn, finds the outcome "
             "complete, releases the turn and returns it; the mutant hands the granted turn to "
             "the continuation, which releases it because it ran to completion, and returns "
             "the outcome. One release of one turn either way, and the same answer",
 
-        (417, "logical-and-to-or"): "exchange.Connection == Connection && exchange.TransactionId "
+        (420, "logical-and-to-or"): "exchange.Connection == Connection && exchange.TransactionId "
             "== transactionId, with || in its place: the message is offered to more "
             "candidates. One with another transaction ID refuses it at the first line of "
             "DNSInfo.ReadResponse, and a DoT candidate whose TSIG does not verify returns null "
