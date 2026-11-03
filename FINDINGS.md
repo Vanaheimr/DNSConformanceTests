@@ -5375,12 +5375,35 @@ replaced is ignored, and the idle timer remembers the connection it was armed
 for. A TIMEOUT of 0 marks its connection. The answer that brings it closes the
 connection itself only if nothing is outstanding and it gets the stream lock
 without waiting; otherwise the next query finds the mark, waits for the
-outstanding answers under the lock, and closes it. Nothing closes a connection
-without the lock any more, so no close can land in the middle of a connect. The
-drain moved out of both clients into the policy, whose remarks say why it is
-shared: it had been written into each client before. Hermod's own
+outstanding answers under the lock, and closes it. The policy closes nothing
+without the lock any more, so its close can no longer land in the middle of a
+connect. The drain moved out of both clients into the policy, whose remarks say
+why it is shared: it had been written into each client before. Hermod's own
 `DNSTCPKeepalive_Tests` pin both halves over TCP. Merged as
 [Vanaheimr/Hermod#211](https://github.com/Vanaheimr/Hermod/pull/211).
+
+**What that does not change.** One close still runs without the lock: the
+reader's, when a read fails. `DNSStreamPipeline.ReadOneAsync` hands
+`CloseConnectionOf` the number of the connection it was reading, and the client
+closes its connection if that number is still the current one. The check and
+the close are two steps. After a reset the next query does not wait for the
+reader: it finds the connection gone, counts a new one and opens it under the
+lock. A reader held up between its check and its close then closes the new
+connection instead of its own. Nothing between the two steps yields, so only a
+preemption at exactly that point opens the window, and no test can ask for it
+from outside. A pause of 500 ms planted there by hand showed the cost, over TCP
+and over DoT, three runs of three each. The second query's answer was lost with
+its connection, and the query was asked again on a third one. With the second
+handshake held open in the certificate validator, the close landed in the
+middle of the connect: nothing reached the server on the second connection, and
+both queries were asked on a third. Without the pause every run used two
+connections. Read from the code, not run: over TCP, a close that lands while
+the connect itself is still pending fails the query outright, because the
+client ignores the failed connect and reads the field the close emptied. A FIN
+in place of the reset does not open the window: the old connection still looks
+connected, the next query is written on it, and the reader's close ends it with
+the rest. This has no number and no tracker, because a tracker has to fail at
+the pin and this one would fail only with the pause planted.
 
 ---
 
