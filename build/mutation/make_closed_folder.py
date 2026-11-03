@@ -1698,17 +1698,15 @@ SVCPARAM_SUPERSEDED = {}
 
 
 # The 'streams' slice: DNSTCPClient.cs, DNSTLSClient.cs, DNSStreamPipeline.cs and
-# DNSKeepalivePolicy.cs swept a second time at 4edc4c98, the tree Hermod's master
-# has as f11dad26, after Vanaheimr/Hermod#210 had an orderly close in the middle
-# of an answer asked again (finding 91) and #211 made DNSKeepalivePolicy speak for
-# one connection (finding 92). Line numbers are that revision's. The sweep
-# before, at cbdd1bb1, kept its files in results/streams-cbdd1bb1/ and its ledger
-# in this file's history; the tests its round wrote were in place for this
-# sweep's pass 1. The client block's own ledger stays keyed to cc8323d5.
+# DNSKeepalivePolicy.cs swept a third time at 0f595ac4, after Vanaheimr/Hermod#219
+# had a stream reader close its own connection rather than the one in the field.
+# Line numbers are that revision's. The two sweeps before kept their files in
+# results/streams-cbdd1bb1/ and results/streams-4edc4c98/ and their ledgers in
+# this file's history. The client block's own ledger stays keyed to cc8323d5.
 #
 # No round of tests: every real gap pass 2 left is equivalent, or reachable only
-# through a race, or open because the RFCs are (MUTATION.md, "The result: both
-# slices again").
+# through a race, or open because the RFCs are (MUTATION.md, "The result: the
+# stream clients after #219").
 
 STREAMS_KILLED = {}
 
@@ -1716,33 +1714,54 @@ STREAMS_EQUIVALENT = {
 
     "DNS/Client/DNSTLSClient.cs": {
 
-        425: "ForceUpdate = false, a parameter default nothing reads. The DomainName overload "
+        436: "ForceUpdate = false, a parameter default nothing reads. The DomainName overload "
              "forwards it to the DNSServiceName overload, and that one to its own recursion "
              "for more than one type, and nowhere else. The client ledger's DNSClient 1467 "
              "grepped the folder for a reader at cc8323d5 and found one, in DNSClient itself; "
              "the pipeline left that as it was",
-        445: "ForceUpdate = false - see DNSTLSClient 425",
+        456: "ForceUpdate = false - see DNSTLSClient 436",
 
-        486: "EDNSOptions.Count > 0 ? EDNSOptions : null, with >= in its place: the empty list "
+        497: "EDNSOptions.Count > 0 ? EDNSOptions : null, with >= in its place: the empty list "
              "goes where null went, and OPT's constructor does `this.Options = Options ?? []`, "
              "so the record is the same object state before anything is written. The client "
              "ledger's DNSTLSClient 434 is the same line at cc8323d5",
 
-        796: "the `false` handed to Serialize as UseCompression. Since finding 86 a query "
+        815: "the `false` handed to Serialize as UseCompression. Since finding 86 a query "
              "carries one question, so its name is the first in the message and has nothing "
              "behind it to point to. The only other name is the OPT record's owner, the root, "
              "which OPT.Serialize writes as a single zero octet without asking. A TSIG or "
              "SIG(0) record is appended to the octets afterwards. There is nothing for "
              "compression to find",
 
+        (898, "logical-or-to-and"): "StreamOf's `Connection != Volatile.Read(ref connection) || "
+            "current is null || current.Number != Connection`, with either || made &&. "
+            "`A && B || C` hands a query its connection's stream after the counter has moved "
+            "past that connection, while it is still the one recorded as opened: between a "
+            "reconnect's count and its record, or after a connect that failed. A connect is "
+            "counted only when the field holds no TcpClient or one that is not connected, "
+            "ReconnectAsync starts by closing what the field holds, and the field is emptied "
+            "only by a close of the TcpClient in it. A close under the stream lock is over "
+            "before the count, which needs the lock; the reader's runs without it but holding "
+            "the read turn, and StreamOf is called only under that turn. So that connection's "
+            "TcpClient is closed or not connected, Connected is false, and StreamOf returns "
+            "null as the original does. `A || B && C` hands a query of the current number "
+            "the recorded connection's stream even when the record is another number's, and "
+            "a query registers on a number only after that number's connect has recorded it. "
+            "Both throw where the original returns null when the record is empty and the "
+            "number is current. Nothing reads with such a number: here a failed connect "
+            "returns before its query registers, and in DNSTCPClient GetStream() throws first, "
+            "on a TcpClient that is disposed or null",
+
     },
 
     "DNS/Client/DNSTCPClient.cs": {
 
-        228: "ForceUpdate = false - see DNSTLSClient 425",
-        248: "ForceUpdate = false - see DNSTLSClient 425",
-        289: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 486",
-        300: "the `false` handed to Serialize as UseCompression - see DNSTLSClient 796",
+        248: "ForceUpdate = false - see DNSTLSClient 436",
+        268: "ForceUpdate = false - see DNSTLSClient 436",
+        309: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 497",
+        320: "the `false` handed to Serialize as UseCompression - see DNSTLSClient 815",
+
+        (621, "logical-or-to-and"): "StreamOf's guard - see DNSTLSClient 898",
 
     },
 
@@ -1750,7 +1769,7 @@ STREAMS_EQUIVALENT = {
 
         140: "IsIdle ?? (() => true), the default for a caller that passes no idleness test. "
              "Every constructor of both callers passes one, () => pipeline.Outstanding == 0: "
-             "DNSTCPClient 215, DNSTLSClient 319 and 408, and nothing else constructs the "
+             "DNSTCPClient 235, DNSTLSClient 330 and 419, and nothing else constructs the "
              "policy",
 
     },
