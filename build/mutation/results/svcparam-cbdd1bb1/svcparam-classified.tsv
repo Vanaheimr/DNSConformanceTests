@@ -1,0 +1,41 @@
+# Every mutant of the 'svcparam' block that survived every project,
+# classified against Hermod cbdd1bb1 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source	occurrence
+DNS/ResourceRecords/HTTPS.cs	228	true-to-false	noise-region	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/SVCB.cs	318	true-to-false	noise-region	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/HTTPS.cs	237	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/SVCB.cs	327	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/HTTPS.cs	284	greater-to-ge	boundary	=> $"Priority={Priority}, Target={TargetName}, SvcParams={string.Join(", ", SVCParameters.Select(p => $"{SVCParameterPresentation.KeyName(p.Key)}={(p.Value.Length > 0 ? SVCParameterPresentation.EscapeValue(p.Value) : "")}"))}, {base.ToString()}";	0
+DNS/ResourceRecords/SVCB.cs	374	greater-to-ge	boundary	=> $"Priority={Priority}, Target={TargetName}, SVCParams={string.Join(", ", SVCParameters.Select(p => $"{SVCParameterPresentation.KeyName(p.Key)}={(p.Value.Length > 0 ? SVCParameterPresentation.EscapeValue(p.Value) : "")}"))}, {base.ToString()}";	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	121	less-to-less-or-equal	boundary	while (i < SvcParams.Length && SvcParams[i] != '=' && !IsBlank(SvcParams[i]))	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	logical-and-to-or	branch	var hasValue = i < SvcParams.Length && SvcParams[i] == '=';	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	less-to-less-or-equal	boundary	var hasValue = i < SvcParams.Length && SvcParams[i] == '=';	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	145	greater-to-ge	boundary	var opaque = keyName.Length > 3 &&	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	169	less-to-less-or-equal	boundary	if (Position < Text.Length && Text[Position] == '"')	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	177	ge-to-greater	boundary	if (Position >= Text.Length)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	233	ge-to-greater	boundary	if (Position + 1 >= Text.Length)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	241	logical-or-to-and	branch	if (Position + 3 >= Text.Length          ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	241	ge-to-greater	boundary	if (Position + 3 >= Text.Length          ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	242	logical-or-to-and	branch	!Char.IsAsciiDigit(Text[Position + 2]) ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	266	less-to-less-or-equal	boundary	if (c < 0x80)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	348	greater-to-ge	boundary	if (item.Length > 255)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	363	greater-to-ge	boundary	if (Value.Length > 0)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	logical-or-to-and	branch	if (text.Length == 0 || text.Length > 5 || !text.All(Char.IsAsciiDigit) ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	logical-or-to-and	branch	if (text.Length == 0 || text.Length > 5 || !text.All(Char.IsAsciiDigit) ||	1
+DNS/ResourceRecords/SVCParameterPresentation.cs	375	greater-to-ge	boundary	if (text.Length == 0 || text.Length > 5 || !text.All(Char.IsAsciiDigit) ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	398	logical-or-to-and	branch	if (!System.Net.IPAddress.TryParse(text, out var address) ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	399	logical-or-to-and	branch	address.AddressFamily != family           ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	400	logical-or-to-and	branch	text.Contains('%')                        ||	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	432	logical-or-to-and	branch	if (!HasValue || Value.Length == 0)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	444	logical-or-to-and	branch	if (i + 1 >= Value.Length || (Value[i + 1] != (Byte) ',' && Value[i + 1] != (Byte) '\\'))	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	444	ge-to-greater	boundary	if (i + 1 >= Value.Length || (Value[i + 1] != (Byte) ',' && Value[i + 1] != (Byte) '\\'))	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	524	greater-to-ge	boundary	if (parameter.Value.Length > 0)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	557	logical-or-to-and	branch	if (Wire.Length == 0 || Wire.Length % 2 != 0)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	568	logical-or-to-and	branch	if (listed <= previous || listed == Mandatory)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	568	le-to-less	boundary	if (listed <= previous || listed == Mandatory)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	591	logical-or-to-and	branch	if (length == 0 || i + length > Wire.Length)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	629	logical-or-to-and	branch	if (Wire.Length == 0 || Wire.Length % size != 0)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	114	ge-to-greater	unmeasured-timeout	if (i >= SvcParams.Length)	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	121	inequality-to-equality	unmeasured-timeout	while (i < SvcParams.Length && SvcParams[i] != '=' && !IsBlank(SvcParams[i]))	0
+DNS/ResourceRecords/SVCParameterPresentation.cs	125	equality-to-inequality	unmeasured-timeout	var hasValue = i < SvcParams.Length && SvcParams[i] == '=';	0

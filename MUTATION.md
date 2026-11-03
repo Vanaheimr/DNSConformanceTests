@@ -36,15 +36,17 @@ test project that exercises each:
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
 | `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
-| `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 124 | a slice, measured, **1 open**, 3 that never finish |
-| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 163 | a slice, measured, **7 open** |
+| `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
+| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 161 | a slice, measured twice, **9 open** |
 
 The last two rows are not blocks. They are the files a fix rewrote after its
 block had been measured, swept again at the fix's revision with the block's
 judge, and given ledgers of their own: findings 88 and 89 rewrote the SvcParam
-presentation, and finding 87 the TCP and TLS clients' queries. See *The result:
-the SvcParam presentation, measured again* and *The result: the stream clients,
-measured*.
+presentation, and finding 87 the TCP and TLS clients' queries. Findings 90 to
+92 changed both again, and both were swept a second time at the fixes' revision.
+The counts in the table are that measurement's. See *The result: both slices
+again, after findings 90 to 92*, and before it *The result: the stream clients,
+measured* and *The result: the SvcParam presentation, measured again*.
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
 a warning here: its judge had **four tests** for 598 mutable places, so whatever
@@ -396,6 +398,186 @@ measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
 
+## The result: both slices again, after findings 90 to 92
+
+Findings 90 to 92 were fixed after both slices had been measured.
+Vanaheimr/Hermod#209 taught `SVCParameterPresentation.Read` to refuse a key
+written twice and a ServiceMode record that is not self-consistent. #210 changed
+one branch of `DNSStreamPipeline.ReadOneAsync`, and #211 rewrote
+`DNSKeepalivePolicy` to speak for one connection and moved the TIMEOUT 0 drain
+out of both clients into it. Both slices were swept again at **`4edc4c98`**,
+whose tree is the one Hermod's master has as `f11dad26`, the suite's pin: the
+same files, the same judges and the same two passes, in a worktree of its own.
+
+The first measurement's files moved to `results/svcparam-cbdd1bb1/` and
+`results/streams-cbdd1bb1/` unchanged, and the ledgers that closed its gaps stay
+in the history of `make_closed_folder.py`. As with DNSSEC, nothing was carried
+over by number. A gap that a test closed is killed by that test in the new pass
+1 and never reaches the classification, and every entry in the new ledgers was
+written for a row of the new one.
+
+### The SvcParam presentation
+
+| | `cbdd1bb1` | `4edc4c98` |
+|---|---:|---:|
+| mutants | 124 | 131 |
+| not viable (would not compile) | 15 | 17 |
+| killed by ResourceRecords, pass 1 | 72 | 95 |
+| no verdict in pass 1 | 3 | 3 |
+| killed by another project | 0 | 0 |
+| survived everywhere | 34 | 16 |
+| real gaps | 30 | 12 |
+| killed by the new tests, on replay | 20 | 2 |
+| equivalent | 9 | 9 |
+| open | **1** | **1** |
+
+The 16 are 12 real gaps and the same 4 that are not code. The 20 that the first
+round's tests killed died again in pass 1. So did the three mutants of the
+self-consistency check #209 added, on `mandatory`'s listed keys and on
+`no-default-alpn` without `alpn`. Its check of a key written twice is a
+`HashSet.Add`, which gives the operators nothing to change. Nine of the twelve gaps are the nine
+equivalents of the first measurement, each on the line it moved to and for the
+same reason. One is the port's leading zeros, open for the reason it was open
+before (*One left open, because the RFC leaves it open*, below). The three
+without a verdict are the same three as before, in the reader's main loop.
+Planted by hand, `SvcParamTestVectorTests` on its own was still running after
+600 s with each of them.
+
+The other two are one line, twice: the `ServiceMode: priority > 0` that SVCB and
+HTTPS hand the reader. §2.4.3 holds "a ServiceMode RR" to self-consistency.
+§2.4.2 says that in AliasMode "recipients MUST ignore any SvcParams that are
+present", and lets a zone-file parser warn about them rather than refuse them.
+Every test of finding 90 asked a record of priority 1. With `>=` a record of
+priority 0 is held to ServiceMode's rules as well, and no test noticed.
+
+`In_AliasMode_SvcParams_Need_Not_Be_Self_Consistent_But_A_Key_Is_Still_Written_Once`,
+in `SvcParamFailureVectorTests`, reads three AliasMode records. Figure 14's
+`mandatory=key123` and a lone `no-default-alpn` must be read. Figure 11's key
+written twice must not, because §2.1's "keys MUST NOT be repeated" is about the
+presentation format and knows no mode. Planted by hand on either line, the
+mutant fails that type's case and nothing else of the project's 562. The replay
+kills it on both lines.
+
+### The stream clients
+
+| | `cbdd1bb1` | `4edc4c98` |
+|---|---:|---:|
+| mutants | 163 | 161 |
+| not viable (would not compile) | 39 | 39 |
+| killed by Client, pass 1 | 22 | 53 |
+| killed by another project | 8 | 3 |
+| survived everywhere | 94 | 66 |
+| real gaps | 47 | 22 |
+| killed by the new tests, on replay | 26 | — |
+| equivalent | 14 | 13 |
+| open | **7** | **9** |
+
+The 66 are 22 real gaps, 41 `ConfigureAwait(false)` that no test host can see,
+and 3 `#region` lines. The 3 that another project killed are the TLS client's
+padding, in SecureTransports, as at `cbdd1bb1`. The other five that SecureTransports
+killed then were on lines #211 replaced.
+
+The 26 that the first round's tests killed died again in pass 1. 21 are on lines
+that only moved. The other 5 were on lines #211 replaced: the clients' own
+`closeWhenDrained` flag, set and cleared on both, and the URL constructor's
+policy. Their successors are the connection `DNSKeepalivePolicy` marks, at lines
+183 and 222, and the three constructors that now hand it `CloseConnectionOf`,
+and pass 1 killed every mutant there. #210 changed one enum member,
+`Ending.Failed` to `Ending.Broken`, which no operator of the sweep touches. The
+trackers of finding 91 are what watch it.
+
+**Two of pass 2's kills were not kills.** `DNSTCPClient.cs:300` and
+`DNSStreamPipeline.cs:282` were reported killed by Multicast, "1 of 97 failed"
+each. Multicast constructs neither stream client. Planted by hand on a quiet
+machine, each fails nothing of Multicast's 97 in three runs of three, and nothing
+of ResourceRecords', the one project pass 2 never reached for them because it
+stops at the first kill. Both are survivors, and both are equivalents of the
+first measurement on their new lines. This is `UDPMulticastDNSTransport.cs:566`
+again (*A replay, because the judge changed*, below), from the other side: a
+flake in the Multicast project reads as a kill of whatever is planted at the
+time.
+
+`DNSTCPClient.cs:267` is the first measurement's crash again: `Count > 1` with
+`>=` in the guard that sends a query for several types through
+`OneQuestionPerQuery`. This time pass 1 did not file it as a survivor. The host
+died before it printed a summary, and the row came back without a verdict. Planted by
+hand, the Client project's host dies of a stack overflow in
+`The_Answer_Sent_First_Is_Not_Held_Behind_The_Ones_Asked_Before_It`, after two of
+239 tests. The row in `streams-pass1.tsv` says KILLED, and its pass-2 row is
+gone. The two flakes' pass-2 rows say SURVIVED-EVERYWHERE, with what pass 2 had
+said in their last column. Both files keep their originals as
+`.before-verdict-fix`.
+
+### Thirteen equivalents
+
+Twelve are the first measurement's, each on the line it moved to and for the
+same reason: four `ForceUpdate` defaults, two empty option lists, two
+`UseCompression` flags, the idleness default, and three conditions the pipeline
+decides twice. The idleness default is now `DNSKeepalivePolicy.cs:140`, and the
+three constructors that build the policy still pass their own test.
+
+The thirteenth is `DNSStreamPipeline.cs:184`, the start of a busy period, and its
+argument had to be written again. It used to rest on the drain being waited on
+only after the answer that carried TIMEOUT 0 was withdrawn. Since #211 the drain
+is waited on by the next query that finds its connection marked. If nothing is
+outstanding then, the original's signal is complete too. If something is, it was
+outstanding beside the answer that carried the 0, and the period has had two
+registrations by then. The result is the same.
+
+And one equivalent of the first measurement is no longer one. `disposed = true`
+in `DNSKeepalivePolicy.Dispose` made `Dispose` idempotent and nothing else.
+#211 has `ApplyAsync` and `Connected` read the flag, and the row is open now
+(below).
+
+### Nine left open
+
+Eight can be reached only through a race.
+
+- `DNSStreamPipeline.cs:234` `==`→`!=` and `:236` `&&`→`||`, which queries `End`
+  ends and whether that drains the pipeline. They matter only when `End` ends one
+  connection while another one has queries outstanding. Finding 92's window is
+  closed: the keepalive policy closes a connection only under the stream lock,
+  and only the one its answer came on. What is left is the reader's own failure.
+  It closes its connection and then ends its queries, and a query that takes the
+  stream lock between the two connects anew and registers before the `End`.
+- `DNSTCPClient.cs:403` and `DNSTLSClient.cs:581` `&&`→`||`, the guard on asking
+  again after a write fails, as before. They differ from the original when the
+  client is disposed in the middle of the first write, or when the second write
+  fails too.
+- `DNSTCPClient.cs:587` `||`→`&&` and `DNSTLSClient.cs:876` `&&`→`||`, the check
+  that a stream still belongs to the connection asking for it. They differ only
+  while a query of an older connection is still reading and a newer connection
+  is up, which is the same window as the first two.
+- `DNSKeepalivePolicy.cs:210` `||`→`&&`, new. An answer read on a connection that
+  is no longer the client's, or after the client was disposed, must say nothing
+  about keepalive. The mutant lets either through when the other is false. An
+  answer reaches `ApplyAsync` after it was withdrawn, so its connection can go
+  idle, be closed by the timer and be replaced by the next query in between.
+  What the mutant then changes is the timeout the client reports and which
+  deadline is armed, and the close it may ask for checks the connection again
+  under the lock.
+- `DNSKeepalivePolicy.cs:329` `true`→`false`, new: the flag that `Dispose` sets.
+  Without it a second `Dispose` changes and disposes the timer again, which a
+  disposed `Timer` takes without complaint, and so does `Connected`'s change of
+  it. What remains is `ApplyAsync`, for an answer read before the client's own
+  close of the connection and handed over after `keepalive.Dispose()`. The
+  mutant lets it set the timeout of a client that is gone. Nothing in that
+  window happens in an order a test can ask for.
+
+One is open because the RFCs are, and for the reason it was open before.
+`DNSStreamPipeline.cs:412` skips a framed message shorter than the 12-octet
+header, and with `<=` one of exactly 12 octets is skipped too (*Seven left open*,
+below).
+
+### What the first measurement's chapter now is
+
+*The result: the stream clients, measured* and *The result: the SvcParam
+presentation, measured again*, below, are the first measurement at `cbdd1bb1`.
+Their line numbers are that revision's, and their files are in the two
+directories named above. What they say about the tests is still true. What they
+say about the open rows is replaced by this chapter.
+
+
 ## The result: the stream clients, measured
 
 Finding 87 was fixed after its block had been measured. The `client` block was
@@ -409,6 +591,11 @@ files, judged by the Client project and measured at **`cbdd1bb1`** in a worktree
 of its own, like the `svcparam` slice. The `client` ledger stays keyed to
 `cc8323d5`, and the rows it still held open in these four files are closed there
 by what this slice measured (*What moved in the client ledger*, below).
+
+This chapter is the slice's first measurement. Its files are in
+`results/streams-cbdd1bb1/`, its line numbers are `cbdd1bb1`'s, and what it left
+open was measured again after findings 91 and 92 (*The result: both slices
+again*, above).
 
 | | |
 |---|---:|
@@ -440,7 +627,7 @@ line, in SecureTransports. For the TCP line the Server project's host died befor
 it printed any summary at all, which pass 2 records as no verdict.
 
 `sweep_folder.py` now judges the way pass 2 does: a total that moved is a run
-that did not finish. The two rows in `streams-pass1.tsv` are judged again from the
+that did not finish. The two rows in that measurement's `streams-pass1.tsv` are judged again from the
 counts they already carried, and say KILLED. Their pass-2 rows are gone, because
 pass 2 sees only what pass 1 left alive. The originals are kept beside them as
 `.before-verdict-fix`. The TCP line was also planted by hand: the Client project's
@@ -490,8 +677,9 @@ about TIMEOUT 0 by timing alone. Both were followed up, the second with a test o
 its own, and a second replay planted the 33 again: 25 died. What it said about
 the reset test was not yet right either (*A reset that was a close, and then
 late*, below), and a third replay planted the 33 once more under the tests as
-they stand. That one is the record, `results/streams-replay.tsv`. The two before
-it are kept beside it as `streams-replay.round1.tsv` and `.round2.tsv`. Of the
+they stand. That one is the record, `results/streams-cbdd1bb1/streams-replay.tsv`.
+The two before it are kept beside it as `streams-replay.round1.tsv` and
+`.round2.tsv`. Of the
 33, 26 died in the third replay: the 23 of the first, the reconnect after a
 refused connect over DoT at `DNSTLSClient.cs:558`, and the write's retry at
 `DNSTCPClient.cs:406` and `DNSTLSClient.cs:587`.
@@ -650,14 +838,9 @@ finding 86 and has never been swept. `DNSHTTPSClient.cs`, `DNSUDPClient.cs`,
 by a measurement of what is there now. The next measurement of this folder should
 be the whole `client` block again, at the revision the suite pins by then.
 
-The fixes for findings 90 to 92 came after both slices, and they are not
-measured either. Vanaheimr/Hermod#210 changed one branch of
-`DNSStreamPipeline.ReadOneAsync`, and #211 rewrote `DNSKeepalivePolicy`
-to speak for one connection and moved the TIMEOUT 0 drain out of both clients
-into it. #209 added the check of the SvcParams together to
-`SVCParameterPresentation.Read`. Both slices stay keyed to `cbdd1bb1`, and their
-rows on those lines describe code that is gone. The next sweep should be the two
-slices again, at the pin that carries the fixes.
+The fixes for findings 90 to 92 came after both slices. They have been measured
+since, with both slices swept again at `4edc4c98` (*The result: both slices
+again*, above).
 
 
 ## The result: the SvcParam presentation, measured again
@@ -674,6 +857,10 @@ worktree of its own. Its results, its classification and its ledger are its own,
 keyed to that revision. The `records` ledger stays keyed to `973fed31`. Its rows
 on the old parameter splitter are still true of the code they were measured on,
 and this slice measures the code that replaced it.
+
+This chapter is the slice's first measurement. Its files are in
+`results/svcparam-cbdd1bb1/`, its line numbers are `cbdd1bb1`'s, and the slice
+was measured again after finding 90 (*The result: both slices again*, above).
 
 | | |
 |---|---:|
@@ -777,7 +964,7 @@ server's loop spun in a background task and nothing on Hermod's surface showed
 it. Here the call itself never returns, which a test with a deadline could
 report. That test would not change the verdict. Every other test in the project
 that reads a SvcParam would hang beside it, so the project would still time out.
-The rows in `svcparam-pass1.tsv` record the recheck, and their pass-2 rows say
+The rows in that measurement's `svcparam-pass1.tsv` record the recheck, and their pass-2 rows say
 TIMED-OUT too, so the triage does not count three hangs as gaps. Pass 2's
 SURVIVED-EVERYWHERE is true of the other seven projects and says nothing about
 the judge, and `.before-timeout-recheck` keeps it. The replay planted all three
