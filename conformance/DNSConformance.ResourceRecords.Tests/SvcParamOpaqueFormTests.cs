@@ -47,6 +47,13 @@ public class SvcParamOpaqueFormTests
     private static String Hex(Byte[] Octets)
         => Convert.ToHexString(Octets).ToLowerInvariant();
 
+    // A well-formed alpn ("h2") and port (443), for a mandatory that lists them.
+    // RFC 9460 §2.4.3: "zone-file implementations SHOULD enforce self-consistency",
+    // and §8: "listed keys MUST also appear in the SvcParams". A record that
+    // lacks them is refused for that, which is not what these cases are about.
+    private const String Alpn = "0001" + "0003" + "026832";
+    private const String Port = "0003" + "0002" + "01bb";
+
     #endregion
 
 
@@ -54,22 +61,23 @@ public class SvcParamOpaqueFormTests
     /// A value its key cannot hold is written so that it reads back unchanged.
     /// </summary>
     [Test]
-    [TestCase("0000" + "0000",                     TestName = "{m}: a mandatory with no key in it")]
-    [TestCase("0000" + "0003" + "000100",          TestName = "{m}: a mandatory of three octets")]
-    [TestCase("0000" + "0004" + "00030001",        TestName = "{m}: a mandatory whose keys are out of order")]
-    [TestCase("0000" + "0004" + "00010001",        TestName = "{m}: a mandatory that lists a key twice")]
-    [TestCase("0000" + "0002" + "0000",            TestName = "{m}: a mandatory that lists itself")]
-    [TestCase("0001" + "0001" + "00",              TestName = "{m}: an alpn-id of no octets")]
-    [TestCase("0001" + "0002" + "0268",            TestName = "{m}: an alpn-id longer than the value")]
-    [TestCase("0003" + "0003" + "000035",          TestName = "{m}: a port of three octets")]
-    [TestCase("0004" + "0000",                     TestName = "{m}: an ipv4hint with no address")]
-    [TestCase("0004" + "0005" + "c000020101",      TestName = "{m}: an ipv4hint of five octets")]
-    [TestCase("0006" + "0004" + "c0000201",        TestName = "{m}: an ipv6hint of four octets")]
+    [TestCase("0000" + "0000",                            TestName = "{m}: a mandatory with no key in it")]
+    [TestCase("0000" + "0003" + "000100"   + Alpn,        TestName = "{m}: a mandatory of three octets")]
+    [TestCase("0000" + "0004" + "00030001" + Alpn + Port, TestName = "{m}: a mandatory whose keys are out of order")]
+    [TestCase("0000" + "0004" + "00010001" + Alpn,        TestName = "{m}: a mandatory that lists a key twice")]
+    [TestCase("0000" + "0002" + "0000",                   TestName = "{m}: a mandatory that lists itself")]
+    [TestCase("0001" + "0001" + "00",                     TestName = "{m}: an alpn-id of no octets")]
+    [TestCase("0001" + "0002" + "0268",                   TestName = "{m}: an alpn-id longer than the value")]
+    [TestCase("0003" + "0003" + "000035",                 TestName = "{m}: a port of three octets")]
+    [TestCase("0004" + "0000",                            TestName = "{m}: an ipv4hint with no address")]
+    [TestCase("0004" + "0005" + "c000020101",             TestName = "{m}: an ipv4hint of five octets")]
+    [TestCase("0006" + "0004" + "c0000201",               TestName = "{m}: an ipv6hint of four octets")]
     public void A_Value_Its_Key_Cannot_Hold_Is_Written_As_The_Octets_It_Is(String Param)
     {
 
         // Read from the RFC 3597 generic form, so the octets are exactly these.
-        // SvcPriority 1, TargetName ".", and the one SvcParam.
+        // SvcPriority 1, TargetName ".", and the SvcParam, with the keys a
+        // mandatory lists after it.
         var wire = "0001" + "00" + Param;
 
         Assert.Multiple(() => {

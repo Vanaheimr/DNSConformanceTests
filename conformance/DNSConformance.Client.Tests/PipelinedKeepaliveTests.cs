@@ -225,7 +225,6 @@ public class PipelinedKeepaliveTests
     /// after it.
     /// </summary>
     [TestCaseSource(typeof(StreamScriptServer), nameof(StreamScriptServer.Transports))]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7828 §3.1, 7766 §5")]
     public async Task A_Connection_That_Never_Sent_Timeout_Zero_Is_Not_Closed_For_The_One_That_Did(String Transport)
     {
@@ -269,7 +268,6 @@ public class PipelinedKeepaliveTests
     /// replaced it.
     /// </summary>
     [TestCaseSource(typeof(StreamScriptServer), nameof(StreamScriptServer.Transports))]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7828 §3.1, 7766 §5")]
     public async Task A_Query_Asked_While_A_Timeout_Zero_Drains_Is_Answered_On_The_Next_Connection(String Transport)
     {

@@ -17,8 +17,9 @@ namespace DNSConformance.ResourceRecords.Tests;
 /// cannot take, and Hermod's reader refuses those since finding 89 gave every key
 /// its format. Two are about the SvcParams together rather than one value: a key
 /// written twice (Figure 11), and a key that "mandatory" lists and the record
-/// does not hold (Figure 14). Hermod reads both - finding 90 - and with them
-/// §7.1.1's own case of the same rule, "no-default-alpn" without "alpn".
+/// does not hold (Figure 14). Hermod read both until finding 90 was fixed, and
+/// with them §7.1.1's own case of the same rule, "no-default-alpn" without
+/// "alpn".
 /// </para>
 /// <para>
 /// HTTPS is "a SVCB-compatible RR type" (§9), so every vector is asked of both.
@@ -46,7 +47,6 @@ public class SvcParamFailureVectorTests
     /// Finding 90, Figure 11: a key is written once.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [TestCase("SVCB")]
     [TestCase("HTTPS")]
     public void Figure_11_A_Key_Written_Twice_Is_Refused(String Type)
@@ -65,7 +65,6 @@ public class SvcParamFailureVectorTests
     /// Finding 90, Figure 14: what "mandatory" lists, the record holds.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [TestCase("SVCB")]
     [TestCase("HTTPS")]
     public void Figure_14_A_Mandatory_Key_The_Record_Does_Not_Hold_Is_Refused(String Type)
@@ -85,7 +84,6 @@ public class SvcParamFailureVectorTests
     /// is only self-consistent beside "alpn".
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "9460 §7.1.1")]
     [TestCase("SVCB")]
     [TestCase("HTTPS")]
