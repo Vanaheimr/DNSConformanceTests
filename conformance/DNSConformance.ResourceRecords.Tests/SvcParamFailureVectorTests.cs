@@ -35,8 +35,8 @@ public class SvcParamFailureVectorTests
 
     #region Data
 
-    private static Boolean Reads(String Type, String SvcParams)
-        => ADNSResourceRecord.TryParseZoneFileString($"example.com. 3600 IN {Type} 1 foo.example.com. {SvcParams}",
+    private static Boolean Reads(String Type, String SvcParams, UInt16 Priority = 1)
+        => ADNSResourceRecord.TryParseZoneFileString($"example.com. 3600 IN {Type} {Priority} foo.example.com. {SvcParams}",
                                                      out _,
                                                      out _);
 
@@ -140,6 +140,30 @@ public class SvcParamFailureVectorTests
 
         // Figure 14 and Figure 16 made compliant: the listed key is there, once.
         Assert.That(Reads(Type, "mandatory=key123 key123=abc"), Is.True);
+
+    }
+
+    /// <summary>
+    /// AliasMode: the SvcParams are not held to self-consistency, and a key is
+    /// still written once.
+    /// </summary>
+    [Test]
+    [Property("RFC", "9460 §2.4.2")]
+    [TestCase("SVCB")]
+    [TestCase("HTTPS")]
+    public void In_AliasMode_SvcParams_Need_Not_Be_Self_Consistent_But_A_Key_Is_Still_Written_Once(String Type)
+    {
+
+        // §2.4.3 defines self-consistency for "a ServiceMode RR". §2.4.2: "In
+        // AliasMode, recipients MUST ignore any SvcParams that are present.
+        // Zone-file parsers MAY emit a warning if an AliasMode record has
+        // SvcParams" - a warning, not a refusal. §2.1's "keys MUST NOT be
+        // repeated" is about the presentation format, and knows no mode.
+        Assert.Multiple(() => {
+            Assert.That(Reads(Type, "mandatory=key123",      Priority: 0), Is.True,  "Figure 14 in AliasMode");
+            Assert.That(Reads(Type, "no-default-alpn",       Priority: 0), Is.True,  "no-default-alpn without alpn in AliasMode");
+            Assert.That(Reads(Type, "key123=abc key123=def", Priority: 0), Is.False, "Figure 11 in AliasMode");
+        });
 
     }
 
