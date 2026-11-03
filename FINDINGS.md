@@ -5405,6 +5405,15 @@ connected, the next query is written on it, and the reader's close ends it with
 the rest. This has no number and no tracker, because a tracker has to fail at
 the pin and this one would fail only with the pause planted.
 
+From `0f595ac4` on, [Vanaheimr/Hermod#219](https://github.com/Vanaheimr/Hermod/pull/219)
+closes the window. Each client keeps the connection it last opened as one
+object, written under the lock once the connection is made: its number and its
+TcpClient, and on DoT its TLS stream. A close by number closes that number's own
+TcpClient, and empties the field only if the field still holds it. `StreamOf`
+hands out that number's own stream. With the same pause planted after the
+TcpClient is picked, every run used two connections, over TCP and over DoT,
+with the held handshake and with the FIN.
+
 ---
 
 ## Interpretations
