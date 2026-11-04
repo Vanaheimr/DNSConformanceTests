@@ -504,6 +504,11 @@ public sealed class MulticastBrowserConformanceTests
         await using var link = await Link.Start(Quiet());
         await using var browser = await link.Client.BrowseAsync(ServiceType);
 
+        // The first query of the series waits 20-120 ms (§5.2), and goes out with every
+        // pointer cached by then. Sent after the count below has begun, it is counted
+        // beside the query this test asks for, and every known answer twice.
+        await WaitUntil(() => link.BrowseQueries.Length > 0, "the first browse query");
+
         var names = Enumerable.Range(1, 250).
                                Select(n => $"Instance {n:D3} with a name long enough to matter._qtest._tcp.local.").
                                ToArray();
