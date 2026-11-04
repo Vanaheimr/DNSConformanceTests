@@ -37,15 +37,18 @@ public sealed class MulticastBrowserConformanceTests
 
         private readonly List<CapturedDatagram>  packets  = [];
         private readonly Stopwatch               clock    = Stopwatch.StartNew();
+        private readonly ManualClock?            manual;
 
+        /// <summary>The time on the test's clock, if it moves one, or else on the wall.</summary>
         public TimeSpan Now
-            => clock.Elapsed;
+            => manual?.Elapsed ?? clock.Elapsed;
 
-        public PacketCapture(InMemoryMulticastDNSNetwork network)
+        public PacketCapture(InMemoryMulticastDNSNetwork network, ManualClock? Manual = null)
         {
+            manual = Manual;
             network.OnDatagramSent += (_, sender, payload, _) => {
                 lock (packets)
-                    packets.Add(new CapturedDatagram(sender, payload.ToArray(), clock.Elapsed));
+                    packets.Add(new CapturedDatagram(sender, payload.ToArray(), Now));
                 return Task.CompletedTask;
             };
         }
@@ -125,7 +128,7 @@ public sealed class MulticastBrowserConformanceTests
             var network  = new InMemoryMulticastDNSNetwork();
             var querier  = network.CreateTransport();
             var peer     = network.CreateTransport();
-            var capture  = new PacketCapture(network);
+            var capture  = new PacketCapture(network, Clock as ManualClock);
             var client   = new MulticastDNSClient(querier, Options, Clock);
 
             await peer.StartAsync();
@@ -307,34 +310,37 @@ public sealed class MulticastBrowserConformanceTests
     /// the intervals between successive queries MUST increase by at least a factor of
     /// two".
     /// </summary>
+    /// <remarks>
+    /// On the test's clock (<see cref="ManualClock"/>), so each interval is the one the
+    /// browser asked for, and compared with no tolerance: the wall clock's made a late
+    /// first interval look like a second one that did not double.
+    /// </remarks>
     [Test]
     [Property("RFC", "6762 §5.2")]
     public async Task Browse_Queries_Start_A_Second_Apart_And_At_Least_Double()
     {
 
-        await using var link = await Link.Start();
+        var clock = new ManualClock();
+
+        await using var link = await Link.Start(Clock: clock);
         await using var browser = await link.Client.BrowseAsync(ServiceType);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(3500));
+        for (var queries = 1; queries <= 4; queries++)
+        {
+            await clock.RunOutNextWait();
+            await WaitUntil(() => link.BrowseQueries.Length >= queries, $"browse query {queries}");
+        }
 
-        var sent       = link.BrowseQueries.Select(packet => packet.SentAt).ToArray();
-        var gaps       = sent.Zip(sent.Skip(1), (first, second) => second - first).ToArray();
-
-        // Timers fire a little early or late. 50 ms of that is allowed on each interval,
-        // and an interval measured late is doubled into the next comparison, so that one
-        // allows three times as much: still far from the 1 s a non-doubling interval
-        // would fall short by.
-        var tolerance  = TimeSpan.FromMilliseconds(50);
+        var sent  = link.BrowseQueries.Select(packet => packet.SentAt).ToArray();
+        var gaps  = sent.Zip(sent.Skip(1), (first, second) => second - first).ToArray();
 
         Assert.Multiple(() => {
 
-            Assert.That(gaps, Has.Length.GreaterThanOrEqualTo(2), "three queries in three and a half seconds");
-
-            Assert.That(gaps.FirstOrDefault(), Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(1) - tolerance),
+            Assert.That(gaps[0], Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(1)),
                         "§5.2: the interval between the first two queries MUST be at least one second");
 
             for (var i = 1; i < gaps.Length; i++)
-                Assert.That(gaps[i], Is.GreaterThanOrEqualTo(gaps[i - 1] * 2 - tolerance * 3),
+                Assert.That(gaps[i], Is.GreaterThanOrEqualTo(gaps[i - 1] * 2),
                             $"§5.2: interval {i + 1} MUST be at least twice interval {i}");
 
         });
@@ -348,24 +354,26 @@ public sealed class MulticastBrowserConformanceTests
     /// common external trigger event), a Multicast DNS querier SHOULD also delay the
     /// first query of the series by a randomly chosen amount in the range 20-120 ms."
     /// </summary>
+    /// <remarks>
+    /// On the test's clock (<see cref="ManualClock"/>), which stands at zero when the
+    /// browse begins. A query sent at once would be sent at zero, whichever wait came
+    /// after it.
+    /// </remarks>
     [Test]
     [Property("RFC", "6762 §5.2")]
     public async Task The_First_Browse_Query_Waits_Twenty_To_A_Hundred_And_Twenty_Milliseconds()
     {
 
-        await using var link = await Link.Start();
+        var clock = new ManualClock();
 
-        var started = link.Capture.Now;
-
+        await using var link = await Link.Start(Clock: clock);
         await using var browser = await link.Client.BrowseAsync(ServiceType);
 
+        await clock.RunOutNextWait();
         await WaitUntil(() => link.BrowseQueries.Length > 0, "the first browse query");
 
-        var delay = link.BrowseQueries[0].SentAt - started;
-
-        Assert.That(delay, Is.InRange(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(150)),
-                    "§5.2: SHOULD delay the first query of the series by 20-120 ms " +
-                    "(the upper bound leaves 30 ms for the test's own scheduling)");
+        Assert.That(link.BrowseQueries[0].SentAt, Is.InRange(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(120)),
+                    "§5.2: SHOULD delay the first query of the series by 20-120 ms");
 
     }
 
@@ -377,32 +385,53 @@ public sealed class MulticastBrowserConformanceTests
     /// that this host would not also put in its own Known-Answer Section, then this host
     /// SHOULD treat its own query as having been sent."
     /// </summary>
+    /// <remarks>
+    /// On the test's clock (<see cref="ManualClock"/>). The other host's query has been
+    /// read by the time <c>Multicast</c> returns, so the clock moves on only after it.
+    /// </remarks>
     [Test]
     [Property("RFC", "6762 §7.3")]
     public async Task A_Question_Another_Host_Just_Asked_Is_Not_Asked_Again()
     {
 
-        await using var link = await Link.Start();
+        var clock = new ManualClock();
+
+        await using var link = await Link.Start(Clock: clock);
         await using var browser = await link.Client.BrowseAsync(ServiceType);
 
-        await WaitUntil(() => link.BrowseQueries.Length > 0, "the first browse query");
+        // The first query, after whatever wait comes before it. The browser starts its
+        // next wait only once a query is out, so the wait pending then is the second's.
+        var due = (await clock.NextWait())!.Value;
 
-        // Half a second in, the other host asks the same question with no known answers,
-        // which is exactly what this browser would put in its own second query.
-        var first = link.BrowseQueries[0].SentAt;
+        while (link.BrowseQueries.Length == 0)
+        {
+            clock.AdvanceTo(due);
+            due = (await clock.NextWait())!.Value;
+        }
 
-        var wait = first + TimeSpan.FromMilliseconds(500) - link.Capture.Now;
-        if (wait > TimeSpan.Zero)
-            await Task.Delay(wait);
-
-        var asked = link.Capture.Now;
+        // Half a second before the browser's second query is due, the other host asks the
+        // same question with no known answers, which is exactly what this browser would
+        // put in its own.
+        clock.AdvanceTo(due - TimeSpan.FromMilliseconds(500));
 
         await link.Multicast(new RawDnsWriter().Header(0, 0, 1, 0, 0, 0).Question(ServiceTypeName, RawDnsType.PTR).ToArray());
 
-        await Task.Delay(TimeSpan.FromMilliseconds(1000));
+        clock.AdvanceTo(due);
 
-        Assert.That(link.BrowseQueries.Where(packet => packet.SentAt > asked), Is.Empty,
-                    "§7.3: the browser SHOULD treat its own query, due half a second later, as having been sent");
+        // And the series goes on: the query after the one treated as sent is sent when
+        // it is due, which is also what shows the clock still drives the browser.
+        var next = await clock.RunOutNextWait();
+        await clock.NextWait();
+
+        Assert.Multiple(() => {
+
+            Assert.That(link.BrowseQueries.Select(packet => packet.SentAt), Has.None.EqualTo(due),
+                        "§7.3: the browser SHOULD treat its own query, due half a second later, as having been sent");
+
+            Assert.That(link.BrowseQueries[^1].SentAt, Is.EqualTo(next),
+                        "the series goes on after the query treated as sent");
+
+        });
 
     }
 
