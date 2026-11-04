@@ -37,16 +37,19 @@ test project that exercises each:
 | `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
-| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 161 | a slice, measured twice, **9 open** |
+| `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
 
 The last two rows are not blocks. They are the files a fix rewrote after its
 block had been measured, swept again at the fix's revision with the block's
 judge, and given ledgers of their own: findings 88 and 89 rewrote the SvcParam
 presentation, and finding 87 the TCP and TLS clients' queries. Findings 90 to
 92 changed both again, and both were swept a second time at the fixes' revision.
-The counts in the table are that measurement's. See *The result: both slices
-again, after findings 90 to 92*, and before it *The result: the stream clients,
-measured* and *The result: the SvcParam presentation, measured again*.
+Vanaheimr/Hermod#219 changed the stream clients a third time, and the `streams`
+slice was swept again at its revision. The counts in the table are each slice's
+latest measurement. See *The result: the stream clients after #219*, *The
+result: both slices again, after findings 90 to 92*, and before them *The
+result: the stream clients, measured* and *The result: the SvcParam
+presentation, measured again*.
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
 a warning here: its judge had **four tests** for 598 mutable places, so whatever
@@ -396,6 +399,132 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 56, and 370 survive: 118 not really code and 252 real gaps. The score as
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
+
+
+## The result: the stream clients after #219
+
+Finding 92's fix left one close without the stream lock: the reader's, when a
+read fails. It checked the connection's number and then closed whatever the
+field held, and a reconnect between the two steps had it close the new
+connection (FINDINGS.md, finding 92, *What that does not change*).
+Vanaheimr/Hermod#219 closes that window. Each client keeps the connection it
+last opened as one record, written under the lock once the connection is made:
+its number and its TcpClient, and on DoT its TLS stream. `StreamOf` and
+`CloseConnectionOf` ask the record where they used to ask the counter and the
+field. Only `DNSTCPClient.cs` and `DNSTLSClient.cs` changed. The slice was swept
+a third time at **`0f595ac4`**, the suite's pin, with the same judge and the same
+two passes. The second measurement's files moved to `results/streams-4edc4c98/`
+unchanged, and its ledger stays in the history of `make_closed_folder.py`.
+
+| | `4edc4c98` | `0f595ac4` |
+|---|---:|---:|
+| mutants | 161 | 168 |
+| not viable (would not compile) | 39 | 40 |
+| killed by Client, pass 1 | 53 | 52 |
+| killed by another project | 3 | 3 |
+| survived everywhere | 66 | 73 |
+| real gaps | 22 | 26 |
+| equivalent | 13 | 17 |
+| open | **9** | **9** |
+
+The 168 are the 161 less the six mutants of the guards #219 rewrote in
+`StreamOf` and `CloseConnectionOf`, and thirteen in what it wrote: four in each client's `StreamOf`, two in each
+`CloseConnectionOf`, and one in the DoT client's record, `tcpClient is TcpClient
+made && tlsStream is SslStream session`, which does not compile with `||`
+because neither variable is then assigned. Every `!=` of the new guards fails
+between 4 and 26 of the Client project's 239 tests, and every `||` made `&&`
+survives. The 73 are 26 real gaps, 43 `ConfigureAwait(false)` that no test host
+can see, and 4 `#region` lines. The 3 that another project killed are the DoT
+client's padding again, `DNSTLSClient.cs:822` twice and `:829`, in
+SecureTransports.
+
+**Three of the second measurement's kills were not kills.** At `4edc4c98` pass 1
+reported `DNSTLSClient.cs:439`, `:534` and `:543` killed, "1 of 239 failed" each.
+The first is the `false` in the name of a `#region`, which the compiler never
+reads. The other two hand `ConfigureAwait` a `true` in place of a `false`, which
+no test host can see. At `0f595ac4` they are lines 450, 545 and 554, and pass 1
+had all three survive. Planted by hand, 545 and 554 each passed all 239 tests
+in three runs. So the 53 of that measurement were 50 and its 66 survivors 69,
+and the three were never gaps. Its pass 2 had two such kills in Multicast
+(below). These three were in the judge itself.
+
+**The crash came back.** `DNSTCPClient.cs:287` is the guard that sends a query
+for several types through `OneQuestionPerQuery`, `Count > 1`. With `>=` a query
+for one type goes there too, and asks itself again. As at `4edc4c98`, pass 1
+came back without a verdict, and planted by hand the Client project's host died
+of a stack overflow in
+`The_Answer_Sent_First_Is_Not_Held_Behind_The_Ones_Asked_Before_It`. The row in
+`streams-pass1.tsv` says KILLED, and `.before-verdict-fix` keeps the original.
+
+### Seventeen equivalents
+
+Thirteen are the second measurement's, each on the line it moved to and for the
+same reason (*Thirteen equivalents*, below). The four new ones are the guard of
+`StreamOf`, `Connection != Volatile.Read(ref connection) || current is null ||
+current.Number != Connection`, with either `||` made `&&`, at
+`DNSTCPClient.cs:621` and `DNSTLSClient.cs:898`.
+
+- `A && B || C` hands a query its connection's stream after the counter has
+  moved past that connection, as long as it is still the one recorded: between
+  a reconnect's count and its record, or after a connect that failed. A connect
+  is counted only when the field holds no TcpClient or one that is not
+  connected. `ReconnectAsync` starts by closing what the field holds, and the
+  field is emptied only by a close of the TcpClient in it. A close under the
+  stream lock is over before the count, which needs the lock. The reader's
+  close runs without it, but holding the read turn, and `StreamOf` is called
+  only under that turn. So the recorded connection's TcpClient is closed or not
+  connected, and the mutant returns null as the original does.
+- `A || B && C` hands a query of the current number whatever connection is
+  recorded, even another number's. A query registers on a number only after
+  that number's connect has recorded it, so while a number is current the
+  record is not another's.
+- Both throw where the original returns null: when the number is current and
+  nothing is recorded. Nothing reads with such a number. A DoT query whose
+  connect failed returns before it registers, and a TCP query's `GetStream()`
+  throws first, on a TcpClient that is disposed or null.
+
+The two rows these replace, `StreamOf`'s guard at `DNSTCPClient.cs:587` and
+`DNSTLSClient.cs:876`, were open at `4edc4c98`. They let an older connection's
+query read from the TcpClient in the field, which could be a newer connection's.
+The record leaves that query its own connection's TcpClient, which is closed or
+not connected by then, so what those rows needed a race for no longer makes a
+difference.
+
+### Nine left open
+
+Eight can be reached only through a race.
+
+- `DNSStreamPipeline.cs:234` `==`→`!=` and `:236` `&&`→`||`, which queries `End`
+  ends and whether that drains the pipeline, as before. #219 changed what the
+  reader's close closes, not when its `End` follows: a query that takes the
+  stream lock between the two still connects anew and registers before the
+  `End`.
+- `DNSTCPClient.cs:435` and `DNSTLSClient.cs:600` `&&`→`||`, the guard on asking
+  again after a write fails, as before.
+- `DNSTCPClient.cs:653` and `DNSTLSClient.cs:927` `||`→`&&`, new: the guard of
+  `CloseConnectionOf`, `current is null || current.Number != Connection`. With
+  `&&` the close no longer asks whose connection is recorded. It closes the
+  recorded one whatever its number, which is the close #219 removed, and throws
+  where nothing is recorded. The keepalive policy closes under the stream lock,
+  and only the connection it was told of last, once an answer has been read on
+  it. That connection is the one recorded. The reader hands in the number it was reading, which was
+  recorded when its connection was made. Another number is recorded only if a
+  newer connection is made between the read's failure and the reader's close.
+  That is finding 92's window, and wider: before #219 a reader overtaken before
+  its check closed nothing, and the mutant closes the newer connection from the
+  read's failure on.
+- `DNSKeepalivePolicy.cs:210` `||`→`&&` and `:329` `true`→`false`, for the
+  reasons given below. The policy did not change.
+
+One is open because the RFCs are: `DNSStreamPipeline.cs:412`, the framed
+message shorter than the 12-octet header (*Seven left open*, below).
+
+### What the second measurement's chapter now is
+
+*The result: both slices again, after findings 90 to 92*, below, is the second
+measurement at `4edc4c98`, and its line numbers are that revision's. What its
+section on the stream clients says about the tests is still true, apart from
+the three kills above. Its *Nine left open* is replaced by this chapter's.
 
 
 ## The result: both slices again, after findings 90 to 92
