@@ -37,12 +37,18 @@ public sealed class MulticastQuerierConformanceTests
 
         private readonly List<CapturedDatagram>  packets  = [];
         private readonly Stopwatch               clock    = Stopwatch.StartNew();
+        private readonly ManualClock?            manual;
 
-        public PacketCapture(InMemoryMulticastDNSNetwork network)
+        /// <summary>The time on the test's clock, if it moves one, or else on the wall.</summary>
+        public TimeSpan Now
+            => manual?.Elapsed ?? clock.Elapsed;
+
+        public PacketCapture(InMemoryMulticastDNSNetwork network, ManualClock? Manual = null)
         {
+            manual = Manual;
             network.OnDatagramSent += (_, sender, payload, destination) => {
                 lock (packets)
-                    packets.Add(new CapturedDatagram(sender, destination, payload.ToArray(), clock.Elapsed));
+                    packets.Add(new CapturedDatagram(sender, destination, payload.ToArray(), Now));
                 return Task.CompletedTask;
             };
         }
@@ -99,7 +105,7 @@ public sealed class MulticastQuerierConformanceTests
             var network  = new InMemoryMulticastDNSNetwork();
             var querier  = network.CreateTransport();
             var peer     = network.CreateTransport();
-            var capture  = new PacketCapture(network);
+            var capture  = new PacketCapture(network, Clock as ManualClock);
             var client   = new MulticastDNSClient(querier, Options, Clock);
 
             await peer.StartAsync();
@@ -385,33 +391,40 @@ public sealed class MulticastQuerierConformanceTests
     /// "looking up the IPv4 and IPv6 addresses of another host" as an operation of its
     /// kind. And the one-shot querier of §5.1 that it does not govern is the one that
     /// "MUST NOT be sent using UDP source port 5353", where Hermod's client sends from.
+    /// <para>
+    /// On the test's clock (<see cref="ManualClock"/>), so each interval is the one the
+    /// querier asked for, and compared with no tolerance. The lookup's own deadline is
+    /// on that clock as well: it ends when its last wait has been run out.
+    /// </para>
     /// </remarks>
     [Test]
     [Property("RFC", "6762 §5.2")]
     public async Task Retransmissions_Start_A_Second_Apart_And_At_Least_Double()
     {
 
-        await using var link = await Link.Start();
+        var clock = new ManualClock();
 
-        await link.Client.Query(Host, [ DNSResourceRecordTypes.A ], TimeSpan.FromMilliseconds(3500));
+        await using var link = await Link.Start(Clock: clock);
+
+        var asking = link.Client.Query(Host, [ DNSResourceRecordTypes.A ], TimeSpan.FromMilliseconds(7500));
+
+        while (await clock.NextWait(Until: asking) is TimeSpan due)
+            clock.AdvanceTo(due);
+
+        await asking;
 
         var sent  = link.Queries.Select(packet => packet.SentAt).ToArray();
         var gaps  = sent.Zip(sent.Skip(1), (first, second) => second - first).ToArray();
 
-        // Timers fire a little early or late. 50 ms of that is allowed on each interval,
-        // and three times as much where an interval measured late is doubled into the
-        // next comparison — either way far from hiding a 500 ms interval.
-        var tolerance = TimeSpan.FromMilliseconds(50);
-
         Assert.Multiple(() => {
 
-            Assert.That(gaps, Is.Not.Empty, "an unanswered query is asked again");
+            Assert.That(gaps, Has.Length.GreaterThanOrEqualTo(2), "an unanswered query is asked again, and again");
 
-            Assert.That(gaps.FirstOrDefault(), Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(1) - tolerance),
+            Assert.That(gaps.FirstOrDefault(), Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(1)),
                         "§5.2: the interval between the first two queries MUST be at least one second");
 
             for (var i = 1; i < gaps.Length; i++)
-                Assert.That(gaps[i], Is.GreaterThanOrEqualTo(gaps[i - 1] * 2 - tolerance * 3),
+                Assert.That(gaps[i], Is.GreaterThanOrEqualTo(gaps[i - 1] * 2),
                             $"§5.2: interval {i + 1} MUST be at least twice interval {i}");
 
         });
