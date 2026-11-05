@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -378,7 +377,7 @@ public sealed class MulticastConflictConformanceTests
     /// </summary>
     [TestCase(Heard.AnotherType,     Moment.AfterTheFirstProbe,  MulticastDNSPublicationState.Conflict,  TestName = "After the first probe, a record of any type at the name is a conflict")]
     [TestCase(Heard.AnotherType,     Moment.BeforeTheFirstProbe, MulticastDNSPublicationState.Published, TestName = "Before the first probe, a record of another type at the name is ignored")]
-    [TestCase(Heard.AnotherAddress,  Moment.BeforeTheFirstProbe, MulticastDNSPublicationState.Published, TestName = "Before the first probe, another address for the name is ignored", Category = TestCategories.KnownIssue)]
+    [TestCase(Heard.AnotherAddress,  Moment.BeforeTheFirstProbe, MulticastDNSPublicationState.Published, TestName = "Before the first probe, another address for the name is ignored")]
     [Property("RFC", "6762 §8.1")]
     public async Task A_Response_Heard_While_Probing_Counts_From_The_First_Probe_On(Heard                         What,
                                                                                    Moment                        When,
