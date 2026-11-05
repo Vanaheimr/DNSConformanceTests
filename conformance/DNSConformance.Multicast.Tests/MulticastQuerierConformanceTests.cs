@@ -471,10 +471,18 @@ public sealed class MulticastQuerierConformanceTests
 
         var known = RawDnsReader.Parse(link.Queries.First().Wire).Answers;
 
-        Assert.That(known.Select(record => (record.Type, record.Ttl)),
-                    Is.EqualTo(new[] { (RawDnsType.AAAA, 60u) }),
-                    "§7.1: the AAAA record with sixty of its 120 seconds left is listed, the TXT record " +
-                    "with forty of its hundred is not");
+        Assert.Multiple(() => {
+
+            Assert.That(known.Select(record => (record.Type, record.Ttl)),
+                        Is.EqualTo(new[] { (RawDnsType.AAAA, 60u) }),
+                        "§7.1: the AAAA record with sixty of its 120 seconds left is listed, the TXT record " +
+                        "with forty of its hundred is not");
+
+            // Heard with the cache-flush bit, listed without it.
+            Assert.That(known.Select(record => record.Class), Is.All.EqualTo(RawDnsClass.IN),
+                        "§10.2: The cache-flush bit MUST NOT be set in any resource records in the Known-Answer list of any query message");
+
+        });
 
     }
 
@@ -875,6 +883,124 @@ public sealed class MulticastQuerierConformanceTests
 
     #endregion
 
+    #region What a lookup returns, and where from (RFC 6762 §7, §10.1, §18)
+
+    /// <summary>
+    /// §18.4: in a Multicast DNS response "the Authoritative Answer bit MUST be set to
+    /// one (not setting this bit would imply there's some other place where "better"
+    /// information may be found) and MUST be ignored on reception". TC, RD and RA "MUST
+    /// be ignored on reception" too (§18.5 to §18.7). So a lookup reports what a Multicast
+    /// DNS answer is, whatever the header it came in said: authoritative, whole, and with
+    /// no recursion asked for or offered. An answer from the cache is the same answer.
+    /// </summary>
+    [TestCase(false, TestName = "An answer from the link is reported as authoritative, whole and not recursive")]
+    [TestCase(true,  TestName = "An answer from the cache is reported as authoritative, whole and not recursive")]
+    [Property("RFC", "6762 §18.4, §18.5, §18.6, §18.7")]
+    public async Task A_Lookup_Reports_What_A_Multicast_Answer_Is_Whatever_The_Header_Said(Boolean FromTheCache)
+    {
+
+        await using var link = await Link.Start();
+
+        // QR set, AA clear, TC, RD and RA set: every one of the four the other way round.
+        var response = Response([ Address("192.0.2.7") ], Flags: 0x8380);
+
+        DNSInfo info;
+
+        if (FromTheCache)
+        {
+            await link.Multicast(response);
+            info = await link.Client.Query(Host, [ DNSResourceRecordTypes.A ], TimeSpan.FromSeconds(1));
+        }
+        else
+            (info, _) = await Answered(link, DNSResourceRecordTypes.A, response, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() => {
+            Assert.That(info.IsValid,                                                    Is.True, "an answer");
+            Assert.That(info.Answers.OfType<A>().Select(a => a.IPv4Address.ToString()), Is.EqualTo(new[] { "192.0.2.7" }));
+            Assert.That(info.AuthoritativeAnswer, Is.True,  "§18.4: the AA bit MUST be set to one, and MUST be ignored on reception");
+            Assert.That(info.IsTruncated,         Is.False, "§18.5: the TC bit MUST be ignored on reception");
+            Assert.That(info.RecursionRequested,  Is.False, "§18.6: the RD bit SHOULD be zero on transmission, and MUST be ignored on reception");
+            Assert.That(info.RecursionAvailable,  Is.False, "§18.7: the RA bit MUST be zero on transmission, and MUST be ignored on reception");
+        });
+
+    }
+
+
+    public enum Lookup
+    {
+        ByServiceName,
+        ByDomainName,
+        ForAnotherType,
+        ForcingAnUpdate
+    }
+
+    /// <summary>
+    /// A record in the cache answers a lookup for its name and type, and nothing is
+    /// asked: that is what the cache is for, and RFC 6762 §7 is a section of ways a
+    /// querier keeps from asking what it already knows. ForceUpdate is the caller's way of
+    /// saying "ask anyway", and leaving it out says the opposite, through either of the
+    /// two Query overloads. A type the cache does not hold is asked for.
+    /// </summary>
+    [TestCase(Lookup.ByServiceName,   false, TestName = "A cached record answers a lookup by service name")]
+    [TestCase(Lookup.ByDomainName,    false, TestName = "A cached record answers a lookup by domain name")]
+    [TestCase(Lookup.ForAnotherType,  true,  TestName = "A cached record does not answer a lookup for another type")]
+    [TestCase(Lookup.ForcingAnUpdate, true,  TestName = "A cached record does not answer a lookup that forces an update")]
+    [Property("RFC", "6762 §5.1, §7")]
+    public async Task Only_What_The_Cache_Cannot_Answer_Or_The_Caller_Forces_Is_Asked(Lookup Lookup, Boolean Asked)
+    {
+
+        await using var link = await Link.Start();
+
+        await link.Multicast(Response([ Address("192.0.2.7") ]));
+
+        var timeout  = TimeSpan.FromMilliseconds(300);
+
+        var info     = Lookup switch {
+                           Lookup.ByServiceName   => await link.Client.Query(Host,                        [ DNSResourceRecordTypes.A ],    timeout),
+                           Lookup.ByDomainName    => await link.Client.Query(DomainName.Parse(HostName),  [ DNSResourceRecordTypes.A ],    timeout),
+                           Lookup.ForAnotherType  => await link.Client.Query(Host,                        [ DNSResourceRecordTypes.AAAA ], timeout),
+                           _                      => await link.Client.Query(Host,                        [ DNSResourceRecordTypes.A ],    timeout, ForceUpdate: true)
+                       };
+
+        Assert.Multiple(() => {
+
+            Assert.That(link.Queries.Length > 0, Is.EqualTo(Asked),
+                        Asked ? "the cache cannot answer this lookup, or was told not to" : "the cache answers, so nothing is asked");
+
+            if (!Asked)
+                Assert.That(info.Answers.OfType<A>().Select(a => a.IPv4Address.ToString()), Is.EqualTo(new[] { "192.0.2.7" }));
+
+        });
+
+    }
+
+
+    /// <summary>
+    /// What a lookup lists beside its answers are the other live records of the response
+    /// that answered it. A goodbye is not one: §10.1 calls it a record being withdrawn.
+    /// Nor is the answer itself, which is listed once, as the answer.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §10.1")]
+    public async Task A_Lookup_Lists_Neither_A_Goodbye_Nor_Its_Own_Answer_Among_The_Additional_Records()
+    {
+
+        await using var link = await Link.Start();
+
+        var (info, _) = await Answered(link,
+                                       DNSResourceRecordTypes.A,
+                                       Response([ Address("192.0.2.7") ],
+                                                [ new Rr(HostName, RawDnsType.AAAA, 120, RawDnsWriter.IPv6("2001:db8::7"), true),
+                                                  new Rr(HostName, RawDnsType.TXT,  0,   [ 5, .. "hello"u8 ]) ]),
+                                       TimeSpan.FromSeconds(3));
+
+        Assert.That(info.AdditionalRecords.Select(record => record.Type), Is.EqualTo(new[] { DNSResourceRecordTypes.AAAA }),
+                    "the AAAA record, and neither the TXT record's goodbye nor the A record answered already");
+
+    }
+
+    #endregion
+
     #region The cache (RFC 6762 §5.2, §10)
 
     [Test]
@@ -894,6 +1020,75 @@ public sealed class MulticastQuerierConformanceTests
         clock.Advance(TimeSpan.FromSeconds(0.2));
         Assert.That(CachedAddresses(link.Client), Is.Empty,
                     "§5.2: after this interval has passed, the answer will no longer be valid and SHOULD be deleted from the cache");
+
+    }
+
+
+    /// <summary>
+    /// §5.2: "After this interval has passed, the answer will no longer be valid". At the
+    /// end of its TTL the interval has passed, and what is left of the TTL is zero, the
+    /// TTL §10.1 gives a record that is being withdrawn. A lookup at that moment asks.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §5.2, §10.1")]
+    public async Task A_Record_Is_No_Answer_From_The_Moment_Its_Ttl_Has_Run_Out()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(Clock: clock);
+
+        await link.Multicast(Response([ Address("192.0.2.7", Ttl: 10) ]));
+
+        clock.Advance(TimeSpan.FromSeconds(10));
+
+        Assert.That(CachedAddresses(link.Client), Is.Empty, "§5.2: the ten seconds of a TTL of ten have passed");
+
+        await link.Client.Query(Host, [ DNSResourceRecordTypes.A ], TimeSpan.FromMilliseconds(200));
+
+        Assert.That(link.Queries, Is.Not.Empty, "so a lookup asks the link");
+
+    }
+
+
+    /// <summary>
+    /// A record expires once. The sweep that finds it expired reports it and takes it
+    /// out, also when that sweep comes at the very moment its TTL runs out, and no later
+    /// sweep has anything of it left to report.
+    /// </summary>
+    /// <remarks>
+    /// On the test's clock, whose sweep timer fires at whole seconds: a TTL of three runs
+    /// out on the third.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "6762 §5.2")]
+    public async Task A_Record_That_Expires_On_A_Sweep_Is_Reported_Expired_Once()
+    {
+
+        var clock = new ManualClock();
+
+        await using var link = await Link.Start(new MulticastDNSClientOptions { CacheSweepInterval = TimeSpan.FromSeconds(1) }, clock);
+
+        var expired = 0;
+
+        link.Client.OnRecordExpired += (_, _, entry, _) => {
+            if (entry.Record is A)
+                Interlocked.Increment(ref expired);
+            return Task.CompletedTask;
+        };
+
+        await link.Multicast(Response([ Address("192.0.2.7", Ttl: 3) ]));
+
+        clock.AdvanceTo(TimeSpan.FromSeconds(3));
+        await WaitUntil(() => Volatile.Read(ref expired) > 0, "the expiry to be reported");
+
+        clock.AdvanceTo(TimeSpan.FromSeconds(6));
+        await Task.Delay(300);
+
+        Assert.Multiple(() => {
+            Assert.That(Volatile.Read(ref expired), Is.EqualTo(1), "one record, one expiry");
+            Assert.That(link.Client.CacheSize,      Is.EqualTo(0), "and the record is out of the cache");
+        });
 
     }
 
@@ -967,6 +1162,24 @@ public sealed class MulticastQuerierConformanceTests
 
 
     /// <summary>
+    /// A goodbye for a record this host never heard withdraws nothing, and costs nothing
+    /// else in its packet: the address after it is still an answer.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §10.1")]
+    public async Task A_Goodbye_For_A_Record_Never_Heard_Costs_Nothing_Else_In_Its_Packet()
+    {
+
+        await using var link = await Link.Start(Clock: new SteppedClock());
+
+        await link.Multicast(Response([ Address("192.0.2.7", Ttl: 0), Address("192.0.2.8") ]));
+
+        Assert.That(CachedAddresses(link.Client).Select(address => address.ToString()), Is.EqualTo(new[] { "192.0.2.8" }));
+
+    }
+
+
+    /// <summary>
     /// §10.2: "all old records with that name, rrtype, and rrclass that were received
     /// more than one second ago are declared invalid, and marked to expire from the
     /// cache in one second."
@@ -1019,6 +1232,31 @@ public sealed class MulticastQuerierConformanceTests
         Assert.That(CachedAddresses(link.Client).Select(address => address.ToString()),
                     Is.EquivalentTo(new[] { "192.0.2.1", "192.0.2.2" }),
                     "two halves of one RRSet, half a second apart");
+
+    }
+
+
+    /// <summary>
+    /// §10.2 flushes the records "received more than one second ago". One received exactly
+    /// a second before the flush is not among them.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §10.2")]
+    public async Task Cache_Flush_Spares_What_Arrived_Exactly_One_Second_Before()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(Clock: clock);
+
+        await link.Multicast(Response([ Address("192.0.2.1") ]));
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await link.Multicast(Response([ Address("192.0.2.2", CacheFlush: true) ]));
+        clock.Advance(TimeSpan.FromSeconds(3));
+
+        Assert.That(CachedAddresses(link.Client).Select(address => address.ToString()),
+                    Is.EquivalentTo(new[] { "192.0.2.1", "192.0.2.2" }),
+                    "§10.2: received one second ago, which is not more than one second ago");
 
     }
 

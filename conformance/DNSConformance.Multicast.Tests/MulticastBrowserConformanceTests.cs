@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -200,8 +201,11 @@ public sealed class MulticastBrowserConformanceTests
     private static Rr TextRdata(params Byte[] Rdata)
         => new (InstanceName, RawDnsType.TXT, 4500, Rdata, true);
 
-    private static Rr Address(String Dotted = "192.0.2.80", String Name = HostName, UInt32 Ttl = 120)
-        => new (Name, RawDnsType.A, Ttl, RawDnsWriter.IPv4(Dotted), true);
+    private static Rr Address(String Dotted = "192.0.2.80", String Name = HostName, UInt32 Ttl = 120, Boolean CacheFlush = true)
+        => new (Name, RawDnsType.A, Ttl, RawDnsWriter.IPv4(Dotted), CacheFlush);
+
+    private static Rr Address6(String Address = "2001:db8::80", String Name = HostName, UInt32 Ttl = 120, Boolean CacheFlush = true)
+        => new (Name, RawDnsType.AAAA, Ttl, RawDnsWriter.IPv6(Address), CacheFlush);
 
 
     private static Byte[] Response(params Rr[] Answers)
@@ -251,6 +255,28 @@ public sealed class MulticastBrowserConformanceTests
                InitialBrowseInterval  = TimeSpan.FromHours(1),
                MaxBrowseInterval      = TimeSpan.FromHours(1)
            };
+
+
+    /// <summary>
+    /// <see cref="Quiet"/>, and with the cache swept and the instances looked after every
+    /// 50 ms, so that a move of the test's clock is taken in at once.
+    /// </summary>
+    private static MulticastDNSClientOptions QuietAndQuick()
+
+        => new () {
+               InitialBrowseInterval      = TimeSpan.FromHours(1),
+               MaxBrowseInterval          = TimeSpan.FromHours(1),
+               CacheSweepInterval         = TimeSpan.FromMilliseconds(50),
+               BrowseMaintenanceInterval  = TimeSpan.FromMilliseconds(50)
+           };
+
+
+    /// <summary>Whether a query sent after the first <paramref name="Before"/> asks the name for the type.</summary>
+    private static Boolean AskedSince(Link Link, Int32 Before, String Name, UInt16 Type)
+
+        => Link.Queries.Skip(Before).
+                Any(packet => RawDnsReader.Parse(packet.Wire).Questions.Any(question => question.Type == Type &&
+                                                                                        question.Name.Canonical == Name.TrimEnd('.').ToLowerInvariant()));
 
 
     /// <summary>
@@ -504,6 +530,79 @@ public sealed class MulticastBrowserConformanceTests
 
         Assert.That(link.BrowseQueries.Select(packet => packet.SentAt), Has.Some.EqualTo(due),
                     "§7.3: not the same QM question, so the browser's own query goes out when it is due");
+
+    }
+
+
+    public enum Repeated
+    {
+        Pointer,
+        Service,
+        Text
+    }
+
+    /// <summary>
+    /// A browser asks about an instance for what it lacks: RFC 6763 §5's SRV and TXT
+    /// records, and the addresses of the host the SRV record names. An instance it knows
+    /// in full leaves nothing to ask about, and a record of it heard again does not
+    /// change that. Asking anyway would answer every repetition with a query, and every
+    /// answer to that query with the next one.
+    /// </summary>
+    [TestCase(Repeated.Pointer, TestName = "A pointer heard again for an instance known in full draws no query")]
+    [TestCase(Repeated.Service, TestName = "An SRV record heard again for an instance known in full draws no query")]
+    [TestCase(Repeated.Text,    TestName = "A TXT record heard again for an instance known in full draws no query")]
+    [Property("RFC", "6762 §5.2, 6763 §5")]
+    public async Task A_Record_Heard_Again_For_An_Instance_Known_In_Full_Draws_No_Query(Repeated Record)
+    {
+
+        await using var link = await Link.Start(Quiet());
+
+        var (browser, _) = await Resolved(link, Pointer(), Service(), Text("path=/"), Address());
+
+        await using var _ = browser;
+
+        var before = link.Queries.Length;
+
+        await link.Multicast(Response(Record switch {
+                                          Repeated.Pointer  => Pointer(),
+                                          Repeated.Service  => Service(),
+                                          _                 => Text("path=/")
+                                      }));
+
+        await Task.Delay(300);
+
+        Assert.That(link.Queries.Skip(before), Is.Empty, "nothing about the instance is missing");
+
+    }
+
+
+    /// <summary>
+    /// An instance that still lacks something is asked about again when its pointer is
+    /// heard again: for the addresses of its host, or for its TXT record, which RFC 6763
+    /// §6 gives every service, so that one not yet heard is one still to come.
+    /// </summary>
+    [TestCase(false, TestName = "An instance without an address is asked about again when its pointer is heard")]
+    [TestCase(true,  TestName = "An instance without a TXT record is asked about again when its pointer is heard")]
+    [Property("RFC", "6763 §5, §6")]
+    public async Task An_Instance_Heard_Again_Is_Asked_About_What_It_Still_Lacks(Boolean LacksText)
+    {
+
+        await using var link = await Link.Start(Quiet());
+
+        var (browser, _) = LacksText
+                               ? await Resolved(link, Pointer(), Service(), Address())
+                               : await Resolved(link, Pointer(), Service(), Text("path=/"));
+
+        await using var _ = browser;
+
+        var before = link.Queries.Length;
+
+        await link.Multicast(Response(Pointer()));
+
+        if (LacksText)
+            await WaitUntil(() => AskedSince(link, before, InstanceName, RawDnsType.TXT), "the question for the TXT record");
+        else
+            await WaitUntil(() => AskedSince(link, before, HostName,     RawDnsType.A),   "the question for the address");
 
     }
 
@@ -1017,6 +1116,98 @@ public sealed class MulticastBrowserConformanceTests
 
     }
 
+
+    public enum HeardAgain
+    {
+        Pointer,
+        Address,
+        Ipv6Address
+    }
+
+    /// <summary>
+    /// A record heard again says what the instance already holds. Responders repeat
+    /// themselves: RFC 6762 §8.3 announces at least twice, and every answer to a browse
+    /// query says the same as the last. A browser that took a repetition for a change
+    /// would report one where there is none.
+    /// </summary>
+    [TestCase(HeardAgain.Pointer,     TestName = "A pointer heard again is no update")]
+    [TestCase(HeardAgain.Address,     TestName = "An address heard again is no update")]
+    [TestCase(HeardAgain.Ipv6Address, TestName = "An IPv6 address heard again is no update")]
+    [Property("RFC", "6762 §8.3")]
+    public async Task A_Record_Heard_Again_Is_No_Update(HeardAgain Record)
+    {
+
+        await using var link = await Link.Start(Quiet());
+
+        var (browser, events) = await Resolved(link, Pointer(), Service(), Text("path=/"), Address(), Address6());
+
+        await using var _ = browser;
+
+        await link.Multicast(Response(Record switch {
+                                          HeardAgain.Pointer  => Pointer(),
+                                          HeardAgain.Address  => Address(),
+                                          _                   => Address6()
+                                      }));
+
+        await Task.Delay(300);
+
+        Assert.That(events.Of("updated"), Is.Empty, "the instance is what it was");
+
+    }
+
+
+    /// <summary>
+    /// A new address of a reported instance is a new place to reach the service at: an
+    /// update, for an IPv4 address as for an IPv6 one.
+    /// </summary>
+    [TestCase(false, TestName = "A new address of a reported instance is an update")]
+    [TestCase(true,  TestName = "A new IPv6 address of a reported instance is an update")]
+    [Property("RFC", "6763 §5")]
+    public async Task A_New_Address_Of_A_Reported_Instance_Is_An_Update(Boolean Ipv6)
+    {
+
+        await using var link = await Link.Start(Quiet());
+
+        var (browser, events) = await Resolved(link, Pointer(), Service(), Text("path=/"), Address("192.0.2.80"));
+
+        await using var _ = browser;
+
+        // Without the cache-flush bit: the first address stays true beside the second.
+        await link.Multicast(Response(Ipv6 ? Address6("2001:db8::81", CacheFlush: false)
+                                           : Address ("192.0.2.81",   CacheFlush: false)));
+
+        await WaitUntil(() => events.Of("updated").Length > 0, "the update");
+
+        Assert.That(browser.Instances.Single().Addresses, Has.Count.EqualTo(2), "the address it had, and the new one");
+
+    }
+
+
+    /// <summary>
+    /// Two services on the link, one of them still waiting for its SRV record. An address
+    /// of the other one's host reaches the other one.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6763 §5")]
+    public async Task An_Address_Reaches_Its_Instance_While_Another_Is_Still_Unresolved()
+    {
+
+        await using var link = await Link.Start(Quiet());
+        await using var browser = await link.Client.BrowseAsync(ServiceType);
+
+        var events = new Events(browser);
+
+        await link.Multicast(Response(Pointer("Pending._qtest._tcp.local.")));
+        await WaitUntil(() => browser.AllInstances.Count == 1, "the instance without an SRV record to be seen");
+
+        await link.Multicast(Response(Pointer(), Service(), Text("path=/")));
+        await WaitUntil(() => events.Of("added").Length == 1, "the other instance to be reported");
+
+        await link.Multicast(Response(Address("192.0.2.80")));
+        await WaitUntil(() => browser.Instances.Single().Addresses.Count == 1, "the address to reach its instance");
+
+    }
+
     #endregion
 
     #region When an instance goes (RFC 6762 §5.2, §10.1)
@@ -1103,7 +1294,8 @@ public sealed class MulticastBrowserConformanceTests
     /// local clients with an active interest in the state of that record (e.g., a
     /// network browsing window displaying a list of discovered services to the user)
     /// SHOULD reissue its query to determine whether the record is still valid." The
-    /// RFC recommends doing so at 80 % of the lifetime.
+    /// RFC recommends doing so at 80 % of the lifetime, with "a random variation of 2% of
+    /// the record TTL": at 80 to 82 %.
     /// </summary>
     [Test]
     [Property("RFC", "6762 §5.2")]
@@ -1127,10 +1319,205 @@ public sealed class MulticastBrowserConformanceTests
 
         Assert.That(link.Queries.Skip(before), Is.Empty, "three quarters of the lifetime is not yet the time to ask");
 
-        clock.Advance(TimeSpan.FromSeconds(6));
+        // 83 seconds, past the end of the window of 80 to 82.
+        clock.Advance(TimeSpan.FromSeconds(8));
 
         await WaitUntil(() => link.Queries.Skip(before).Any(packet => RawDnsReader.Parse(packet.Wire).Questions.Any(question => question.Type == RawDnsType.PTR)),
                         "the refresh query", 3000);
+
+    }
+
+
+    /// <summary>
+    /// §5.2 plans the queries that keep a record alive at 80, 85, 90 and 95 % of its
+    /// lifetime, each with "a random variation of 2% of the record TTL". The one at 80 %
+    /// is one query, and is not sent again on every tick until the record is heard.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §5.2")]
+    public async Task The_Query_At_Eighty_Percent_Is_Not_Repeated_Before_Eighty_Five()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(QuietAndQuick(), clock);
+
+        var (browser, _) = await Resolved(link, Pointer(Ttl: 100), Service(Ttl: 1000), Text("path=/"), Address(Ttl: 1000));
+
+        await using var _ = browser;
+
+        var before = link.BrowseQueries.Length;
+
+        clock.Advance(TimeSpan.FromSeconds(83));
+
+        await WaitUntil(() => link.BrowseQueries.Length > before, "the query at 80 %");
+        await Task.Delay(500);
+
+        Assert.That(link.BrowseQueries.Length - before, Is.EqualTo(1), "ten maintenance ticks at 83 %, and one query");
+
+    }
+
+
+    /// <summary>
+    /// Finding 95. §5.2: "The querier should plan to issue a query at 80% of the record
+    /// lifetime, and then if no answer is received, at 85%, 90%, and 95%", each with "a
+    /// random variation of 2% of the record TTL", so "at 80-82%, 85-87%, 90-92%, and then
+    /// 95-97% of the TTL". A pointer nobody answers for again is asked for four times, one
+    /// more past the end of each window.
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §5.2")]
+    public async Task An_Unanswered_Query_At_Eighty_Percent_Is_Followed_By_Three_More()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(QuietAndQuick(), clock);
+
+        var (browser, _) = await Resolved(link, Pointer(Ttl: 100), Service(Ttl: 1000), Text("path=/"), Address(Ttl: 1000));
+
+        await using var _ = browser;
+
+        var before = link.BrowseQueries.Length;
+        var asked  = new List<Int32>();
+
+        // To 83, 88, 93 and 98 seconds of the pointer's hundred.
+        foreach (var step in new[] { 83, 5, 5, 5 })
+        {
+
+            clock.Advance(TimeSpan.FromSeconds(step));
+
+            var deadline = DateTime.UtcNow.AddSeconds(1.5);
+            while (link.BrowseQueries.Length - before <= asked.Count && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+
+            await Task.Delay(200);
+
+            asked.Add(link.BrowseQueries.Length - before);
+
+        }
+
+        Assert.That(asked, Is.EqualTo(new[] { 1, 2, 3, 4 }),
+                    "§5.2: queries at 80-82 %, 85-87 %, 90-92 % and 95-97 %, counted at 83, 88, 93 and 98 seconds");
+
+    }
+
+
+    /// <summary>
+    /// An address that expires is the address of one host. The instances on that host
+    /// lose it, and are updated and asked about again. An instance on another host is
+    /// neither.
+    /// </summary>
+    [TestCase(false, TestName = "An address that expires changes only the instances on its host")]
+    [TestCase(true,  TestName = "An IPv6 address that expires changes only the instances on its host")]
+    [Property("RFC", "6762 §5.2, 6763 §5")]
+    public async Task An_Address_That_Expires_Changes_Only_The_Instances_On_Its_Host(Boolean Ipv6)
+    {
+
+        const String Garden      = "Garden._qtest._tcp.local.";
+        const String GardenHost  = "garden-host.local.";
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(QuietAndQuick(), clock);
+        await using var browser = await link.Client.BrowseAsync(ServiceType);
+
+        var events = new Events(browser);
+
+        await link.Multicast(Response(Pointer(Ttl: 1000),
+                                      Service(Ttl: 1000),
+                                      Text("path=/"),
+                                      Ipv6 ? Address6(Ttl: 10) : Address(Ttl: 10),
+                                      Pointer(Garden, Ttl: 1000),
+                                      Service(Name: Garden, Target: GardenHost, Ttl: 1000),
+                                      new Rr(Garden, RawDnsType.TXT, 4500, [ 6, .. "path=/"u8 ], true),
+                                      Ipv6 ? Address6("2001:db8::90", Name: GardenHost, Ttl: 1000)
+                                           : Address ("192.0.2.90",   Name: GardenHost, Ttl: 1000)));
+
+        await WaitUntil(() => events.Of("added").Length == 2, "both instances to be reported");
+        await Task.Delay(200);
+
+        var before = link.Queries.Length;
+        var type   = Ipv6 ? RawDnsType.AAAA : RawDnsType.A;
+
+        clock.Advance(TimeSpan.FromSeconds(11));
+
+        await WaitUntil(() => events.Of("updated").Length > 0, "the update");
+        await Task.Delay(300);
+
+        Assert.Multiple(() => {
+            Assert.That(events.Of("updated").Select(update => update.Instance.InstanceName.FullName.TrimEnd('.')),
+                        Is.EqualTo(new[] { InstanceName.TrimEnd('.') }), "the instance on the host whose address expired, and no other");
+            Assert.That(AskedSince(link, before, HostName,   type), Is.True,  "its host is asked about again");
+            Assert.That(AskedSince(link, before, GardenHost, type), Is.False, "the other host is not");
+        });
+
+    }
+
+
+    /// <summary>
+    /// An instance whose SRV record never came was never reported. When its pointer
+    /// expires it goes as it came, without a report: a removal is the counterpart of an
+    /// addition the browser reported.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §5.2")]
+    public async Task An_Instance_That_Was_Never_Reported_Goes_Without_A_Report()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(QuietAndQuick(), clock);
+        await using var browser = await link.Client.BrowseAsync(ServiceType);
+
+        var events = new Events(browser);
+
+        await link.Multicast(Response(Pointer(Ttl: 10)));
+        await WaitUntil(() => browser.AllInstances.Count == 1, "the instance to be seen");
+
+        clock.Advance(TimeSpan.FromSeconds(11));
+
+        await WaitUntil(() => browser.AllInstances.Count == 0, "the instance to go");
+        await Task.Delay(300);
+
+        Assert.That(events.Of("added").Concat(events.Of("removed")), Is.Empty, "neither its coming nor its going was reported");
+
+    }
+
+
+    /// <summary>
+    /// An instance whose pointer has left the cache without expiring, because the cache
+    /// was cleared, cannot go with its expiry. It goes once no pointer heard when it was
+    /// last seen could still be alive: the longest TTL §10 recommends is 75 minutes. It
+    /// goes with a report, and with nothing asked, since nothing is left to keep alive.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §10")]
+    public async Task An_Instance_Whose_Pointer_Was_Cleared_From_The_Cache_Goes_After_Seventy_Five_Minutes()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(QuietAndQuick(), clock);
+
+        var (browser, events) = await Resolved(link);
+
+        await using var _ = browser;
+
+        link.Client.ClearCache();
+
+        var before = link.Queries.Length;
+
+        clock.Advance(TimeSpan.FromMinutes(75) + TimeSpan.FromSeconds(1));
+
+        await WaitUntil(() => events.Of("removed").Length == 1, "the instance to be reported gone");
+        await Task.Delay(300);
+
+        Assert.Multiple(() => {
+            Assert.That(browser.AllInstances,      Is.Empty);
+            Assert.That(link.Queries.Skip(before), Is.Empty, "nothing is left to keep alive");
+        });
 
     }
 

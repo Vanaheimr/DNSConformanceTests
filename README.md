@@ -152,12 +152,29 @@ the name, heard in the delay before that probe, for a conflict. The case is
 finding 94, red at c5b4ce08 and passing from cdc03cc6 on. With it the Multicast
 project is 139 ✅ · 0 ❌, and the offline suite 1801 ✅ · 0 ❌ · 4 skips.
 
+And the tests the client's and the browser's open rows asked for (MUTATION.md,
+*The client's twenty-nine and the browser's twenty-eight*): twenty-seven cases
+and one assertion. For the client: a lookup reports an answer as authoritative,
+whole and not recursive, whatever the header said (RFC 6762 §18.4 to §18.7); the
+cache answers what it holds, and ForceUpdate asks anyway; a record is no answer
+once its TTL has run out, and is reported expired once (§5.2); §10.2 flushes
+what was received more than one second ago and lists no known answer with the
+cache-flush bit; and a goodbye costs nothing else in its packet and is no
+additional record (§10.1). For the browser: a record heard again is no update
+and draws no query, while a new address is an update; an instance is asked about
+again for what it still lacks (RFC 6763 §6); an address reaches its instance
+and, when it expires, changes only the instances on its host; an instance never
+reported goes without a report; the query at 80 % is not repeated on every tick
+(§5.2); and an instance whose pointer was cleared from the cache goes after 75
+minutes (§10). With them the Multicast project is 166 ✅ · 0 ❌, and the offline
+suite 1828 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 94 RFC deviations in Hermod. All are fixed;
+The suite has found 95 RFC deviations in Hermod. All but finding 95 are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
