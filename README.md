@@ -169,12 +169,18 @@ reported goes without a report; the query at 80 % is not repeated on every tick
 minutes (§10). With them the Multicast project is 166 ✅ · 0 ❌, and the offline
 suite 1828 ✅ · 0 ❌ · 4 skips.
 
+And the case those tests found: RFC 6762 §5.2 plans the queries that keep a
+record alive at 80, 85, 90 and 95 % of its lifetime, each with a random
+variation of 2 %, and Hermod's browser asked once, at 80 % exactly. The case is
+finding 95, red at cdc03cc6 and passing from 3050ab75 on. With it the Multicast
+project is 167 ✅ · 0 ❌, and the offline suite 1829 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 95 RFC deviations in Hermod. All but finding 95 are fixed;
+The suite has found 95 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
