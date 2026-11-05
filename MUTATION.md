@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **214 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **186 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -130,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 236 | **214** | 83 |
+| `multicast` | 236 | **186** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -669,6 +669,76 @@ reached it, red there.
 
 That leaves **214 open**. Seven were the client's, seven the browser's and one
 the message's; the other seven files hold what they held.
+
+### The responder's thirty-seven
+
+The second round is for `MulticastDNSResponder.cs`, whose 37 rows were open at
+both measurements, on the same text. Every test in the block's first measurement
+was about the responder, and still none of them had called `UpdateAsync`, heard a
+response before the first probe, asked from off the link, or looked at when an
+answer goes out. Twenty-one cases were written, and each of the 37 mutants was
+then planted on its own at `c5b4ce08`, under the Multicast project's 138 tests.
+The line numbers here are the sweep's; at `c5b4ce08` those after 965 sit two lines
+further down, and those after 1510 five.
+
+**Twenty-two die.**
+
+| rows | test | what it asks |
+|---|---|---|
+| `:199`, `:598`, `:599`, `:1030` | `A_Response_Heard_While_Probing_Counts_From_The_First_Probe_On` | §8.1: from the first probe on, a record of any type at the name is a conflict, and before it a record of another type is nothing |
+| `:573`, both | `A_Publication_Of_Shared_Records_Only_Is_Not_Probed` | §8.1: probing is for records that are to be unique |
+| `:690` | `A_Publication_Withdrawn_While_Probing_Says_No_Goodbye` | §10.1: records never announced get no goodbye |
+| `:720`, `:753` | `A_Changed_Address_Is_Announced_As_Often_As_The_First_And_Without_A_Goodbye` | §8.4: an update repeats the announcing step, with the cache-flush bit |
+| `:746` | `A_Shared_Record_Taken_Out_Gets_A_Goodbye_Before_The_Rest_Is_Announced` | §8.4: a shared record's old rdata gets a goodbye first |
+| `:790` | `Only_A_Unicast_Query_From_The_Local_Link_Is_Answered` | §5.5: a unicast query from off the link is ignored |
+| `:791` | `A_Query_With_A_Nonzero_Opcode_Or_Rcode_Is_Ignored` | §18.3, §18.11 |
+| `:843`, `:868` | `Only_An_Answer_From_A_Shared_Record_Set_Waits` | §6: a unique answer goes out at once, a shared one waits 20 to 120 ms |
+| `:848`'s second `!=`, `:889`'s | `A_Question_Of_Class_Any_Is_Answered_As_One_Of_Class_In` | QCLASS 255, answered and given an NSEC as class IN would be |
+| `:912` | `A_Negative_Answer_Goes_Where_The_Question_Asked` | §5.4: a negative answer to a QM question is multicast |
+| `:1139`, `:1145` | `A_Record_May_Be_Multicast_Again_Exactly_One_Second_Later` | §6: at one second, at least one second has elapsed, for the answer and its additional record |
+| `:1353`'s `\|\|` | `Records_Too_Many_For_One_Packet_Are_Announced_In_Several` | §17: no packet larger than the MTU holds more than one record |
+| `:1353`'s second and third `>` | `A_Record_Too_Large_For_A_Packet_Is_Announced_Alone` | §17: a record too large for a packet goes alone, with no empty packet beside it |
+
+`UpdateAsync` had no test at all: five of the rows were in it, and three of them
+die now. The probing tests run on the test's clock with the delay before the first
+probe fixed at 100 ms, which is what gives "before the first probe" a moment to
+happen in. Their third case is **finding 94**: another address for the name,
+heard in that moment, costs Hermod the name, where §8.1 says "Apparently
+conflicting Multicast DNS responses received *before* the first probe packet is
+sent MUST be silently ignored". It is not in this round. Its tracker comes with
+the finding.
+
+**Six are equivalent**, each with its argument in the ledger. `:750` hands an
+update's goodbye an empty list, for which `Split` yields no packet. `:986` differs
+only where two probes' records compare equal, which the check above it has already
+let go as identical. `:1164` differs where a TTL equals the legacy cap, and then
+sets the override to the TTL the record has. Both of `:1377` yield an empty packet
+only where `Split` was handed nothing, and no caller hands it nothing. `:1503` is
+`RandomDelay`'s `Max <= Min`, Min either way.
+
+**Nine stay open**, because the RFC does not decide them:
+
+- `:453` and `:456` refuse a probe count or an announcement count of one. The RFC
+  asks for three probes and at least two announcements, so both configurations
+  are outside it.
+- `:579` waits on a zero delay before the first probe. That differs only for a
+  publication cancelled before that probe: the in-memory link still delivers what
+  is sent with a cancelled token, and UDP's send lock refuses it.
+- `:624` and `:756` wait a full announcement interval before the first
+  announcement, after probing or of an update. §8.3 asks for at least two "one
+  second apart", and says nothing of when the first goes out.
+- `:888` lets a query for type NSEC draw a synthesized NSEC. §6.1 does not say
+  what such a query should draw.
+- `:1292` adds every record of a type, or every record at a name, to the
+  additional records. RFC 6763 §12 says what to include, not what to leave out.
+- `:1353`'s first `>` splits where `Split`'s estimate fills a packet exactly. The
+  estimate counts names uncompressed, and §17 holds either way.
+- `:1528`, `isDisposed = true`, lets a disposed responder be started again. That
+  is .NET's contract, not the RFC's.
+
+That leaves **186 open**: 214 less the 22 killed and the 6 equivalent. The
+responder holds the nine above; `UDPMulticastDNSTransport.cs` still holds its
+sixty.
 
 ### What the first measurement's chapter now is
 

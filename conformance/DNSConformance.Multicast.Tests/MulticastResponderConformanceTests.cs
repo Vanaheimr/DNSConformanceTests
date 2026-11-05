@@ -787,6 +787,261 @@ public sealed class MulticastResponderConformanceTests
 
     }
 
+
+    /// <summary>
+    /// §6: "a Multicast DNS responder MUST NOT (except in the one special case of answering
+    /// probe queries) multicast a record on a given interface until at least one second
+    /// has elapsed since the last time that record was multicast on that particular
+    /// interface." One second after the announcement it has, for the answer and for the
+    /// address that comes with it as an additional record alike.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §6")]
+    public async Task A_Record_May_Be_Multicast_Again_Exactly_One_Second_Later()
+    {
+
+        var clock              = new SteppedClock();
+        var network            = new InMemoryMulticastDNSNetwork();
+        var responderTransport = network.CreateTransport();
+        var querierTransport   = network.CreateTransport();
+        var capture            = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(
+                                        responderTransport,
+                                        FastOptions(TimeSpan.FromSeconds(1)),
+                                        clock
+                                    );
+
+        await responder.StartAsync();
+        await querierTransport.StartAsync();
+
+        // Both announced at the same moment on this clock, which stands still while they are.
+        await responder.PublishAsync([ new SRV(DNSServiceName.Parse("Again._wiretest._tcp.local."),
+                                               DNSQueryClasses.IN, TimeSpan.FromSeconds(120), 0, 0, IPPort.Parse(8053), Host),
+                                       .. HostRecords() ],
+                                     Probe: false);
+        capture.Clear();
+
+        clock.Advance(TimeSpan.FromMilliseconds(999));
+        await querierTransport.SendAsync(Query("Again._wiretest._tcp.local.", RawDnsType.SRV));
+        var early = capture.ResponsesFrom(responderTransport);
+
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await querierTransport.SendAsync(Query("Again._wiretest._tcp.local.", RawDnsType.SRV));
+        var response = capture.ResponsesFrom(responderTransport).SingleOrDefault();
+
+        Assert.Multiple(() => {
+
+            Assert.That(early, Is.Empty, "§6: within the second, the record is not multicast again");
+
+            Assert.That(response?.Answers.Select(record => record.Type),   Is.EqualTo(new[] { RawDnsType.SRV }),
+                        "§6: at one second, at least one second has elapsed");
+
+            Assert.That(response?.Additionals.Select(record => record.Type), Does.Contain(RawDnsType.A),
+                        "§6: and so it has for the address announced beside it");
+
+        });
+
+    }
+
+    #endregion
+
+
+    #region Which queries are answered, and how (RFC 6762 §5.5, §6, §18)
+
+    /// <summary>
+    /// §5.5: "Since it is possible for a unicast query to be received from a machine outside
+    /// the local link, responders SHOULD check that the source address in the query packet
+    /// matches the local subnet for that link (or, in the case of IPv6, the source address
+    /// has an on-link prefix) and silently ignore the packet if not."
+    /// </summary>
+    [TestCase(true,  TestName = "A unicast query from the local link is answered")]
+    [TestCase(false, TestName = "A unicast query from off the local link is ignored")]
+    [Property("RFC", "6762 §5.5")]
+    public async Task Only_A_Unicast_Query_From_The_Local_Link_Is_Answered(Boolean OnLink)
+    {
+
+        var network            = new InMemoryMulticastDNSNetwork();
+        var responderTransport = network.CreateTransport();
+        var querierTransport   = network.CreateTransport();
+        var capture            = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(responderTransport, FastOptions());
+
+        await responder.StartAsync();
+        await responder.PublishAsync(HostRecords(), Probe: false);
+        capture.Clear();
+
+        await responderTransport.InjectAsync(Query("wire-host.local.", RawDnsType.A),
+                                             new IPSocket(querierTransport.Address, MulticastDNS.Port),
+                                             default,
+                                             responderTransport.Address,
+                                             SourceIsOnLocalLink: OnLink);
+
+        Assert.That(capture.ResponsesFrom(responderTransport), OnLink ? (NUnit.Framework.Constraints.IResolveConstraint) Has.Length.EqualTo(1) : Is.Empty,
+                    OnLink ? "a query from the local link is answered"
+                           : "§5.5: a unicast query from off the link SHOULD be silently ignored");
+
+    }
+
+
+    /// <summary>
+    /// §18.3: "Multicast DNS messages received with an OPCODE other than zero MUST be
+    /// silently ignored." §18.11: "Multicast DNS messages received with non-zero Response
+    /// Codes MUST be silently ignored."
+    /// </summary>
+    [TestCase((UInt16) (4 << 11), TestName = "A query with opcode NOTIFY is ignored")]
+    [TestCase((UInt16) (5 << 11), TestName = "A query with opcode UPDATE is ignored")]
+    [TestCase((UInt16) 2,         TestName = "A query with rcode SERVFAIL is ignored")]
+    [TestCase((UInt16) 3,         TestName = "A query with rcode NXDOMAIN is ignored")]
+    [Property("RFC", "6762 §18.3, §18.11")]
+    public async Task A_Query_With_A_Nonzero_Opcode_Or_Rcode_Is_Ignored(UInt16 Flags)
+    {
+
+        var responses = await AnswersTo(new RawDnsWriter().
+                                            Header(0, Flags, 1, 0, 0, 0).
+                                            Question("wire-host.local.", RawDnsType.A).
+                                            ToArray());
+
+        Assert.That(responses, Is.Empty, "§18.3, §18.11: MUST be silently ignored");
+
+    }
+
+
+    /// <summary>
+    /// RFC 1035 §3.2.5 lists QCLASS 255 as "any class". A question of that class for a
+    /// name and type the responder has in class IN is answered as one of class IN would
+    /// be, and so is one for a type the name lacks, with RFC 6762 §6.1's NSEC.
+    /// </summary>
+    [TestCase(RawDnsType.A,    RawDnsType.A,    TestName = "A question of class ANY is answered")]
+    [TestCase(RawDnsType.AAAA, RawDnsType.NSEC, TestName = "A question of class ANY for a missing type draws an NSEC")]
+    [Property("RFC", "1035 §3.2.5, 6762 §6.1")]
+    public async Task A_Question_Of_Class_Any_Is_Answered_As_One_Of_Class_In(UInt16 Asked, UInt16 Answered)
+    {
+
+        var responses = await AnswersTo(new RawDnsWriter().
+                                            Header(0, 0, 1, 0, 0, 0).
+                                            Question("wire-host.local.", Asked, 255).
+                                            ToArray());
+
+        Assert.That(responses.SelectMany(response => response.Answers).Select(record => record.Type),
+                    Is.EqualTo(new[] { Answered }));
+
+    }
+
+
+    /// <summary>
+    /// §5.4: "Sending Multicast DNS responses via multicast has the benefit that all the
+    /// other hosts on the network get to see those responses". A question without the
+    /// unicast-response bit gets its answer by multicast, and a negative answer (§6.1) is
+    /// an answer. With the bit set, it comes straight back.
+    /// </summary>
+    [TestCase(false, TestName = "A negative answer to a QM question is multicast")]
+    [TestCase(true,  TestName = "A negative answer to a QU question is unicast")]
+    [Property("RFC", "6762 §5.4, §6.1")]
+    public async Task A_Negative_Answer_Goes_Where_The_Question_Asked(Boolean UnicastResponse)
+    {
+
+        var network            = new InMemoryMulticastDNSNetwork();
+        var responderTransport = network.CreateTransport();
+        var querierTransport   = network.CreateTransport();
+        var capture            = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(responderTransport, FastOptions());
+
+        await responder.StartAsync();
+        await querierTransport.StartAsync();
+        await responder.PublishAsync(HostRecords(), Probe: false);
+        capture.Clear();
+
+        await querierTransport.SendAsync(Query("wire-host.local.", RawDnsType.AAAA, UnicastResponse));
+
+        var sent = capture.From(responderTransport).Single();
+
+        Assert.Multiple(() => {
+            Assert.That(RawDnsReader.Parse(sent.Wire).Answers.Single().Type, Is.EqualTo(RawDnsType.NSEC));
+            Assert.That(sent.Destination, UnicastResponse ? (NUnit.Framework.Constraints.IResolveConstraint) Is.Not.Null : Is.Null,
+                        UnicastResponse ? "§5.4: a QU question's answer comes straight back"
+                                        : "§5.4: a QM question's answer is multicast");
+        });
+
+    }
+
+
+    /// <summary>
+    /// §6: "Responding without delay is appropriate for records like the address record for
+    /// a particular host name, when the host name has been previously verified unique.
+    /// Responding without delay is *not* appropriate for things like looking up PTR
+    /// records used for DNS-Based Service Discovery", and "each responder SHOULD delay its
+    /// response by a random amount of time selected with uniform random distribution in
+    /// the range 20-120 ms."
+    /// </summary>
+    /// <remarks>
+    /// On the test's clock, so that a delay is a wait the responder starts and the test
+    /// runs out, and no delay is a response that is there before the clock moves.
+    /// </remarks>
+    [TestCase(false, TestName = "An answer from a unique record set goes out at once")]
+    [TestCase(true,  TestName = "An answer from a shared record set waits 20 to 120 ms")]
+    [Property("RFC", "6762 §6")]
+    public async Task Only_An_Answer_From_A_Shared_Record_Set_Waits(Boolean Shared)
+    {
+
+        var clock              = new ManualClock();
+        var network            = new InMemoryMulticastDNSNetwork();
+        var responderTransport = network.CreateTransport();
+        var querierTransport   = network.CreateTransport();
+        var capture            = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(responderTransport,
+                                                              new MulticastDNSResponderOptions {
+                                                                  MinRecordMulticastInterval  = TimeSpan.Zero
+                                                              },
+                                                              clock);
+
+        await responder.StartAsync();
+        await querierTransport.StartAsync();
+
+        var publishing = responder.PublishAsync([ .. HostRecords(),
+                                                  new PTR(DNSServiceName.Parse("_wiretest._tcp.local."),
+                                                          DNSQueryClasses.IN,
+                                                          TimeSpan.FromSeconds(4500),
+                                                          DNSServiceName.Parse("Delayed._wiretest._tcp.local.")) ],
+                                                Probe: false);
+
+        while (await clock.NextWait(Until: publishing) is TimeSpan due)
+            clock.AdvanceTo(due);
+
+        await publishing;
+        capture.Clear();
+
+        var asked = clock.Elapsed;
+
+        await querierTransport.SendAsync(Shared ? Query("_wiretest._tcp.local.", RawDnsType.PTR)
+                                                : Query("wire-host.local.",      RawDnsType.A));
+
+        var atOnce = capture.ResponsesFrom(responderTransport).Length;
+
+        if (Shared)
+        {
+            clock.AdvanceTo((await clock.NextWait())!.Value);
+            for (var polls = 0; capture.ResponsesFrom(responderTransport).Length == 0 && polls < 1000; polls++)
+                await Task.Delay(5);
+        }
+
+        Assert.Multiple(() => {
+
+            Assert.That(atOnce, Is.EqualTo(Shared ? 0 : 1),
+                        Shared ? "§6: an answer from a shared record set is not sent at once"
+                               : "§6: an answer from a unique record set is sent without delay");
+
+            if (Shared)
+                Assert.That(clock.Elapsed - asked, Is.InRange(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(120)),
+                            "§6: a random delay in the range 20-120 ms");
+
+        });
+
+    }
+
     #endregion
 
 }
