@@ -297,6 +297,102 @@ public sealed class MulticastConflictConformanceTests
     #endregion
 
 
+    #region A response heard while probing (RFC 6762 §8.1)
+
+    public enum Moment
+    {
+        BeforeTheFirstProbe,
+        AfterTheFirstProbe
+    }
+
+    public enum Heard
+    {
+        AnotherType,
+        AnotherAddress
+    }
+
+    /// <summary>
+    /// A responder probing for 192.0.2.10 at contested.local., on the test's clock, which
+    /// hears another host's response at the given moment of its probing.
+    /// </summary>
+    /// <remarks>
+    /// The delay before the first probe is fixed at 100 ms of the 0-250 ms §8.1 allows,
+    /// so that there is a moment before the first probe to hear something in.
+    /// </remarks>
+    private static async Task<MulticastDNSPublicationState> ProbingHears(Heard   What,
+                                                                         Moment  When)
+    {
+
+        var clock    = new ManualClock();
+        var network  = new InMemoryMulticastDNSNetwork();
+        var ours     = network.CreateTransport();
+        var theirs   = network.CreateTransport();
+        var capture  = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(ours,
+                                                              new MulticastDNSResponderOptions {
+                                                                  MinInitialProbeDelay  = TimeSpan.FromMilliseconds(100),
+                                                                  MaxInitialProbeDelay  = TimeSpan.FromMilliseconds(100)
+                                                              },
+                                                              clock);
+
+        await responder.StartAsync();
+        await theirs.StartAsync();
+
+        var publishing  = responder.PublishAsync(OurRecords());
+        var due         = (await clock.NextWait(Until: publishing))!.Value;
+
+        if (When == Moment.AfterTheFirstProbe)
+        {
+            clock.AdvanceTo(due);
+            await clock.NextWait(Until: publishing);
+        }
+
+        Assert.That(capture.From(ours).Count(message => !message.QR), Is.EqualTo(When == Moment.AfterTheFirstProbe ? 1 : 0),
+                    "the probes out when the other host's response arrives");
+
+        await theirs.SendAsync(What == Heard.AnotherType
+                                   ? new RawDnsWriter().
+                                         Header(0, (UInt16) (RawDnsFlags.QR | RawDnsFlags.AA), 0, 1, 0, 0).
+                                         RR("contested.local.", RawDnsType.TXT, (UInt16) (RawDnsClass.IN | 0x8000), 4500, [ 5, .. "one=1"u8 ]).
+                                         ToArray()
+                                   : ResponseAsserting("192.0.2.99"));
+
+        while (await clock.NextWait(Until: publishing) is TimeSpan next)
+            clock.AdvanceTo(next);
+
+        return (await publishing).State;
+
+    }
+
+
+    /// <summary>
+    /// §8.1: "During probing, from the time the first probe packet is sent until 250 ms
+    /// after the third probe, if any conflicting Multicast DNS response is received, then
+    /// the probing host MUST defer to the existing host", and for a probe of type ANY "any
+    /// answer containing a record with that name, of any type, MUST be considered a
+    /// conflicting response". And before that time: "Apparently conflicting Multicast DNS
+    /// responses received *before* the first probe packet is sent MUST be silently
+    /// ignored".
+    /// </summary>
+    [TestCase(Heard.AnotherType,     Moment.AfterTheFirstProbe,  MulticastDNSPublicationState.Conflict,  TestName = "After the first probe, a record of any type at the name is a conflict")]
+    [TestCase(Heard.AnotherType,     Moment.BeforeTheFirstProbe, MulticastDNSPublicationState.Published, TestName = "Before the first probe, a record of another type at the name is ignored")]
+    [Property("RFC", "6762 §8.1")]
+    public async Task A_Response_Heard_While_Probing_Counts_From_The_First_Probe_On(Heard                         What,
+                                                                                   Moment                        When,
+                                                                                   MulticastDNSPublicationState  Expected)
+    {
+
+        Assert.That(await ProbingHears(What, When), Is.EqualTo(Expected),
+                    When == Moment.AfterTheFirstProbe
+                        ? "§8.1: any answer with the probed name, of any type, MUST be considered conflicting"
+                        : "§8.1: responses received before the first probe packet is sent MUST be silently ignored");
+
+    }
+
+    #endregion
+
+
     #region Conflicts after the name has been taken (RFC 6762 §9)
 
     /// <summary>Publish the contested name without probing, then let somebody else assert something.</summary>

@@ -1566,6 +1566,39 @@ MULTICAST_KILLED = {
         },
     },
 
+    # The responder, which every test in the block's first measurement was about and
+    # which still had 37 rows open. Line numbers are the sweep's; at c5b4ce08 those
+    # after 965 sit two lines further down, and those after 1510 five.
+    #
+    # §8.1: from the first probe on, a record of any type at the name is a conflict,
+    # and before it a record of another type is nothing (199, 598, 599, 1030). A
+    # publication of shared records only is not probed (573, both). §10.1: one
+    # withdrawn while probing says no goodbye (690). §8.4: an update is announced as
+    # often as the first announcement (720, 753), and a shared record taken out gets
+    # a goodbye first (746). §5.5: a unicast query from off the link is ignored
+    # (790); §18.3 and §18.11: so is one with a nonzero opcode or rcode (791). §6: an
+    # answer from a unique record set goes out at once (843), one from a shared set
+    # waits 20 to 120 ms (868), and a record may be multicast again at one second,
+    # answer and additional alike (1139, 1145). A question of class ANY is answered,
+    # and draws an NSEC for a missing type (848, 889). A negative answer to a QM
+    # question is multicast (912). §17: answers too many for one packet are split
+    # (1353's ||), and a record too large for one goes alone, with no empty packet
+    # beside it (1353's second and third >).
+    #
+    # Each was planted on its own at c5b4ce08, under the Multicast project's 138
+    # tests, and each failed one of the new ones.
+    "the-responder-asked-and-on-its-own": {
+        "DNS/Multicast/MulticastDNSResponder.cs": {
+            (199, "inequality-to-equality"), (573, "logical-and-to-or"), (598, "equality-to-inequality"),
+            (599, "true-to-false"), (690, "logical-and-to-or"), (720, "equality-to-inequality"),
+            (746, "logical-or-to-and"), (753, "less-to-less-or-equal"), (790, "logical-or-to-and"),
+            (791, "logical-or-to-and"), (843, "false-to-true"), (848, "inequality-to-equality", 1),
+            (868, "true-to-false"), (889, "inequality-to-equality", 1), (912, "false-to-true"),
+            (1030, "equality-to-inequality"), (1139, "ge-to-greater"), (1145, "ge-to-greater"),
+            (1353, "logical-or-to-and"), (1353, "greater-to-ge", 1), (1353, "greater-to-ge", 2),
+        },
+    },
+
 }
 
 MULTICAST_EQUIVALENT = {
@@ -1639,6 +1672,41 @@ MULTICAST_EQUIVALENT = {
             "loops at 571 and 848, discard the result. At 0f595ac4 the key folded É to é, and "
             "two instance names that differ in its case reached the line; the planted mutant "
             "survives the Multicast project's 117 tests at c5b4ce08",
+
+    },
+
+    # Line numbers are the sweep's, as above; at c5b4ce08 those after 965 sit two
+    # lines further down, and those after 1510 five.
+    "DNS/Multicast/MulticastDNSResponder.cs": {
+
+        (750, "greater-to-ge"): "if (goodbyeRecords.Length > 0) before an update's goodbye, with "
+            ">=. With nothing to say goodbye to, the mutant calls SendGoodbyeAsync with an empty "
+            "list, and Split yields no packet for it: the loop has nothing to run over, and the "
+            "last yield asks packetAnswers.Count > 0 || packetAdditionals.Count > 0, which two "
+            "empty lists answer with no. Nothing awaits on the way, so no cancellation can tell "
+            "either",
+
+        (986, "less-to-less-or-equal"): "ours.CompareLexicographically(theirs) < 0 in §8.2's tie-break, "
+            "with <=. They differ where the two sets compare equal: as many records, and pairwise "
+            "the same class, type and rdata. Both sets are of one name, the group's, so each of "
+            "theirs is then identical to one of ours, and the check just above it has already "
+            "gone on to the next name for exactly that case",
+
+        (1164, "greater-to-ge"): "Record.TimeToLive > ttlOverride.Value, the legacy unicast cap "
+            "of §6.7, with >=. They differ where a record's TTL equals the cap, ten seconds, and "
+            "then the override the mutant sets is the TTL the record has. The wire carries the "
+            "same ten either way",
+
+        1377: "packetAnswers.Count > 0 || packetAdditionals.Count > 0, Split's last yield, with "
+              ">= in either place. The mutant yields where both lists are empty, and they are "
+              "empty there only when Split was handed two empty lists. No caller hands it any: "
+              "PublishAsync and UpdateAsync refuse a publication without records, the query path "
+              "returns before it when it has no answers and again when the rate limit leaves "
+              "none, and an update's goodbye is sent only when it has records (750)",
+
+        1503: "if (Max <= Min) return Min in RandomDelay, with <. They differ where the two are "
+              "equal, and the mutant then returns Min plus a random share of a zero difference: "
+              "Min either way. The draw comes from Random.Shared, which is not seeded",
 
     },
 

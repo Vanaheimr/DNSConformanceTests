@@ -129,6 +129,23 @@ record that empties or fills, change about an instance (RFC 6763 §5, §6.1). On
 assertion more says a probe sets no TC bit (§18.5). With them the Multicast
 project is 117 ✅ · 0 ❌, and the offline suite 1779 ✅ · 0 ❌ · 4 skips.
 
+And the tests the responder's open rows asked for (MUTATION.md, *The
+responder's thirty-seven*): twenty-one cases. Two say from when a response heard
+while probing counts: from the first probe on, a record of any type at the name
+is a conflict, and before it a record of another type is ignored (RFC 6762
+§8.1). Six what the responder sends as it publishes, changes and withdraws: no
+probe for shared records alone, no goodbye for a publication withdrawn while
+probing, a changed address announced as often as the first, a goodbye for a
+shared record taken out, and announcements split across packets, with a record
+too large for any packet sent alone (§8.1, §8.3, §8.4, §10.1, §17). Twelve which
+queries are answered, and how: a unicast query only from the local link (§5.5,
+§11), none with a nonzero opcode or rcode (§18.3, §18.11), a question of class
+ANY as one of class IN (RFC 1035 §3.2.5), a negative answer where the question
+asked for it (§5.4, §6.1), and only an answer from a shared record set after a
+delay (§6). And one says a record may be multicast again exactly one second
+later (§6). With them the Multicast project is 138 ✅ · 0 ❌, and the offline
+suite 1800 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

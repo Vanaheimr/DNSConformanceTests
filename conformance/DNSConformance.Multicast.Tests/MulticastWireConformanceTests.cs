@@ -255,4 +255,240 @@ public sealed class MulticastWireConformanceTests
         });
     }
 
+
+    private static readonly DNSServiceName WireServiceType = DNSServiceName.Parse("_wiretest._tcp.local.");
+
+    private static PTR Pointer(String Instance)
+        => new (WireServiceType, DNSQueryClasses.IN, TimeSpan.FromSeconds(4500), DNSServiceName.Parse($"{Instance}._wiretest._tcp.local."));
+
+    /// <summary>The instance a PTR record names, read with the suite's decoder.</summary>
+    private static String PointerTarget(RawDnsMessage Message, RawRecord Record)
+        => RawDnsReader.ReadNameAt(Message.Wire, Record.RdataOffset).Name.Canonical;
+
+    private static RawDnsMessage[] Responses(PacketCapture Capture, InMemoryMulticastDNSTransport Transport)
+        => [.. Capture.From(Transport).Select(packet => RawDnsReader.Parse(packet.Wire)).Where(message => message.QR)];
+
+
+    /// <summary>
+    /// §8.1: "for all those resource records that a Multicast DNS responder desires to be
+    /// unique on the local link, it MUST send a Multicast DNS query asking for those
+    /// resource records, to see if any of them are already in use". A publication of
+    /// shared records only has nothing to probe for, and goes on to announce them.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.1, §8.3")]
+    public async Task A_Publication_Of_Shared_Records_Only_Is_Not_Probed()
+    {
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport, FastOptions());
+        await responder.StartAsync();
+
+        var publication  = await responder.PublishAsync([ Pointer("Shared") ]);
+        var messages     = capture.From(transport).Select(packet => RawDnsReader.Parse(packet.Wire)).ToArray();
+
+        Assert.Multiple(() => {
+            Assert.That(publication.State, Is.EqualTo(MulticastDNSPublicationState.Published));
+            Assert.That(messages.Where(message => !message.QR), Is.Empty,
+                        "§8.1: probing is for the records that are to be unique");
+            Assert.That(messages.Count(message => message.QR), Is.EqualTo(2),
+                        "§8.3: the shared record is announced");
+        });
+    }
+
+
+    /// <summary>
+    /// §10.1: a goodbye is for "resource record data [that] is about to become invalid",
+    /// and gives "the same resource record name, rrtype, rrclass, and rdata, but an RR TTL
+    /// of zero". Records still being probed for were never announced, and may be another
+    /// host's as well, rdata and all: a goodbye for them would delete that host's records
+    /// from every cache on the link.
+    /// </summary>
+    /// <remarks>
+    /// On the test's clock, with the delay before the first probe fixed at 100 ms.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "6762 §10.1")]
+    public async Task A_Publication_Withdrawn_While_Probing_Says_No_Goodbye()
+    {
+        var clock      = new ManualClock();
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport,
+                                                              new MulticastDNSResponderOptions {
+                                                                  MinInitialProbeDelay  = TimeSpan.FromMilliseconds(100),
+                                                                  MaxInitialProbeDelay  = TimeSpan.FromMilliseconds(100)
+                                                              },
+                                                              clock);
+        await responder.StartAsync();
+
+        var publishing = responder.PublishAsync(ServiceRecords());
+
+        clock.AdvanceTo((await clock.NextWait(Until: publishing))!.Value);
+        await clock.NextWait(Until: publishing);
+
+        Assert.That(capture.From(transport), Has.Length.EqualTo(1), "the first probe is out");
+
+        await responder.WithdrawAsync(responder.Publications.Single());
+
+        while (await clock.NextWait(Until: publishing) is TimeSpan due)
+            clock.AdvanceTo(due);
+
+        var publication = await publishing;
+
+        Assert.Multiple(() => {
+            Assert.That(publication.State, Is.EqualTo(MulticastDNSPublicationState.Withdrawn));
+            Assert.That(Responses(capture, transport), Is.Empty,
+                        "§10.1: nothing was announced, so there is nothing to say goodbye to");
+        });
+    }
+
+
+    /// <summary>
+    /// §8.4: "if the rdata of any of a host's Multicast DNS records changes, the host MUST
+    /// repeat the Announcing step described above to update neighboring caches". And "In
+    /// the case of unique records, a host SHOULD omit the "goodbye" announcement, since
+    /// the cache-flush bit on the newly announced records will cause old rdata to be
+    /// flushed from peer caches anyway."
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.3, §8.4")]
+    public async Task A_Changed_Address_Is_Announced_As_Often_As_The_First_And_Without_A_Goodbye()
+    {
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport, FastOptions());
+        await responder.StartAsync();
+
+        var host         = DomainName.Parse("wire-host.local.");
+        var publication  = await responder.PublishAsync([ new A(host, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), IPv4Address.Parse("192.0.2.53")) ],
+                                                        Probe: false);
+        var announced    = Responses(capture, transport).Length;
+
+        capture.Clear();
+
+        await responder.UpdateAsync(publication, [ new A(host, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), IPv4Address.Parse("192.0.2.54")) ]);
+
+        var updates = Responses(capture, transport);
+
+        Assert.Multiple(() => {
+
+            Assert.That(updates, Has.Length.EqualTo(announced),
+                        "§8.4: the host MUST repeat the Announcing step");
+
+            Assert.That(updates.SelectMany(update => update.Answers).
+                                Select(record => (record.Type, record.Class, record.Ttl, String.Join(".", record.Rdata))),
+                        Is.All.EqualTo((RawDnsType.A, (UInt16) (RawDnsClass.IN | 0x8000), 120u, "192.0.2.54")),
+                        "§8.4: the new address with the cache-flush bit, and no goodbye for the old one");
+
+        });
+    }
+
+
+    /// <summary>
+    /// §8.4: "In the case of shared records, a host MUST send a "goodbye" announcement with
+    /// RR TTL zero (see Section 10.1, "Goodbye Packets") for the old rdata, to cause it to
+    /// be deleted from peer caches, before announcing the new rdata." A shared record has
+    /// no cache-flush bit to do that, even when another record of its set stays.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.4, §10.1")]
+    public async Task A_Shared_Record_Taken_Out_Gets_A_Goodbye_Before_The_Rest_Is_Announced()
+    {
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport, FastOptions());
+        await responder.StartAsync();
+
+        var publication = await responder.PublishAsync([ Pointer("One"), Pointer("Two") ], Probe: false);
+
+        capture.Clear();
+
+        await responder.UpdateAsync(publication, [ Pointer("Two") ]);
+
+        var sent = Responses(capture, transport).
+                       Select(message => message.Answers.Select(record => (PointerTarget(message, record), record.Ttl)).ToArray()).
+                       ToArray();
+
+        Assert.Multiple(() => {
+
+            Assert.That(sent.FirstOrDefault(), Is.EqualTo(new[] { ("one._wiretest._tcp.local", 0u) }),
+                        "§8.4: first a goodbye for the old rdata");
+
+            Assert.That(sent.Skip(1), Is.Not.Empty.And.All.EqualTo(new[] { ("two._wiretest._tcp.local", 4500u) }),
+                        "§8.4: then the announcements of what is left");
+
+        });
+    }
+
+
+    /// <summary>
+    /// §17: "A Multicast DNS packet larger than the interface MTU, which is sent using
+    /// fragments, MUST NOT contain more than one resource record." Forty pointers do not
+    /// fit one packet of an Ethernet MTU, so their announcement goes out in several.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.3, §17")]
+    public async Task Records_Too_Many_For_One_Packet_Are_Announced_In_Several()
+    {
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport, FastOptions());
+        await responder.StartAsync();
+
+        var names = Enumerable.Range(1, 40).Select(n => $"Instance {n:D2} with a name long enough to fill a packet soon").ToArray();
+
+        await responder.PublishAsync([.. names.Select(Pointer)], Probe: false);
+
+        var responses = Responses(capture, transport);
+
+        Assert.Multiple(() => {
+
+            Assert.That(responses.Where(response => response.Answers.Count > 1).Select(response => response.Wire.Length),
+                        Is.All.LessThanOrEqualTo(1472),
+                        "§17: a packet larger than the MTU MUST NOT contain more than one resource record");
+
+            Assert.That(responses.SelectMany(response => response.Answers).Count(), Is.EqualTo(2 * names.Length),
+                        "every record is announced, twice");
+
+        });
+    }
+
+
+    /// <summary>
+    /// §17 again, for one record larger than the MTU: it goes in a packet of its own, as
+    /// the only record there, and nothing else goes with it, not even a packet without
+    /// any record.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.3, §17")]
+    public async Task A_Record_Too_Large_For_A_Packet_Is_Announced_Alone()
+    {
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport, FastOptions());
+        await responder.StartAsync();
+
+        await responder.PublishAsync([ new TXT(DNSServiceName.Parse("Large._wiretest._tcp.local."),
+                                               DNSQueryClasses.IN,
+                                               TimeSpan.FromSeconds(4500),
+                                               new String('x', 1600)) ],
+                                     Probe: false);
+
+        Assert.That(Responses(capture, transport).Select(response => response.Answers.Count), Is.EqualTo(new[] { 1, 1 }),
+                    "§8.3: two announcements, each a packet holding the one record");
+    }
+
 }
