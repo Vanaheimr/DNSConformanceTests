@@ -439,6 +439,74 @@ public sealed class MulticastBrowserConformanceTests
 
     }
 
+
+    public enum OtherQuery
+    {
+        Truncated,
+        UnicastResponse,
+        AnotherType,
+        AnotherClass,
+        AnotherName
+    }
+
+    /// <summary>
+    /// §7.3 lets a browser treat its own query as sent only when another host asked "the
+    /// same "QM" question", and only when "the Known-Answer Section of that query does
+    /// not contain any records that this host would not also put in its own". A QU
+    /// question, or one of another type, class or name, is not that question. A query
+    /// with the TC bit set has more known answers on their way (§7.2), and they may be
+    /// ones this browser does not have.
+    /// </summary>
+    /// <remarks>
+    /// The same course as the test above, on the test's clock: the other host asks half
+    /// a second before the browser's second query is due, and the browser sends that
+    /// query when it is due.
+    /// </remarks>
+    [TestCase(OtherQuery.Truncated,        TestName = "A truncated query does not stand in for the browser's own")]
+    [TestCase(OtherQuery.UnicastResponse,  TestName = "A QU question does not stand in for the browser's own")]
+    [TestCase(OtherQuery.AnotherType,      TestName = "A question of another type does not stand in for the browser's own")]
+    [TestCase(OtherQuery.AnotherClass,     TestName = "A question of another class does not stand in for the browser's own")]
+    [TestCase(OtherQuery.AnotherName,      TestName = "A question for another name does not stand in for the browser's own")]
+    [Property("RFC", "6762 §7.2, §7.3")]
+    public async Task Only_The_Same_Qm_Question_Stands_In_For_The_Browsers_Own(OtherQuery Other)
+    {
+
+        var clock = new ManualClock();
+
+        await using var link = await Link.Start(Clock: clock);
+        await using var browser = await link.Client.BrowseAsync(ServiceType);
+
+        var due = (await clock.NextWait())!.Value;
+
+        for (var waits = 0; link.BrowseQueries.Length == 0 && waits < 10; waits++)
+        {
+            clock.AdvanceTo(due);
+            due = (await clock.NextWait())!.Value;
+        }
+
+        Assert.That(link.BrowseQueries, Is.Not.Empty, "the first browse query");
+
+        clock.AdvanceTo(due - TimeSpan.FromMilliseconds(500));
+
+        await link.Multicast(new RawDnsWriter().
+                                 Header(0, Other == OtherQuery.Truncated ? RawDnsFlags.TC : (UInt16) 0, 1, 0, 0, 0).
+                                 Question(Other == OtherQuery.AnotherName ? "_other._tcp.local."  : ServiceTypeName,
+                                          Other == OtherQuery.AnotherType ? RawDnsType.SRV        : RawDnsType.PTR,
+                                          Other switch {
+                                              OtherQuery.UnicastResponse  => (UInt16) (RawDnsClass.IN | 0x8000),
+                                              OtherQuery.AnotherClass     => RawDnsClass.CH,
+                                              _                           => RawDnsClass.IN
+                                          }).
+                                 ToArray());
+
+        clock.AdvanceTo(due);
+        await clock.NextWait();
+
+        Assert.That(link.BrowseQueries.Select(packet => packet.SentAt), Has.Some.EqualTo(due),
+                    "§7.3: not the same QM question, so the browser's own query goes out when it is due");
+
+    }
+
     #endregion
 
     #region What a browser says it already knows (RFC 6762 §7.1, §7.2, §10.2, §17)
@@ -751,6 +819,36 @@ public sealed class MulticastBrowserConformanceTests
     }
 
 
+    /// <summary>
+    /// RFC 6763 §6.1 makes no TXT record and an empty one equivalent, and nothing else. A
+    /// TXT record that empties has lost what it said, and one that arrives for an instance
+    /// first seen without one brings something to say: either is a change to the
+    /// instance. <see cref="An_Empty_Txt_Record_Is_No_Change_To_An_Instance_That_Had_None"/>
+    /// is the case §6.1 does make equivalent.
+    /// </summary>
+    [TestCase(true,  TestName = "A TXT record that empties is reported as an update")]
+    [TestCase(false, TestName = "A TXT record for an instance that had none is reported as an update")]
+    [Property("RFC", "6763 §6, §6.1")]
+    public async Task A_Txt_Record_That_Empties_Or_Fills_Is_Reported_As_An_Update(Boolean Empties)
+    {
+
+        await using var link = await Link.Start();
+
+        var (browser, events) = Empties
+                                    ? await Resolved(link, Pointer(), Service(), Text("v=1"), Address())
+                                    : await Resolved(link, Pointer(), Service(),              Address());
+
+        await using var _ = browser;
+
+        await link.Multicast(Response(Empties ? TextRdata(0) : Text("v=1")));
+
+        await WaitUntil(() => events.Of("updated").Length > 0, "the update");
+
+        Assert.That(browser.Instances.Single().TXT?.Strings, Is.EqualTo(Empties ? new[] { "" } : [ "v=1" ]));
+
+    }
+
+
     [Test]
     [Property("RFC", "6763 §5")]
     public async Task A_Changed_Port_Is_Reported_As_An_Update()
@@ -767,6 +865,68 @@ public sealed class MulticastBrowserConformanceTests
         await WaitUntil(() => events.Of("updated").Length > 0, "the update");
 
         Assert.That(browser.Instances.Single().Port?.ToUInt16(), Is.EqualTo((UInt16) 9090));
+
+    }
+
+
+    /// <summary>
+    /// RFC 6763 §5: of several SRV records, "lower-numbered priority servers should be
+    /// used in preference to higher-numbered priority servers". When one of them expires,
+    /// the instance changes only if it was the one in use, and then the next one takes
+    /// over. One that was not in use leaves the instance as it was.
+    /// </summary>
+    /// <remarks>
+    /// The cache is swept every 50 ms, so the expiry is taken in soon after the clock has
+    /// passed it; the test waits for the client to report it.
+    /// </remarks>
+    [TestCase(true,  TestName = "When the SRV record in use expires, the next one takes over")]
+    [TestCase(false, TestName = "When an SRV record not in use expires, the instance is unchanged")]
+    [Property("RFC", "6763 §5")]
+    public async Task An_Srv_Record_That_Expires_Changes_The_Instance_Only_If_It_Was_In_Use(Boolean InUse)
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(new MulticastDNSClientOptions {
+                                                    InitialBrowseInterval  = TimeSpan.FromHours(1),
+                                                    MaxBrowseInterval      = TimeSpan.FromHours(1),
+                                                    CacheSweepInterval     = TimeSpan.FromMilliseconds(50)
+                                                },
+                                                clock);
+
+        var expired = 0;
+
+        link.Client.OnRecordExpired += (_, _, entry, _) => {
+            if (entry.Record is SRV)
+                Interlocked.Increment(ref expired);
+            return Task.CompletedTask;
+        };
+
+        var (browser, events) = await Resolved(link,
+                                               Pointer(Ttl: 1000),
+                                               Service(Target: "first-choice.local.",  Port: 1000, Priority: 0,  Ttl: InUse ? 10u : 1000u),
+                                               Service(Target: "second-choice.local.", Port: 2000, Priority: 10, Ttl: InUse ? 1000u : 10u),
+                                               Text("path=/"),
+                                               Address("192.0.2.1", Name: "first-choice.local.",  Ttl: 1000),
+                                               Address("192.0.2.2", Name: "second-choice.local.", Ttl: 1000));
+
+        await using var _ = browser;
+
+        clock.Advance(TimeSpan.FromSeconds(11));
+
+        await WaitUntil(() => Volatile.Read(ref expired) == 1, "the SRV record to expire");
+        await Task.Delay(300);
+
+        Assert.Multiple(() => {
+
+            Assert.That(browser.Instances.Single().Port?.ToUInt16(), Is.EqualTo(InUse ? 2000 : 1000),
+                        "§5: the SRV record in use is the preferred one of those still cached");
+
+            Assert.That(events.Of("updated"), InUse ? (NUnit.Framework.Constraints.IResolveConstraint) Is.Not.Empty : Is.Empty,
+                        InUse ? "the next SRV record took over, which is a change"
+                              : "the SRV record the instance uses is still there, so nothing about it changed");
+
+        });
 
     }
 

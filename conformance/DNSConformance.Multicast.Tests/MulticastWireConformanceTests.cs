@@ -109,7 +109,7 @@ public sealed class MulticastWireConformanceTests
 
 
     [Test]
-    [Property("RFC", "6762 §8.1, §8.3, §18.1")]
+    [Property("RFC", "6762 §8.1, §8.3, §18.1, §18.5")]
     public async Task Probing_And_Announcements_Have_The_Required_Wire_Shape()
     {
         var network    = new InMemoryMulticastDNSNetwork();
@@ -143,6 +143,8 @@ public sealed class MulticastWireConformanceTests
                         Is.True, "probe questions request a unicast response (QU)");
             Assert.That(probes.All(message => message.Authorities.Count == 1),
                         Is.True, "the proposed record is in the authority section");
+            Assert.That(probes.All(message => message.Answers.Count == 0 && !message.TC),
+                        Is.True, "§18.5: a probe lists no known answers, so no TC bit says more of them are following");
 
             Assert.That(announcements.All(message => message.Id == 0 && message.AA && !message.RD),
                         Is.True, "multicast announcements use ID zero, AA set and RD clear");
