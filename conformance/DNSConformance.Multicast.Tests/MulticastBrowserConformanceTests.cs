@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -818,6 +819,43 @@ public sealed class MulticastBrowserConformanceTests
         await using var _ = browser;
 
         Assert.That(browser.AllInstances, Has.Count.EqualTo(1), "one instance, whatever the case of its name");
+
+    }
+
+
+    /// <summary>
+    /// Finding 93. RFC 6762 §16 ends the rule above at ASCII: "No other automatic
+    /// equivalences should be assumed. In particular, all UTF-8 multibyte characters
+    /// (codes 0x80 and higher) are compared by simple binary comparison of the raw byte
+    /// values." And RFC 6763 §4.1.1 lets an instance name hold "arbitrary Net-Unicode
+    /// text", accented characters by name. Two services whose names differ only in the
+    /// case of an É are two services, each with its own host and port.
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §16, 6763 §4.1.1")]
+    public async Task Instance_Names_That_Differ_Above_Ascii_Are_Two_Instances()
+    {
+
+        await using var link = await Link.Start();
+        await using var browser = await link.Client.BrowseAsync(ServiceType);
+
+        var events = new Events(browser);
+
+        await link.Multicast(Response(Pointer("Café._qtest._tcp.local."),
+                                      Pointer("CafÉ._qtest._tcp.local."),
+                                      Service(Name: "Café._qtest._tcp.local.", Target: "cafe-one.local.", Port: 1000),
+                                      Service(Name: "CafÉ._qtest._tcp.local.", Target: "cafe-two.local.", Port: 2000),
+                                      Address("192.0.2.1", Name: "cafe-one.local."),
+                                      Address("192.0.2.2", Name: "cafe-two.local.")));
+
+        await WaitUntil(() => events.Of("added").Length > 0, "an instance to be reported");
+        await Task.Delay(300);
+
+        Assert.That(browser.AllInstances.Select(instance => (instance.InstanceName.FullName.TrimEnd('.'), instance.Port?.ToUInt16())),
+                    Is.EquivalentTo(new (String, UInt16?)[] { ("Café._qtest._tcp.local", 1000),
+                                                             ("CafÉ._qtest._tcp.local", 2000) }),
+                    "§16: É and é are different octets, so these are two names");
 
     }
 

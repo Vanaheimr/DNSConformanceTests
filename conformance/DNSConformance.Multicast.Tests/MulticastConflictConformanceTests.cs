@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -102,22 +103,33 @@ public sealed class MulticastConflictConformanceTests
         ];
 
 
+    /// <summary>
+    /// Our address under a name a DomainName cannot hold: RFC 6762 §16 writes Multicast
+    /// DNS names in UTF-8, and a DomainName is LDH.
+    /// </summary>
+    private static IDNSResourceRecord[] OurRecords(String Name)
+
+        => [
+            new A(DNSServiceName.Parse(Name), DNSQueryClasses.IN, TimeSpan.FromSeconds(120), OurAddress)
+        ];
+
+
     /// <summary>A probe: one ANY question and the proposed record in the authority section.</summary>
-    private static Byte[] ProbeProposing(String Address)
+    private static Byte[] ProbeProposing(String Address, String Name = "contested.local.")
 
         => new RawDnsWriter().
                Header(0, 0, 1, 0, 1, 0).
-               Question("contested.local.", RawDnsType.ANY).
-               RR("contested.local.", RawDnsType.A, RawDnsClass.IN, 120, RawDnsWriter.IPv4(Address)).
+               Question(Name, RawDnsType.ANY).
+               RR(Name, RawDnsType.A, RawDnsClass.IN, 120, RawDnsWriter.IPv4(Address)).
                ToArray();
 
 
     /// <summary>An unsolicited response asserting an address for the contested name.</summary>
-    private static Byte[] ResponseAsserting(String Address, UInt32 TimeToLive = 120)
+    private static Byte[] ResponseAsserting(String Address, UInt32 TimeToLive = 120, String Name = "contested.local.")
 
         => new RawDnsWriter().
                Header(0, (UInt16) (RawDnsFlags.QR | RawDnsFlags.AA), 0, 1, 0, 0).
-               RR("contested.local.",
+               RR(Name,
                   RawDnsType.A,
                   (UInt16) (RawDnsClass.IN | 0x8000),
                   TimeToLive,
@@ -179,7 +191,9 @@ public sealed class MulticastConflictConformanceTests
     /// Start probing the contested name, wait until the first probe is actually on the
     /// wire, then let a competitor probe for the same name with the given address.
     /// </summary>
-    private static async Task<Outcome> ProbeAgainst(String TheirAddress)
+    private static async Task<Outcome> ProbeAgainst(String                 TheirAddress,
+                                                    String                 TheirName  = "contested.local.",
+                                                    IDNSResourceRecord[]?  Ours       = null)
     {
 
         var network            = new InMemoryMulticastDNSNetwork();
@@ -193,12 +207,12 @@ public sealed class MulticastConflictConformanceTests
 
         // Deliberately not awaited: the publication has to be reachable while it is still
         // in the probing state, which is the only state §8.2 says anything about.
-        var publishing = responder.PublishAsync(OurRecords());
+        var publishing = responder.PublishAsync(Ours ?? OurRecords());
 
         await WaitUntil(() => capture.From(responderTransport).Any(message => !message.QR),
                         "the responder to send its first probe");
 
-        await rivalTransport.SendAsync(ProbeProposing(TheirAddress));
+        await rivalTransport.SendAsync(ProbeProposing(TheirAddress, TheirName));
 
         var finished = await Task.WhenAny(publishing, Task.Delay(10000));
 
@@ -256,13 +270,38 @@ public sealed class MulticastConflictConformanceTests
 
     }
 
+
+    /// <summary>
+    /// Finding 93. §8.2's tie-break is for two hosts probing for the same name, and §16
+    /// says when a name is the same: "a" to "z" match "A" to "Z", and "all UTF-8
+    /// multibyte characters (codes 0x80 and higher) are compared by simple binary
+    /// comparison of the raw byte values." A rival probing a name that differs from ours
+    /// in the case of an É is probing another name, and its later data takes nothing
+    /// from us. The ASCII case is the control: the same name, and the rival wins.
+    /// </summary>
+    [TestCase("CAFé.local.", MulticastDNSPublicationState.Conflict,  TestName = "A rival probe for a name that differs in the case of an ASCII letter takes the name")]
+    [TestCase("CafÉ.local.", MulticastDNSPublicationState.Published, TestName = "A rival probe for a name that differs in the case of an É takes nothing", Category = TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §8.2, §16")]
+    public async Task A_Rival_Probe_Takes_Only_What_Section_16_Calls_The_Same_Name(String TheirName, MulticastDNSPublicationState Expected)
+    {
+
+        // Their 192.0.2.20 is later data than our 192.0.2.10, so for the same name they win.
+        var publication = await ProbeAgainst("192.0.2.20", TheirName, OurRecords("Café.local."));
+
+        Assert.That(publication.State, Is.EqualTo(Expected),
+                    Expected == MulticastDNSPublicationState.Conflict
+                        ? "§8.2: the same name, and the lexicographically later data wins"
+                        : "§16: É and é are different octets, so the rival probed another name");
+
+    }
+
     #endregion
 
 
     #region Conflicts after the name has been taken (RFC 6762 §9)
 
     /// <summary>Publish the contested name without probing, then let somebody else assert something.</summary>
-    private static async Task<Outcome> PublishedThenHears(Byte[] Wire)
+    private static async Task<Outcome> PublishedThenHears(Byte[] Wire, IDNSResourceRecord[]? Ours = null)
     {
 
         var network            = new InMemoryMulticastDNSNetwork();
@@ -273,7 +312,7 @@ public sealed class MulticastConflictConformanceTests
         await responder.StartAsync();
         await otherTransport.StartAsync();
 
-        var publication = await responder.PublishAsync(OurRecords(), Probe: false);
+        var publication = await responder.PublishAsync(Ours ?? OurRecords(), Probe: false);
 
         Assert.That(publication.State, Is.EqualTo(MulticastDNSPublicationState.Published),
                     "the name has to be held before anything can conflict with holding it");
@@ -356,6 +395,31 @@ public sealed class MulticastConflictConformanceTests
         Assert.That(publication.State, Is.EqualTo(MulticastDNSPublicationState.Published),
                     "§10.1: a TTL of zero says a record is going away, not that somebody else has " +
                     "the name");
+
+    }
+
+
+    /// <summary>
+    /// Finding 93. §9's conflict is a record "with the same name, rrtype and rrclass, but
+    /// inconsistent rdata", and §16 says which names are the same: "a" to "z" match "A"
+    /// to "Z", and "all UTF-8 multibyte characters (codes 0x80 and higher) are compared
+    /// by simple binary comparison of the raw byte values." Another host's address for a
+    /// name that differs from ours in the case of an É is that name's address. The ASCII
+    /// case is the control: the same name, and a conflict.
+    /// </summary>
+    [TestCase("CAFé.local.", MulticastDNSPublicationState.Conflict,  TestName = "A response for a name that differs in the case of an ASCII letter is a conflict")]
+    [TestCase("CafÉ.local.", MulticastDNSPublicationState.Published, TestName = "A response for a name that differs in the case of an É is no conflict", Category = TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §9, §16")]
+    public async Task A_Response_Conflicts_Only_With_What_Section_16_Calls_The_Same_Name(String TheirName, MulticastDNSPublicationState Expected)
+    {
+
+        var publication = await PublishedThenHears(ResponseAsserting("192.0.2.99", Name: TheirName),
+                                                   OurRecords("Café.local."));
+
+        Assert.That(publication.State, Is.EqualTo(Expected),
+                    Expected == MulticastDNSPublicationState.Conflict
+                        ? "§9: the same name, rrtype and rrclass, and inconsistent rdata"
+                        : "§16: É and é are different octets, so the address is for another name");
 
     }
 

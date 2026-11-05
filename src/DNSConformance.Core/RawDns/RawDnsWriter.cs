@@ -67,6 +67,8 @@ public sealed class RawDnsWriter
     /// terminated by the zero octet. "." or "" mean the root name.
     /// Enforces the 63-byte label and 255-byte name limits — use
     /// <see cref="RawLabel"/> + <see cref="EndName"/> to build illegal names.
+    /// Labels are written in UTF-8, which Multicast DNS uses for names (RFC 6762
+    /// §16) and which for an ASCII name is the same octets.
     /// </summary>
     public RawDnsWriter Name(String name)
     {
@@ -81,7 +83,7 @@ public sealed class RawDnsWriter
         foreach (var label in trimmed.TrimEnd('.').Split('.'))
         {
 
-            var bytes = Encoding.ASCII.GetBytes(label);
+            var bytes = Encoding.UTF8.GetBytes(label);
 
             if (bytes.Length is 0 or > 63)
                 throw new ArgumentException($"Label '{label}' must be 1..63 bytes (RFC 1035 §2.3.4)!", nameof(name));
