@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -906,6 +907,38 @@ public sealed class MulticastQuerierConformanceTests
             Assert.That(CachedAddresses(link.Client, other), Has.Length.EqualTo(1), "another name");
             Assert.That(link.Client.CachedRecords(Host, DNSResourceRecordTypes.TXT), Has.Count.EqualTo(1), "another type");
         });
+
+    }
+
+
+    /// <summary>
+    /// Finding 93. §10.2 flushes the records "with that name, rrtype, and rrclass", and
+    /// §16 says which names are that name: "a" to "z" match "A" to "Z", and "all UTF-8
+    /// multibyte characters (codes 0x80 and higher) are compared by simple binary
+    /// comparison of the raw byte values." A service announced under a name that differs
+    /// from another's in the case of an É leaves the other's TXT record alone. The ASCII
+    /// case is the control: there the name is the same, and the flush has to reach it.
+    /// </summary>
+    [TestCase("CAFé._qtest._tcp.local.", true,  TestName = "Cache flush reaches a name that differs in the case of an ASCII letter")]
+    [TestCase("CafÉ._qtest._tcp.local.", false, TestName = "Cache flush does not reach a name that differs in the case of an É", Category = TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §10.2, §16")]
+    public async Task Cache_Flush_Reaches_Only_What_Section_16_Calls_The_Same_Name(String Other, Boolean SameName)
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(Clock: clock);
+
+        await link.Multicast(Response([ new Rr("Café._qtest._tcp.local.", RawDnsType.TXT, 4500, [ 5, .. "one=1"u8 ]) ]));
+        clock.Advance(TimeSpan.FromSeconds(5));
+        await link.Multicast(Response([ new Rr(Other, RawDnsType.TXT, 4500, [ 5, .. "two=2"u8 ], CacheFlush: true) ]));
+        clock.Advance(TimeSpan.FromSeconds(2));
+
+        Assert.That(link.Client.CachedRecords(DNSServiceName.Parse("Café._qtest._tcp.local."), DNSResourceRecordTypes.TXT).
+                                Select(entry => ((TXT) entry.Record).Strings.Single()),
+                    Is.EqualTo(SameName ? new[] { "two=2" } : [ "one=1" ]),
+                    SameName ? "§10.2: the record of that name is no longer true"
+                             : "§16: É and é are different octets, so the flush was for another name");
 
     }
 
