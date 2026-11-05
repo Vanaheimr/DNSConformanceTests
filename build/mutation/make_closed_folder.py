@@ -1528,9 +1528,45 @@ CLIENT_SUPERSEDED = {
 # again (MUTATION.md, "The result: multicast after findings 78 to 85"). The two
 # superseded rows' lines are gone.
 #
-# No round of tests.
+# The first round of tests is for the fifteen rows the second sweep found in
+# b4f1e201's new code, the one that moved, and the one that came back
+# (MUTATION.md, "Fourteen of fifteen, and the one finding 93 took away"). Planted
+# one at a time at c5b4ce08, the suite's pin since finding 93, under the
+# Multicast project's 117 tests: fourteen fail a test, and 965 survives, because
+# finding 93's fix took away the only input that reached it.
 
-MULTICAST_KILLED = {}
+MULTICAST_KILLED = {
+
+    # The edges of b4f1e201's new code, and two old defaults it left behind.
+    #
+    # §7.2's split into packets, through the client's public SendQueryAsync with
+    # known answers the test builds: a packet filled to the octet (678), the
+    # question counted in the first packet (671's ==), a known answer too large for
+    # any packet alone after the question (683's ==, 699), and two of them in a row
+    # (683's >). §7.1, at exactly half the TTL (183) and for a type the query does
+    # not ask for (1048), on the test's clock. §7.3, a truncated query (412) and a
+    # question that is QU or of another type, class or name (415 to 417). RFC 6763
+    # §5, an SRV record expiring that the instance does not use (648), and §6.1, a
+    # TXT record that empties or fills (933). And MulticastDNSMessage.cs:319, the
+    # TC default of a query, which only a probe still goes out on: §18.5.
+    #
+    # Each was planted on its own, and each failed one to four of the new tests
+    # and nothing else.
+    "what-the-new-code-left-at-its-edges": {
+        "DNS/Multicast/MulticastDNSClient.cs": {
+            (671, "equality-to-inequality"), (678, "le-to-less"), 683,
+            (699, "greater-to-ge"), (183, "ge-to-greater"), (1048, "logical-and-to-or"),
+        },
+        "DNS/Multicast/MulticastDNSBrowser.cs": {
+            (412, "logical-or-to-and"), (415, "logical-and-to-or"), (416, "logical-and-to-or"),
+            (417, "logical-and-to-or"), (648, "logical-and-to-or"), (933, "logical-and-to-or"),
+        },
+        "DNS/Multicast/MulticastDNSMessage.cs": {
+            (319, "false-to-true"),
+        },
+    },
+
+}
 
 MULTICAST_EQUIVALENT = {
 
@@ -1592,6 +1628,17 @@ MULTICAST_EQUIVALENT = {
              "of zero with a completed one, and creates no timer for either. The first ends "
              "the loop at the catch's return, where the original ends it at the while's test "
              "of the same token. The second goes on at once, as the original does",
+
+        (965, "false-to-true"): "Apply's return false for a record none of its cases match, "
+            "with true, since finding 93's fix (c5b4ce08). Every caller that reads the result "
+            "hands Apply records chosen by the comparison its case then makes again: an SRV or "
+            "TXT record by the instance key at 559, the preferred SRV record from the cache by "
+            "the instance's name at 565 and 648, an address by SameName at 587. The key and "
+            "SameName fold as DNSServiceName.Equals does now, so each record meets its case. "
+            "The callers that hand it anything else, ApplyCached at 832 and 835 and the address "
+            "loops at 571 and 848, discard the result. At 0f595ac4 the key folded É to é, and "
+            "two instance names that differ in its case reached the line; the planted mutant "
+            "survives the Multicast project's 117 tests at c5b4ce08",
 
     },
 

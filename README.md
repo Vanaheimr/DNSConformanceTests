@@ -120,6 +120,15 @@ two names differ in an ASCII letter's case. They are finding 93, red at 0f595ac4
 and passing from c5b4ce08 on. With them the Multicast project is 104 ✅ · 0 ❌, and
 the offline suite 1766 ✅ · 0 ❌ · 4 skips.
 
+And the tests the same sweep asked for (MUTATION.md, *Fourteen of fifteen, and
+the one finding 93 took away*): thirteen cases at the edges of the querier's new
+code. Four ask how known answers are split across packets and how many are
+listed (RFC 6762 §7.1, §7.2, §17), five which of another host's queries stand in
+for a browser's own (§7.3), and four what an expiring SRV record, and a TXT
+record that empties or fills, change about an instance (RFC 6763 §5, §6.1). One
+assertion more says a probe sets no TC bit (§18.5). With them the Multicast
+project is 117 ✅ · 0 ❌, and the offline suite 1779 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

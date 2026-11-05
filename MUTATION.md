@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **229 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **214 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -130,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 236 | **229** | 83 |
+| `multicast` | 236 | **214** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -603,8 +603,8 @@ one's side: "No other automatic equivalences should be assumed. In particular,
 all UTF-8 multibyte characters (codes 0x80 and higher) are compared by simple
 binary comparison of the raw byte values." So the row is reachable through two
 instance names that differ only in the case of an accented letter, which the
-browser keeps as one instance. That is a candidate finding, not yet one: no
-test has shown it.
+browser keeps as one instance. That was a candidate finding when this was
+measured. It is finding 93, fixed in `c5b4ce08` (*Fourteen of fifteen*, below).
 
 **`MulticastDNSMessage.cs:319`**, `Truncated = false` on a query, is back.
 Since finding 83 the client sets the TC bit of every query itself, so the
@@ -633,6 +633,42 @@ planting said it would.
 Seven of the ten files hold the rows they held at `925c80d5`, on the same text.
 Among them are the sixty in `UDPMulticastDNSTransport.cs`, which the bench cannot
 reach, and what *Where the 219 are* says of them stands.
+
+### Fourteen of fifteen, and the one finding 93 took away
+
+The first round of tests is for the fifteen rows of *Thirteen in new code, one
+moved, one back*. Thirteen tests were written for them, and one that was already
+there got one more assertion. Each mutant was then planted on its own at
+`c5b4ce08`, the suite's pin since finding 93, under the Multicast project's 117
+tests. Fourteen fail one to four of the new tests and nothing else. `:965`
+survives.
+
+| rows | test | what it asks |
+|---|---|---|
+| `MulticastDNSClient.cs:671`'s `==`, `:678` | `Known_Answers_That_Fill_A_Packet_To_The_Octet_Stay_In_It` | five known answers, sent once with room to spare, then under a limit of exactly that packet's length, and of one octet less |
+| `:683`, both, and `:699` | `A_Known_Answer_Too_Large_For_Any_Packet_Goes_In_A_Packet_Of_Its_Own`, with one and with two | the question alone, then one packet for each, and no empty packet before, between or after |
+| `:183`, `:1048` | `A_Query_Lists_What_It_Knows_Of_The_Name_Down_To_Half_The_Ttl` | sixty seconds on: an AAAA record of 120 is listed, and a TXT record of 100 is not |
+| `MulticastDNSBrowser.cs:412`, `:415` to `:417` | `Only_The_Same_Qm_Question_Stands_In_For_The_Browsers_Own`, five cases | a truncated query, and a question that is QU or of another type, class or name, half a second before the browser's own is due |
+| `:648` | `An_Srv_Record_That_Expires_Changes_The_Instance_Only_If_It_Was_In_Use`, both cases | of two SRV records, the one in use expires and the next takes over, or the other one expires and nothing changes |
+| `:933` | `A_Txt_Record_That_Empties_Or_Fills_Is_Reported_As_An_Update`, both cases | a TXT record that empties, and one for an instance that had none |
+| `MulticastDNSMessage.cs:319` | `Probing_And_Announcements_Have_The_Required_Wire_Shape` | a probe lists no known answers, and so sets no TC bit (§18.5) |
+
+The §7.2 tests call the client's public `SendQueryAsync` with known answers they
+build themselves, so the edges are reached directly rather than by caching 250
+pointers and hoping one of them lands there. The size of a packet is read rather
+than computed. What five known answers come to depends on name compression, so
+the test sends them once and takes the length off that packet.
+
+`:965` was the candidate, and it is finding 93 now. Its fix took away the row's
+only input. The browser's key and `SameName` fold the way `DNSServiceName.Equals`
+does, so every caller that reads `Apply`'s answer hands it a record its case
+matches. The callers that hand it anything else discard the answer. The ledger
+records the row as equivalent from `c5b4ce08` on, and names the callers. At
+`0f595ac4` it was reachable, and finding 93's browser tracker is the test that
+reached it, red there.
+
+That leaves **214 open**. Seven were the client's, seven the browser's and one
+the message's; the other seven files hold what they held.
 
 ### What the first measurement's chapter now is
 

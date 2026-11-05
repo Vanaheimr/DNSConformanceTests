@@ -433,6 +433,149 @@ public sealed class MulticastQuerierConformanceTests
 
     #endregion
 
+    #region What a query says it already knows (RFC 6762 §7.1, §7.2, §17)
+
+    /// <summary>
+    /// §7.1: a querier that "already knows some answers" lists them, but "SHOULD NOT
+    /// include records in the Known-Answer list whose remaining TTL is less than half of
+    /// their original TTL". Half is not less than half. What a one-shot query knows of
+    /// a name is every type it does not ask for: the one it asks for, it asks for to
+    /// have it answered.
+    /// </summary>
+    /// <remarks>
+    /// On the test's clock (<see cref="ManualClock"/>), so that sixty seconds are sixty
+    /// to the tick, and a record of 120 has exactly half its life left.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "6762 §7.1")]
+    public async Task A_Query_Lists_What_It_Knows_Of_The_Name_Down_To_Half_The_Ttl()
+    {
+
+        var clock = new ManualClock();
+
+        await using var link = await Link.Start(Clock: clock);
+
+        await link.Multicast(Response([ new Rr(HostName, RawDnsType.AAAA, 120, RawDnsWriter.IPv6("2001:db8::7"), true),
+                                        new Rr(HostName, RawDnsType.TXT,  100, [ 5, .. "one=1"u8 ],              true) ]));
+
+        await WaitUntil(() => link.Client.CachedRecords(Host).Count == 2, "both records to be cached");
+
+        clock.AdvanceTo(TimeSpan.FromSeconds(60));
+
+        var asking = link.Client.Query(Host, [ DNSResourceRecordTypes.A ], TimeSpan.FromSeconds(1));
+
+        while (await clock.NextWait(Until: asking) is TimeSpan due)
+            clock.AdvanceTo(due);
+
+        await asking;
+
+        var known = RawDnsReader.Parse(link.Queries.First().Wire).Answers;
+
+        Assert.That(known.Select(record => (record.Type, record.Ttl)),
+                    Is.EqualTo(new[] { (RawDnsType.AAAA, 60u) }),
+                    "§7.1: the AAAA record with sixty of its 120 seconds left is listed, the TXT record " +
+                    "with forty of its hundred is not");
+
+    }
+
+
+    private static MulticastDNSRecord Known(IDNSResourceRecord Record)
+        => new (Record);
+
+    private static MulticastDNSRecord[] KnownAddresses(Int32 Count)
+
+        => [.. Enumerable.Range(1, Count).
+                          Select(n => Known(new A(Host, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), IPv4Address.Parse($"192.0.2.{n}"))))];
+
+    /// <summary>A known answer larger than any packet of 1472 octets can hold.</summary>
+    private static MulticastDNSRecord TooLarge(Int32 Number)
+        => Known(new TXT(Host, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), new String((Char) ('a' + Number), 1600)));
+
+    /// <summary>
+    /// The packets one query goes out in, asking for the A record of another host and
+    /// listing the given known answers.
+    /// </summary>
+    private static async Task<RawDnsMessage[]> PacketsOf(MulticastDNSRecord[]  KnownAnswers,
+                                                         Int32?                MaxQuerySize   = null)
+    {
+
+        await using var link = await Link.Start(MaxQuerySize is Int32 size
+                                                    ? new MulticastDNSClientOptions { MaxQuerySize = size }
+                                                    : null,
+                                                new SteppedClock());
+
+        await link.Client.SendQueryAsync([ new MulticastDNSQuestion(DNSServiceName.Parse("someone-else.local."), DNSResourceRecordTypes.A) ],
+                                         KnownAnswers);
+
+        return [.. link.Queries.Select(packet => RawDnsReader.Parse(packet.Wire))];
+
+    }
+
+
+    /// <summary>
+    /// §7.2: a querier with more known answers than fit one packet "should issue a
+    /// Multicast DNS query containing a question and as many Known-Answer records as will
+    /// fit", sets the TC bit, and continues in a packet "containing no questions and as
+    /// many more Known-Answer records as will fit". As many as will fit includes a packet
+    /// filled to the octet; and the question is part of what has to fit in the first.
+    /// </summary>
+    /// <remarks>
+    /// The size is measured rather than computed: five known answers go out once in a
+    /// packet with room to spare, and then under a limit of exactly that packet's length,
+    /// and of one octet less.
+    /// </remarks>
+    [Test]
+    [Property("RFC", "6762 §7.2")]
+    public async Task Known_Answers_That_Fill_A_Packet_To_The_Octet_Stay_In_It()
+    {
+
+        var known    = KnownAddresses(5);
+        var size     = (await PacketsOf(known)).Single().Wire.Length;
+
+        var exactly  = await PacketsOf(known, MaxQuerySize: size);
+        var lessOne  = await PacketsOf(known, MaxQuerySize: size - 1);
+
+        Assert.Multiple(() => {
+
+            Assert.That(exactly.Select(packet => packet.Wire.Length), Is.EqualTo(new[] { size }),
+                        "§7.2: as many known answers as will fit, and all five fit to the octet");
+
+            Assert.That(lessOne.Select(packet => (packet.Questions.Count, packet.Answers.Count, packet.TC)),
+                        Is.EqualTo(new[] { (1, 4, true), (0, 1, false) }),
+                        "§7.2: one octet less, and the fifth continues in a packet without the question");
+
+            Assert.That(lessOne.Select(packet => packet.Wire.Length), Is.All.LessThanOrEqualTo(size - 1),
+                        "the question counts towards what fits in the first packet");
+
+        });
+
+    }
+
+
+    /// <summary>
+    /// §17: a packet larger than the interface MTU "MUST NOT contain more than one
+    /// resource record". A known answer that no packet of the right size can hold goes
+    /// in a packet of its own, as the only record in it: not beside the question, which
+    /// goes alone, and with no empty packet before or after it. §7.2's TC bit says that
+    /// more known answers follow, so it is set on every packet but the last.
+    /// </summary>
+    [TestCase(1, TestName = "A known answer too large for any packet goes in a packet of its own")]
+    [TestCase(2, TestName = "Two known answers too large for any packet go in a packet each")]
+    [Property("RFC", "6762 §7.2, §17")]
+    public async Task A_Known_Answer_Too_Large_For_Any_Packet_Goes_In_A_Packet_Of_Its_Own(Int32 Count)
+    {
+
+        var packets = await PacketsOf([.. Enumerable.Range(0, Count).Select(TooLarge)]);
+
+        Assert.That(packets.Select(packet => (packet.Questions.Count, packet.Answers.Count, packet.TC)),
+                    Is.EqualTo(new[] { (1, 0, true) }.
+                                   Concat(Enumerable.Range(1, Count).Select(n => (0, 1, n < Count)))),
+                    "the question alone, then one packet for each known answer, and nothing else");
+
+    }
+
+    #endregion
+
     #region What a querier accepts (RFC 6762 §6, §11, §18)
 
     [Test]
