@@ -1,10 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Ninety-three RFC deviations in the Hermod DNS stack, each
+What this suite caught. Ninety-four RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 94, a response heard before the
+first probe taken for a conflict, is open, and its tracker is red on purpose. It
+stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -109,6 +111,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 91 | A connection that ended in the middle of an answer failed every query on it, and asked none again | Low (SHOULD) | 7766 §6.2.4 | ✅ fixed |
 | 92 | A TIMEOUT 0 outlived the connection it arrived on | Medium | 7828 §3.1, §3.2.2, 7766 §5 | ✅ fixed |
 | 93 | Two names that differed only in the case of a letter above ASCII were taken for one | Medium | 6762 §16, §8.2, §9, §10.2, 6763 §4.1.1 | ✅ fixed |
+| 94 | A response heard before the first probe costs the name | Medium | 6762 §8.1, §8.2 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5496,6 +5499,50 @@ the block folds beyond ASCII any more. Hermod's own `Keys_FoldOnlyAsciiLetters`
 pins the keys to `IsSameRRSet`: `CAFé` is `Café`, `CafÉ` is not, and KELVIN SIGN
 is no `k`. Merged as
 [Vanaheimr/Hermod#228](https://github.com/Vanaheimr/Hermod/pull/228).
+
+---
+
+## 94 — A response heard before the first probe costs the name
+
+*RFC 6762 §8.1:* "During probing, from the time the first probe packet is sent until
+250 ms after the third probe, if any conflicting Multicast DNS response is received,
+then the probing host MUST defer to the existing host". And of the time before that:
+"Apparently conflicting Multicast DNS responses received *before* the first probe
+packet is sent MUST be silently ignored (see discussion of stale probe packets in
+Section 8.2, "Simultaneous Probe Tiebreaking", below)." §8.2 explains why a packet
+may be stale: it may have been sent "moments ago by this host itself, before some
+configuration change", and been "echoed back after a short delay by some Ethernet
+switches and some 802.11 base stations".
+
+Hermod's responder enters the state `Probing` before the random delay §8.1 puts
+ahead of the first probe, 0 to 250 ms, and sets the publication's `ProbeStarted`
+when it sends that probe. Its response handler takes a probing publication whose
+first probe is out through §8.1's check: any record at the name, of any type, is a
+conflict. One whose first probe is not out yet falls through to the check §9 makes
+once probing is over: a record of the same name, type and class with other rdata
+is a conflict. So in the delay before the first probe, another address for the name
+costs the responder the name.
+
+**What it costs.** The publication ends in `Conflict` without one probe on the wire.
+A response the probes would have shown to be stale — an old announcement of this
+host's, echoed back, or one from a host that has since left the link — takes the
+name before anyone has been asked whether it is in use.
+
+**How it was found.** By the tests for the responder's open mutation rows
+(MUTATION.md, *The responder's thirty-seven*). Lines 598 and 599 set
+`ProbeStarted`, and the test written to reach them is §8.1's: from the first probe
+on, a record of any type at the name is a conflict, and before it a record of
+another type is not. A third case, another address before the first probe, was
+red.
+
+**Repro**: `MulticastConflictConformanceTests.A_Response_Heard_While_Probing_Counts_From_The_First_Probe_On`,
+the case "Before the first probe, another address for the name is ignored", red at
+`c5b4ce08`: `Conflict` where §8.1 asks for `Published`. It runs on the test's clock
+with the delay before the first probe fixed at 100 ms, and hears the response inside
+it. Its two other cases pass: a record of another type before the first probe is
+ignored, and one after it is a conflict.
+
+**The fix**: ⏳ open.
 
 ---
 
