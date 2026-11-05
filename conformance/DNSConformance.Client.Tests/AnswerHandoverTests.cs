@@ -31,7 +31,7 @@ public class AnswerHandoverTests
 
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(6);
 
-    /// <summary>How long the answer sent first has to reach its caller.</summary>
+    /// <summary>How long the answer sent first has to reach its caller, once the server has all three queries.</summary>
     private static readonly TimeSpan Prompt  = TimeSpan.FromSeconds(1.5);
 
     private static readonly DNSResourceRecordTypes[] A = [ DNSResourceRecordTypes.A ];
@@ -78,7 +78,14 @@ public class AnswerHandoverTests
         await Task.Delay(TimeSpan.FromMilliseconds(50));
         var three  = client.Query(DNSServiceName.Parse("three.example."), A, Timeout);
 
-        var promptly = await Task.WhenAny(three, Task.Delay(Prompt)) == three;
+        // The time is counted from the moment the server has all three queries
+        // and answers the third, not from the moment the third was asked. The
+        // first query opens the connection, and for DoT this is the first TLS
+        // handshake of the test run: under the load of the whole suite the
+        // server had the third query up to 1.1 s after it was asked, while the
+        // answer, once sent, reached its caller within 160 ms.
+        var gathered = await Task.WhenAny(all.Task, Task.Delay(Timeout)) == all.Task;
+        var promptly = gathered && await Task.WhenAny(three, Task.Delay(Prompt)) == three;
         var others   = one.IsCompleted || two.IsCompleted;
 
         release.TrySetResult();
@@ -87,6 +94,7 @@ public class AnswerHandoverTests
 
         Assert.Multiple(() => {
 
+            Assert.That(gathered,                Is.True,        "the server had all three queries before it answered one");
             Assert.That(server.ConnectionCount,  Is.EqualTo(1),  "all three were pipelined on one connection - without this the next line measures nothing");
             Assert.That(others,                  Is.False,       "and the first two were still unanswered");
             Assert.That(promptly,                Is.True,        "while the answer to the third, sent first, had already reached its caller");
