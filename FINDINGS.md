@@ -3,10 +3,8 @@
 What this suite caught. Ninety-three RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 93, two names that differ only
-in the case of a letter above ASCII taken for one, is open, and its trackers are
-red on purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -110,7 +108,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 90 | Two of RFC 9460's failure vectors were read as records | Low | 9460 §2.1, §2.4.3, §8 | ✅ fixed |
 | 91 | A connection that ended in the middle of an answer failed every query on it, and asked none again | Low (SHOULD) | 7766 §6.2.4 | ✅ fixed |
 | 92 | A TIMEOUT 0 outlived the connection it arrived on | Medium | 7828 §3.1, §3.2.2, 7766 §5 | ✅ fixed |
-| 93 | Two names that differ only in the case of a letter above ASCII are taken for one | Medium | 6762 §16, §8.2, §9, §10.2, 6763 §4.1.1 | ⏳ **open** |
+| 93 | Two names that differed only in the case of a letter above ASCII were taken for one | Medium | 6762 §16, §8.2, §9, §10.2, 6763 §4.1.1 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5419,7 +5417,7 @@ with the held handshake and with the FIN.
 
 ---
 
-## 93 — Two names that differ only in the case of a letter above ASCII are taken for one
+## 93 — Two names that differed only in the case of a letter above ASCII were taken for one
 
 *RFC 6762 §16:* "The simple rules for case-insensitivity in Unicast DNS [RFC1034]
 [RFC1035] also apply in Multicast DNS; that is to say, in name comparisons, the
@@ -5431,37 +5429,38 @@ gives an instance name "arbitrary Net-Unicode text", accented characters named
 among what it may hold.
 
 `DNSServiceName` keeps the rule: its `Equals` and `GetHashCode` fold `A` to `Z`
-and nothing else, with §16 cited beside them. The multicast code mostly compares
+and nothing else, with §16 cited beside them. The multicast code mostly compared
 names its own way, with `ToLowerInvariant` and `StringComparison.OrdinalIgnoreCase`.
-Both fold every letter Unicode gives a case, `É` to `é` among them. They key the
-client's cache and the responder's conflict check by RRset
-(`MulticastDNSRecordExtensions.RRSetKey`), the browser's instances
-(`MulticastDNSBrowser.Key`), and the names a probing responder compares with a
-rival's probe or a response. Wherever one of those meets `DNSServiceName.Equals`,
-the two disagree about a name with a letter above ASCII in it.
+Both fold every letter Unicode gives a case, `É` to `é` among them, and even
+KELVIN SIGN to an ASCII `k`. They keyed the client's cache and the responder's
+conflict check by RRset (`MulticastDNSRecordExtensions.RRSetKey`), the browser's
+instances (`MulticastDNSBrowser.Key`), and the names a probing responder compared
+with a rival's probe or a response. Wherever one of those met
+`DNSServiceName.Equals`, the two disagreed about a name with a letter above ASCII
+in it.
 
-**What it costs.** Each tracker pairs `Café` with `CafÉ`, which differ in one
+**What it cost.** Each tracker pairs `Café` with `CafÉ`, which differ in one
 letter's case, `C3 A9` against `C3 89`:
 
-- A browser hears both services and reports one. The second one's records land
-  on the first one's instance, where they describe nothing: the instance takes
-  its SRV record from the cache by its own name, and `Apply`, which compares by
-  `DNSServiceName` again, finds a TXT record for another name and drops it.
+- A browser heard both services and reported one. The second one's records
+  landed on the first one's instance, where they described nothing: the instance
+  took its SRV record from the cache by its own name, and `Apply`, which compared
+  by `DNSServiceName` again, found a TXT record for another name and dropped it.
 - An announcement for `CafÉ._qtest._tcp.local.` with the cache-flush bit set
-  expires the TXT record of `Café._qtest._tcp.local.` a second later. One host's
-  announcement deletes another host's data.
-- A responder that holds `Café.local.` reads another host's address for
-  `CafÉ.local.` as a §9 conflict, and gives up its name.
-- A responder still probing `Café.local.` loses the §8.2 tie-break to a rival
-  probing `CafÉ.local.` with later data, and gives up its name too.
+  expired the TXT record of `Café._qtest._tcp.local.` a second later. One host's
+  announcement deleted another host's data.
+- A responder that held `Café.local.` read another host's address for
+  `CafÉ.local.` as a §9 conflict, and gave up its name.
+- A responder still probing `Café.local.` lost the §8.2 tie-break to a rival
+  probing `CafÉ.local.` with later data, and gave up its name too.
 
-Each of them treats as one name what §16 says are two. Two of them cost a host its
-name, which it then has to probe for again under another.
+Each of them treated as one name what §16 says are two. Two of them cost a host
+its name, which it then had to probe for again under another.
 
 Read from the code and not run: a publication holding two unique names that
-differ this way probes only one of them (`DistinctBy` on the lowercased name), and
-the additional records of an answer and the browser's addresses for a host match
-names with `OrdinalIgnoreCase` too.
+differed this way probed only one of them (`DistinctBy` on the lowercased name),
+and the additional records of an answer and the browser's addresses for a host
+matched names with `OrdinalIgnoreCase` too.
 
 **How it was found.** By the second mutation sweep of the multicast block, at
 `0f595ac4` (MUTATION.md, *The result: multicast after findings 78 to 85*).
@@ -5472,8 +5471,8 @@ the row is reachable only where the two comparisons disagree. They disagree on a
 letter above ASCII, and reading the rest of the block for the same pattern found
 the other three.
 
-**Repro**: four trackers, red at `0f595ac4`. Each passes beside a control for the
-case §16 does fold, an ASCII letter:
+**Repro**: four trackers, red at `0f595ac4` and passing from `c5b4ce08` on. Each
+passes beside a control for the case §16 does fold, an ASCII letter:
 
 - `MulticastBrowserConformanceTests.Instance_Names_That_Differ_Above_Ascii_Are_Two_Instances`,
   whose control is `Instance_Names_Match_Without_Regard_To_Case`;
@@ -5485,7 +5484,18 @@ The suite's `RawDnsWriter.Name` used to write labels in ASCII, which turns `É`
 into `?`. It writes UTF-8 now, which for every name it wrote before is the same
 octets.
 
-**The fix**: ⏳ open.
+**The fix**: every name comparison in `DNS/Multicast` folds the way
+`DNSServiceName.Equals` does. `RecordKey`, `RRSetKey`, the browser's `Key` and
+`SameName`, the responder's `SameName` and `MulticastDNS.IsLocalName` fold with
+`DNSServiceName.ASCIICaseFold`. The responder groups its names for the probe and
+the conflict checks by `DNSServiceName` itself, and tells a publication's names
+apart by `DNSServiceName.Equals`, so both of two names that differ above ASCII are
+probed. `IsLocalName` changed nothing observable, since no letter of its suffixes
+has a non-ASCII capital that `ToLowerInvariant` folds onto it, but no comparison in
+the block folds beyond ASCII any more. Hermod's own `Keys_FoldOnlyAsciiLetters`
+pins the keys to `IsSameRRSet`: `CAFé` is `Café`, `CafÉ` is not, and KELVIN SIGN
+is no `k`. Merged as
+[Vanaheimr/Hermod#228](https://github.com/Vanaheimr/Hermod/pull/228).
 
 ---
 

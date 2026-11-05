@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -920,7 +919,7 @@ public sealed class MulticastQuerierConformanceTests
     /// case is the control: there the name is the same, and the flush has to reach it.
     /// </summary>
     [TestCase("CAFé._qtest._tcp.local.", true,  TestName = "Cache flush reaches a name that differs in the case of an ASCII letter")]
-    [TestCase("CafÉ._qtest._tcp.local.", false, TestName = "Cache flush does not reach a name that differs in the case of an É", Category = TestCategories.KnownIssue)]
+    [TestCase("CafÉ._qtest._tcp.local.", false, TestName = "Cache flush does not reach a name that differs in the case of an É")]
     [Property("RFC", "6762 §10.2, §16")]
     public async Task Cache_Flush_Reaches_Only_What_Section_16_Calls_The_Same_Name(String Other, Boolean SameName)
     {

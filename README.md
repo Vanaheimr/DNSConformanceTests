@@ -112,12 +112,20 @@ and `no-default-alpn` without `alpn` are read there, while §2.1's key written
 twice is refused in every mode. With them the ResourceRecords project is
 562 ✅ · 0 ❌, and the offline suite 1759 ✅ · 0 ❌ · 4 skips.
 
+And the case the second multicast sweep found (MUTATION.md, *The result:
+multicast after findings 78 to 85*): RFC 6762 §16 folds "a" to "z" in names and
+nothing else, while Hermod's multicast code folded `É` to `é` as well. Four
+trackers pair `Café` with `CafÉ`, each beside a control in which the
+two names differ in an ASCII letter's case. They are finding 93, red at 0f595ac4
+and passing from c5b4ce08 on. With them the Multicast project is 104 ✅ · 0 ❌, and
+the offline suite 1766 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 93 RFC deviations in Hermod. All but finding 93 are fixed;
+The suite has found 93 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

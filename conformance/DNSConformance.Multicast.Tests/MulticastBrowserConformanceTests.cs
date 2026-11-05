@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -832,7 +831,6 @@ public sealed class MulticastBrowserConformanceTests
     /// case of an É are two services, each with its own host and port.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §16, 6763 §4.1.1")]
     public async Task Instance_Names_That_Differ_Above_Ascii_Are_Two_Instances()
     {

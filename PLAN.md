@@ -446,7 +446,7 @@ side of the connection.
 | RFC 6762 probing and announcing: three probes, two announcements, ID/AA/RD/QU and authority-section shape | ✅ |
 | RFC 6762 unique cache-flush versus shared PTR semantics, including TTL-zero goodbyes and legacy unicast | ✅ |
 | RFC 6763 PTR browse answer with SRV, TXT and address additionals | ✅ |
-| RFC 6762 §16's case rule: "a" to "z" match "A" to "Z", and a letter above ASCII matches only its own octets. The browser keeps two instances apart that differ in the case of an É, a cache-flush for one leaves the other's records alone, and a responder loses its name neither to a §8.2 rival nor to a §9 response for the other. Each beside the ASCII case, which is one name (finding 93) | ❌ |
+| RFC 6762 §16's case rule: "a" to "z" match "A" to "Z", and a letter above ASCII matches only its own octets. The browser keeps two instances apart that differ in the case of an É, a cache-flush for one leaves the other's records alone, and a responder loses its name neither to a §8.2 rival nor to a §9 response for the other. Each beside the ASCII case, which is one name (finding 93) | ✅ |
 | Verdict comes from the independent RawDns decoder, not Hermod's mDNS parser | ✅ |
 
 ### 4.9 Interop projects
