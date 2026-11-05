@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -280,7 +279,7 @@ public sealed class MulticastConflictConformanceTests
     /// from us. The ASCII case is the control: the same name, and the rival wins.
     /// </summary>
     [TestCase("CAFé.local.", MulticastDNSPublicationState.Conflict,  TestName = "A rival probe for a name that differs in the case of an ASCII letter takes the name")]
-    [TestCase("CafÉ.local.", MulticastDNSPublicationState.Published, TestName = "A rival probe for a name that differs in the case of an É takes nothing", Category = TestCategories.KnownIssue)]
+    [TestCase("CafÉ.local.", MulticastDNSPublicationState.Published, TestName = "A rival probe for a name that differs in the case of an É takes nothing")]
     [Property("RFC", "6762 §8.2, §16")]
     public async Task A_Rival_Probe_Takes_Only_What_Section_16_Calls_The_Same_Name(String TheirName, MulticastDNSPublicationState Expected)
     {
@@ -408,7 +407,7 @@ public sealed class MulticastConflictConformanceTests
     /// case is the control: the same name, and a conflict.
     /// </summary>
     [TestCase("CAFé.local.", MulticastDNSPublicationState.Conflict,  TestName = "A response for a name that differs in the case of an ASCII letter is a conflict")]
-    [TestCase("CafÉ.local.", MulticastDNSPublicationState.Published, TestName = "A response for a name that differs in the case of an É is no conflict", Category = TestCategories.KnownIssue)]
+    [TestCase("CafÉ.local.", MulticastDNSPublicationState.Published, TestName = "A response for a name that differs in the case of an É is no conflict")]
     [Property("RFC", "6762 §9, §16")]
     public async Task A_Response_Conflicts_Only_With_What_Section_16_Calls_The_Same_Name(String TheirName, MulticastDNSPublicationState Expected)
     {
