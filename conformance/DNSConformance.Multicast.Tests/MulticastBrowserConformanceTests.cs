@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -1366,7 +1365,6 @@ public sealed class MulticastBrowserConformanceTests
     /// more past the end of each window.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §5.2")]
     public async Task An_Unanswered_Query_At_Eighty_Percent_Is_Followed_By_Three_More()
     {

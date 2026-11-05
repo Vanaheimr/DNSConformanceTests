@@ -448,7 +448,7 @@ side of the connection.
 | RFC 6763 PTR browse answer with SRV, TXT and address additionals | ✅ |
 | RFC 6762 §16's case rule: "a" to "z" match "A" to "Z", and a letter above ASCII matches only its own octets. The browser keeps two instances apart that differ in the case of an É, a cache-flush for one leaves the other's records alone, and a responder loses its name neither to a §8.2 rival nor to a §9 response for the other. Each beside the ASCII case, which is one name (finding 93) | ✅ |
 | RFC 6762 §8.1's probing window: a response heard before the first probe is silently ignored, and from the first probe on a record of any type at the name is a conflict (finding 94) | ✅ |
-| RFC 6762 §5.2's cache maintenance: a record kept alive is asked for at 80, 85, 90 and 95 % of its lifetime, each with a random variation of 2 % (finding 95) | ❌ |
+| RFC 6762 §5.2's cache maintenance: a record kept alive is asked for at 80, 85, 90 and 95 % of its lifetime, each with a random variation of 2 % (finding 95) | ✅ |
 | Verdict comes from the independent RawDns decoder, not Hermod's mDNS parser | ✅ |
 
 ### 4.9 Interop projects

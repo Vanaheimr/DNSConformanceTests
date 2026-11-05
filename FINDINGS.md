@@ -3,10 +3,8 @@
 What this suite caught. Ninety-five RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 95, a record a browser keeps alive
-asked for once where §5.2 plans four queries, is open, and its tracker is red on
-purpose. It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -112,7 +110,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 92 | A TIMEOUT 0 outlived the connection it arrived on | Medium | 7828 §3.1, §3.2.2, 7766 §5 | ✅ fixed |
 | 93 | Two names that differed only in the case of a letter above ASCII were taken for one | Medium | 6762 §16, §8.2, §9, §10.2, 6763 §4.1.1 | ✅ fixed |
 | 94 | A response heard before the first probe cost the name | Medium | 6762 §8.1, §8.2 | ✅ fixed |
-| 95 | A record a browser keeps alive is asked for once, at 80 % | Low (recommendation) | 6762 §5.2 | ⏳ **open** |
+| 95 | A record a browser kept alive was asked for once, at 80 % | Low (recommendation) | 6762 §5.2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5552,7 +5550,7 @@ type; it has a second case now, another address for the name, which ends in
 
 ---
 
-## 95 — A record a browser keeps alive is asked for once, at 80 %
+## 95 — A record a browser kept alive was asked for once, at 80 %
 
 *RFC 6762 §5.2:* "The querier should plan to issue a query at 80% of the record
 lifetime, and then if no answer is received, at 85%, 90%, and 95%. If an answer is
@@ -5565,30 +5563,36 @@ should be added, so that queries are scheduled to be performed at 80-82%, 85-87%
 recommends the following specific strategy."
 
 Hermod's browser looks after its instances on a tick, once a second. On the first
-tick after 80 % of a pointer's lifetime it marks the instance as asked about and sends
-the query; the mark goes only when the pointer is heard again. So an unanswered query
-at 80 % is the only one: none follows at 85, 90 or 95 %. And the 80 % has no random
-variation, so every browser on the link that heard the same announcement asks within
-the same second.
+tick after 80 % of a pointer's lifetime it marked the instance as asked about and sent
+the query; the mark went only when the pointer was heard again. So an unanswered
+query at 80 % was the only one: none followed at 85, 90 or 95 %. And the 80 % had no
+random variation, so every browser on the link that heard the same announcement asked
+within the same second.
 
-**What it costs.** Four queries make the record survive three lost packets; one
-query, a single one. A multicast query or its answer lost on the link, and a service
-that is still there is removed from the browser when its pointer reaches 100 %. It
-comes back with the next browse query, and those are spaced up to an hour apart
-(§5.2). The browsers that ask together answer §5.2's reason for the variation: their
-queries arrive together, and so do the answers.
+**What it cost.** With four queries a record outlives three lost packets; with one, it
+outlived none. A multicast query or its answer lost on the link, and a service that
+was still there was removed from the browser when its pointer reached 100 %. It came
+back with the next browse query, and those are spaced up to an hour apart (§5.2). And
+the browsers that asked together are §5.2's reason for the variation: their queries
+arrived together, and so did the answers.
 
 **How it was found.** By the tests for the browser's open mutation rows (MUTATION.md,
-*The client's twenty-nine and the browser's twenty-eight*). Line 741 sets the mark,
+*The client's twenty-nine and the browser's twenty-eight*). Line 741 set the mark,
 and the test written to reach it asks whether the query at 80 % is sent again on every
-tick. It is not; but neither is it sent at 85 %.
+tick. It was not; but neither was one sent at 85 %.
 
 **Repro**: `MulticastBrowserConformanceTests.An_Unanswered_Query_At_Eighty_Percent_Is_Followed_By_Three_More`,
-red at `cdc03cc6`: a pointer of 100 seconds, never answered again, draws one browse
-query by 83 seconds and still one by 88, 93 and 98, where §5.2 plans four. The clock is
-the test's, and each moment lies past the end of its window of 2 %.
+red at `cdc03cc6` and passing from `3050ab75` on. At `cdc03cc6` a pointer of 100 seconds,
+never answered again, drew one browse query by 83 seconds and still one by 88, 93 and
+98, where §5.2 plans four. The clock is the test's, and each moment lies past the end
+of its window of 2 %.
 
-**The fix**: ⏳ open.
+**The fix**: an instance counts the queries sent in its pointer's lifetime, up to
+four, and asks at 80 % and then 5, 10 and 15 % of the lifetime later, each time with a
+random variation of up to 2 % drawn anew. Hearing the pointer again starts the count
+over. Hermod's own `Refresh_AsksAgainAtEightyFiveNinetyAndNinetyFivePercent_WhileUnanswered`
+looks for each query past the end of its window, and for no fifth. Merged as
+[Vanaheimr/Hermod#230](https://github.com/Vanaheimr/Hermod/pull/230).
 
 ---
 
