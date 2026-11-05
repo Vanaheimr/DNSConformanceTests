@@ -146,12 +146,18 @@ delay (§6). And one says a record may be multicast again exactly one second
 later (§6). With them the Multicast project is 138 ✅ · 0 ❌, and the offline
 suite 1800 ✅ · 0 ❌ · 4 skips.
 
+And the case those tests found: RFC 6762 §8.1 has a responder silently ignore
+every response heard before its first probe, and Hermod took another address for
+the name, heard in the delay before that probe, for a conflict. The case is
+finding 94, red at c5b4ce08 and passing from cdc03cc6 on. With it the Multicast
+project is 139 ✅ · 0 ❌, and the offline suite 1801 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 94 RFC deviations in Hermod. All but finding 94 are fixed;
+The suite has found 94 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
