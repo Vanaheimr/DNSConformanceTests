@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -1293,7 +1294,8 @@ public sealed class MulticastBrowserConformanceTests
     /// local clients with an active interest in the state of that record (e.g., a
     /// network browsing window displaying a list of discovered services to the user)
     /// SHOULD reissue its query to determine whether the record is still valid." The
-    /// RFC recommends doing so at 80 % of the lifetime.
+    /// RFC recommends doing so at 80 % of the lifetime, with "a random variation of 2% of
+    /// the record TTL": at 80 to 82 %.
     /// </summary>
     [Test]
     [Property("RFC", "6762 §5.2")]
@@ -1317,7 +1319,8 @@ public sealed class MulticastBrowserConformanceTests
 
         Assert.That(link.Queries.Skip(before), Is.Empty, "three quarters of the lifetime is not yet the time to ask");
 
-        clock.Advance(TimeSpan.FromSeconds(6));
+        // 83 seconds, past the end of the window of 80 to 82.
+        clock.Advance(TimeSpan.FromSeconds(8));
 
         await WaitUntil(() => link.Queries.Skip(before).Any(packet => RawDnsReader.Parse(packet.Wire).Questions.Any(question => question.Type == RawDnsType.PTR)),
                         "the refresh query", 3000);
@@ -1351,6 +1354,52 @@ public sealed class MulticastBrowserConformanceTests
         await Task.Delay(500);
 
         Assert.That(link.BrowseQueries.Length - before, Is.EqualTo(1), "ten maintenance ticks at 83 %, and one query");
+
+    }
+
+
+    /// <summary>
+    /// Finding 95. §5.2: "The querier should plan to issue a query at 80% of the record
+    /// lifetime, and then if no answer is received, at 85%, 90%, and 95%", each with "a
+    /// random variation of 2% of the record TTL", so "at 80-82%, 85-87%, 90-92%, and then
+    /// 95-97% of the TTL". A pointer nobody answers for again is asked for four times, one
+    /// more past the end of each window.
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §5.2")]
+    public async Task An_Unanswered_Query_At_Eighty_Percent_Is_Followed_By_Three_More()
+    {
+
+        var clock = new SteppedClock();
+
+        await using var link = await Link.Start(QuietAndQuick(), clock);
+
+        var (browser, _) = await Resolved(link, Pointer(Ttl: 100), Service(Ttl: 1000), Text("path=/"), Address(Ttl: 1000));
+
+        await using var _ = browser;
+
+        var before = link.BrowseQueries.Length;
+        var asked  = new List<Int32>();
+
+        // To 83, 88, 93 and 98 seconds of the pointer's hundred.
+        foreach (var step in new[] { 83, 5, 5, 5 })
+        {
+
+            clock.Advance(TimeSpan.FromSeconds(step));
+
+            var deadline = DateTime.UtcNow.AddSeconds(1.5);
+            while (link.BrowseQueries.Length - before <= asked.Count && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+
+            await Task.Delay(200);
+
+            asked.Add(link.BrowseQueries.Length - before);
+
+        }
+
+        Assert.That(asked, Is.EqualTo(new[] { 1, 2, 3, 4 }),
+                    "§5.2: queries at 80-82 %, 85-87 %, 90-92 % and 95-97 %, counted at 83, 88, 93 and 98 seconds");
 
     }
 
