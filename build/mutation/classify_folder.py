@@ -51,9 +51,11 @@ POLICY_DEFAULTS = {
     # signing key - the two sit at different places in the chain of trust.
     ("DNS/DNSSEC/DNSSECSigningKey.cs", "KeySigningKey"),
     # RFC 6762 §5.4, §18.5 and §10.2: the QU bit, the TC bit and the cache-flush
-    # bit. The browser's questions, every query and every response, and the
-    # records a probe proposes all go out on these defaults, and the RFC says
-    # which way each of them must read. Two of them the querier tests kill.
+    # bit. The browser's questions, a responder's probes and every response, and
+    # the records a probe proposes all go out on these defaults, and the RFC says
+    # which way each of them must read. The querier tests kill the first. They
+    # killed the TC default too, until the client's queries came to set the bit
+    # themselves (finding 83), and only the probes were left on it.
     ("DNS/Multicast/MulticastDNSMessage.cs", "UnicastResponseRequested"),
     ("DNS/Multicast/MulticastDNSMessage.cs", "Truncated"),
     ("DNS/Multicast/MulticastDNSMessage.cs", "CacheFlush"),
