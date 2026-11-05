@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **186 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **143 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -130,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 236 | **186** | 83 |
+| `multicast` | 236 | **143** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -739,6 +739,91 @@ only where `Split` was handed nothing, and no caller hands it nothing. `:1503` i
 That leaves **186 open**: 214 less the 22 killed and the 6 equivalent. The
 responder holds the nine above; `UDPMulticastDNSTransport.cs` still holds its
 sixty.
+
+### The client's twenty-nine and the browser's twenty-eight
+
+The third round is for `MulticastDNSClient.cs` and `MulticastDNSBrowser.cs`, whose
+57 rows were open at both measurements. No test had looked at the flags of what a
+lookup returns, at a lookup the cache answers, or at the moment a record runs out;
+none had played a browser the same record twice, or let an instance go that was never
+reported. Twenty-seven cases were written, and one assertion more, and each of the 57
+mutants was then planted on its own at `cdc03cc6`, under the Multicast project's 166
+tests. The client's lines have not moved since the sweep; the browser's after 1035
+sit four lines further down.
+
+**Thirty-four die.**
+
+| rows | test | what it asks |
+|---|---|---|
+| client `:1113` to `:1116`, `:1121` | `A_Lookup_Reports_What_A_Multicast_Answer_Is_Whatever_The_Header_Said` | §18.4 to §18.7: an answer is authoritative, whole and not recursive, whatever the header said, from the link and from the cache |
+| client `:65`, `:439`, `:468`, the three of `:489`, `:493` | `Only_What_The_Cache_Cannot_Answer_Or_The_Caller_Forces_Is_Asked` | a cached record answers a lookup through either overload, and ForceUpdate asks anyway |
+| client `:956` | `A_Lookup_Lists_Neither_A_Goodbye_Nor_Its_Own_Answer_Among_The_Additional_Records` | §10.1: a goodbye is no additional record, and neither is the answer |
+| client `:914`'s `&&` | `A_Goodbye_For_A_Record_Never_Heard_Costs_Nothing_Else_In_Its_Packet` | §10.1: nothing else in the packet is lost |
+| client `:763` | `A_Record_Is_No_Answer_From_The_Moment_Its_Ttl_Has_Run_Out` | §5.2: at the end of its TTL the interval has passed |
+| client `:999`, `:1000` | `A_Record_That_Expires_On_A_Sweep_Is_Reported_Expired_Once` | reported on the sweep it expires on, and only there |
+| client `:904` | `Cache_Flush_Spares_What_Arrived_Exactly_One_Second_Before` | §10.2: "received more than one second ago" |
+| client `:1050` | `A_Query_Lists_What_It_Knows_Of_The_Name_Down_To_Half_The_Ttl` (+1 assertion) | §10.2: no cache-flush bit in a known answer |
+| browser `:552`, `:958` | `A_Record_Heard_Again_Is_No_Update` | a repetition is no change |
+| browser `:952`, `:961` | `A_New_Address_Of_A_Reported_Instance_Is_An_Update` | IPv4 and IPv6 |
+| browser `:586` | `An_Address_Reaches_Its_Instance_While_Another_Is_Still_Unresolved` | an instance without a host is no obstacle |
+| browser `:664`, `:678` | `An_Address_That_Expires_Changes_Only_The_Instances_On_Its_Host` | IPv4 and IPv6 |
+| browser `:635` | `An_Instance_That_Was_Never_Reported_Goes_Without_A_Report` | a removal answers an addition |
+| browser `:574`, `:983` | `A_Record_Heard_Again_For_An_Instance_Known_In_Full_Draws_No_Query` | nothing is missing, so nothing is asked |
+| browser `:981`, `:982`, `:983` | `An_Instance_Heard_Again_Is_Asked_About_What_It_Still_Lacks` | an address, or RFC 6763 §6's TXT record |
+| browser `:741` | `The_Query_At_Eighty_Percent_Is_Not_Repeated_Before_Eighty_Five` | §5.2: one query at 80 % |
+| browser `:752`'s second `==`, `:760` | `An_Instance_Whose_Pointer_Was_Cleared_From_The_Cache_Goes_After_Seventy_Five_Minutes` | §10's longest TTL: it goes, with a report and without a query |
+
+Two of them throw where the original does not: client `:914`'s `&&` reads the expiry
+of a record that is not cached, and browser `:586` the host name of an instance that
+has none. Neither exception gets out, since Hermod's event invoker logs a failing
+handler, so what the tests see is what it cost: an address after the goodbye that is
+never cached, and one that never reaches its instance.
+
+The test for `:741` is how **finding 95** came up. It asks whether the query at 80 %
+is sent again on every tick, and it is not; but no query follows at 85, 90 or 95 %
+either, where §5.2 plans them, "if no answer is received". Its tracker comes with the
+finding.
+
+**Nine are equivalent**, each with its argument in the ledger. Client `:170`,
+`:546`, `:905` and `:914`'s `>`, and browser `:490`, differ where the two sides are
+equal, and set or compute there what the original does. Client `:628` keeps a unicast
+question that expires at that moment, and the only reader of the list prunes it again
+before it looks. Browser `:94`: an instance's host and port are set together, in one
+place, and never unset. Browser `:570`'s second `&&` hands an instance the cached
+addresses of its host, which it already has. Browser `:738`: a lifetime of zero leaves
+a comparison that no remaining TTL satisfies.
+
+**Fourteen stay open**, because the RFC does not decide them:
+
+- client `:88` turns `IncludeLinkLocalIPv6` on by default. Whether a caller is handed
+  a link-local address without its scope is Hermod's choice.
+- client `:529` and `:548` differ only for a cancellation in the very instant of the
+  deadline: the mutant hands `Task.Delay` a wait of zero with the cancelled token, and
+  gets a cancelled task back, where the original ends the lookup without looking.
+- client `:854` accepts a unicast answer at the exact end of the window kept open for
+  it. §6 asks for "a recently sent query (e.g., sent within the last two seconds)",
+  and leaves the end to the implementation.
+- client `:1148` and browser `:1056`, `isDisposed = true`, let a disposed object be
+  stopped again. That is .NET's contract, not the RFC's.
+- browser `:128` is in `ToString`.
+- browser `:291` decides how an instance the cache had resolved before the browser
+  started is reported later. The RFC has no events.
+- browser `:529` is for a goodbye delay of zero, outside §10.1's one second.
+- browser `:570`'s first `&&` differs only in an exception a TXT record for an
+  instance without a host throws in the browser's handler, after the record was
+  applied and where nothing else would have followed. The invoker logs it.
+- browser `:728` is the moment an instance whose pointer left the cache unseen goes.
+  The RFC sets no such bound; the test above pins only that it goes.
+- browser `:739` moves the query at 80 % by one tick where the remaining TTL is
+  exactly a fifth. Both fall inside §5.2's 80-82 % for any lifetime of 50 seconds and
+  more; below that the tick, not the comparison, sets the moment.
+- browser `:946` and `:955` differ only for an address record whose owner is the
+  instance's own name: every caller of `Apply` but `ApplyCached` filters addresses by
+  the host's name first, and DNS-SD puts no address record at an instance name.
+
+That leaves **143 open**: 186 less the 34 killed and the 9 equivalent. The client
+holds five of them and the browser nine; `UDPMulticastDNSTransport.cs` still holds
+its sixty, and `MulticastDNSMessage.cs` twenty-seven.
 
 ### What the first measurement's chapter now is
 

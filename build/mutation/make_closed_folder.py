@@ -1599,6 +1599,53 @@ MULTICAST_KILLED = {
         },
     },
 
+    # The third round, for the client's and the browser's rows: 29 of
+    # MulticastDNSClient.cs and 28 of MulticastDNSBrowser.cs, open at both
+    # measurements. The client's lines have not moved since the sweep; the
+    # browser's after 1035 sit four lines further down at cdc03cc6.
+    #
+    # The client. A lookup reports an answer as authoritative, whole and not
+    # recursive, whatever the header said (§18.4 to §18.7), from the link and from
+    # the cache (1113 to 1116, 1121). The cache answers a lookup for what it holds,
+    # through either overload, and ForceUpdate asks anyway (65, 439, 468, the three
+    # of 489, 493). A record is no answer once its TTL has run out (763), and one
+    # that expires on a sweep is reported expired once (999, 1000). §10.2 flushes
+    # what was received more than one second ago, not exactly one (904), and lists
+    # no known answer with the cache-flush bit (1050). A goodbye for a record never
+    # heard costs nothing else in its packet (914's &&), and the additional records
+    # of a lookup hold neither a goodbye nor the answer (956).
+    #
+    # The browser. A record heard again is no update (552, 958); a new address is
+    # one (952, 961). An address reaches its instance while another is unresolved
+    # (586), and one that expires changes only the instances on its host (664,
+    # 678). An instance that was never reported goes without a report (635). A
+    # record heard again for an instance known in full draws no query (574, 983),
+    # and an instance without an address or a TXT record is asked about again when
+    # its pointer is heard (981, 982, 983). The query at 80 % is not repeated on
+    # every tick (741). An instance whose pointer was cleared from the cache goes
+    # after 75 minutes, with a report and without a query (752's second ==, 760).
+    #
+    # Each was planted on its own at cdc03cc6, under the Multicast project's 166
+    # tests, and each failed one of the new ones.
+    "the-querier-and-the-browser": {
+        "DNS/Multicast/MulticastDNSClient.cs": {
+            (65, "true-to-false"), (439, "false-to-true"), (468, "false-to-true"),
+            (489, "logical-and-to-or"), (489, "inequality-to-equality"), (489, "true-to-false"),
+            (493, "logical-or-to-and"), (763, "greater-to-ge"), (904, "greater-to-ge"),
+            (914, "logical-and-to-or"), (956, "logical-and-to-or"), (999, "le-to-less"),
+            (1000, "le-to-less"), (1050, "false-to-true"), (1113, "true-to-false"),
+            (1114, "false-to-true"), (1115, "false-to-true"), (1116, "false-to-true"),
+            (1121, "true-to-false"),
+        },
+        "DNS/Multicast/MulticastDNSBrowser.cs": {
+            (552, "false-to-true"), (574, "logical-and-to-or"), (586, "logical-and-to-or"),
+            (635, "logical-and-to-or"), (664, "logical-and-to-or"), (678, "logical-and-to-or"),
+            (741, "true-to-false"), (752, "equality-to-inequality", 1), (760, "greater-to-ge"),
+            (952, "true-to-false"), (958, "false-to-true"), (961, "true-to-false"),
+            (981, "logical-or-to-and"), (982, "logical-or-to-and"), (983, "equality-to-inequality"),
+        },
+    },
+
 }
 
 MULTICAST_EQUIVALENT = {
@@ -1615,6 +1662,10 @@ MULTICAST_EQUIVALENT = {
 
     "DNS/Multicast/MulticastDNSClient.cs": {
 
+        (170, "greater-to-ge"): "ExpiresAt > Now ? ExpiresAt - Now : TimeSpan.Zero in "
+            "RemainingTimeToLive, with >=. They differ where ExpiresAt equals Now, and the "
+            "mutant's ExpiresAt - Now is then TimeSpan.Zero, the original's answer",
+
         (182, "greater-to-ge"): "remaining > TimeSpan.Zero in IsKnownAnswerAt, with >=. "
             "RemainingTimeToLive is never negative, so the mutant's conjunct is always true. "
             "The original's is true for every entry that gets here: each caller reads the "
@@ -1628,6 +1679,16 @@ MULTICAST_EQUIVALENT = {
              "remaining and interval are equal, and then both pick the same TimeSpan; the "
              "comparison at 560 sees the same wait. The line it replaced, 490 at 925c80d5, "
              "was the same and was left open there",
+
+        (546, "greater-to-ge"): "grace > Options.ResponseGracePeriod before a lookup's grace "
+            "period, with >=. They differ where the two are equal, and the mutant then sets "
+            "grace to the value it already has",
+
+        (628, "le-to-less"): "question.ExpiresAt <= now as SendQueryAsync prunes the recent "
+            "unicast questions, with <. The mutant keeps a question that expires at that very "
+            "moment. Nothing reads the list but IsExpectedUnicastResponse, which prunes it "
+            "again with <= at its own reading of the clock, no earlier than this one, before "
+            "it looks; the catch at 641 removes only the call's own registrations",
 
         (671, "true-to-false"): "the `true` SizeOf hands Query as Truncated, while it measures "
             "how long a packet would be. Serialize turns Truncated into one bit of the header's "
@@ -1645,9 +1706,41 @@ MULTICAST_EQUIVALENT = {
             "no difference here. It gave one for each of the five survivors on 671 to 699 that "
             "stay open: 671's ==, 678, both of 683 and 699",
 
+        (905, "greater-to-ge"): "entry.ExpiresAt > now + 1 s in §10.2's flush, with >=. They "
+            "differ where an entry expires exactly one second from now, and the mutant then "
+            "sets its expiry to that same time",
+
+        (914, "greater-to-ge"): "existing.ExpiresAt > now + GoodbyeDelay in §10.1's goodbye, "
+            "with >=. They differ where the record expires exactly then, and the mutant sets "
+            "that same time",
+
     },
 
     "DNS/Multicast/MulticastDNSBrowser.cs": {
+
+        (94, "logical-and-to-or"): "HostName is not null && Port.HasValue in IsResolved, with "
+            "||. Both are set in one place, Apply's SRV case at 921 and 922, and always "
+            "together; nothing unsets either. So they are null together or set together, "
+            "and && and || agree",
+
+        (490, "greater-to-ge"): "interval > MaxBrowseInterval as the browse interval doubles, "
+            "with >=. They differ where the two are equal, and the mutant then sets the "
+            "interval to the value it has",
+
+        (570, "logical-and-to-or", 1): "changed && SRV && HostName is not null before the "
+            "cached addresses of the instance's host are applied, with the second && made ||: "
+            "(changed && SRV) || HostName is not null. The mutant applies them also when an "
+            "unchanged SRV record or a TXT record arrives for an instance with a host, and "
+            "discards what Apply returns, as the original does. Every cached address of the "
+            "host is among the instance's by then: an address that arrives is applied to every "
+            "instance on its host (586), a host is given its cached addresses the moment an SRV "
+            "record names it (571, 650, and ApplyCached at 837), and an address leaves the "
+            "instance only as it leaves the cache (664, 678). Apply adds nothing",
+
+        (738, "greater-to-ge"): "lifetime > TimeSpan.Zero before the query at 80 %, with >=. "
+            "They differ where the lifetime is zero, and the conjunct after it is then "
+            "remaining < 0 * (1 - RefreshFraction), which no RemainingTimeToLive satisfies: "
+            "it is never negative",
 
         442: "maxDelay > minDelay ? minDelay + a random share of the difference : minDelay, "
              "with >=. They differ where the two are equal, and the share is then of a zero "
