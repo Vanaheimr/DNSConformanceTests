@@ -1514,64 +1514,23 @@ CLIENT_SUPERSEDED = {
 #  multicast
 # ---------------------------------------------------------------------------
 
-# Line numbers are the sweep's own: Hermod 925c80d5, judged in pass 1 by the 31
-# responder tests the Multicast project had then. The querier tests came after
-# pass 1, and `sweep_wide_folder.py multicast --replay` planted every survivor
-# again at 925c80d5 under them, and reported 72 kills.
+# Line numbers are the sweep's own: Hermod 0f595ac4, the suite's pin, judged in
+# pass 1 by the Multicast project's 97 tests, the responder's and the querier's.
+# The first sweep measured 925c80d5 under the responder tests alone, and its
+# files are in results/multicast-925c80d5/. Its ledger, 71 rows the querier
+# tests killed on replay, one equivalent and two superseded, is in this file's
+# history.
 #
-# 71 of them are below. Every kill was planted a third time, on a quiet machine,
-# with the failing tests named (results/multicast-replay-verified.tsv, five
-# clean baselines first). 71 failed again, 70 of them exactly as many tests as
-# on replay and 698 one fewer, to tests that name what the line decides. The 72nd,
-# UDPMulticastDNSTransport.cs:566, failed nothing: no conformance test builds
-# that transport, and the replay ran while pass 2 loaded the machine, so its one
-# red test was failing for its own reasons. It stays open.
+# None of the 71 is carried over, and none needs to be. 67 die in this sweep's
+# pass 1 on the same text, and three sat on a condition b4f1e201 rewrote, whose
+# mutants on its new line die too. The 71st, MulticastDNSMessage.cs:319, is the
+# TC default of a query, which the client no longer sends a query on; it is open
+# again (MUTATION.md, "The result: multicast after findings 78 to 85"). The two
+# superseded rows' lines are gone.
 #
-# Where a line keeps a survivor beside the kill, the entry names the operator,
-# and on two lines the occurrence as well.
+# No round of tests.
 
-MULTICAST_KILLED = {
-
-    # RFC 6762 §5 to §11 and §18, and RFC 6763 §4 to §6: the querier side, the
-    # client and the browser, with the suite as the other host on the link. One
-    # round of tests, grouped here by file; which test fails for which row is in
-    # results/multicast-replay-verified.tsv.
-    "querier": {
-
-        # Whether a datagram came in over the group, which is where §6's
-        # "unicast answer nobody asked for" starts.
-        "DNS/Multicast/IMulticastDNSTransport.cs": {48, 49},
-
-        # The QU bit a question goes out with, the TC bit of a query, the
-        # header of a query, and reading a record's class and cache-flush bit.
-        "DNS/Multicast/MulticastDNSMessage.cs": {70, 319, 325, 525, 532},
-
-        # §6.1: an NSEC's type bitmap, read only as far as it is well-formed.
-        "DNS/Multicast/MulticastDNSTypeBitmap.cs": {(105, "equality-to-inequality"),
-                                                    (105, "greater-to-ge", 1), 108, 112},
-
-        # What a querier ignores, which answer answers which question, NSEC as a
-        # negative answer, the cache's expiry and its one-second grace, and the
-        # query loop that waits for them.
-        "DNS/Multicast/MulticastDNSClient.cs": {215, 216, 258, 440, 461, 483, 496, 540,
-                                                (652, "logical-and-to-or"), 653, 654,
-                                                687, 697, 698, 699, 707,
-                                                731, 732, 733, 734,
-                                                (777, "logical-and-to-or"),
-                                                808, 816, 817, 820, 825, 875, 882, 995},
-
-        # The browser: when it refreshes, what it lists as known, and when an
-        # SRV or a TXT is news about an instance and when it is the same again.
-        "DNS/Multicast/MulticastDNSBrowser.cs": {188, 375, 476, (511, "equality-to-inequality"),
-                                                 661, (662, "logical-and-to-or"),
-                                                 (676, "equality-to-inequality", 0),
-                                                 (676, "logical-and-to-or"),
-                                                 776, 778, 779, 780, 781, 782,
-                                                 791, 796, 797, 800, 806, 847, 855},
-
-    },
-
-}
+MULTICAST_KILLED = {}
 
 MULTICAST_EQUIVALENT = {
 
@@ -1585,23 +1544,60 @@ MULTICAST_EQUIVALENT = {
 
     },
 
-}
-
-MULTICAST_SUPERSEDED = {
-
-    # Finding 82. A cached record was listed as a known answer while it had more
-    # than a second left; RFC 6762 §7.1 wants at least half its TTL. The fix
-    # replaced the comparison with IsKnownAnswerAt, which no sweep has measured
-    # yet. The `&&` beside it on 921 is still there, and stays open.
-    "DNS/Multicast/MulticastDNSBrowser.cs": {
-        (374, "greater-to-ge"): "finding 82: `ExpiresAt > now + 1 s` was the defect, and IsKnownAnswerAt replaced it",
-    },
-
     "DNS/Multicast/MulticastDNSClient.cs": {
-        (921, "greater-to-ge"): "finding 82: `ExpiresAt > now + 1 s` was the defect, and IsKnownAnswerAt replaced it",
+
+        (182, "greater-to-ge"): "remaining > TimeSpan.Zero in IsKnownAnswerAt, with >=. "
+            "RemainingTimeToLive is never negative, so the mutant's conjunct is always true. "
+            "The original's is true for every entry that gets here: each caller reads the "
+            "clock and then takes its entries from CachedRecords, which reads it again and "
+            "keeps only those with ExpiresAt after that second reading. That is the client's "
+            "KnownAnswers at 1042 and the browser's QueryNowAsync and ObserveQuery, which "
+            "read it at 367 and 421. An entry with no time left at the first reading would "
+            "need a clock that ran backward between two readings of one synchronous call",
+
+        532: "remaining < interval ? remaining : interval, with <=. The two differ only where "
+             "remaining and interval are equal, and then both pick the same TimeSpan; the "
+             "comparison at 560 sees the same wait. The line it replaced, 490 at 925c80d5, "
+             "was the same and was left open there",
+
+        (671, "true-to-false"): "the `true` SizeOf hands Query as Truncated, while it measures "
+            "how long a packet would be. Serialize turns Truncated into one bit of the header's "
+            "third octet (MulticastDNSMessage.cs:596) and into nothing else: the header is "
+            "twelve octets either way, and the sections are written alike. The packets that "
+            "go out are built at 702, with a TC bit of their own",
+
+        (691, "greater-to-ge"): "SizeOf(current) > Options.MaxQuerySize, with >=. A known answer "
+            "that fills a packet to the octet is closed into a group of its own at once, where "
+            "the original keeps it as the open group. Nothing can join it: every record adds "
+            "octets, so the next one overflows that group at 678, and the original closes it "
+            "there, as it was; if none follows, 699 closes it. The groups come out the same. "
+            "The method run over abstract sizes, every list of up to five known answers drawn "
+            "from nine sizes under three limits and three question sizes, 597,870 cases, gave "
+            "no difference here. It gave one for each of the five survivors on 671 to 699 that "
+            "stay open: 671's ==, 678, both of 683 and 699",
+
+    },
+
+    "DNS/Multicast/MulticastDNSBrowser.cs": {
+
+        442: "maxDelay > minDelay ? minDelay + a random share of the difference : minDelay, "
+             "with >=. They differ where the two are equal, and the share is then of a zero "
+             "difference, FromTicks((Int64) (x * 0)): minDelay either way. The draw the mutant "
+             "adds comes from Random.Shared, which is not seeded, so nothing that draws after "
+             "it can tell",
+
+        446: "if (delay > TimeSpan.Zero) around the first query's delay, with >=. They differ "
+             "at a delay of zero, which the mutant awaits. Task.Delay(TimeSpan, TimeProvider, "
+             "CancellationToken) answers a cancelled token with a cancelled task and a delay "
+             "of zero with a completed one, and creates no timer for either. The first ends "
+             "the loop at the catch's return, where the original ends it at the while's test "
+             "of the same token. The second goes on at once, as the original does",
+
     },
 
 }
+
+MULTICAST_SUPERSEDED = {}
 
 
 # The 'svcparam' slice: SVCB.cs, HTTPS.cs and SVCParameterPresentation.cs swept

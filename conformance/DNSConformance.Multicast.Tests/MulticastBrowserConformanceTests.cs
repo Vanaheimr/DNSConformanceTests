@@ -401,13 +401,17 @@ public sealed class MulticastBrowserConformanceTests
 
         // The first query, after whatever wait comes before it. The browser starts its
         // next wait only once a query is out, so the wait pending then is the second's.
+        // A browser that sends nothing still waits, and would be waited for forever on
+        // this clock: ten waits are nine more than the first query needs.
         var due = (await clock.NextWait())!.Value;
 
-        while (link.BrowseQueries.Length == 0)
+        for (var waits = 0; link.BrowseQueries.Length == 0 && waits < 10; waits++)
         {
             clock.AdvanceTo(due);
             due = (await clock.NextWait())!.Value;
         }
+
+        Assert.That(link.BrowseQueries, Is.Not.Empty, "the first browse query");
 
         // Half a second before the browser's second query is due, the other host asks the
         // same question with no known answers, which is exactly what this browser would

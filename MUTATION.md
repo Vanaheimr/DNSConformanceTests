@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 592 | measured, **219 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **229 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -60,7 +60,9 @@ the tests a reading of the RFC asks for, then the sweep to say what they still d
 not reach. The sweep then said something the warning had not foreseen: all
 thirty-one were about the responder, and not one of the querier's 192 mutants
 died. See *The result: multicast*. The warning stands for any block measured the
-other way round, and for any half of a block nobody wrote tests for.
+other way round, and for any half of a block nobody wrote tests for. Measured
+again with the querier tests in place, pass 1 killed 80 of the client's and the
+browser's 232 (*The result: multicast after findings 78 to 85*).
 
 **Three of those counts used to be wrong, and how they were wrong is worth
 keeping.** The table said 70 for `tsig`, 202 for `dnssec` and 551 for `multicast`;
@@ -73,9 +75,10 @@ mutants against a row promising 70.
 
 The `dnssec` row says 323 now for a different reason, and a good one: the
 validator was rewritten, and the block was measured a second time, against
-`bbbf88b6`. 227 is still right for `53f20591`. The `multicast` row says 592 for
+`bbbf88b6`. 227 is still right for `53f20591`. The `multicast` row said 592 for
 the same kind of reason: 598 was right for `53f20591`, and three of the folder's
-files changed before the sweep measured `925c80d5`.
+files changed before the sweep measured `925c80d5`. It says 632 now because the
+block was measured a second time, at `0f595ac4`, after findings 78 to 85.
 
 The four rows that were right — `records`, `core`, `client`, `server` — are right to
 the mutant. `core` counts 479 today rather than the 478 it was measured at, which
@@ -90,7 +93,7 @@ comparison. The measured figure stays, because it is what was measured.
 
 ---
 
-## The hundred and ninety-nine that no test host can see
+## The two hundred that no test host can see
 
 `await x.ConfigureAwait(false)` says: do not resume on the caller's
 synchronization context. Read as `true` it says the opposite, and the two
@@ -99,8 +102,8 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. A hundred and ninety-nine of these sit across the measured
-blocks, and not one of them is work waiting to be done: no test written for a DNS
+same as equivalent**. Two hundred of these sit across the measured blocks, and
+not one of them is work waiting to be done: no test written for a DNS
 conformance suite will ever close one.
 
 The count was thirty-nine when the class was named. The `client` block added
@@ -110,7 +113,9 @@ matters most. The second `dnssec` sweep added ten more, net, in the code the
 validator's rewrite brought. And `multicast` added eighty-two, the most of any
 block — thirty-seven in the responder alone, which awaits every probe, every
 announcement and every send, and the rest in the client, the browser, the two
-transports and the hybrid client.
+transports and the hybrid client. Its second sweep added one, net: the fix for
+findings 78 to 85 rewrote two of the client's awaits into two others, and gave
+the browser one more, before its first query.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -125,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 293 | **219** | 82 |
+| `multicast` | 236 | **229** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -399,6 +404,242 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 56, and 370 survive: 118 not really code and 252 real gaps. The score as
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
+
+
+## The result: multicast after findings 78 to 85
+
+The first measurement of this block ended on a request: sweep it again at the
+new revision before the next round of tests is written for it. Findings 78 to
+85 were fixed by then, in Vanaheimr/Hermod `b4f1e201`, which rewrote much of
+what the client and the browser do when they ask: how a query is split when its
+known answers do not fit one packet (§7.2), what a browser makes of a question
+another host has just asked (§7.3), which cached records count as known (§7.1),
+the first query's delay and the intervals after it (§5.2), the QU bit of a
+retransmission (§5.4), and how an instance takes its TXT and SRV records (RFC
+6763 §6.1, §5). `05855f8c` changed one more line of the client. The block was
+swept again at **`0f595ac4`**, the suite's pin, with the same judge and the same
+two passes. This time the judge had the querier tests from the start: 97 tests
+in pass 1, where the first measurement had 31. Its files moved to
+`results/multicast-925c80d5/` unchanged, and its ledger stays in the history of
+`make_closed_folder.py`.
+
+| | `925c80d5` | `0f595ac4` |
+|---|---:|---:|
+| mutants | 592 | 632 |
+| not viable (would not compile) | 107 | 112 |
+| killed by Multicast, pass 1 | 98 | 189 |
+| killed by another project | 0 | 0 |
+| survived everywhere | 387 | 331 |
+| real gaps | 293 | 236 |
+| killed by the querier tests, on replay | 71 | — |
+| equivalent | 1 | 7 |
+| the line is gone | 2 | — |
+| open | **219** | **229** |
+
+`b4f1e201` took 9 mutants away and brought 49, all in `MulticastDNSClient.cs`
+and `MulticastDNSBrowser.cs`. The 331 are 236 real gaps, 83
+`ConfigureAwait(false)` that no test host can see, and 12 that are not code. The
+83 are the first measurement's 82 and one more: the fix rewrote two of the
+client's awaits into two others, and the browser now awaits its first query's
+delay.
+
+### The querier's half, in pass 1 this time
+
+At `925c80d5` pass 1 killed none of the client's and the browser's 192 mutants,
+because none of the 31 tests built either. Now it kills 80 of their 232. Of the
+71 rows the replay had killed, 67 die again on the same text. Three sat on the
+condition `b4f1e201` split in two: the client's check that only standard,
+successful messages count began with `!message.IsResponse`, and queries now
+pass it too, because §7.3 wants the browser to see them. Both mutants on the
+check's new line, `MulticastDNSClient.cs:808`, die, one of them in 47 tests. The
+71st is `MulticastDNSMessage.cs:319`, which is open again (below).
+
+Three rows the first measurement left open die now:
+
+- `MulticastDNSClient.cs:72`, `RequestUnicastResponses = true`, the QU bit of a
+  question's first transmission. With `false`,
+  `Only_The_First_Transmission_Of_A_Question_Asks_For_A_Unicast_Reply` fails,
+  finding 78's repro.
+- `MulticastDNSBrowser.cs:949`, the `return false` for an address the instance
+  already has. With `true` an address heard again is a change, and three tests
+  fail.
+- `MulticastDNSMessage.cs:481`, which reads the TC bit. With `==` every query
+  reads as truncated, a browser never counts another host's query as its own,
+  and `A_Question_Another_Host_Just_Asked_Is_Not_Asked_Again` fails.
+
+Pass 2, the seven other projects, killed none of the 331, as it killed none of
+the 387 at `925c80d5`.
+
+### Six timeouts that were the test's
+
+Pass 1 reported six rows TIMED-OUT, the judge still running after 207 s:
+
+| row | mutation |
+|---|---|
+| `MulticastDNSClient.cs:699` | `current.Count > 0 \|\| groups.Count == 0`, `\|\|` made `&&` |
+| `MulticastDNSClient.cs:699` | the same, `==` made `!=` |
+| `MulticastDNSClient.cs:702` | `index == 0 ? Questions : []`, `==` made `!=` |
+| `MulticastDNSBrowser.cs:463` | `Interlocked.Exchange(ref duplicateQuestionSeen, 0) == 0`, `==` made `!=` |
+| `MulticastDNSMessage.cs:323` | a query's `IsResponse`, `false` made `true` |
+| `InMemoryMulticastDNSNetwork.cs:300` | `isRunning = true`, made `false` |
+
+Each of them keeps the browser's first query off the link: no packet, a packet
+without its question, a query skipped, a query that reads as a response, a link
+that never starts. And `A_Question_Another_Host_Just_Asked_Is_Not_Asked_Again`,
+finding 81's repro, which Vanaheimr/DNSConformanceTests#70 moved onto the test's
+clock, waited for that query like this:
+
+```csharp
+while (link.BrowseQueries.Length == 0)
+{
+    clock.AdvanceTo(due);
+    due = (await clock.NextWait())!.Value;
+}
+```
+
+A browser that sends nothing still waits, one doubled interval after another,
+and the clock obliges each wait at once. The loop never ends. TIMED-OUT is a
+verdict about neither the code nor the test (*Four ways to mistake the machine
+for the code*), and here it was a statement about the test.
+
+The loop now stops after ten waits and asserts that a query went out (in this
+branch, before the results). Planted again under it, all six fail, 5 to 95 of
+the 97 tests, in 38 s to 1.4 min: KILLED, with the recheck in each row's
+detail, and `multicast-pass1.tsv.before-timeout-recheck` keeps the rows as
+measured. No other verdict rested on the loop. A mutant that survived passed
+that test, so its loop ended, and one that was killed was killed either way.
+
+### A machine that slept
+
+Pass 1 was interrupted once. The machine went to standby at 09:38 and woke at
+19:11, with the build of a mutant of `UDPMulticastDNSTransport.cs:258` in
+progress. The build came back after nine and a half hours as failed, with no
+compiler error in it. That is the guard from *Four ways to mistake the machine
+for the code*, and it did what it is there for: it stopped the sweep rather
+than record the mutant as not viable. The run resumed from the 489 rows
+recorded, and pass 2 ran with the machine held awake.
+
+### Seven equivalents
+
+`UnicastResponseRequested` on the question's primary constructor,
+`MulticastDNSMessage.cs:39`, is the first measurement's, for the same reason:
+every caller passes it. The six new ones are all in `b4f1e201`'s code.
+
+- `MulticastDNSClient.cs:182`, `remaining > TimeSpan.Zero` in
+  `IsKnownAnswerAt`, made `>=`. The remaining TTL is never negative, so the
+  mutant's conjunct is always true. The original's is true wherever it is
+  asked. Each caller reads the clock and then takes its entries from
+  `CachedRecords`, which reads it again and keeps only entries that expire after
+  that second reading. An entry with nothing left at the first reading needs a
+  clock that ran backward between two readings of one synchronous call.
+- `MulticastDNSClient.cs:532`, `remaining < interval ? remaining : interval`,
+  made `<=`. Where the two are equal both pick the same value. The line it
+  replaced, 490 at `925c80d5`, was the same, and was open there.
+- `MulticastDNSClient.cs:671`, the `true` that the size measurement hands
+  `Query` as `Truncated`, made `false`. The TC bit is one bit of the header's
+  third octet and changes no length. The packets that go out are built
+  elsewhere, with a TC bit of their own.
+- `MulticastDNSClient.cs:691`, `SizeOf(current) > MaxQuerySize`, made `>=`. A
+  known answer that fills a packet to the octet is closed into a group of its
+  own at once, where the original keeps it open. Nothing can join it, since
+  every record adds octets: the next one overflows the group, and the original
+  closes it then, as it was. The groups come out the same. That is an argument,
+  and it was checked: the method run over abstract sizes, every list of up to
+  five known answers from nine sizes under three limits and three question
+  sizes, 597,870 cases, gives no difference for this mutant and one for each of
+  the five others on lines 671 to 699.
+- `MulticastDNSBrowser.cs:442`, `maxDelay > minDelay ? … : minDelay`, made
+  `>=`. Where the two are equal the random share is of a zero difference. The
+  draw the mutant adds comes from `Random.Shared`, which is not seeded.
+- `MulticastDNSBrowser.cs:446`, `if (delay > TimeSpan.Zero)` around the first
+  query's delay, made `>=`. At zero the mutant awaits `Task.Delay`, which answers
+  a cancelled token with a cancelled task and zero with a completed one, and
+  sets no timer for either. The first ends the loop in the catch, where the
+  original ends it in the `while` that tests the same token; the second goes on
+  at once.
+
+### Thirteen in new code, one moved, one back
+
+Of the 229 open, 214 were open at `925c80d5` and are on the same
+text. Fifteen were not. Thirteen are in `b4f1e201`'s new code. One moved:
+`MulticastDNSClient.cs:921`'s `&&` is now `:1048`, while `:490`'s `<`, the other
+row the first measurement saw edited, is now `:532` and equivalent. And
+`MulticastDNSMessage.cs:319` is back.
+
+**The split into packets, §7.2.** `MulticastDNSClient.cs:671` `==` made `!=`,
+`:678` `<=` made `<`, both mutants of `:683`, and `:699`'s `>` made `>=`. They
+are the questions measured against the wrong packet, a packet filled to the
+octet, a known answer too large to share the first packet with the questions,
+two too large in a row, and a last one too large, which leaves an empty packet
+behind it.
+`Known_Answers_That_Do_Not_Fit_One_Packet_Continue_In_Truncated_Packets` sends
+250 known answers of 95 octets each. Fifteen go in a packet with the question
+or without it, and none of them is near an edge.
+
+**Known answers, §7.1.** `MulticastDNSClient.cs:183`, `remaining + remaining
+>= ExpiresAt - ReceivedAt`, made `>`. At exactly half its TTL a record is still
+a known answer, and on the test's clock that instant is easy to reach.
+`:1048`'s `&&` made `||` lists records of the queried type, and records below
+half their TTL of every other.
+
+**Another host's question, §7.3.** `MulticastDNSBrowser.cs:412`'s `||` made
+`&&` counts a truncated query, whose remaining known answers are still on their
+way. The three `&&` made `||` on `:415` to `:417` count a question that is QU,
+or of another type, class or name. The one test sends exactly the browser's own
+question, untruncated.
+
+**RFC 6763.** `MulticastDNSBrowser.cs:648`'s `&&` made `||` reports an update
+whenever an SRV record of an instance expires, whether or not the one the
+instance uses has changed. `:933`'s `&&` made `||` treats a TXT record as no
+change whenever either side is empty: a TXT that has emptied is ignored, and so
+is one that has filled, or it is taken in silence where the instance had none.
+
+`:965`, `return false` made `true`, is `Apply`'s answer to a record that
+matches none of its cases. Every caller hands it records chosen by the name the
+case then compares, and the two comparisons disagree in one place: the
+browser's instance key is `ToLowerInvariant`, which folds `É` to `é`, and
+`DNSServiceName.Equals` folds only `A` to `Z`. RFC 6762 §16 is on the second
+one's side: "No other automatic equivalences should be assumed. In particular,
+all UTF-8 multibyte characters (codes 0x80 and higher) are compared by simple
+binary comparison of the raw byte values." So the row is reachable through two
+instance names that differ only in the case of an accented letter, which the
+browser keeps as one instance. That is a candidate finding, not yet one: no
+test has shown it.
+
+**`MulticastDNSMessage.cs:319`**, `Truncated = false` on a query, is back.
+Since finding 83 the client sets the TC bit of every query itself, so the
+default reaches the wire only in a responder's probes, and no test reads a
+probe's TC bit. §18.5: "In query messages, if the TC bit is set, it means that
+additional Known-Answer records may be following shortly."
+
+`UDPMulticastDNSTransport.cs:566` survives, as the first measurement's third
+planting said it would.
+
+### Where the 229 are
+
+| file | open | at `925c80d5` | what it is |
+|---|---:|---:|---|
+| `UDPMulticastDNSTransport.cs` | 60 | 60 | the sockets: interfaces, group membership, and §11's link check |
+| `MulticastDNSResponder.cs` | 37 | 37 | probe and announcement counts and delays, conflicts, goodbyes, splitting a response, the rate limit |
+| `MulticastDNSClient.cs` | 36 | 32 | the options' defaults, the cache path, the query loop's timing, cache flush and expiry, and now §7.2's split and §7.1's half TTL |
+| `MulticastDNSBrowser.cs` | 35 | 29 | the interval cap, address updates, when an instance counts as resolved, and now §7.3 and RFC 6763's SRV and TXT changes |
+| `MulticastDNSMessage.cs` | 28 | 28 | the parser's refusals, the header bits it reads, the TC and cache-flush defaults |
+| `MulticastDNS.cs` | 8 | 8 | which names are link-local: §3's `.local` and §4's reverse zones |
+| `MulticastDNSTypeBitmap.cs` | 7 | 7 | the NSEC bitmap: trimming its trailing zeros, and the bounds it reads within |
+| `InMemoryMulticastDNSNetwork.cs` | 7 | 7 | the test link itself |
+| `HybridDNSClient.cs` | 6 | 6 | defaults and disposal |
+| `MulticastDNSRecordExtensions.cs` | 5 | 5 | comparing two records in a conflict |
+
+Seven of the ten files hold the rows they held at `925c80d5`, on the same text.
+Among them are the sixty in `UDPMulticastDNSTransport.cs`, which the bench cannot
+reach, and what *Where the 219 are* says of them stands.
+
+### What the first measurement's chapter now is
+
+*The result: multicast*, below, is the measurement at `925c80d5`, and its line
+numbers are that revision's. Its account of the replay, the occurrences and the
+defaults still stands. Its *Where the 219 are* is replaced by this chapter's,
+and what its *What is now stale* asked for is done.
 
 
 ## The result: the stream clients after #219
@@ -1304,7 +1545,8 @@ added, 37 removed.
   numbers that no longer point at them.
 
 The block wants sweeping again at the new revision before the next round of tests
-is written for it.
+is written for it. It has been, at `0f595ac4`: see *The result: multicast after
+findings 78 to 85*, above.
 
 
 ## The result: the client
