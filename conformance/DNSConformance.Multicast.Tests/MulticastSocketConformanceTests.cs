@@ -714,4 +714,59 @@ public sealed class MulticastSocketConformanceTests
 
     #endregion
 
+    #region Whose query it is (RFC 6762 §7.3)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §5.2, §7.3")]
+    public async Task A_Browser_Does_Not_Take_Its_Own_Query_For_Another_Hosts()
+    {
+
+        // §7.3: "If a host is planning to transmit (or retransmit) a query, and it sees
+        // another host on the network send a query containing the same "QM" question [...],
+        // then this host SHOULD treat its own query as having been sent." A host hears its
+        // own multicast as well (§15), over each family it sends on. Over IPv6 the copy comes
+        // back from the interface's link-local address, which is the host's own, and is not
+        // another host's query.
+        //
+        // The series is shortened from §5.2's one second, doubling, to 200 ms, doubling, so
+        // that four queries fit into the test: at 0, 200, 600 and 1400 ms, and the fifth at
+        // 3000. The rule under test is §7.3's.
+        var link       = RequireLinks(AddressFamily.InterNetworkV6).
+                             FirstOrDefault(link => link.IPv4 is not null);
+
+        if (link is null)
+            Assert.Ignore("No interface that is up and can multicast carries both an IPv4 address and an IPv6 link-local address.");
+
+        var port         = PrivatePort();
+        var serviceType  = $"_q{Guid.NewGuid():N}"[..14] + "._tcp.local.";
+
+        await using var listener   = await Started(new () { Port = port });
+        var ear          = new Ear(listener);
+
+        await using var transport  = await Started(new () { Port = port });
+        await using var client     = new MulticastDNSClient(transport, new MulticastDNSClientOptions {
+                                                                           InitialBrowseInterval  = TimeSpan.FromMilliseconds(200),
+                                                                           MinInitialBrowseDelay  = TimeSpan.Zero,
+                                                                           MaxInitialBrowseDelay  = TimeSpan.Zero
+                                                                       });
+        await client.StartAsync();
+        await client.BrowseAsync(DNSServiceName.Parse(serviceType));
+
+        await Task.Delay(TimeSpan.FromMilliseconds(2300));
+
+        // One copy of each query: the one sent on this interface over IPv4.
+        var queries      = ear.Matching(datagram => datagram.InterfaceIndex == link.Index &&
+                                                    datagram.RemoteSocket.IPAddress.GetBytes().SequenceEqual(link.IPv4!.GetAddressBytes()) &&
+                                                    Read(datagram.Payload) is { QR: false } query &&
+                                                    query.Questions.Any(question => question.Name.Canonical == serviceType.TrimEnd('.')));
+
+        Assert.That(queries, Has.Length.EqualTo(4),
+                    "the browser asked at 0, 200, 600 and 1400 ms only if it did not take the IPv6 copy of " +
+                    "its own query for another host's: §7.3 lets another host's query stand in for one's own");
+
+    }
+
+    #endregion
+
 }

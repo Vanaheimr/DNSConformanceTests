@@ -1,10 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Ninety-six RFC deviations in the Hermod DNS stack, each
+What this suite caught. Ninety-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 97, a browser that takes its own
+IPv6 query for another host's, is open, and its tracker is red on purpose. It stays
+because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -112,6 +114,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 94 | A response heard before the first probe cost the name | Medium | 6762 §8.1, §8.2 | ✅ fixed |
 | 95 | A record a browser kept alive was asked for once, at 80 % | Low (recommendation) | 6762 §5.2 | ✅ fixed |
 | 96 | Records of another class answered lookups and made instances | Low | 1034 §3.7.1 | ✅ fixed |
+| 97 | A browser takes its own IPv6 query for another host's, and skips every second query | Low (SHOULD) | 6762 §7.3, §5.2 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5640,6 +5643,49 @@ of another class as they are heard and as they expire, and reads the cache throu
 one filter for class IN. Hermod's own `Query_TakesOnlyRecordsOfClassIN` and
 `Browser_TakesOnlyRecordsOfClassIN` hear records of class CH before a lookup, while one
 waits and as a browser listens. Merged as [`a12603df`](https://github.com/Vanaheimr/Hermod/commit/a12603df615248c8e1e13a72e99e1960bd77f1d8), a fast-forward of Hermod's master.
+
+---
+
+## 97 — A browser takes its own IPv6 query for another host's, and skips every second query
+
+*RFC 6762 §7.3:* "If a host is planning to transmit (or retransmit) a query, and it
+sees another host on the network send a query containing the same "QM" question, and
+the Known-Answer Section of that query does not contain any records that this host
+would not also put in its own Known-Answer Section, then this host SHOULD treat its
+own query as having been sent."
+
+A host hears its own multicasts: Hermod's UDP transport turns multicast loopback on,
+so that a responder and a client of one host hear each other. The client therefore
+hands a multicast query to its browsers only when the query's source is not among the
+transport's `LocalAddresses`. The UDP transport lists there the addresses of the
+interfaces it uses, but not their IPv6 link-local addresses: `IncludeLinkLocalIPv6`
+is off by default, because a link-local address is of little use to a caller without
+its scope. A query to FF02::FB leaves from the interface's link-local address,
+though. So the IPv6 copy of each of the host's own browse queries comes back from an
+address the list does not hold, and the browser takes it for another host's query. It
+treats its next query as sent, and does not send it.
+
+**What it costs.** On every host with IPv6 on its interfaces, a browser sends every
+second query of §5.2's series: at 0, 3, 15, 63 seconds, where §5.2's intervals of
+"at least one second" doubling give 0, 1, 3, 7, 15, 31, 63. A service the browser has
+not yet heard of, because it started later or its announcements were lost, is found
+that much later. Over IPv4 the copy comes back from an address the list holds, so a
+host without IPv6 is not affected.
+
+**How it was found.** By the tests for the UDP transport's open mutation rows
+(MUTATION.md, *The transport's sixty*). Rows 72 and 206 decide which addresses
+`LocalAddresses` lists, and inside Hermod the client's check for its own queries is the
+one place that reads the list. A browser on the host's own sockets showed what the
+check misses.
+
+**Repro**: `MulticastSocketConformanceTests.A_Browser_Does_Not_Take_Its_Own_Query_For_Another_Hosts`,
+red at `a12603df`. The series is shortened to 200 ms, doubling, and over IPv4 the
+browser asked at 0 and 600 ms only, where 0, 200, 600 and 1400 ms were due. With
+`IncludeLinkLocalIPv6` set on the transport the same test passes. It is in the
+`Multicast` category: it needs an interface that is up, can multicast, and carries an
+IPv4 address and an IPv6 link-local address.
+
+**The fix**: ⏳ open.
 
 ---
 

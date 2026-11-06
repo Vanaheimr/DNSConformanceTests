@@ -995,6 +995,15 @@ interface has no address of, which is that same index and goes unused. `:643`'s 
   three need a second host.
 - `:703`, `isDisposed = true`, is .NET's contract.
 
+**And finding 97.** `:72` and `:206` decide what `LocalAddresses` lists, and inside
+Hermod one place reads the list: the client's check whether a multicast query it hears
+is its own, so that §7.3 does not let it stand in for the next. Over IPv6 a host's own
+query comes back from the interface's link-local address, which the list leaves out by
+default, and a browser on the host's sockets sent every second query of its series.
+The tracker, `A_Browser_Does_Not_Take_Its_Own_Query_For_Another_Hosts`, is in the same
+class and red at `a12603df`, with two queries where four were due. With
+`IncludeLinkLocalIPv6` set, which is what `:72`'s mutant makes the default, it passes.
+
 That leaves **57 open**: 104 less the 35 killed and the 12 equivalent.
 `UDPMulticastDNSTransport.cs` holds thirteen of them. Of the rest the responder and the
 browser hold nine each, the in-memory link seven, the message six, the client five, the

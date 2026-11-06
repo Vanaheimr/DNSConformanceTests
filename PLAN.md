@@ -451,6 +451,7 @@ side of the connection.
 | RFC 6762 §5.2's cache maintenance: a record kept alive is asked for at 80, 85, 90 and 95 % of its lifetime, each with a random variation of 2 % (finding 95) | ✅ |
 | RFC 1034 §3.7.1's class match: a lookup of class IN is answered by records of class IN alone, from the link and from the cache, and a browser's instances are made of them alone (finding 96) | ✅ |
 | RFC 6762 over the host's own sockets (category `Multicast`): both groups heard on every interface that is up (§3), two implementations on one port (§15.1), a transport of one address family (§20), §11's on-link test for multicast and unicast, a response on the interface its query came in on alone (§14, §6.2), and legacy unicast over UDP (§6.7) | ✅ |
+| RFC 6762 §7.3's other host: a host's own queries, heard back over IPv4 and over IPv6, never stand in for its next one (finding 97) | ❌ |
 | Verdict comes from the independent RawDns decoder, not Hermod's mDNS parser | ✅ |
 
 ### 4.9 Interop projects
