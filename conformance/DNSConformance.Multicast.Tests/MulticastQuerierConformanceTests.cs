@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
 
@@ -817,7 +816,6 @@ public sealed class MulticastQuerierConformanceTests
     /// </summary>
     [TestCase(false, TestName = "An address of class CH heard while a lookup waits does not answer it")]
     [TestCase(true,  TestName = "An address of class CH in the cache does not answer a lookup")]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1034 §3.7.1")]
     public async Task An_Address_Of_Another_Class_Does_Not_Answer_A_Lookup(Boolean FromTheCache)
     {
