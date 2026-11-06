@@ -208,12 +208,19 @@ and a unicast when its source shares a prefix with the receiving interface
 With them the Multicast project is 217 ✅ · 0 ❌, and the offline suite, which
 leaves the Multicast category out, 1865 ✅ · 0 ❌ · 4 skips.
 
+And the case those tests found: RFC 6762 §7.3 lets another host's query stand in
+for one's own, and Hermod's browser took its own query for another host's when
+it came back over IPv6, from a link-local address the transport does not list.
+It sent every second query of its series. The case is finding 97, red at
+a12603df and passing from d906af2d on. With it the Multicast project is
+218 ✅ · 0 ❌, and the offline suite 1865 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 97 RFC deviations in Hermod. All but finding 97 are fixed;
+The suite has found 97 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
