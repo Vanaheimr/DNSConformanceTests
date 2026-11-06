@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -1204,6 +1205,41 @@ public sealed class MulticastBrowserConformanceTests
 
         await link.Multicast(Response(Address("192.0.2.80")));
         await WaitUntil(() => browser.Instances.Single().Addresses.Count == 1, "the address to reach its instance");
+
+    }
+
+
+    /// <summary>
+    /// Finding 96. A browser asks for the service type with a question of class IN
+    /// (<see cref="A_Browser_Asks_For_The_Service_Type_With_A_Multicast_Pointer_Question"/>),
+    /// and RFC 1034 §3.7.1 has a query ask "for RRs which match", a class matching "just
+    /// that class". A pointer of class CH answers no question the browser asked, and a
+    /// service announced in class CH, pointer, SRV record and address, is no instance.
+    /// </summary>
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1034 §3.7.1, 6763 §4.1")]
+    public async Task A_Service_Announced_In_Another_Class_Is_No_Instance()
+    {
+
+        await using var link = await Link.Start(Quiet());
+        await using var browser = await link.Client.BrowseAsync(ServiceType);
+
+        var events = new Events(browser);
+
+        await link.Multicast(new RawDnsWriter().
+                                 Header(0, 0x8400, 0, 3, 0, 0).
+                                 RR(ServiceTypeName, RawDnsType.PTR, 3, 4500, RawDnsWriter.NameBytes(InstanceName)).
+                                 RR(InstanceName,    RawDnsType.SRV, 3, 120,  [ 0, 0, 0, 0, 0x1F, 0x90, .. RawDnsWriter.NameBytes(HostName) ]).
+                                 RR(HostName,        RawDnsType.A,   3, 120,  RawDnsWriter.IPv4("192.0.2.80")).
+                                 ToArray());
+
+        await Task.Delay(300);
+
+        Assert.Multiple(() => {
+            Assert.That(browser.AllInstances, Is.Empty, "§3.7.1: a pointer of class CH answers no question of class IN");
+            Assert.That(events.Of("added"),   Is.Empty, "and nothing is reported");
+        });
 
     }
 

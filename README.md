@@ -193,7 +193,7 @@ the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 95 RFC deviations in Hermod. All are fixed;
+The suite has found 96 RFC deviations in Hermod. All but finding 96 are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

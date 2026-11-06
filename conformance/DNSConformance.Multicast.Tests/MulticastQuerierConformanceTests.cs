@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
 
@@ -803,6 +804,42 @@ public sealed class MulticastQuerierConformanceTests
                         "§18.14: a PTR target compressed into the record's own owner name");
 
         });
+
+    }
+
+
+    /// <summary>
+    /// Finding 96. RFC 1034 §3.7.1: a standard query "specifies a target domain name
+    /// (QNAME), query type (QTYPE), and query class (QCLASS) and asks for RRs which match",
+    /// and a class "matches just that class (e.g., IN, CH)". A lookup's questions are of
+    /// class IN, and an address of class CH, 3, for its name is no answer to it: neither
+    /// when it arrives while the lookup waits, nor from the cache.
+    /// </summary>
+    [TestCase(false, TestName = "An address of class CH heard while a lookup waits does not answer it")]
+    [TestCase(true,  TestName = "An address of class CH in the cache does not answer a lookup")]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1034 §3.7.1")]
+    public async Task An_Address_Of_Another_Class_Does_Not_Answer_A_Lookup(Boolean FromTheCache)
+    {
+
+        await using var link = await Link.Start();
+
+        var chaos = new RawDnsWriter().
+                        Header(0, 0x8400, 0, 1, 0, 0).
+                        RR(HostName, RawDnsType.A, 3, 120, RawDnsWriter.IPv4("192.0.2.7")).
+                        ToArray();
+
+        DNSInfo info;
+
+        if (FromTheCache)
+        {
+            await link.Multicast(chaos);
+            info = await link.Client.Query(Host, [ DNSResourceRecordTypes.A ], TimeSpan.FromMilliseconds(500));
+        }
+        else
+            (info, _) = await Answered(link, DNSResourceRecordTypes.A, chaos, TimeSpan.FromMilliseconds(500));
+
+        Assert.That(info.Answers, Is.Empty, "§3.7.1: a class matches just that class, and CH is not IN");
 
     }
 
