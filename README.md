@@ -215,6 +215,11 @@ It sent every second query of its series. The case is finding 97, red at
 a12603df and passing from d906af2d on. With it the Multicast project is
 218 ✅ · 0 ❌, and the offline suite 1865 ✅ · 0 ❌ · 4 skips.
 
+And §11's other half, which needs a second host: with the WSL virtual machine as
+one, a unicast from an address on no subnet of the receiving interface is not on
+the local link, and a multicast from it is. The two tests are in the WSL
+category as well. With them the Multicast project is 220 ✅ · 0 ❌.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

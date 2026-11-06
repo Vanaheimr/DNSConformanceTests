@@ -37,11 +37,13 @@ namespace DNSConformance.Multicast.Tests;
 /// not read back from the transport.
 /// </para>
 /// <para>
-/// What these tests cannot show is a source that is not on the link. Every source a
-/// single host can send from is one of its own addresses, on the interface that address
-/// belongs to: Windows sends a packet only from the interface its source address is
-/// configured on, whatever interface the socket names. So §11's negative half, a
-/// response from off the link, needs a second host.
+/// What one host cannot show is a source that is not on the link. Every source a single
+/// host can send from is one of its own addresses, on the interface that address belongs
+/// to: Windows sends a packet only from the interface its source address is configured
+/// on, whatever interface the socket names. So §11's negative half, a response from off
+/// the link, needs a second host. On Windows the WSL virtual machine is one, behind a
+/// virtual switch of its own, and as root it can write any source address into a packet:
+/// the tests that need it are in the <c>WSL</c> category as well.
 /// </para>
 /// </remarks>
 [TestFixture]
@@ -644,6 +646,184 @@ public sealed class MulticastSocketConformanceTests
             Assert.That(ear.Carrying(payload).Select(datagram => datagram.InterfaceIndex).Distinct(),
                         Is.EqualTo(new Int32?[] { chosen.Index }),
                         $"the transport named to {chosen.Name} multicast elsewhere, or not there");
+
+        });
+
+    }
+
+    #endregion
+
+    #region From off the link (RFC 6762 §11)
+
+    /// <summary>
+    /// An address on no subnet of any interface: RFC 5737's TEST-NET-2.
+    /// </summary>
+    private const String OffTheLink = "198.51.100.7";
+
+
+    /// <summary>
+    /// Writes one UDP packet with the source address it is given, from the Multicast DNS
+    /// port of the test, through a raw socket. Only root may; WSL makes the VM's root
+    /// available without a password.
+    /// </summary>
+    private const String RawSender = """
+        import socket, struct, sys
+        source, destination, port, payload = sys.argv[1], sys.argv[2], int(sys.argv[3]), bytes.fromhex(sys.argv[4])
+        udp = struct.pack("!HHHH", port, port, 8 + len(payload), 0) + payload
+        ip  = struct.pack("!BBHHHBBH4s4s", 0x45, 0, 20 + len(udp), 0, 0, 255, 17, 0,
+                          socket.inet_aton(source), socket.inet_aton(destination))
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+        s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+        s.sendto(ip + udp, (destination, 0))
+        """;
+
+
+    /// <summary>
+    /// The WSL virtual machine as a second host on its own link: its address, and the
+    /// Windows interface that faces it.
+    /// </summary>
+    private static (String VmAddress, Link Link) RequireSecondHost()
+    {
+
+        if (!Wsl.UsesWslBridge)
+            Assert.Ignore("A source off the link needs a second host; on Windows the WSL virtual machine is one, on this host there is none.");
+
+        if (!Wsl.IsAvailable || !Wsl.HasTool("python3"))
+            Assert.Ignore("WSL with python3 is not available, so there is no second host to send from.");
+
+        var gateway = Wsl.WindowsHostAddress;
+        var vm      = Wsl.VmAddress;
+
+        if (gateway is null || vm is null || gateway == "127.0.0.1")
+            Assert.Ignore("WSL shares the host's interfaces (mirrored networking), so it is no second host on a link of its own.");
+
+        var link = Links().FirstOrDefault(link => link.IPv4?.ToString() == gateway);
+
+        if (link is null)
+            Assert.Ignore($"The interface that faces WSL ({gateway}) is not up or cannot multicast.");
+
+        return (vm, link);
+
+    }
+
+
+    private static void SendFromSecondHost(String  Source,
+                                           String  Destination,
+                                           IPPort  Port,
+                                           Byte[]  Payload)
+    {
+
+        var script = Path.Combine(Path.GetTempPath(), $"mdns-raw-{Guid.NewGuid():N}.py");
+
+        try
+        {
+
+            File.WriteAllText(script, RawSender.Replace("\r\n", "\n"));
+
+            var result = Wsl.Run($"python3 {Wsl.ToWslPath(script)} {Source} {Destination} {Port.ToInt32()} {Convert.ToHexString(Payload)}",
+                                 TimeSpan.FromSeconds(30),
+                                 asRoot: true);
+
+            Assert.That(result.Success, Is.True, $"the raw sender in WSL failed: {result}");
+
+        }
+        finally
+        {
+            File.Delete(script);
+        }
+
+    }
+
+
+    [Test]
+    [Category(TestCategories.Wsl)]
+    [Property("RFC", "6762 §11")]
+    public async Task A_Unicast_From_Off_The_Link_Is_Not_On_The_Local_Link()
+    {
+
+        // §11: a querier "MUST only accept responses to that query that originate from the
+        // local link, and silently discard any other response packets", and for a unicast
+        // destination "the source IP address in the packet is checked to see if it is an
+        // address on a local subnet". The second host sends twice, the same packet by the
+        // same means, from its own address and from one on no subnet at all.
+        var (vm, link)  = RequireSecondHost();
+        var port        = PrivatePort();
+
+        await using var transport = await Started(new () { Port = port });
+        var ear         = new Ear(transport);
+
+        var fromItself  = Marker();
+        var fromAfar    = Marker();
+
+        SendFromSecondHost(vm,         link.IPv4!.ToString(), port, fromItself);
+        SendFromSecondHost(OffTheLink, link.IPv4!.ToString(), port, fromAfar);
+
+        var own         = (await ear.Await(datagram => datagram.Payload.Span.SequenceEqual(fromItself))).FirstOrDefault();
+        var foreign     = (await ear.Await(datagram => datagram.Payload.Span.SequenceEqual(fromAfar))).  FirstOrDefault();
+
+        if (own is null)
+            Assert.Ignore($"Nothing from WSL reached the transport on {link.Name}; the Windows firewall decides about packets from that switch.");
+
+        Assert.That(foreign, Is.Not.Null,
+                    $"the packet from {OffTheLink} did not arrive, although the one from {vm} did");
+
+        Assert.Multiple(() => {
+
+            Assert.That(own.SourceIsOnLocalLink, Is.True,
+                        $"{vm} is on the subnet of {link.Name}, the interface that received it");
+
+            Assert.That(foreign!.InterfaceIndex, Is.EqualTo(link.Index));
+
+            Assert.That(foreign.RemoteSocket.IPAddress.ToString(), Is.EqualTo(OffTheLink));
+
+            Assert.That(foreign.SourceIsOnLocalLink, Is.False,
+                        $"§11: {OffTheLink} is on no subnet of {link.Name}, and a unicast from it did not " +
+                        "originate from the local link");
+
+        });
+
+    }
+
+
+    [Test]
+    [Category(TestCategories.Wsl)]
+    [Property("RFC", "6762 §11")]
+    public async Task A_Multicast_From_Off_The_Link_Is_On_The_Local_Link()
+    {
+
+        // §11: "All responses received with a destination address in the IP header that is
+        // the mDNS IPv4 link-local multicast address 224.0.0.251 or the mDNS IPv6 link-local
+        // multicast address FF02::FB are necessarily deemed to have originated on the local
+        // link, regardless of source IP address."
+        var (vm, link)  = RequireSecondHost();
+        var port        = PrivatePort();
+
+        await using var transport = await Started(new () { Port = port });
+        var ear         = new Ear(transport);
+
+        var fromItself  = Marker();
+        var fromAfar    = Marker();
+
+        SendFromSecondHost(vm,         IPv4Group.ToString(), port, fromItself);
+        SendFromSecondHost(OffTheLink, IPv4Group.ToString(), port, fromAfar);
+
+        var own         = (await ear.Await(datagram => datagram.Payload.Span.SequenceEqual(fromItself))).FirstOrDefault();
+        var foreign     = (await ear.Await(datagram => datagram.Payload.Span.SequenceEqual(fromAfar))).  FirstOrDefault();
+
+        if (own is null)
+            Assert.Ignore($"Nothing from WSL reached the transport on {link.Name}; the Windows firewall decides about packets from that switch.");
+
+        Assert.That(foreign, Is.Not.Null,
+                    $"the multicast from {OffTheLink} did not arrive, although the one from {vm} did");
+
+        Assert.Multiple(() => {
+
+            Assert.That(foreign!.InterfaceIndex, Is.EqualTo(link.Index));
+
+            Assert.That(foreign.RemoteSocket.IPAddress.ToString(), Is.EqualTo(OffTheLink));
+
+            Assert.That(foreign.SourceIsOnLocalLink, Is.True,
+                        $"§11: a datagram to 224.0.0.251 is on the local link regardless of its source, {OffTheLink} too");
 
         });
 

@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **57 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -130,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 236 | **57** | 83 |
+| `multicast` | 236 | **54** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -1008,6 +1008,30 @@ That leaves **57 open**: 104 less the 35 killed and the 12 equivalent.
 `UDPMulticastDNSTransport.cs` holds thirteen of them. Of the rest the responder and the
 browser hold nine each, the in-memory link seven, the message six, the client five, the
 hybrid client four, the bitmap three, and `MulticastDNS.cs` one.
+
+### Three from a second host
+
+`:625`, `:636` and `:648` stayed open for want of a second host. On Windows there is
+one: the WSL virtual machine, behind a virtual switch of its own, whose root can write
+any source address into a packet through a raw socket. Two tests in the same class,
+in the `WSL` category as well, have it send to the transport from 198.51.100.7, an
+address on no subnet of any interface, and from its own address the same way, as the
+positive control:
+
+- `A_Unicast_From_Off_The_Link_Is_Not_On_The_Local_Link`: §11 checks a unicast's source
+  against the subnets of the interface that received it. The VM's own address passes,
+  198.51.100.7 does not. `:636` says yes to it for the IPv6 prefix of that interface,
+  and `:648` at the first octet that differs.
+- `A_Multicast_From_Off_The_Link_Is_On_The_Local_Link`: a datagram to 224.0.0.251 is on
+  the link "regardless of source IP address". `:625` sends it through the subnet check,
+  which 198.51.100.7 fails.
+
+Each of the three was planted on its own at `d906af2d`, under the class's seventeen
+cases, and each failed one of the two new ones. Where WSL shares the host's interfaces
+(mirrored networking), or is not there, or on Linux, the two say so and are skipped.
+
+That leaves **54 open**. `UDPMulticastDNSTransport.cs` holds ten: the defaults, the log
+line, dual mode, the interfaces of one address family, and disposal.
 
 ### What the first measurement's chapter now is
 

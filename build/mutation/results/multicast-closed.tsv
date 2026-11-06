@@ -166,8 +166,10 @@ DNS/Multicast/MulticastDNSResponder.cs	1139	ge-to-greater	killed	the-responder-a
 DNS/Multicast/UDPMulticastDNSTransport.cs	614	equality-to-inequality	killed	the-transport-on-the-hosts-sockets		0
 DNS/Multicast/MulticastDNSClient.cs	1121	true-to-false	killed	the-querier-and-the-browser		0
 DNS/Multicast/MulticastDNSResponder.cs	1145	ge-to-greater	killed	the-responder-asked-and-on-its-own		0
+DNS/Multicast/UDPMulticastDNSTransport.cs	625	equality-to-inequality	killed	a-second-host		0
 DNS/Multicast/MulticastDNSResponder.cs	1164	greater-to-ge	equivalent		Record.TimeToLive > ttlOverride.Value, the legacy unicast cap of §6.7, with >=. They differ where a record's TTL equals the cap, ten seconds, and then the override the mutant sets is the TTL the record has. The wire carries the same ten either way	0
 DNS/Multicast/UDPMulticastDNSTransport.cs	635	inequality-to-equality	killed	the-transport-on-the-hosts-sockets		0
+DNS/Multicast/UDPMulticastDNSTransport.cs	636	false-to-true	killed	a-second-host		0
 DNS/Multicast/UDPMulticastDNSTransport.cs	643	logical-or-to-and	equivalent		PrefixLength < 0 || PrefixLength > length in bits, with &&, which is never true. The guard is for prefix lengths outside the address, and no interface reports one	0
 DNS/Multicast/UDPMulticastDNSTransport.cs	643	less-to-less-or-equal	equivalent		PrefixLength < 0, with <= 0. It differs for a prefix of length zero, which no interface address has	0
 DNS/Multicast/UDPMulticastDNSTransport.cs	643	greater-to-ge	killed	the-transport-on-the-hosts-sockets		0
@@ -175,6 +177,7 @@ DNS/Multicast/UDPMulticastDNSTransport.cs	644	false-to-true	equivalent		return f
 DNS/Multicast/UDPMulticastDNSTransport.cs	646	less-to-less-or-equal	killed	the-transport-on-the-hosts-sockets		0
 DNS/Multicast/MulticastDNSResponder.cs	1353	logical-or-to-and	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/UDPMulticastDNSTransport.cs	647	inequality-to-equality	killed	the-transport-on-the-hosts-sockets		0
+DNS/Multicast/UDPMulticastDNSTransport.cs	648	false-to-true	killed	a-second-host		0
 DNS/Multicast/MulticastDNSResponder.cs	1353	greater-to-ge	killed	the-responder-asked-and-on-its-own		1
 DNS/Multicast/UDPMulticastDNSTransport.cs	650	equality-to-inequality	killed	the-transport-on-the-hosts-sockets		0
 DNS/Multicast/MulticastDNSResponder.cs	1353	greater-to-ge	killed	the-responder-asked-and-on-its-own		2
