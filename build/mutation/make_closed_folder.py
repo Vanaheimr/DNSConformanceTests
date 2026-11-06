@@ -1724,6 +1724,20 @@ MULTICAST_KILLED = {
     # Each was planted on its own at a12603df, under the fourteen cases of that
     # class (the in-memory tests never build the transport, and the sweep had all
     # sixty survive them), and each failed one of them.
+    # Three of the transport's thirteen needed a source off the link, which one host
+    # cannot send from. The WSL virtual machine is a second host behind a switch of its
+    # own, and its root writes any source address into a packet through a raw socket.
+    # From 198.51.100.7, on no subnet of any interface: a multicast is on the link
+    # regardless of its source (625 sends it through the subnet check), and a unicast
+    # is not (636 says yes to the other family's subnets, 648 to a differing octet).
+    # Each was planted on its own at d906af2d under the socket class's seventeen
+    # cases, and each failed one of the two new ones.
+    "a-second-host": {
+        "DNS/Multicast/UDPMulticastDNSTransport.cs": {
+            625, 636, 648,
+        },
+    },
+
     "the-transport-on-the-hosts-sockets": {
         "DNS/Multicast/UDPMulticastDNSTransport.cs": {
             40, 45, 66, 136, 199, 215, 218, 258, 262, 287, 304, 384, 399,
