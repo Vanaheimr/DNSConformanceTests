@@ -5,6 +5,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -764,6 +765,49 @@ public sealed class MulticastQuerierConformanceTests
 
 
     /// <summary>
+    /// §18.14: "Implementations receiving Multicast DNS messages MUST correctly decode
+    /// compressed names appearing in the Question Section, and compressed names of resource
+    /// records appearing in other sections", and "MUST correctly decode compressed names
+    /// appearing within the *rdata*" of PTR records among others. Hermod's own messages are
+    /// never compressed, so only another host's can show it.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §18.14")]
+    public async Task Compressed_Names_In_A_Response_Are_Decoded()
+    {
+
+        await using var link = await Link.Start();
+
+        var writer  = new RawDnsWriter().Header(0, 0x8400, 0, 3, 0, 0);
+
+        var hostAt  = writer.Position;
+        writer.RR(HostName, RawDnsType.A, RawDnsClass.IN, 120, RawDnsWriter.IPv4("192.0.2.7"));
+
+        // The AAAA record's owner name is a pointer to the A record's.
+        writer.Pointer(hostAt).U16(RawDnsType.AAAA).U16(RawDnsClass.IN).U32(120).U16(16).Bytes(RawDnsWriter.IPv6("2001:db8::7"));
+
+        // The PTR record's target is "x" and a pointer to the record's own owner name.
+        var serviceAt = writer.Position;
+        writer.Name("_svc._tcp.local.").U16(RawDnsType.PTR).U16(RawDnsClass.IN).U32(4500).U16(4).U8(1).U8((Byte) 'x').Pointer(serviceAt);
+
+        await link.Multicast(writer.ToArray());
+
+        Assert.Multiple(() => {
+
+            Assert.That(link.Client.CachedRecords(Host, DNSResourceRecordTypes.AAAA), Has.Count.EqualTo(1),
+                        "§18.14: the owner name given by a pointer");
+
+            Assert.That(link.Client.CachedRecords(DNSServiceName.Parse("_svc._tcp.local."), DNSResourceRecordTypes.PTR).
+                                    Select(entry => ((PTR) entry.Record).Target.FullName.TrimEnd('.')),
+                        Is.EqualTo(new[] { "x._svc._tcp.local" }),
+                        "§18.14: a PTR target compressed into the record's own owner name");
+
+        });
+
+    }
+
+
+    /// <summary>
     /// §7.1: "A Multicast DNS querier MUST NOT cache resource records observed in the
     /// Known-Answer Section of other Multicast DNS queries."
     /// </summary>
@@ -996,6 +1040,75 @@ public sealed class MulticastQuerierConformanceTests
 
         Assert.That(info.AdditionalRecords.Select(record => record.Type), Is.EqualTo(new[] { DNSResourceRecordTypes.AAAA }),
                     "the AAAA record, and neither the TXT record's goodbye nor the A record answered already");
+
+    }
+
+    #endregion
+
+    #region Which names go to Multicast DNS (RFC 6762 §3, §12)
+
+    /// <summary>
+    /// §3: "Any DNS query for a name ending with ".local." MUST be sent to the mDNS IPv4
+    /// link-local multicast address 224.0.0.251 (or its IPv6 equivalent FF02::FB)." §12 names
+    /// the other domains of only local significance: "254.169.in-addr.arpa." and
+    /// "8.e.f.ip6.arpa.", "9.e.f.ip6.arpa.", "a.e.f.ip6.arpa.", and "b.e.f.ip6.arpa.". A
+    /// client that resolves both kinds of name asks Multicast DNS for those, and its unicast
+    /// resolver for the rest.
+    /// </summary>
+    [TestCase("local.",                       true,  TestName = "The name local. goes to Multicast DNS")]
+    [TestCase("kitchen.local.",               true,  TestName = "A name under local. goes to Multicast DNS")]
+    [TestCase("7.200.254.169.in-addr.arpa.",  true,  TestName = "An IPv4 link-local reverse name goes to Multicast DNS")]
+    [TestCase("1.0.8.e.f.ip6.arpa.",          true,  TestName = "An IPv6 link-local reverse name under 8.e.f goes to Multicast DNS")]
+    [TestCase("1.0.9.e.f.ip6.arpa.",          true,  TestName = "An IPv6 link-local reverse name under 9.e.f goes to Multicast DNS")]
+    [TestCase("1.0.a.e.f.ip6.arpa.",          true,  TestName = "An IPv6 link-local reverse name under a.e.f goes to Multicast DNS")]
+    [TestCase("1.0.b.e.f.ip6.arpa.",          true,  TestName = "An IPv6 link-local reverse name under b.e.f goes to Multicast DNS")]
+    [TestCase("kitchen.example.",             false, TestName = "Any other name goes to the unicast resolver")]
+    [Property("RFC", "6762 §3, §12")]
+    public async Task Only_Names_Of_Local_Significance_Go_To_Multicast_Dns(String Name, Boolean Multicast)
+    {
+
+        await using var link = await Link.Start();
+
+        var unicast = new StubDnsClient();
+
+        using var hybrid = new HybridDNSClient(link.Client, unicast);
+
+        await hybrid.Query(DomainName.Parse(Name), [ DNSResourceRecordTypes.A ], TimeSpan.FromMilliseconds(200));
+
+        Assert.Multiple(() => {
+            Assert.That(link.Queries.Length > 0,   Is.EqualTo(Multicast),  Multicast ? "§3, §12: asked of Multicast DNS" : "not of Multicast DNS");
+            Assert.That(unicast.Queries.Count > 0, Is.EqualTo(!Multicast), Multicast ? "and not of the unicast resolver" : "but of the unicast resolver");
+        });
+
+    }
+
+
+    /// <summary>
+    /// The hybrid client hands a lookup on as it came: one that does not force an update is
+    /// answered from the Multicast DNS cache, through either overload, and asks nothing.
+    /// </summary>
+    [TestCase(false, TestName = "A hybrid lookup by domain name leaves a cached name to the cache")]
+    [TestCase(true,  TestName = "A hybrid lookup by service name leaves a cached name to the cache")]
+    [Property("RFC", "6762 §7")]
+    public async Task A_Hybrid_Lookup_Leaves_A_Cached_Name_To_The_Cache(Boolean ByServiceName)
+    {
+
+        await using var link = await Link.Start();
+
+        await link.Multicast(Response([ Address("192.0.2.7") ]));
+
+        using var hybrid = new HybridDNSClient(link.Client, new StubDnsClient());
+
+        var timeout  = TimeSpan.FromMilliseconds(300);
+
+        var info     = ByServiceName
+                           ? await hybrid.Query(Host,                       [ DNSResourceRecordTypes.A ], timeout)
+                           : await hybrid.Query(DomainName.Parse(HostName), [ DNSResourceRecordTypes.A ], timeout);
+
+        Assert.Multiple(() => {
+            Assert.That(link.Queries, Is.Empty, "the cache answers, so nothing is asked");
+            Assert.That(info.Answers.OfType<A>().Select(a => a.IPv4Address.ToString()), Is.EqualTo(new[] { "192.0.2.7" }));
+        });
 
     }
 

@@ -175,6 +175,19 @@ variation of 2 %, and Hermod's browser asked once, at 80 % exactly. The case is
 finding 95, red at cdc03cc6 and passing from 3050ab75 on. With it the Multicast
 project is 167 ✅ · 0 ❌, and the offline suite 1829 ✅ · 0 ❌ · 4 skips.
 
+And the tests the message's and the helpers' open rows asked for (MUTATION.md,
+*The message's twenty-seven and the helpers' thirty-three*): thirty-three cases
+and two assertions. Hermod's message reader refuses ten packets RFC 1035 §4.1
+cannot walk, takes a header alone for a message, and reads AA and RD where they
+are; compressed names are decoded (RFC 6762 §18.14); a question matches records
+of its class; a probe's records carry no cache-flush bit (§10.2) and a response
+no TC bit (§18.5). The hybrid client sends local. and the link-local reverse
+domains, and only those, to Multicast DNS (§3, §12); an NSEC bitmap has no
+trailing zero octet (RFC 4034 §4.1.2); the tie-break lets the longer list win
+and compares rdata uncompressed (§8.2.1); and a unique record taken out with its
+whole RRSet gets a goodbye (§10.1). With them the Multicast project is 200 ✅ · 0
+❌, and the offline suite 1862 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

@@ -7,53 +7,92 @@
 DNS/Multicast/MulticastDNSBrowser.cs	94	logical-and-to-or	equivalent		HostName is not null && Port.HasValue in IsResolved, with ||. Both are set in one place, Apply's SRV case at 921 and 922, and always together; nothing unsets either. So they are null together or set together, and && and || agree	0
 DNS/Multicast/MulticastDNSClient.cs	65	true-to-false	killed	the-querier-and-the-browser		0
 DNS/Multicast/MulticastDNSMessage.cs	39	false-to-true	equivalent		UnicastResponseRequested = false on the record's primary constructor. Every caller passes it: the parser from the QU bit it read, the constructor at line 70 from its own parameter, and the suite's two direct callers go through that one. The default the browser's questions go out on is line 70's, and the querier tests kill it there	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	42	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	199	inequality-to-equality	killed	the-responder-asked-and-on-its-own		0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	65	equality-to-inequality	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNS.cs	200	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSMessage.cs	88	equality-to-inequality	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	67	le-to-less	equivalent		offset <= wire.Length in RData, with <. They differ where the RDATA is empty, and wire.AsMemory(offset) is then the empty memory the mutant returns	0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	65	greater-to-ge	equivalent		length > 0 && bitmap[length - 1] == 0 as Encode trims a window, with >=. A window is made only for a type in it, so its bitmap holds a set bit, and the loop stops at that bit before length reaches zero, where the mutant would read bitmap[-1]	0
+DNS/Multicast/HybridDNSClient.cs	122	false-to-true	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNS.cs	200	equality-to-inequality	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSClient.cs	170	greater-to-ge	equivalent		ExpiresAt > Now ? ExpiresAt - Now : TimeSpan.Zero in RemainingTimeToLive, with >=. They differ where ExpiresAt equals Now, and the mutant's ExpiresAt - Now is then TimeSpan.Zero, the original's answer	0
+DNS/Multicast/MulticastDNSMessage.cs	114	false-to-true	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	86	logical-and-to-or	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	97	le-to-less	equivalent		offset + 2 <= TypeBitMaps.Length in Decode, with <. They differ where exactly two octets are left. The original reads them as a window and a length and stops at the next test, since no bitmap follows: a length of zero breaks, and any other runs past the end. The mutant stops before. Neither adds a type	0
+DNS/Multicast/MulticastDNS.cs	201	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSClient.cs	182	greater-to-ge	equivalent		remaining > TimeSpan.Zero in IsKnownAnswerAt, with >=. RemainingTimeToLive is never negative, so the mutant's conjunct is always true. The original's is true for every entry that gets here: each caller reads the clock and then takes its entries from CachedRecords, which reads it again and keeps only those with ExpiresAt after that second reading. That is the client's KnownAnswers at 1042 and the browser's QueryNowAsync and ObserveQuery, which read it at 367 and 421. An entry with no time left at the first reading would need a clock that ran backward between two readings of one synchronous call	0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	87	logical-and-to-or	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/HybridDNSClient.cs	140	false-to-true	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNS.cs	202	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSClient.cs	183	ge-to-greater	killed	what-the-new-code-left-at-its-edges		0
 DNS/Multicast/MulticastDNSMessage.cs	319	false-to-true	killed	what-the-new-code-left-at-its-edges		0
+DNS/Multicast/MulticastDNSRecordExtensions.cs	152	less-to-less-or-equal	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNS.cs	203	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNS.cs	204	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	412	logical-or-to-and	killed	what-the-new-code-left-at-its-edges		0
+DNS/Multicast/MulticastDNSMessage.cs	351	false-to-true	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSTypeBitmap.cs	110	less-to-less-or-equal	equivalent		bit < 8 in Decode, with <=. The ninth pass tests 0x80 >> 8, which is zero, and adds nothing	0
+DNS/Multicast/MulticastDNS.cs	205	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	415	logical-and-to-or	killed	what-the-new-code-left-at-its-edges		0
 DNS/Multicast/MulticastDNSBrowser.cs	416	logical-and-to-or	killed	what-the-new-code-left-at-its-edges		0
 DNS/Multicast/MulticastDNSResponder.cs	573	logical-and-to-or	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSBrowser.cs	417	logical-and-to-or	killed	what-the-new-code-left-at-its-edges		0
 DNS/Multicast/MulticastDNSClient.cs	439	false-to-true	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	387	less-to-less-or-equal	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	573	logical-and-to-or	killed	the-responder-asked-and-on-its-own		1
 DNS/Multicast/MulticastDNSBrowser.cs	442	greater-to-ge	equivalent		maxDelay > minDelay ? minDelay + a random share of the difference : minDelay, with >=. They differ where the two are equal, and the share is then of a zero difference, FromTicks((Int64) (x * 0)): minDelay either way. The draw the mutant adds comes from Random.Shared, which is not seeded, so nothing that draws after it can tell	0
+DNS/Multicast/MulticastDNSMessage.cs	390	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	446	greater-to-ge	equivalent		if (delay > TimeSpan.Zero) around the first query's delay, with >=. They differ at a delay of zero, which the mutant awaits. Task.Delay(TimeSpan, TimeProvider, CancellationToken) answers a cancelled token with a cancelled task and a delay of zero with a completed one, and creates no timer for either. The first ends the loop at the catch's return, where the original ends it at the while's test of the same token. The second goes on at once, as the original does	0
 DNS/Multicast/MulticastDNSClient.cs	468	false-to-true	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	412	false-to-true	equivalent		new MemoryStream(buffer, false) in TryParse, writable with true. Nothing writes to the stream: DNSTools.ExtractName and DNSInfo.ReadResourceRecord only read names and records off it, and the class bits are cleared in the buffer through its span, not through the stream	0
 DNS/Multicast/MulticastDNSClient.cs	489	logical-and-to-or	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	425	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSClient.cs	489	inequality-to-equality	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	431	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	598	equality-to-inequality	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSClient.cs	489	true-to-false	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	468	logical-or-to-and	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	599	true-to-false	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSBrowser.cs	490	greater-to-ge	equivalent		interval > MaxBrowseInterval as the browse interval doubles, with >=. They differ where the two are equal, and the mutant then sets the interval to the value it has	0
 DNS/Multicast/MulticastDNSClient.cs	493	logical-or-to-and	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	471	false-to-true	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSMessage.cs	480	inequality-to-equality	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	552	false-to-true	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	482	inequality-to-equality	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSClient.cs	532	less-to-less-or-equal	equivalent		remaining < interval ? remaining : interval, with <=. The two differ only where remaining and interval are equal, and then both pick the same TimeSpan; the comparison at 560 sees the same wait. The line it replaced, 490 at 925c80d5, was the same and was left open there	0
 DNS/Multicast/MulticastDNSBrowser.cs	570	logical-and-to-or	equivalent		changed && SRV && HostName is not null before the cached addresses of the instance's host are applied, with the second && made ||: (changed && SRV) || HostName is not null. The mutant applies them also when an unchanged SRV record or a TXT record arrives for an instance with a host, and discards what Apply returns, as the original does. Every cached address of the host is among the instance's by then: an address that arrives is applied to every instance on its host (586), a host is given its cached addresses the moment an SRV record names it (571, 650, and ApplyCached at 837), and an address leaves the instance only as it leaves the cache (664, 678). Apply adds nothing	1
+DNS/Multicast/MulticastDNSMessage.cs	522	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	574	logical-and-to-or	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	528	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	586	logical-and-to-or	killed	the-querier-and-the-browser		0
 DNS/Multicast/MulticastDNSClient.cs	546	greater-to-ge	equivalent		grace > Options.ResponseGracePeriod before a lookup's grace period, with >=. They differ where the two are equal, and the mutant then sets grace to the value it already has	0
+DNS/Multicast/MulticastDNSMessage.cs	539	false-to-true	killed	the-message-and-what-surrounds-it		0
+DNS/Multicast/MulticastDNSMessage.cs	615	false-to-true	equivalent		question.Name.Serialize(stream, offset, false, null) in Serialize, compressing with true. Serialize then makes a dictionary of its own (Offsets ??= []) for each question, and compresses a name only where the whole name is in it already; one name never finds itself there before it is written, so each question is written in full, as the original writes it	0
 DNS/Multicast/MulticastDNSResponder.cs	690	logical-and-to-or	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSBrowser.cs	635	logical-and-to-or	killed	the-querier-and-the-browser		0
 DNS/Multicast/MulticastDNSBrowser.cs	648	logical-and-to-or	killed	what-the-new-code-left-at-its-edges		0
 DNS/Multicast/MulticastDNSClient.cs	628	le-to-less	equivalent		question.ExpiresAt <= now as SendQueryAsync prunes the recent unicast questions, with <. The mutant keeps a question that expires at that very moment. Nothing reads the list but IsExpectedUnicastResponse, which prunes it again with <= at its own reading of the clock, no earlier than this one, before it looks; the catch at 641 removes only the call's own registrations	0
 DNS/Multicast/MulticastDNSResponder.cs	720	equality-to-inequality	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSBrowser.cs	664	logical-and-to-or	killed	the-querier-and-the-browser		0
+DNS/Multicast/MulticastDNSMessage.cs	709	ge-to-greater	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	746	logical-or-to-and	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSBrowser.cs	678	logical-and-to-or	killed	the-querier-and-the-browser		0
 DNS/Multicast/MulticastDNSClient.cs	671	equality-to-inequality	killed	what-the-new-code-left-at-its-edges		0
+DNS/Multicast/MulticastDNSMessage.cs	712	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	750	greater-to-ge	equivalent		if (goodbyeRecords.Length > 0) before an update's goodbye, with >=. With nothing to say goodbye to, the mutant calls SendGoodbyeAsync with an empty list, and Split yields no packet for it: the loop has nothing to run over, and the last yield asks packetAnswers.Count > 0 || packetAdditionals.Count > 0, which two empty lists answer with no. Nothing awaits on the way, so no cancellation can tell either	0
 DNS/Multicast/MulticastDNSClient.cs	671	true-to-false	equivalent		the `true` SizeOf hands Query as Truncated, while it measures how long a packet would be. Serialize turns Truncated into one bit of the header's third octet (MulticastDNSMessage.cs:596) and into nothing else: the header is twelve octets either way, and the sections are written alike. The packets that go out are built at 702, with a TC bit of their own	0
 DNS/Multicast/MulticastDNSClient.cs	678	le-to-less	killed	what-the-new-code-left-at-its-edges		0
 DNS/Multicast/MulticastDNSResponder.cs	753	less-to-less-or-equal	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSClient.cs	683	equality-to-inequality	killed	what-the-new-code-left-at-its-edges		0
+DNS/Multicast/MulticastDNSMessage.cs	733	true-to-false	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSBrowser.cs	738	greater-to-ge	equivalent		lifetime > TimeSpan.Zero before the query at 80 %, with >=. They differ where the lifetime is zero, and the conjunct after it is then remaining < 0 * (1 - RefreshFraction), which no RemainingTimeToLive satisfies: it is never negative	0
 DNS/Multicast/MulticastDNSClient.cs	683	greater-to-ge	killed	what-the-new-code-left-at-its-edges		0
+DNS/Multicast/MulticastDNSMessage.cs	740	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSClient.cs	691	greater-to-ge	equivalent		SizeOf(current) > Options.MaxQuerySize, with >=. A known answer that fills a packet to the octet is closed into a group of its own at once, where the original keeps it as the open group. Nothing can join it: every record adds octets, so the next one overflows that group at 678, and the original closes it there, as it was; if none follows, 699 closes it. The groups come out the same. The method run over abstract sizes, every list of up to five known answers drawn from nine sizes under three limits and three question sizes, 597,870 cases, gave no difference here. It gave one for each of the five survivors on 671 to 699 that stay open: 671's ==, 678, both of 683 and 699	0
 DNS/Multicast/MulticastDNSBrowser.cs	741	true-to-false	killed	the-querier-and-the-browser		0
 DNS/Multicast/MulticastDNSClient.cs	699	greater-to-ge	killed	what-the-new-code-left-at-its-edges		0
+DNS/Multicast/MulticastDNSMessage.cs	748	false-to-true	killed	the-message-and-what-surrounds-it		0
 DNS/Multicast/MulticastDNSResponder.cs	790	logical-or-to-and	killed	the-responder-asked-and-on-its-own		0
 DNS/Multicast/MulticastDNSBrowser.cs	752	equality-to-inequality	killed	the-querier-and-the-browser		1
 DNS/Multicast/MulticastDNSResponder.cs	791	logical-or-to-and	killed	the-responder-asked-and-on-its-own		0

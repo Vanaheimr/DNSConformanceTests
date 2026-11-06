@@ -190,8 +190,18 @@ public sealed class MulticastConflictConformanceTests
     /// Start probing the contested name, wait until the first probe is actually on the
     /// wire, then let a competitor probe for the same name with the given address.
     /// </summary>
-    private static async Task<Outcome> ProbeAgainst(String                 TheirAddress,
-                                                    String                 TheirName  = "contested.local.",
+    private static Task<Outcome> ProbeAgainst(String                 TheirAddress,
+                                              String                 TheirName  = "contested.local.",
+                                              IDNSResourceRecord[]?  Ours       = null)
+
+        => ProbeAgainst(ProbeProposing(TheirAddress, TheirName), Ours);
+
+
+    /// <summary>
+    /// Start probing, wait for the first probe on the wire, then let a competitor send the
+    /// given probe.
+    /// </summary>
+    private static async Task<Outcome> ProbeAgainst(Byte[]                 TheirProbe,
                                                     IDNSResourceRecord[]?  Ours       = null)
     {
 
@@ -211,7 +221,7 @@ public sealed class MulticastConflictConformanceTests
         await WaitUntil(() => capture.From(responderTransport).Any(message => !message.QR),
                         "the responder to send its first probe");
 
-        await rivalTransport.SendAsync(ProbeProposing(TheirAddress, TheirName));
+        await rivalTransport.SendAsync(TheirProbe);
 
         var finished = await Task.WhenAny(publishing, Task.Delay(10000));
 
@@ -291,6 +301,62 @@ public sealed class MulticastConflictConformanceTests
                     Expected == MulticastDNSPublicationState.Conflict
                         ? "§8.2: the same name, and the lexicographically later data wins"
                         : "§16: É and é are different octets, so the rival probed another name");
+
+    }
+
+
+    /// <summary>
+    /// §8.2.1: "If either list of records runs out of records before any difference is
+    /// found, then the list with records remaining is deemed to have won the tiebreak." A
+    /// rival proposing our address and an IPv6 address besides has records remaining when
+    /// ours have run out.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.2.1")]
+    public async Task A_Rival_Probe_With_Our_Records_And_One_More_Takes_The_Name()
+    {
+
+        var probe = new RawDnsWriter().
+                        Header(0, 0, 1, 0, 2, 0).
+                        Question("contested.local.", RawDnsType.ANY).
+                        RR("contested.local.", RawDnsType.A,    RawDnsClass.IN, 120, RawDnsWriter.IPv4("192.0.2.10")).
+                        RR("contested.local.", RawDnsType.AAAA, RawDnsClass.IN, 120, RawDnsWriter.IPv6("2001:db8::10")).
+                        ToArray();
+
+        var publication = await ProbeAgainst(probe);
+
+        Assert.That(publication.State, Is.EqualTo(MulticastDNSPublicationState.Conflict),
+                    "§8.2.1: the list with records remaining is deemed to have won the tiebreak");
+
+    }
+
+
+    /// <summary>
+    /// §8.2.1: "The bytes of the raw uncompressed rdata are compared in turn". Our CNAME
+    /// record, www.contested.local., names contested.local.; theirs names
+    /// zzzzzzzzzz.local. The first octet decides, a label length of 9 against one of 10,
+    /// and theirs is later. Compressed, our target would be a pointer into our own owner
+    /// name, 0xC0 first, and win where it loses.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §8.2.1, §18.14")]
+    public async Task The_Tie_Break_Compares_The_Rdata_Uncompressed()
+    {
+
+        var ours        = new IDNSResourceRecord[] {
+                              new CNAME(DomainName.Parse("www.contested.local."), DNSQueryClasses.IN, TimeSpan.FromSeconds(120), Contested)
+                          };
+
+        var probe       = new RawDnsWriter().
+                              Header(0, 0, 1, 0, 1, 0).
+                              Question("www.contested.local.", RawDnsType.ANY).
+                              RR("www.contested.local.", RawDnsType.CNAME, RawDnsClass.IN, 120, RawDnsWriter.NameBytes("zzzzzzzzzz.local.")).
+                              ToArray();
+
+        var publication = await ProbeAgainst(probe, ours);
+
+        Assert.That(publication.State, Is.EqualTo(MulticastDNSPublicationState.Conflict),
+                    "§8.2.1: 09 against 0A in the raw uncompressed rdata, and theirs is later");
 
     }
 

@@ -1646,6 +1646,61 @@ MULTICAST_KILLED = {
         },
     },
 
+    # The fourth round, for the message and the files around it: 27 rows of
+    # MulticastDNSMessage.cs, 8 of MulticastDNS.cs, 7 of MulticastDNSTypeBitmap.cs,
+    # 7 of InMemoryMulticastDNSNetwork.cs, 6 of HybridDNSClient.cs and 5 of
+    # MulticastDNSRecordExtensions.cs. MulticastDNS.cs's lines after 196 sit one
+    # line further down at 3050ab75; the others have not moved.
+    #
+    # The message. TryParse refuses what RFC 1035 §4.1 cannot walk: a packet
+    # shorter than a header, a name that runs past the end or ends with the packet,
+    # a label length of 0x40, more than 128 labels, a question without type and
+    # class, a record that ends in its fixed fields or its RDATA, and a broken
+    # authority section with nothing after it (390, 425, 431, 468, 471, 522, 528,
+    # 539, 709, 712, 740, 748). A header alone is a message (387), and AA and RD
+    # are read where they are (480, 482). §18.14: compressed names are decoded
+    # (733). A question matches records of its class (88). A probe's records
+    # carry no cache-flush bit (114, §10.2), and an announcement no TC bit (351,
+    # §18.5).
+    #
+    # Around it. §3 and §12: the hybrid client sends local. and the link-local
+    # reverse domains to Multicast DNS and nothing else (MulticastDNS.cs's 200 to
+    # 205), and leaves a cached name to the cache through either overload
+    # (HybridDNSClient.cs's 122, 140). RFC 4034 §4.1.2: an NSEC bitmap has no
+    # trailing zero octet (MulticastDNSTypeBitmap.cs's 65 ==). §8.2.1: the longer
+    # list wins the tie-break (152), and rdata is compared uncompressed (42).
+    # §10.1: a unique record taken out with its whole RRSet gets a goodbye (86,
+    # 87).
+    #
+    # Each was planted on its own at 3050ab75, under the Multicast project's 200
+    # tests, and each failed one of the new ones.
+    "the-message-and-what-surrounds-it": {
+        "DNS/Multicast/MulticastDNSMessage.cs": {
+            (88, "equality-to-inequality"), (114, "false-to-true"), (351, "false-to-true"),
+            (387, "less-to-less-or-equal"), (390, "false-to-true"), (425, "false-to-true"),
+            (431, "false-to-true"), (468, "logical-or-to-and"), (471, "false-to-true"),
+            (480, "inequality-to-equality"), (482, "inequality-to-equality"), (522, "false-to-true"),
+            (528, "false-to-true"), (539, "false-to-true"), (709, "ge-to-greater"),
+            (712, "false-to-true"), (733, "true-to-false"), (740, "false-to-true"),
+            (748, "false-to-true"),
+        },
+        "DNS/Multicast/MulticastDNS.cs": {
+            (200, "logical-or-to-and"), (200, "equality-to-inequality"), (201, "logical-or-to-and"),
+            (202, "logical-or-to-and"), (203, "logical-or-to-and"), (204, "logical-or-to-and"),
+            (205, "logical-or-to-and"),
+        },
+        "DNS/Multicast/MulticastDNSTypeBitmap.cs": {
+            (65, "equality-to-inequality"),
+        },
+        "DNS/Multicast/HybridDNSClient.cs": {
+            (122, "false-to-true"), (140, "false-to-true"),
+        },
+        "DNS/Multicast/MulticastDNSRecordExtensions.cs": {
+            (42, "false-to-true"), (86, "logical-and-to-or"), (87, "logical-and-to-or"),
+            (152, "less-to-less-or-equal"),
+        },
+    },
+
 }
 
 MULTICAST_EQUIVALENT = {
@@ -1657,6 +1712,17 @@ MULTICAST_EQUIVALENT = {
             "from its own parameter, and the suite's two direct callers go through that one. "
             "The default the browser's questions go out on is line 70's, and the querier "
             "tests kill it there",
+
+        (412, "false-to-true"): "new MemoryStream(buffer, false) in TryParse, writable with "
+            "true. Nothing writes to the stream: DNSTools.ExtractName and "
+            "DNSInfo.ReadResourceRecord only read names and records off it, and the class "
+            "bits are cleared in the buffer through its span, not through the stream",
+
+        (615, "false-to-true"): "question.Name.Serialize(stream, offset, false, null) in "
+            "Serialize, compressing with true. Serialize then makes a dictionary of its own "
+            "(Offsets ??= []) for each question, and compresses a name only where the whole "
+            "name is in it already; one name never finds itself there before it is written, "
+            "so each question is written in full, as the original writes it",
 
     },
 
@@ -1800,6 +1866,32 @@ MULTICAST_EQUIVALENT = {
         1503: "if (Max <= Min) return Min in RandomDelay, with <. They differ where the two are "
               "equal, and the mutant then returns Min plus a random share of a zero difference: "
               "Min either way. The draw comes from Random.Shared, which is not seeded",
+
+    },
+
+    "DNS/Multicast/MulticastDNSTypeBitmap.cs": {
+
+        (65, "greater-to-ge"): "length > 0 && bitmap[length - 1] == 0 as Encode trims a "
+            "window, with >=. A window is made only for a type in it, so its bitmap holds a "
+            "set bit, and the loop stops at that bit before length reaches zero, where the "
+            "mutant would read bitmap[-1]",
+
+        (97, "le-to-less"): "offset + 2 <= TypeBitMaps.Length in Decode, with <. They differ "
+            "where exactly two octets are left. The original reads them as a window and a "
+            "length and stops at the next test, since no bitmap follows: a length of zero "
+            "breaks, and any other runs past the end. The mutant stops before. Neither adds "
+            "a type",
+
+        (110, "less-to-less-or-equal"): "bit < 8 in Decode, with <=. The ninth pass tests "
+            "0x80 >> 8, which is zero, and adds nothing",
+
+    },
+
+    "DNS/Multicast/MulticastDNSRecordExtensions.cs": {
+
+        (67, "le-to-less"): "offset <= wire.Length in RData, with <. They differ where the "
+            "RDATA is empty, and wire.AsMemory(offset) is then the empty memory the mutant "
+            "returns",
 
     },
 
