@@ -1701,6 +1701,38 @@ MULTICAST_KILLED = {
         },
     },
 
+    # The fifth round is for the sixty rows of UDPMulticastDNSTransport.cs, which no
+    # test reached: every other multicast test runs over the in-memory link. The
+    # tests are a class of their own, MulticastSocketConformanceTests, over the
+    # host's sockets on a port of their own, in the Multicast category.
+    #
+    # Starting at all: no interface found (199), IsRunning asked before a start
+    # (136), the interface list read wrongly (539, 545, 548, 563, 665). §3: a
+    # transport at its defaults hears 224.0.0.251 (40) and FF02::FB (45, 258, 287,
+    # 566) on every interface that is up, and every datagram it reads (467). §15
+    # and §15.1: two transports bind one port (215, 218, 262) and hear each
+    # other's multicasts (66), sent without naming an interface (399). §20: a
+    # transport of one family starts (304) and sends (421, both). §6.7: a legacy
+    # query is answered by unicast from the socket of its family (384). §14 and
+    # §6.2: a response goes out on the interface the query came in on alone (400,
+    # 401, 402 with !=), and a transport named to one interface takes that one
+    # (549). §11: a multicast is on the link whatever its source (609), and a
+    # unicast is when its source shares a prefix with the receiving interface:
+    # 127.0.0.1, 127.1.0.1 and ::1 on the loopback interface (614, 635, 643's >=,
+    # 646, 647, 650, 651).
+    #
+    # Each was planted on its own at a12603df, under the fourteen cases of that
+    # class (the in-memory tests never build the transport, and the sweep had all
+    # sixty survive them), and each failed one of them.
+    "the-transport-on-the-hosts-sockets": {
+        "DNS/Multicast/UDPMulticastDNSTransport.cs": {
+            40, 45, 66, 136, 199, 215, 218, 258, 262, 287, 304, 384, 399,
+            (400, "equality-to-inequality"), (401, "equality-to-inequality"), 402,
+            (421, "logical-and-to-or"), 467, 539, 545, 548, 549, 563, 566, 609, 614,
+            635, (643, "greater-to-ge"), 646, 647, 650, 651, 665,
+        },
+    },
+
 }
 
 MULTICAST_EQUIVALENT = {
@@ -1892,6 +1924,57 @@ MULTICAST_EQUIVALENT = {
         (67, "le-to-less"): "offset <= wire.Length in RData, with <. They differ where the "
             "RDATA is empty, and wire.AsMemory(offset) is then the empty memory the mutant "
             "returns",
+
+    },
+
+    "DNS/Multicast/UDPMulticastDNSTransport.cs": {
+
+        222: "SetSocketOption(IP, PacketInformation, true) on the IPv4 socket, with false. "
+             "Socket.ReceiveMessageFromAsync turns the option on itself before it receives: "
+             "planted, the transport still reported the interface and the group as the "
+             "destination of every multicast, and both come from the packet information",
+
+        266: "SetSocketOption(IPv6, PacketInformation, true) on the IPv6 socket, with false. "
+             "The same as line 222, for IPv6",
+
+        271: "info.IPv6Addresses.Count > 0 && info.IPv6Index.HasValue, choosing the "
+             "interfaces to join FF02::FB on: with || and with >= 0. SelectInterfaces asks "
+             "for an interface's IPv6 index only when it has IPv6 addresses (line 583), so "
+             "HasValue implies the count, and the count without the index would need "
+             "GetIPv6Properties to fail for an interface that has IPv6 addresses",
+
+        (400, "logical-or-to-and"): "info.Index == InterfaceIndex.Value || in SendAsync's "
+             "filter, with &&, which binds before the || around it: (Index == X && "
+             "IPv4Index == X) || IPv6Index == X. Index is IPv4Index where there is one and "
+             "IPv6Index where not, so Index == X makes one of the two sides true, and either "
+             "side makes the original true",
+
+        (401, "logical-or-to-and"): "info.IPv4Index == InterfaceIndex.Value || in SendAsync's "
+             "filter, with &&: Index == X || (IPv4Index == X && IPv6Index == X). It differs "
+             "only for an interface whose IPv4 index is not its IPv6 index, and the "
+             "operating systems .NET runs on give an interface one index for both",
+
+        (421, "greater-to-ge"): "info.IPv6Addresses.Count > 0 before multicasting over IPv6 "
+             "on an interface, with >= 0. The index that follows it has a value only where "
+             "the count is above zero, as at line 271",
+
+        580: "ipv4Addresses.Count > 0 before asking for the IPv4 index, with >= 0. An "
+             "interface without IPv4 addresses then gets an IPv4 index, which is its IPv6 "
+             "index, and nothing uses it: there are no IPv4 addresses to join or send "
+             "from, and its subnets, all IPv6, never match an IPv4 source",
+
+        583: "ipv6Addresses.Count > 0 before asking for the IPv6 index, with >= 0. The same "
+             "as line 580, for an interface without IPv6 addresses",
+
+        (643, "logical-or-to-and"): "PrefixLength < 0 || PrefixLength > length in bits, "
+             "with &&, which is never true. The guard is for prefix lengths outside the "
+             "address, and no interface reports one",
+
+        (643, "less-to-less-or-equal"): "PrefixLength < 0, with <= 0. It differs for a "
+             "prefix of length zero, which no interface address has",
+
+        644: "return false for a prefix length outside the address, with true. No "
+             "interface reports one, as at line 643",
 
     },
 

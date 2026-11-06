@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **104 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **57 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -130,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 236 | **104** | 83 |
+| `multicast` | 236 | **57** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -903,6 +903,100 @@ extensions `:67` returns an empty RDATA as the empty memory the original returns
 
 That leaves **104 open**: 143 less the 33 killed and the 6 equivalent.
 `UDPMulticastDNSTransport.cs` holds sixty of them. Of the rest the responder and the
+browser hold nine each, the in-memory link seven, the message six, the client five, the
+hybrid client four, the bitmap three, and `MulticastDNS.cs` one.
+
+### The transport's sixty
+
+The fifth round is for `UDPMulticastDNSTransport.cs`, the sixty rows that *Where the
+219 are* left to a file the bench could not reach. Every other multicast test runs
+over `InMemoryMulticastDNSNetwork`, which hands the responder and the client each
+datagram with the interface, the destination and §11's verdict already attached. The
+transport is where a socket produces them, so its tests are a class of their own,
+`MulticastSocketConformanceTests`, over the host's own sockets. Each test takes a port
+of its own, away from 5353, so that the host's own responder stays out of it, and
+sends from a plain socket wherever it can, so that what is sent does not depend on the
+code under test. The tests need an interface that is up and can multicast, which puts
+them in the `Multicast` category: outside CI's offline gate, run by the nightly's
+multicast step and on a developer's machine. The multicast block's judge is the
+Multicast project with only `KnownIssue` left out, so a sweep on a machine with such an
+interface runs them as well.
+
+Fourteen cases were written, and each of the 60 mutants was then planted on its own at
+`a12603df` under them. The in-memory tests never build the transport, and the sweep had
+all sixty survive those. The host had three interfaces that are up and multicast, each
+with an IPv4 address and an IPv6 link-local address, and a loopback interface that
+multicasts too, as Windows' does. None of the lines has moved since `0f595ac4`.
+
+**Thirty-five die.**
+
+| rows | test | what it asks |
+|---|---|---|
+| `:136`, `:199`, `:215`, `:545`'s `&&`, `:548`, `:549`, `:665` | all fourteen | the transport starts at all: each of these throws in `StartAsync` |
+| `:467`, `:539` | all fourteen | it hears what reaches it: `:467` drops every datagram, `:539` takes the interfaces that are down |
+| `:40`, `:45`, `:258`, `:287`, `:545`'s `==`, `:563`, `:566` | `A_Multicast_To_The_Group_Is_Heard_On_Every_Interface_That_Is_Up` (2) | §3: queries go to 224.0.0.251 and FF02::FB, and a transport at its defaults hears both on every interface that is up |
+| `:66`, `:218`, `:262`, `:399` | `Two_Transports_On_One_Port_Each_Hear_What_The_Other_Multicasts` (2) | §15.1: SO_REUSEADDR, so that every implementation on a host binds the port; §15: what one multicasts, the other hears |
+| `:304`, `:421`'s `&&` (both) | `A_Transport_Of_One_Address_Family_Is_Heard_Over_That_Family_Alone` (2) | §20: an IPv4-only host and an IPv6-only host |
+| `:609` | the group test's third assertion | §11: a datagram to the group is on the link "regardless of source IP address" |
+| `:614`, `:635`, `:643`'s `>=`, `:646`, `:647`, `:650`, `:651` | `A_Unicast_From_The_Receiving_Interfaces_Subnet_Is_On_The_Local_Link` (5) | §11: (I & M) == (P & M), and the first n bits of an IPv6 prefix |
+| `:400`, `:401`, `:402`, each `!=` | `A_Response_Goes_Out_On_The_Interface_The_Query_Came_In_On_Alone` | §14 and §6.2: an address goes out only on the interface it is valid on |
+| `:384` | `A_Legacy_Query_Is_Answered_By_Unicast_To_Its_Source` | §6.7 |
+
+`:66` turns multicast loopback off. Windows reads that option on the receiving side, so
+the planted transport stopped hearing the plain socket's multicasts as well; Linux
+reads it on the sending side, where the test with two transports is the one that sees
+it. The §11 cases on the loopback interface are the ones that reach the prefix
+arithmetic: 127.1.0.1 differs from 127.0.0.1 in the octet after the prefix, which is
+where `:646` reads one octet too many, and `::1` is a prefix of all 128 bits, where
+`:643`'s `>=` refuses it and `:646` and `:650` read past the address. Linux's loopback
+interface does not multicast, so these cases are skipped there.
+
+Two predictions were wrong, both about precedence. `:548` and `:549` were meant for the
+test that names one interface, and neither gets that far: in
+`wanted is not null && !wanted.Contains(Name) && !wanted.Contains(Id)` either `&&` made
+`||` leaves a `Contains` on a null set unguarded when no names are given, so the
+transport throws as it starts. The named-interface test stays, for §14's own sake, and
+closes nothing alone. `:400` and `:401`'s `||` made `&&` were meant for the
+response test, and are equivalent: `&&` binds before the `||` around it.
+
+**Twelve are equivalent**, each with its argument in the ledger. `:222` and `:266` turn
+the packet information off, and `Socket.ReceiveMessageFromAsync` turns it on itself
+before it receives: the planted transport still reported each multicast's interface and
+destination, and both come from there. `:271` (both) and `:421`'s `>=` count IPv6
+addresses where an IPv6 index exists only if there are some. `:400`'s `&&` is
+`(Index == X && IPv4Index == X) || IPv6Index == X`, which is the original, since Index
+is IPv4Index where there is one and IPv6Index where not. `:401`'s `&&` differs only for
+an interface whose IPv4 and IPv6 indexes differ, and the operating systems .NET runs on
+give an interface one index. `:580` and `:583` ask for the index of a family the
+interface has no address of, which is that same index and goes unused. `:643`'s `&&` and
+`<=`, and `:644`, are for prefix lengths no interface reports.
+
+**Thirteen stay open:**
+
+- `:60`, `:72` and `:206` decide which interfaces and addresses a transport takes by
+  default: the loopback interface, the IPv6 link-local addresses, any IPv6 address at
+  all in `LocalAddresses`. As with the client's `:88`, that is Hermod's choice; §6.2
+  binds what a response carries, and the responder carries what it was given.
+- `:246` writes a warning to the log.
+- `:259` makes the IPv6 socket dual-mode beside the IPv4 one. Which of the two receives
+  an IPv4 datagram is the operating system's choice, and here the IPv4 socket, bound
+  first, received every one.
+- `:574` (all three) and `:612` differ only for an interface that carries one address
+  family: the first three skip such an interface, and `:612` looks for an IPv4 source's
+  interface among the IPv6 indexes. Every interface of this host carries both. On a
+  host with an IPv4-only interface, a container without IPv6 for one, the tests above
+  decide them.
+- `:625`, `:636` and `:648` are §11 for a source that is not on the link: `:625` sends a
+  datagram to the group through the subnet check, which an on-link source passes, and
+  `:636` and `:648` say yes to a source of the other family or outside the prefix. A
+  single host sends only from its own addresses, and Windows sends each only from the
+  interface it belongs to: a socket bound to one interface's address and told to
+  multicast on another sent from its own. So every source is on the link, and these
+  three need a second host.
+- `:703`, `isDisposed = true`, is .NET's contract.
+
+That leaves **57 open**: 104 less the 35 killed and the 12 equivalent.
+`UDPMulticastDNSTransport.cs` holds thirteen of them. Of the rest the responder and the
 browser hold nine each, the in-memory link seven, the message six, the client five, the
 hybrid client four, the bitmap three, and `MulticastDNS.cs` one.
 

@@ -196,6 +196,18 @@ class CH. The cases are finding 96, red at 3050ab75 and passing from a12603df
 on. With them the Multicast project is 203 ✅ · 0 ❌, and the offline suite
 1865 ✅ · 0 ❌ · 4 skips.
 
+And the tests the UDP transport's sixty open rows asked for (MUTATION.md, *The
+transport's sixty*): fourteen cases over the host's own sockets, and so in the
+Multicast category. A transport at its defaults hears 224.0.0.251 and FF02::FB
+on every interface that is up (RFC 6762 §3); two transports on one port hear
+each other's multicasts (§15.1); a transport of one address family works over
+that family alone (§20); a multicast is on the local link whatever its source,
+and a unicast when its source shares a prefix with the receiving interface
+(§11); a response leaves on the interface its query came in on and nowhere else
+(§14, §6.2); and a legacy query is answered by unicast to its source (§6.7).
+With them the Multicast project is 217 ✅ · 0 ❌, and the offline suite, which
+leaves the Multicast category out, 1865 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
@@ -236,7 +248,7 @@ than failing, so a bare checkout is always green-or-skipped.
 | `Online` | outbound DNS (UDP/53, TCP/853, HTTPS) | `--filter "TestCategory=Online"` |
 | `WSL` | the BIND/Knot/ldns tools — via WSL on Windows, natively on Linux | `--filter "TestCategory=WSL"` |
 | `Docker` | a reachable Docker daemon | `--filter "TestCategory=Docker"` |
-| `Multicast` | a multicast-capable interface and native `dns-sd` command | `--filter "TestCategory=Multicast"` |
+| `Multicast` | a multicast-capable interface; the interop project also a native `dns-sd` command | `--filter "TestCategory=Multicast"` |
 | `Slow` | > ~5 s runtime | exclude to keep the inner loop fast |
 | `KnownIssue` | — | marks a confirmed deviation ([FINDINGS.md](FINDINGS.md)) |
 
