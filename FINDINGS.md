@@ -3,10 +3,8 @@
 What this suite caught. Ninety-seven RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 97, a browser that takes its own
-IPv6 query for another host's, is open, and its tracker is red on purpose. It stays
-because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -114,7 +112,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 94 | A response heard before the first probe cost the name | Medium | 6762 §8.1, §8.2 | ✅ fixed |
 | 95 | A record a browser kept alive was asked for once, at 80 % | Low (recommendation) | 6762 §5.2 | ✅ fixed |
 | 96 | Records of another class answered lookups and made instances | Low | 1034 §3.7.1 | ✅ fixed |
-| 97 | A browser takes its own IPv6 query for another host's, and skips every second query | Low (SHOULD) | 6762 §7.3, §5.2 | ⏳ **open** |
+| 97 | A browser took its own IPv6 query for another host's, and skipped every second query | Low (SHOULD) | 6762 §7.3, §5.2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5646,7 +5644,7 @@ waits and as a browser listens. Merged as [`a12603df`](https://github.com/Vanahe
 
 ---
 
-## 97 — A browser takes its own IPv6 query for another host's, and skips every second query
+## 97 — A browser took its own IPv6 query for another host's, and skipped every second query
 
 *RFC 6762 §7.3:* "If a host is planning to transmit (or retransmit) a query, and it
 sees another host on the network send a query containing the same "QM" question, and
@@ -5656,21 +5654,21 @@ own query as having been sent."
 
 A host hears its own multicasts: Hermod's UDP transport turns multicast loopback on,
 so that a responder and a client of one host hear each other. The client therefore
-hands a multicast query to its browsers only when the query's source is not among the
-transport's `LocalAddresses`. The UDP transport lists there the addresses of the
+handed a multicast query to its browsers only when the query's source was not among
+the transport's `LocalAddresses`. The UDP transport lists there the addresses of the
 interfaces it uses, but not their IPv6 link-local addresses: `IncludeLinkLocalIPv6`
 is off by default, because a link-local address is of little use to a caller without
 its scope. A query to FF02::FB leaves from the interface's link-local address,
-though. So the IPv6 copy of each of the host's own browse queries comes back from an
-address the list does not hold, and the browser takes it for another host's query. It
-treats its next query as sent, and does not send it.
+though. So the IPv6 copy of each of the host's own browse queries came back from an
+address the list did not hold, and the browser took it for another host's query. It
+treated its next query as sent, and did not send it.
 
-**What it costs.** On every host with IPv6 on its interfaces, a browser sends every
+**What it cost.** On every host with IPv6 on its interfaces, a browser sent every
 second query of §5.2's series: at 0, 3, 15, 63 seconds, where §5.2's intervals of
-"at least one second" doubling give 0, 1, 3, 7, 15, 31, 63. A service the browser has
-not yet heard of, because it started later or its announcements were lost, is found
-that much later. Over IPv4 the copy comes back from an address the list holds, so a
-host without IPv6 is not affected.
+"at least one second" doubling give 0, 1, 3, 7, 15, 31, 63. A service the browser had
+not yet heard of, because it started later or its announcements were lost, was found
+that much later. Over IPv4 the copy came back from an address the list holds, so a
+host without IPv6 was not affected.
 
 **How it was found.** By the tests for the UDP transport's open mutation rows
 (MUTATION.md, *The transport's sixty*). Rows 72 and 206 decide which addresses
@@ -5679,13 +5677,20 @@ one place that reads the list. A browser on the host's own sockets showed what t
 check misses.
 
 **Repro**: `MulticastSocketConformanceTests.A_Browser_Does_Not_Take_Its_Own_Query_For_Another_Hosts`,
-red at `a12603df`. The series is shortened to 200 ms, doubling, and over IPv4 the
-browser asked at 0 and 600 ms only, where 0, 200, 600 and 1400 ms were due. With
-`IncludeLinkLocalIPv6` set on the transport the same test passes. It is in the
-`Multicast` category: it needs an interface that is up, can multicast, and carries an
-IPv4 address and an IPv6 link-local address.
+red at `a12603df` and passing from `d906af2d` on. The series is shortened to 200 ms,
+doubling, and over IPv4 the browser asked at 0 and 600 ms only, where 0, 200, 600 and
+1400 ms were due. With `IncludeLinkLocalIPv6` set on the transport the same test
+passed. It is in the `Multicast` category: it needs an interface that is up, can
+multicast, and carries an IPv4 address and an IPv6 link-local address.
 
-**The fix**: ⏳ open.
+**The fix**: the transport says which addresses are the host's own, and the client
+asks it rather than the list. `IMulticastDNSTransport.IsOwnAddress` asks
+`LocalAddresses` by default, as before; the UDP transport answers it with every
+address of the interfaces it uses, link-local ones included, and with the configured
+local addresses. `LocalAddresses` is unchanged: it is what a caller may advertise.
+Hermod's own `Browser_DoesNotTakeItsOwnIPv6QueryForAnotherHosts` browses over the
+host's sockets and counts four queries where the old check let two through. Merged as
+[`d906af2d`](https://github.com/Vanaheimr/Hermod/commit/d906af2d08c4660dc5dcf4b9d15fc23ffee9d675), a fast-forward of Hermod's master.
 
 ---
 

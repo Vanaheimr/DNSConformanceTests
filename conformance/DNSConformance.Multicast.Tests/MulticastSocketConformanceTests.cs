@@ -717,7 +717,6 @@ public sealed class MulticastSocketConformanceTests
     #region Whose query it is (RFC 6762 §7.3)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §5.2, §7.3")]
     public async Task A_Browser_Does_Not_Take_Its_Own_Query_For_Another_Hosts()
     {
