@@ -1,10 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Ninety-five RFC deviations in the Hermod DNS stack, each
+What this suite caught. Ninety-six RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 96, records of another class taken
+for answers to lookups and for instances, is open, and its trackers are red on
+purpose. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -111,6 +113,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 93 | Two names that differed only in the case of a letter above ASCII were taken for one | Medium | 6762 §16, §8.2, §9, §10.2, 6763 §4.1.1 | ✅ fixed |
 | 94 | A response heard before the first probe cost the name | Medium | 6762 §8.1, §8.2 | ✅ fixed |
 | 95 | A record a browser kept alive was asked for once, at 80 % | Low (recommendation) | 6762 §5.2 | ✅ fixed |
+| 96 | Records of another class answer lookups and make instances | Low | 1034 §3.7.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5593,6 +5596,44 @@ random variation of up to 2 % drawn anew. Hearing the pointer again starts the c
 over. Hermod's own `Refresh_AsksAgainAtEightyFiveNinetyAndNinetyFivePercent_WhileUnanswered`
 looks for each query past the end of its window, and for no fifth. Merged as
 [Vanaheimr/Hermod#230](https://github.com/Vanaheimr/Hermod/pull/230).
+
+---
+
+## 96 — Records of another class answer lookups and make instances
+
+*RFC 1034 §3.7.1:* "A standard query specifies a target domain name (QNAME), query
+type (QTYPE), and query class (QCLASS) and asks for RRs which match." Of the class
+field: "<any class> matches just that class (e.g., IN, CH)." The questions of a
+lookup by Hermod's Multicast DNS client are of class IN, and so is a browser's
+question for its service type.
+
+The client takes a record as the answer to a waiting lookup when its name and type
+match, and answers a lookup from its cache by name and type as well. Neither looks
+at the class. So an address of class CH for the name is the answer to a lookup of
+class IN, when it arrives while the lookup waits and when it is in the cache.
+`MulticastDNSQuestion.Matches`, which does compare classes, is not what the client
+asks. The browser takes the records the client hears in the same way, by name and
+type: a service announced in class CH, its pointer, SRV record and address, becomes
+an instance and is reported.
+
+**What it costs.** Records of another class, CH or HS, which name other namespaces
+than the Internet's, are handed to the caller as hosts and services on the link. A
+host that multicasts records of another class, by mistake or on purpose, supplies
+answers to lookups and browsers that asked for something else.
+
+**How it was found.** By the tests for the message's open mutation rows (MUTATION.md,
+*The message's twenty-seven and the helpers' thirty-three*). `MulticastDNSMessage.cs:88`
+is the class comparison in `MulticastDNSQuestion.Matches`, and the test first written
+for it went through the client. It failed: the client never calls that method, and its
+own match had let the address of class CH through.
+
+**Repro**: `MulticastQuerierConformanceTests.An_Address_Of_Another_Class_Does_Not_Answer_A_Lookup`,
+both cases red at `3050ab75`: an address of class CH, heard while a lookup of class IN
+waits or cached before it, comes back as the lookup's answer. And
+`MulticastBrowserConformanceTests.A_Service_Announced_In_Another_Class_Is_No_Instance`,
+red at `3050ab75`: the service announced in class CH is an instance, and is reported.
+
+**The fix**: ⏳ open.
 
 ---
 

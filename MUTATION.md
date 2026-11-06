@@ -34,7 +34,7 @@ test project that exercises each:
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
-| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **143 open** |
+| `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **104 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
@@ -130,7 +130,7 @@ neither.
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
 | `client` | 246 | **79** | 68 |
-| `multicast` | 236 | **143** | 83 |
+| `multicast` | 236 | **104** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -824,6 +824,87 @@ a comparison that no remaining TTL satisfies.
 That leaves **143 open**: 186 less the 34 killed and the 9 equivalent. The client
 holds five of them and the browser nine; `UDPMulticastDNSTransport.cs` still holds
 its sixty, and `MulticastDNSMessage.cs` twenty-seven.
+
+### The message's twenty-seven and the helpers' thirty-three
+
+The fourth round is for `MulticastDNSMessage.cs` (27 rows) and the five small files
+around it: `MulticastDNS.cs` (8), `MulticastDNSTypeBitmap.cs` (7),
+`InMemoryMulticastDNSNetwork.cs` (7), `HybridDNSClient.cs` (6) and
+`MulticastDNSRecordExtensions.cs` (5). Most of the message's rows are its reader's.
+Everywhere else the reader is reached through a querier or a responder, and both drop
+a packet they cannot read, whether the reader refused it or said it had read it and
+handed over nothing; so here it is asked directly, in a test class of its own.
+Thirty-three cases were written, and two assertions more, and each of the 60 mutants
+was then planted on its own at `3050ab75`, under the Multicast project's 200 tests.
+`MulticastDNS.cs`'s lines after 196 sit one line further down; the others have not
+moved.
+
+**Thirty-three die.**
+
+| rows | test | what it asks |
+|---|---|---|
+| message `:390`, `:425`, `:431`, `:468`, `:471`, `:522`, `:528`, `:539`, `:709`, `:712`, `:740`, `:748` | `A_Packet_That_Cannot_Be_Walked_Is_Refused` (10) | RFC 1035 §3.1, §4.1, §4.1.4: a packet the layout cannot walk is no message |
+| message `:387` | `A_Header_Alone_Is_A_Message` | RFC 1035 §4.1: any section may be empty |
+| message `:480`, `:482` | `The_Header_Bits_Are_Read_Where_They_Are` (2) | RFC 1035 §4.1.1 |
+| message `:88` | `A_Question_Is_Answered_By_Records_Of_Its_Name_Type_And_Class` (4) | RFC 1035 §3.2.3, §3.2.5 |
+| message `:733` | `Compressed_Names_In_A_Response_Are_Decoded` | §18.14: compressed names MUST be decoded, in PTR rdata too |
+| message `:114`, `:351` | `Probing_And_Announcements_Have_The_Required_Wire_Shape` (+2 assertions) | §10.2: no cache-flush bit in a probe; §18.5: no TC bit in a response |
+| `MulticastDNS.cs` both of `:200`, `:201` to `:205` | `Only_Names_Of_Local_Significance_Go_To_Multicast_Dns` (8) | §3, §12 |
+| hybrid `:122`, `:140` | `A_Hybrid_Lookup_Leaves_A_Cached_Name_To_The_Cache` (2) | the cache answers through either overload |
+| bitmap `:65`'s `==` | `The_Synthesized_Nsec_Bitmap_Ends_With_Its_Last_Type` | RFC 4034 §4.1.2: no trailing zero octets |
+| extensions `:152` | `A_Rival_Probe_With_Our_Records_And_One_More_Takes_The_Name` | §8.2.1: the list with records remaining wins |
+| extensions `:42` | `The_Tie_Break_Compares_The_Rdata_Uncompressed` | §8.2.1: "raw uncompressed rdata" |
+| extensions `:86`, `:87` | `A_Unique_Record_Taken_Out_With_Its_Whole_Set_Gets_A_Goodbye` (2) | §10.1: another type at the name, or the type at another name, is not the same RRSet |
+
+Three of the reader's mutants, `:712`, `:740` and `:748`, say a name was walked
+without moving past it. The reader then takes the name's first four octets for a type
+and a class, and finds the rest of the packet to be a message.
+
+The test for `:42` had to be written twice. The first named `zz.local.` and survived
+the mutant: Hermod compresses a name only where the whole of it was written before,
+never a suffix of it. The test now has a CNAME record at `www.contested.local.` name
+`contested.local.`, a suffix of the record's own name, which is where the mutant
+compresses.
+
+The test first written for `:88` went through the client, and it is how **finding
+96** came up. The client does not ask `MulticastDNSQuestion.Matches` at all, and its
+own match let an address of class CH answer a lookup of class IN, from the link and
+from the cache; a browser makes an instance of a service announced in class CH as well.
+`:88` is killed on the method itself, and the tracker comes with the finding.
+
+**Six are equivalent**, each with its argument in the ledger. Message `:412` makes
+writable a stream nobody writes to. Message `:615` compresses each question against a
+dictionary of its own, where a name never finds itself. Bitmap `:65`'s `>` would read
+before the window only in a window without a set bit, and there is none. Bitmap `:97`
+and `:110` read two last octets and a ninth bit that add no type either way, and
+extensions `:67` returns an empty RDATA as the empty memory the original returns.
+
+**Twenty-one stay open**, because the RFC does not decide them:
+
+- message `:628` compresses every record within itself. §18.14 recommends that for the
+  names of records and for the rdata of the types it lists; it forbids it for the rdata
+  of other types, and none of the records published here carries a name there.
+- message `:671` and `:674` are in `ToString`.
+- message `:726` and `:729` say a pointer at the very end of the packet was walked. The
+  next test refuses the same packet, since neither a question's type and class nor a
+  record's fixed fields fit after it; only the error message differs.
+- message `:745` refuses a name of 128 labels as well as one of 129. Both are longer
+  than RFC 1035 §2.3.4's 255 octets, and whether such a name costs its packet or only
+  its question, the RFC does not say.
+- `MulticastDNS.cs` `:196` is for a null or blank string, which names nothing.
+- bitmap `:105`, all three, read a bitmap whose block length is zero or above 32, or
+  runs past the RDATA. §6.1 lets a querier ignore such an NSEC record; what one that
+  does not reads from it, the RFC does not say.
+- hybrid `:161` and `:180`, `isDisposed = true`, and `:166` and `:185`, which inner
+  clients a dispose disposes, are .NET's contract.
+- the seven of `InMemoryMulticastDNSNetwork.cs` are the in-memory link the tests run on.
+  Whether a host hears its own multicast is a socket option, not a rule of the RFC, and
+  starting, stopping and disposing the link is .NET's contract.
+
+That leaves **104 open**: 143 less the 33 killed and the 6 equivalent.
+`UDPMulticastDNSTransport.cs` holds sixty of them. Of the rest the responder and the
+browser hold nine each, the in-memory link seven, the message six, the client five, the
+hybrid client four, the bitmap three, and `MulticastDNS.cs` one.
 
 ### What the first measurement's chapter now is
 

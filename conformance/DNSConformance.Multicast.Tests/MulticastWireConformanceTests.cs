@@ -109,7 +109,7 @@ public sealed class MulticastWireConformanceTests
 
 
     [Test]
-    [Property("RFC", "6762 §8.1, §8.3, §18.1, §18.5")]
+    [Property("RFC", "6762 §8.1, §8.3, §10.2, §18.1, §18.5")]
     public async Task Probing_And_Announcements_Have_The_Required_Wire_Shape()
     {
         var network    = new InMemoryMulticastDNSNetwork();
@@ -143,11 +143,16 @@ public sealed class MulticastWireConformanceTests
                         Is.True, "probe questions request a unicast response (QU)");
             Assert.That(probes.All(message => message.Authorities.Count == 1),
                         Is.True, "the proposed record is in the authority section");
+            Assert.That(probes.All(message => message.Authorities.Single().Class == RawDnsClass.IN),
+                        Is.True, "§10.2: the cache-flush bit is only set in records in the Resource Record Sections " +
+                                 "of Multicast DNS responses, and a probe is a query");
             Assert.That(probes.All(message => message.Answers.Count == 0 && !message.TC),
                         Is.True, "§18.5: a probe lists no known answers, so no TC bit says more of them are following");
 
             Assert.That(announcements.All(message => message.Id == 0 && message.AA && !message.RD),
                         Is.True, "multicast announcements use ID zero, AA set and RD clear");
+            Assert.That(announcements.All(message => !message.TC),
+                        Is.True, "§18.5: in multicast response messages, the TC bit MUST be zero on transmission");
             Assert.That(announcements.All(message => message.Answers.Single().Class == (RawDnsClass.IN | 0x8000)),
                         Is.True, "unique announcement records carry the cache-flush bit");
         });
@@ -427,6 +432,58 @@ public sealed class MulticastWireConformanceTests
                         "§8.4: then the announcements of what is left");
 
         });
+    }
+
+
+    public enum WholeSetGone
+    {
+        AnotherTypeStaysAtTheName,
+        TheTypeStaysAtAnotherName
+    }
+
+    /// <summary>
+    /// §10.1: a host that "knows that certain resource record data is about to become
+    /// invalid" SHOULD send it again "but with a TTL of zero". A unique record whose whole
+    /// RRSet is taken out has no cache-flush announcement to replace it, so it gets that
+    /// goodbye: also when another type stays at its name, and when its type stays at
+    /// another name. Neither is the same name, rrtype and rrclass.
+    /// </summary>
+    [TestCase(WholeSetGone.AnotherTypeStaysAtTheName, TestName = "An IPv6 address taken out gets a goodbye while the IPv4 address stays")]
+    [TestCase(WholeSetGone.TheTypeStaysAtAnotherName, TestName = "The address of a host taken out gets a goodbye while another host's stays")]
+    [Property("RFC", "6762 §8.4, §10.1")]
+    public async Task A_Unique_Record_Taken_Out_With_Its_Whole_Set_Gets_A_Goodbye(WholeSetGone Case)
+    {
+        var network    = new InMemoryMulticastDNSNetwork();
+        var transport  = network.CreateTransport();
+        var capture    = new PacketCapture(network);
+
+        await using var responder = new MulticastDNSResponder(transport, FastOptions());
+        await responder.StartAsync();
+
+        var leaving   = DomainName.Parse("leaving.local.");
+        var staying   = DomainName.Parse("staying.local.");
+        var address   = new A   (leaving, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), IPv4Address.Parse("192.0.2.60"));
+        var ipv6      = new AAAA(leaving, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), IPv6Address.Parse("2001:db8::60"));
+        var another   = new A   (staying, DNSQueryClasses.IN, TimeSpan.FromSeconds(120), IPv4Address.Parse("192.0.2.61"));
+
+        IDNSResourceRecord[] before  = Case == WholeSetGone.AnotherTypeStaysAtTheName ? [ address, ipv6 ] : [ address, another ];
+        IDNSResourceRecord[] after   = Case == WholeSetGone.AnotherTypeStaysAtTheName ? [ address ]       : [ another ];
+        var                  gone    = Case == WholeSetGone.AnotherTypeStaysAtTheName ? RawDnsType.AAAA   : RawDnsType.A;
+
+        var publication = await responder.PublishAsync(before, Probe: false);
+
+        capture.Clear();
+
+        await responder.UpdateAsync(publication, after);
+
+        var goodbyes = Responses(capture, transport).
+                           SelectMany(message => message.Answers).
+                           Where     (record  => record.Ttl == 0).
+                           Select    (record  => (record.Name.Canonical, record.Type)).
+                           ToArray();
+
+        Assert.That(goodbyes, Is.EqualTo(new[] { ("leaving.local", gone) }),
+                    "§10.1: the record taken out, with a TTL of zero, and nothing that stays");
     }
 
 

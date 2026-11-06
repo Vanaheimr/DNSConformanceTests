@@ -368,6 +368,34 @@ public sealed class MulticastResponderConformanceTests
     }
 
 
+    /// <summary>
+    /// §6.1's restricted form: "The Type Bit Map block number is 0", and its length "is a
+    /// value in the range 1-32". RFC 4034 §4.1.2, whose format it restricts: "Trailing zero
+    /// octets in the bitmap MUST be omitted." So the block is as long as the highest type
+    /// at the name needs, and its last octet holds a set bit.
+    /// </summary>
+    [Test]
+    [Property("RFC", "6762 §6.1, 4034 §4.1.2")]
+    public async Task The_Synthesized_Nsec_Bitmap_Ends_With_Its_Last_Type()
+    {
+
+        var response  = (await AnswersTo(Query("wire-host.local.", RawDnsType.AAAA))).Single();
+        var nsec      = response.Answers.Single(record => record.Type == RawDnsType.NSEC);
+
+        var (_, nameLength) = RawDnsReader.ReadNameAt(response.Wire, nsec.RdataOffset);
+        var bitmaps         = nsec.Rdata[nameLength..];
+
+        Assert.Multiple(() => {
+            Assert.That(bitmaps[0],               Is.EqualTo(0),                  "§6.1: the Type Bit Map block number is 0");
+            Assert.That(bitmaps[1],               Is.InRange(1, 32),              "§6.1: the block length is in the range 1-32");
+            Assert.That(bitmaps.Length,           Is.EqualTo(2 + bitmaps[1]),     "one block, of the length it says");
+            Assert.That(bitmaps[^1],              Is.Not.EqualTo(0),
+                        "RFC 4034 §4.1.2: Trailing zero octets in the bitmap MUST be omitted");
+        });
+
+    }
+
+
     [Test]
     [Property("RFC", "6762 §6.1, §10.2")]
     public async Task A_Negative_Answer_Carries_The_Cache_Flush_Bit()
