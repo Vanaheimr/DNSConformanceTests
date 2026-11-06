@@ -185,15 +185,23 @@ no TC bit (§18.5). The hybrid client sends local. and the link-local reverse
 domains, and only those, to Multicast DNS (§3, §12); an NSEC bitmap has no
 trailing zero octet (RFC 4034 §4.1.2); the tie-break lets the longer list win
 and compares rdata uncompressed (§8.2.1); and a unique record taken out with its
-whole RRSet gets a goodbye (§10.1). With them the Multicast project is 200 ✅ · 0
-❌, and the offline suite 1862 ✅ · 0 ❌ · 4 skips.
+whole RRSet gets a goodbye (§10.1). With them the Multicast project is
+200 ✅ · 0 ❌, and the offline suite 1862 ✅ · 0 ❌ · 4 skips.
+
+And the case those tests found: RFC 1034 §3.7.1 has a query ask for records that
+match its class, "just that class", and Hermod's Multicast DNS client took an
+address of class CH for the answer to a lookup of class IN, from the link and
+from the cache, while its browser made an instance of a service announced in
+class CH. The cases are finding 96, red at 3050ab75 and passing from a12603df
+on. With them the Multicast project is 203 ✅ · 0 ❌, and the offline suite
+1865 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 96 RFC deviations in Hermod. All but finding 96 are fixed;
+The suite has found 96 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

@@ -5,7 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 
 namespace DNSConformance.Multicast.Tests;
@@ -1217,7 +1216,6 @@ public sealed class MulticastBrowserConformanceTests
     /// service announced in class CH, pointer, SRV record and address, is no instance.
     /// </summary>
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1034 §3.7.1, 6763 §4.1")]
     public async Task A_Service_Announced_In_Another_Class_Is_No_Instance()
     {
