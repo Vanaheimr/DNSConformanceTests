@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
-| `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **49 open** |
+| `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **13 open** |
 | `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
@@ -135,7 +135,7 @@ neither.
 | `dnssec` | 47 | **1** | 19 |
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
-| `client` | 97 | **49** | 57 |
+| `client` | 97 | **13** | 57 |
 | `streams` | 26 | **9** | 43 |
 | `multicast` | 236 | **54** | 83 |
 
@@ -686,6 +686,11 @@ one too. Whether either difference reaches a caller is still open.
 
 That leaves **14 open**: the nine of *Where the 49 are* that stay open by choice
 or for a second host, `:725`, `:786` and `:1227`, and both of `:1061`.
+
+**Pinned at `38f6a355`.** Hermod's fix hands the retry the caller's token and the
+query's stopwatch, and gives `DNSInfo.Invalid` the timeout and the runtime its
+caller has. The three trackers pass, and `:786` dies as it did when planted at
+the fix. That leaves **13 open**.
 
 ### What the first measurement's chapter now is
 

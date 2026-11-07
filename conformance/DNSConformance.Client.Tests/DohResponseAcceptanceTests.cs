@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.HTTP;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -105,7 +104,6 @@ public class DohResponseAcceptanceTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "5452 §9.1")]
     public async Task A_Refused_Response_Still_Reports_The_Time_The_Query_Had_And_Took()
     {

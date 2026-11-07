@@ -65,7 +65,6 @@ public class TcpFallbackAndFramingTests
     #region A_Refused_Tcp_Retry_Reports_The_Time_The_Query_Had_And_Took()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "5452 §9.1")]
     public async Task A_Refused_Tcp_Retry_Reports_The_Time_The_Query_Had_And_Took()
     {

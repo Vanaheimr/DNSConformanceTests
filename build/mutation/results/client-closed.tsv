@@ -70,6 +70,7 @@ DNS/Client/Cache/DNSCache.cs	975	less-to-less-or-equal	equivalent		entry.Value.E
 DNS/Client/DNSClient.cs	1832	true-to-false	equivalent		disposedValue = true, the flag that makes Dispose idempotent. The body it guards already is: DNSCache.Dispose() is `cleanUpTimer.Dispose()` and a Timer tolerates being disposed twice, and transportClients is cleared on the first pass, so the second finds nothing. A second Dispose with the flag never set does the same nothing the flag prevents	0
 DNS/Client/Cache/DNSCache.cs	976	le-to-less	equivalent		rr.EndOfLife <= now, the second half of the sweep's condition	0
 DNS/Client/Cache/DNSCache.cs	990	less-to-less-or-equal	equivalent		entry.Value.EndOfLife < now, the NODATA entries the sweep removes	0
+DNS/Client/DNSUDPClient.cs	786	logical-and-to-or	killed	the-retry-keeps-its-deadline		0
 DNS/Client/Cache/DNSCache.cs	1001	less-to-less-or-equal	equivalent		e.Expiry < now, the NSEC ranges it removes	0
 DNS/Client/DNSUDPClient.cs	1329	true-to-false	equivalent		disposedValue = true. The flag guards one call, lifetime.Cancel(), which is idempotent on a source that is never disposed - and `lifetime` is not. A second Dispose with the flag never set cancels a cancelled source again	0
 DNS/Client/DNSUDPClient.cs	1339	true-to-false	equivalent		Dispose(Disposing: true) from Dispose(). The parameter is read nowhere in Dispose(Boolean); true and false run the same body	0

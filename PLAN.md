@@ -312,8 +312,8 @@ round-trip where supported.
 | 1035 §4.2.1 | UDP timeout respected; silence never hangs the caller | ✅ |
 | 1035 §3.2.1 | a record stops being served when its own TTL is over, while a longer-lived record cached beside it at the same name goes on being served — the entry has a lifetime and so does every record in it, and only the second is the one the TTL is about | ✅ |
 | consistency | one event, four transports: a query that runs out of its own time reports `IsTimeout` over UDP, TCP, DoT and DoH alike. DoH used to call its own deadline a plain failure, because the HTTP layer turned the cancellation into a statusless response before the timeout path could see it — no wire rule, but it decides whether a caller retries a slow resolver or writes it off as broken | ✅ |
-| consistency | the TCP retry of a truncated UDP answer is the same query: when it runs out of the query's time, that is a timeout too | ❌ |
-| consistency | a response refused for its transaction id, its question or its cookie reports the timeout its query had and the time it ran, as every other failure does — over DoH and on the UDP client's TCP retry, where the refusal reaches the caller | ❌ |
+| consistency | the TCP retry of a truncated UDP answer is the same query: when it runs out of the query's time, that is a timeout too | ✅ |
+| consistency | a response refused for its transaction id, its question or its cookie reports the timeout its query had and the time it ran, as every other failure does — over DoH and on the UDP client's TCP retry, where the refusal reaches the caller | ✅ |
 | robustness | garbage responses produce a result object, not an unhandled exception | ✅ |
 | 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |
 | 1034 §3.6.2, 4035 §3.1.1, §4.5, 6672 §3.1, §5.3.1 | a cached answer holds the RRset asked for with the RRSIGs that cover it, and the CNAME or DNAME chain that leads to it with each link's signature; a DNAME beside the chain is left out, and an expired link or a loop is a miss | ✅ |
