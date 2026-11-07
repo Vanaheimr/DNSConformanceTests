@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
-| `client` | `DNS/Client` | Client | 558 | measured, **79 open**, 1 never measured |
+| `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **49 open** |
 | `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
 | `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
@@ -83,7 +83,10 @@ block was measured a second time, at `0f595ac4`, after findings 78 to 85.
 The four rows that were right — `records`, `core`, `client`, `server` — are right to
 the mutant. `core` counts 479 today rather than the 478 it was measured at, which
 is not an error: finding 57's fix and the compression-table fix each added a
-comparison. The measured figure stays, because it is what was measured.
+comparison. The measured figure stays, because it is what was measured. The
+`client` row said 558 for the whole folder at `cc8323d5`. It says 487 because the
+block was measured a second time, at `d906af2d`, without the four files the
+`streams` slice measures (*The result: the client, measured again*).
 
 
 
@@ -93,7 +96,7 @@ comparison. The measured figure stays, because it is what was measured.
 
 ---
 
-## The two hundred that no test host can see
+## The two hundred and thirty-two that no test host can see
 
 `await x.ConfigureAwait(false)` says: do not resume on the caller's
 synchronization context. Read as `true` it says the opposite, and the two
@@ -102,7 +105,7 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. Two hundred of these sit across the measured blocks, and
+same as equivalent**. Two hundred and thirty-two of these sit across the measured blocks, and
 not one of them is work waiting to be done: no test written for a DNS
 conformance suite will ever close one.
 
@@ -115,7 +118,10 @@ block — thirty-seven in the responder alone, which awaits every probe, every
 announcement and every send, and the rest in the client, the browser, the two
 transports and the hybrid client. Its second sweep added one, net: the fix for
 findings 78 to 85 rewrote two of the client's awaits into two others, and gave
-the browser one more, before its first query.
+the browser one more, before its first query. The `client` block's second sweep
+leaves the four stream files to the `streams` slice and counts fifty-seven, and
+the slice counts forty-three: a hundred in the folder where the first sweep
+found sixty-eight.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -129,7 +135,8 @@ neither.
 | `dnssec` | 47 | **1** | 19 |
 | `tsig` | 42 | **2** | — |
 | `server` | 87 | **34** | 29 |
-| `client` | 246 | **79** | 68 |
+| `client` | 97 | **49** | 57 |
+| `streams` | 26 | **9** | 43 |
 | `multicast` | 236 | **54** | 83 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
@@ -405,6 +412,215 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
+
+## The result: the client, measured again
+
+The first measurement of this block, at `cc8323d5`, ended with 79 rows open
+(*The result: the client*, below). By the suite's pin, **`d906af2d`**, 23 Hermod
+commits had changed the folder's other files by 1533 lines added and 306
+removed. A cached answer now holds the RRset asked for with its signatures and
+the alias chain that leads to it (`e2caece9`). `Query_IPAddressesToConnect`
+waits RFC 8305's Resolution Delay for the second address family (`d0e33483`).
+A server listed twice is one server (`0b4fee16`), and a pooled connection can
+be closed by name. Since finding 86 every query carries one question
+(`fb7772d4`). Findings 60 to 63 changed what the client reports when it could
+not ask, and three commits changed what a query does when its client is disposed
+under it.
+
+The block was swept again at `d906af2d` with the same judge and the same two
+passes, **without the four files of the `streams` slice**. Those were measured
+on their own at `0f595ac4` and are the same at `d906af2d` (*The result: the
+stream clients after #219*). `sweep_folder.py` skips them for this block now,
+and the count in the table at the top is the slice's. The first measurement's
+files moved to `results/client-cc8323d5/` unchanged, and its ledger stays in the
+history of `make_closed_folder.py`. Its column below is counted over the same
+files: 455 of its 558 mutants, and every one of its 79 open rows.
+
+| | `cc8323d5` | `d906af2d` |
+|---|---:|---:|
+| mutants | 455 | 487 |
+| not viable (would not compile) | 63 | 79 |
+| killed by Client, pass 1 | 59 | 208 |
+| killed by another project | 10 | 7 |
+| survived everywhere | 323 | 193 |
+| real gaps | 221 | 97 |
+| killed by a test written for them | 89 | — |
+| killed by not finishing | — | 1 |
+| equivalent | 20 | 47 |
+| the line is gone | 33 | — |
+| open | **79** | **49** |
+
+The 193 are 97 real gaps, 57 `ConfigureAwait(false)` that no test host can see,
+and 39 that are not code.
+
+### Where the 79 went
+
+Pass 1 kills **40** of them, on the line each moved to. Sixteen are the
+`ForceUpdate` defaults of `IDNSClient`'s convenience lookups. Fourteen are DoH's
+JSON mode: the flags it reads, the fan-out over several types, a record without
+a name, and which endpoint Google's JSON client asks. Five are DoH's constructor
+defaults for recursion and for TLS. Two are the check that tells DoH's own
+deadline from the caller's cancellation. The last three are `DNSClient`'s two
+`Dispose(Disposing: true)`, whose parameter decides whether the cache and the
+pooled transports are disposed, and the UDP client's `IsConnected => false`.
+**25** are equivalent at `d906af2d` (below). **5** sat on lines
+a fix replaced. In DoH's query: the order of the two recursion settings, which
+finding 63 reversed; the reconnect test, which now asks what `SendRequest` asks
+(`:1061`, open below); and both mutants of the check for a cancelled client,
+which the two commits about disposal replaced with the query's own token. And
+the `IsValid: true` of the UDP client's answer to an address family the host
+does not have, which finding 62 made `false`. **9** are open.
+
+None of the first measurement's 89 kills is lost. Four rows the old ledger
+called killed survive, and none of them is a test that stopped working:
+
+- `DNSCache.cs:869` and `:975` carry two mutants each. The ledger keyed by line
+  recorded both lines killed for the one mutant a test catches, and said in a
+  comment that the other belongs to the clock family. Keyed by operator now,
+  the killed halves die in pass 1, and the clock halves are equivalent with
+  their family.
+- `DNSUDPClient.cs:360`, `Serialize(ms, UseCompression: false)`, died at
+  `cc8323d5` because two types made two questions and the second name could be a
+  pointer. Since finding 86 there is one question, and nothing to point at.
+- `DNSClient.cs:982` is `:870` again, the race that does not end: `>= 0` keeps
+  calling `Task.WhenAny` on an empty list for ever. Pass 1 stopped the judge
+  after 606 s, and pass 2's projects never race two servers. It is recorded
+  killed by not terminating, as it was.
+
+And one that another project killed survives: `DNSUDPClient.cs:507`, the filter
+that sends `AddressFamilyNotSupported` to its own answer. At `cc8323d5` that
+answer was `IsValid: true`, and with `!=` every socket error became a valid empty
+answer, which the Server project noticed. Since finding 62 it is `IsValid: false`
+like `DNSInfo.Failed` beside it, and the two differ in one field. The suite holds
+two positions on that field (below).
+
+### Two lines that crash, and three that run out of time
+
+`DNSUDPClient.cs:314` and `DNSClient.cs:654` are the guard that sends a query for
+several types through `OneQuestionPerQuery`. With `>= 1` a query for one type
+goes there too, and `OneQuestionPerQuery` asks for each type by calling `Query`
+again. The stack overflows and the test host dies before it prints a summary,
+in every project that asks a question through that client. `DNSClient.cs:654` died in pass 2, where
+SecureTransports' count fell from 164 to 118. `DNSUDPClient.cs:314` came back
+without a verdict from pass 1, from pass 2, and from pass 2 run again for it
+alone. Planted by hand and run on
+`TcpFallbackAndFramingTests.Truncated_Udp_Response_Triggers_Tcp_Retry` alone,
+the Client project's host dies of a stack overflow in
+`OneQuestionPerQuery.AskEachTypeAsync`. Its row in
+`client-pass1.tsv` says KILLED, and its pass-2 row is gone. Both files keep
+their originals as `.before-verdict-fix`. It is the shape `DNSTCPClient.cs:287`
+had in the `streams` slice and DoH's `:834` had at `cc8323d5`.
+
+Three rows timed out in pass 1. `DNSClient.cs:982` is the race above.
+`DNSUDPClient.cs:430` is the transaction id check made `==`, which ignores every
+datagram that answers the query. `:653` is the `return true` of a response
+whose signature verified, made `false`, which discards it. Both wait out every
+Client test's deadline, and the Server project fails on both in pass 2. The
+other kills of pass 2 are DoH's: `:152`, the zero transaction id RFC 8484 §4.1
+asks for, and `:1450` and `:1457`, the EDNS padding of RFC 8467, which
+SecureTransports reads.
+
+### Forty-seven equivalents
+
+**Fourteen of DNSCache are one argument and one identity.** Thirteen compare a
+moment stored as `Timestamp.Now + TTL` against a `Timestamp.Now` read later, and
+each mutant moves the comparison across the single tick where the two are equal,
+which no test can arrange. Nine are the first measurement's nine, one of which,
+`:975`'s clock half, it had filed under the kill of the same line. Three are new
+in `TryGetAnswer`, and one is `:869`'s clock half, filed the same way. The
+fourteenth is `:745`, RFC 2308 §5's minimum written as a
+conditional, where both arms are the same number when the two fields are equal.
+
+**The first measurement's other seven, read again.** In DNSClient: `:456`, the
+guard on `AddToCache`, whose four call sites still never pass what it guards
+against. `:801`, an option list that becomes the same OPT record either way and
+belongs to a query that never reaches the wire. `:876`, the RFC 8198 path behind
+a `DNSSECStatus` that nothing in Hermod assigns. `:1559`, a `ForceUpdate` the
+transports do not read. `:1832`, a dispose flag in front of a body that is
+idempotent without it. And `DNSUDPClient.cs:429`'s two mutants, a datagram
+pre-filter that `DNSInfo.ReadResponse` and the `continue` after it repeat.
+Three more of the first measurement's went with the code they sat in:
+`DNSClient`'s cache-hit gate, which `e2caece9` replaced with
+`DNSCache.TryGetAnswer`.
+
+**Shapes the streams slice found first.** Six `ForceUpdate` defaults on the UDP
+and DoH transports, read by nothing below `DNSClient`. The empty option lists of
+`DNSUDPClient.cs:336` and `DNSHTTPSClient.cs:998`: `OPT`'s constructor does
+`Options ?? []`, so `[]` and `null` write the same octets. The UDP client's two
+`UseCompression` flags, `:360` and `:702`: one question, and the OPT record's
+owner is the root, which `DNSServiceName.Serialize` writes as one zero octet
+before it looks at the offsets. And three dispose rows in `DNSUDPClient`:
+`:1329` guards one `lifetime.Cancel()` on a source that is never disposed, and
+`:1339` and `:1345` pass a `Disposing` that `Dispose(Boolean)` never reads.
+
+**New in this measurement.** `DNSUDPClient.cs:699`, `ownsSocket: false` on the
+TCP retry's stream: with `true` the stream closes the socket at the end of the
+`try`, and the `finally` after it closes it anyway. Six `true`s in DoH's three
+constructors are AHTTPClient's `ConsumeRequestChunkedTEImmediately` and
+`ConsumeResponseChunkedTEImmediately`. The request flag goes onto every request
+the client sends, and the client reads it only on a response. The response flag
+is the default for a `SendRequest` that is handed `null`, and both of DoH's
+sends hand it `true`. And six fields of the object `TryParseJSONResponse` writes
+for an empty body before it returns `false`: its only caller takes the object
+only on `true`, and otherwise runs on into the binary path, where an empty body
+becomes `DNSInfo.Failed`.
+
+### Where the 49 are
+
+| file | open | what it is |
+|---|---:|---|
+| `DNSCache.cs` | 17 | `TryGetAnswer`, new in `e2caece9`: a miss, a record put in on its own, which signatures and which aliases go with an RRset, a DNAME that does not lead to the CNAME's target, an expired link, a loop |
+| `DNSHTTPSClient.cs` | 9 | the recursion default, the reconnect test, a statusless timeout, an empty JSON body, the twelve-octet guard, disposal, and the chunked flag on each send |
+| `DNSUDPClient.cs` | 8 | the answer to an address family the host does not have, the TCP retry's twelve-octet guard and its cancellation filter |
+| `DNSServerConfig.cs` | 5 | `Equals`, new in `0b4fee16` |
+| `DNSClient.cs` | 5 | the search defaults of a client given servers, which interfaces are read, and `CloseConnection`'s answers |
+| `IDNSClient.cs` | 5 | `Query_IPAddressesToConnect`: the `ForceUpdate` defaults of its three overloads, and which family answered first |
+
+Thirty-eight are on lines the first measurement did not have. Nine were open
+there. The two others are `DNSUDPClient.cs:507`, above, and DoH's
+`body.Length < 12`, now `:1227`, which the first measurement recorded equivalent.
+
+**That equivalence was argued from half the object.** A twelve-octet body has no
+question, so RFC 5452 §9.1 refuses it, and the mutant only moves the refusal
+from `DNSInfo.ReadResponse` to the length guard. The argument listed what the
+two refusals share: response code, `IsValid`, `IsTimeout` and empty sections. It
+left out two fields they do not share. `DNSInfo.Invalid`, which `ReadResponse`
+returns, reports a timeout and a runtime of zero. `DNSInfo.Failed`, which the
+guard returns, reports the timeout the query was given and the time it ran. The
+UDP client's TCP retry has the same guard at `:725`, open since `cc8323d5`.
+Whether a refused response should say how long its query had and took is a
+question for a test, not for the ledger, and both rows stay open until one
+answers it.
+
+Four rows stay open by choice rather than for want of a test:
+
+- `DNSHTTPSClient.cs:1121` and `:1141` hand `SendRequest` `true` for consuming a
+  chunked response at once. With `false` the same chunked stream is read by
+  `ReadHTTPBodyStream` instead, and the octets are the same. One thing differs:
+  the read is then bounded by `AHTTPClient.RequestTimeout` as well as by the
+  query's deadline. That setting defaults to 120 s and the DoH client never sets
+  it, so the deadline comes first unless a caller gives a query more than that. A test would have
+  to decide which of two timeouts bounds a chunked DoH body, and no RFC does.
+- `DNSClient.cs:352` reads only interfaces that are up when it searches for IPv6
+  resolvers. Windows puts `fec0:0:0:ffff::1` to `::3` on adapters that are down,
+  so on this machine both readings find one (`ClientDefaultsTests` says why).
+- `DNSUDPClient.cs:507` sends an `AddressFamilyNotSupported` to an answer that
+  reports `RecursionDesired` as asked, and every other socket error to
+  `DNSInfo.Failed`, which reports it clear. Finding 60 holds that an answer the
+  client makes up repeats the RD it was asked for. `HeaderFlagsAndFailedQueryTests`
+  holds that a failure claims no header bit. The mutant differs in nothing else,
+  and a test for it would have to pick one of the two positions.
+
+`DNSUDPClient.cs:516` to `:525`, the fields of that answer, are reachable only on
+a host without one of the two address families.
+
+### What the first measurement's chapter now is
+
+*The result: the client*, below, is the measurement at `cc8323d5`, over the
+whole folder, and its line numbers are that revision's. Its rounds, its findings
+and its account of the harness stand. Its *246 real gaps, and the one that
+vanished* is replaced by this chapter's *Where the 49 are*, and what it says of
+the four stream files is the `streams` slice's now.
 
 ## The result: multicast after findings 78 to 85
 

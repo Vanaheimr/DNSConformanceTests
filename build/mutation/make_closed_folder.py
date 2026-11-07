@@ -830,341 +830,46 @@ SERVER_SUPERSEDED = {}
 
 
 
+# ---------------------------------------------------------------------------
+#  client
+# ---------------------------------------------------------------------------
+
+# Keyed to Hermod d906af2d, the revision the second sweep of this block measured,
+# without the four files the `streams` slice measures on its own (DNSTCPClient,
+# DNSTLSClient, DNSStreamPipeline, DNSKeepalivePolicy). The first sweep measured
+# cc8323d5 over the whole folder, and its files are in results/client-cc8323d5/.
+# Its ledger - 97 rows killed in seven rounds, 29 equivalent, 41 superseded - is
+# in this file's history, as of 011e346.
+#
+# None of the killed rows is carried over, and none needs to be: a gap a test
+# closed is killed by that test in the new pass 1 and never reaches the
+# classification. Two that seemed to come back had only ever been half closed.
+# DNSCache 869 and 975 each carry two mutants, and the old ledger, keyed by line,
+# recorded both lines killed for the one mutant a test catches - saying in a
+# comment that the other belongs to the clock family. Keyed by operator now, the
+# killed halves die in pass 1 and the clock halves are below with their family.
+#
+# The equivalents were read again against d906af2d rather than moved with their
+# numbers. Of the first sweep's twenty-nine, nine were in the stream files, which
+# the `streams` slice carries. Fourteen are here on their new lines, and two on
+# lines a rewrite changed: DNSCache 812 and 990, the NODATA lookup and its sweep.
+# Three went with the code they sat in, DNSClient's cache-hit gate, which
+# e2caece9 replaced with DNSCache.TryGetAnswer. The twentieth is not here: DoH's
+# `body.Length < 12`, now 1227, whose argument named the fields the two refusals
+# share and left out the two they do not - DNSInfo.Invalid reports a timeout and
+# a runtime of zero where DNSInfo.Failed reports the real ones. It is open until
+# that is decided (MUTATION.md, "The result: the client, measured again").
+
 CLIENT_KILLED = {
 
-    # The cache, driven directly rather than through the wire. CacheExpiryTests
-    # records in its own comments why the scripted-server route cannot reach
-    # these: the cache filters expired records on read AND sweeps them on a
-    # timer, either of which produces the same answer from outside, so a mutation
-    # of one is covered by the other. A cache built with an hour between sweeps
-    # leaves the filter as the only thing that can reply.
-    #
-    # RFC 8198 §5.1 asked without a zone, the cache tries every ancestor of the
-    # name; the root is an ancestor of everything and is where the whole idea
-    # earns its keep, since the root zone is NSEC-signed. RFC 4034 §4.1.1: one
-    # NSEC whose next name is its own owner is a zone holding nothing but its
-    # apex, and that equality is the only place "wraps" is decided by one.
-    # RFC 1035 §3.2.1 gives the TTL to the record rather than to whatever it is
-    # stored beside, in the answer section and the authority section alike.
-    #
-    # All six were planted and watched to fail before being written down here.
-    #
-    # Line 671 is the one this entry closes on two different grounds, because the
-    # ledger keys on (file, line) and cannot say "one of the two". Its
-    # logical-or-to-and is what the replacement test kills: with `&&` an entry is
-    # dropped only when it is expired AND carries the same owner, so a refetched
-    # NSEC joins its predecessor instead of replacing it, and the wider stale gap
-    # goes on denying names that now exist. Its le-to-less is a different thing
-    # and no test reaches it: `e.Expiry <= now` against `<` differs only when a
-    # stored expiry equals, to the tick, a Timestamp.Now read at a later call than
-    # the one that computed it. Killed and unreachable, on one line. MUTATION.md
-    # carries which half is which.
-    "the-cache-read-by-itself": {
-        "DNS/Client/Cache/DNSCache.cs": {518, 519, 671, 702, 745},
-    },
-
-    # Following an alias, and how often a client asks again. DNameFollowingTests
-    # covered the DNAME half of the chase in detail; the CNAME half had nothing.
-    #
-    # RFC 1035 section 7.2 leaves the retry count to the implementation, so what
-    # is asserted is that the setting is the thing deciding it: the loop runs
-    # while attempts <= MaxRetries, which is MaxRetries + 1 questions, and the
-    # count is taken at two different settings because one number is equally
-    # consistent with a loop that ignores the setting and agrees at the default.
-    # SERVFAIL is an answer rather than silence, so nothing at the transport
-    # retransmits and every datagram counted was a decision by that loop.
-    #
-    # RFC 1034 section 3.6.2 keeps a CNAME alone at its name and section 4.3.2
-    # has the resolver restart on the new name; RFC 2308 section 2.1 describes
-    # the NXDOMAIN that carries the CNAMEs which led to the absent name, which is
-    # a denial showing its working rather than an invitation to take another step.
-    #
-    # Every mutant on each of these lines is killed, not just one of them: 980
-    # carries two and both fail, and so does 889, whose second && the triage
-    # kept out of sight until it counted occurrences. That is worth saying
-    # because a bare line here closes every mutant on it, and would close the
-    # others silently if they were not.
-    "following-an-alias-and-asking-again": {
-        "DNS/Client/DNSClient.cs": {889, 890, 901, 980, 1549},
-    },
-
-    # Three places in DNSClient hand back a DNSInfo that no server sent: no
-    # servers configured, a cached NSEC already proving the name absent
-    # (RFC 8198), and every server query having thrown. Each writes the header
-    # fields by hand, and the sweep reported all eighteen of them surviving -
-    # which is the same observation as "nobody has ever read what these answers
-    # say".
-    #
-    # RFC 1035 section 4.1.1 settles two of the six wherever the message came
-    # from. AA "specifies that the responding name server is an authority for
-    # the domain name in question section", RA "denotes whether recursive query
-    # support is available in the name server", and no name server responded, so
-    # there is nothing to be an authority and nothing to offer recursion.
-    #
-    # Ten of twelve at the two reachable sites. The two that stay open are the
-    # RecursionDesired literals on 521 and 673: they are finding 60, the test for
-    # them is red, and a KnownIssue test is excluded from the sweep and therefore
-    # closes nothing. Recording them here would be recording the fix rather than
-    # the measurement.
-    #
-    # The third site (1040-1049) is not reachable from a black-box test at all:
-    # it needs every server query to throw rather than time out, and a timeout
-    # produces a DNSInfo. Its six stay open with that reason.
-    "answers-no-server-sent": {
-        "DNS/Client/DNSClient.cs": {519, 520, 522, 527, 528, 671, 672, 674, 679, 680},
-    },
-
-    # Which DoH responses a client may read. RFC 8484 section 4.2.1 ties a DNS
-    # response to the status class rather than to one code - "A successful HTTP
-    # response with a 2xx status code [...] is used for any valid DNS response,
-    # regardless of the DNS response code" - so one sentence carries two rules,
-    # and a client can break them in opposite directions. Both edges are tested:
-    # a 300 carrying a perfectly good answer must be refused on the status alone,
-    # and a 203 must not be, which is why the sentence says 2xx and not 200.
-    #
-    # Line 834 carries three mutants and only one of them fails a test. The other
-    # two do not survive either: QueryHTTPMultiTypeJSONAsync calls QueryHTTP once
-    # per type, and QueryHTTP is the method holding this guard, so a guard that
-    # fires on a single type recurses without bound. Both `>= 1` and `||` make a
-    # one-type JSON query fan out to itself; the stack overflows and the test host
-    # dies. That is recorded here rather than left open because a program that does
-    # not terminate is caught by any test at all - but it is worth saying that the
-    # mechanism is a dead process and not a failed assertion, because the sweep
-    # reads a dead process as PARSE-ERROR and would call it unmeasured forever.
-    "what-a-doh-client-may-read": {
-        "DNS/Client/DNSHTTPSClient.cs": {834, 958},
-    },
-
-    # Which datagrams a UDP client may act on, and what it says when it never
-    # asked. UdpClientBehaviorTests already covered the spoofing case RFC 5452
-    # section 4.2 is written for; these cover the empty query, the five fields of
-    # the answer it synthesizes, and how the question section is written.
-    #
-    # 266/267/269/274/275 are five of the six fields at the empty-name site. The
-    # sixth is 268, RecursionDesired, which stays open as part of finding 60 - the
-    # same literal as the three sites in DNSClient, and this file's other
-    # synthesis site writes the opposite literal for the same field.
-    #
-    # 317 is Serialize(ms, UseCompression: false). Two types at one name make two
-    # questions, so the second name is a candidate for the pointer RFC 1035
-    # section 4.1.4 describes - legal on paper, and nothing sends it. Whether the
-    # flag reached the question section at all was unknown until the mutant was
-    # planted: it does, and the test catches it.
-    #
-    # 282 was on the open list and is not here: the current suite already kills it
-    # (16 of 117 tests fail when `Count == 0` becomes `!= 0`, because every query
-    # with explicit types turns into an ANY query). It is recorded below rather
-    # than in this round, because no test was written for it - the sweep's verdict
-    # simply predates the tests that catch it.
-    "which-datagrams-a-udp-client-may-act-on": {
-        "DNS/Client/DNSUDPClient.cs": {266, 267, 269, 274, 275, 282, 317},
-    },
-
-    # The two stream transports, whose query paths are near-identical line for
-    # line. TcpFallbackAndFramingTests covered the framing - the two-octet prefix
-    # of RFC 7766 section 8, reassembly, connection reuse, a server closing the
-    # connection - and nothing covered the message inside the frame.
-    #
-    # Every rule is asserted twice, once per transport, because DNSTCPClient and
-    # DNSTLSClient are separate classes with no common type to test through and the
-    # sweep reports them as separate lines. A rule proved for one of two parallel
-    # implementations says nothing about the other.
-    #
-    # RFC 1035 section 4.1.1 on RD: "this bit may be set in a query and is copied
-    # into the response". It is the difference between a stub and something walking
-    # the delegation chain itself, so it has to follow the caller rather than a
-    # constant: 286/192 are the constructor's default, 432/245 the per-query
-    # fallback behind it - reachable only by putting the property back to null,
-    # since the constructor's own `?? true` means it never is otherwise.
-    #
-    # 423/236 are the substitution of ANY for a caller who named no types, which
-    # must not happen to a caller who named some. 605/258 are Serialize's
-    # UseCompression: two types at one name make two questions, so the second name
-    # is a candidate for the RFC 1035 section 4.1.4 pointer - legal on paper and
-    # sent by nothing.
-    "inside-the-frame": {
-        "DNS/Client/DNSTLSClient.cs": {286, 423, 432, 605},
-        "DNS/Client/DNSTCPClient.cs": {192, 236, 245, 258},
-    },
-
-    # What the cache says about answers it made itself, and what its sweep may
-    # remove. All twenty-nine of the remaining rows were planted before a line of
-    # test was written; twenty died, and the nine that did not are one argument
-    # rather than nine, recorded below.
-    #
-    # Three sites build a DNSInfo by hand and the sweep reported all eighteen of
-    # their fields surviving. Two are the preseeded names. RFC 6761 section 6.3.3:
-    # "Name resolution APIs and libraries SHOULD recognize localhost names as
-    # special and SHOULD always return the IP loopback address for address
-    # queries", and SHOULD NOT send such queries onward at all - the cache keeps
-    # that promise by having the entry before anything is asked. AA is true there,
-    # and it is the one field the RFC argues *for*: section 4.1.1 makes AA a claim
-    # that the responder is an authority for the name, and for localhost the
-    # library is, because the answer comes from the specification rather than from
-    # a zone anybody could contradict. "loopback." is not a name any RFC makes
-    # special and is asserted as this library's own convenience; what is pinned
-    # there is that it does not drift from its neighbour, two entries with the same
-    # six fields written twenty lines apart being exactly the arrangement in which
-    # one quietly does. The third site is the opposite case: a record handed to the
-    # cache comes back unauthoritative, because there is no responding name server
-    # behind it any more.
-    #
-    # 777 carries two mutants and only one of them fails a test, so this entry
-    # closes it on two grounds. Its logical-and-to-or is what the sweep test kills:
-    # the sweep removes an entry only when the entry is past its end of life AND
-    # every answer in it has expired, and the entry half alone is always the weaker
-    # one, since an entry's lifetime is the smallest TTL it holds. With || a
-    # mixed-TTL entry is thrown away while most of it is still good, and RFC 1035
-    # section 3.2.1 gives the TTL to the record. Its less-to-less-or-equal belongs
-    # to the clock family below and no test reaches it.
-    #
-    # 804 drops a zone from the NSEC range cache when its list has emptied; with !=
-    # it drops zones whose lists have not, throwing away every range they still
-    # hold, which is RFC 8198's entire saving.
-    "answers-the-cache-made-itself": {
-        "DNS/Client/Cache/DNSCache.cs": {129, 130, 131, 132, 140, 141,
-                                          172, 173, 174, 175, 183, 184,
-                                          346, 347, 348, 349, 354, 355,
-                                          777, 804},
-    },
-
-    # What a client is, and what it asks for, when the caller says nothing. Every
-    # default here is written twice - once as the parameter's own default on the
-    # declaration, once as the fallback the body reaches for when the parameter
-    # arrives as null - and the second is unreachable while the first is a non-null
-    # literal. Several of these tests therefore pass null deliberately, which is the
-    # only way to ask what the fallback decides.
-    #
-    # The reason the whole family went unwatched is in the rest of this suite: every
-    # other client test spells its arguments out, `UseQueryCache: false` most of all,
-    # because a test about the wire wants no cache in the way. A default nobody takes
-    # is a default nobody checks.
-    #
-    # RFC 1035 section 3.2.3 defines QTYPE 255 as "A request for all records" and
-    # section 4.1.2 gives every question exactly one QTYPE, so a caller who names no
-    # type has still asked something and 255 is the only choice that does not narrow
-    # it. Section 4.1.1 makes RD a request the querier makes.
-    #
-    # Two of these were already dead when the round began and are recorded because
-    # the ledger keys on the line rather than on who killed it: 290 and 539, the
-    # second by seventeen tests at once. That is what planting before writing is for.
-    #
-    # 311 and 320 are closed by a test that states what it needs from the machine it
-    # runs on and declines to judge what that machine cannot settle - per address
-    # family, because on Windows the IPv6 side is routinely unanswerable while the
-    # IPv4 side is not. 322 is the one it cannot close here, and MUTATION.md carries
-    # why.
-    "what-a-client-is-when-nothing-is-said": {
-        "DNS/Client/DNSClient.cs": {197, 230, 260, 261, 262, 290, 291, 292,
-                                     301, 303, 309, 311, 320,
-                                     467, 496, 539, 586},
-    },
-
-    # The third of the three places DNSClient answers without asking anyone, and the
-    # one the other two hid. It is reached only when every configured server failed
-    # before a response existed - not when they refused or timed out, since a
-    # transport that does either returns a DNSInfo of its own and this site is
-    # skipped. A server named without an address is the way in, and DNSServerConfig
-    # says so itself: "what a DNS-over-HTTPS or DNS-over-TLS endpoint is before its
-    # socket connects". AddressOf raises for one rather than returning null.
-    #
-    # RFC 1035 section 4.1.1 constrains two of the fields whatever the message's
-    # provenance: AA is a statement that the responding name server is an authority,
-    # RA a statement about recursion support in the name server, and no name server
-    # responded. Section 4.1.2 gives every question a QNAME, which is what 511's
-    # other half is about - a query with no name is not a query, and the guard that
-    # refuses one shares its condition with the guard that refuses a client with no
-    # servers. Only the name half can tell the two readings apart: joined the wrong
-    # way round, a server-less client still reaches the same name error from the
-    # third site, which is why the test that was already there could not see it.
-    #
-    # 1042 is not here. It is finding 60, and a KnownIssue test closes nothing.
-    "answers-nobody-sent-at-all": {
-        "DNS/Client/DNSClient.cs": {511, 1040, 1041, 1043, 1048, 1049},
-    },
-
-    # Several record types at one name are several queries - RFC 1035 section 4.1.2
-    # gives a question one QTYPE - and the answers then have to become one. The
-    # response code of that one comes from whichever query is allowed to speak for
-    # the whole, and they may disagree: a name can have an A record and no TXT
-    # record, or an A record while the server fails on TXT.
-    #
-    # Taking it from the failure produces a pair that contradicts itself on its face:
-    # an answer section with a record in it under a header saying, per section 4.1.1,
-    # that the name does not exist.
-    "which-of-several-answers-speaks-for-the-whole": {
-        "DNS/Client/DNSClient.cs": {1261},
-    },
-
-    # The EDNS options a query leaves with, once the per-server cookie has been added
-    # to whatever the caller configured. CookieProtocolTests covers the cookie; what
-    # nothing covered is the list it lands in.
-    #
-    # RFC 7873 section 5.1 has a client always offer one, so every query gains an
-    # option it was not configured with and the configured ones have to survive that.
-    # RFC 5001 section 2.1 - "The resolver MUST NOT include any NSID payload data in
-    # the query message" - makes NSID an option code and nothing else, which is why
-    # it is the one used here.
-    #
-    # RFC 6891 section 6.1.2 is what makes a duplicate wrong rather than untidy: "The
-    # order of appearance of option tuples is not defined", so a query carrying two
-    # COOKIE options has no answer to which one a responder reads. UDP clients are
-    # built per query and start empty, so appending is harmless there; TCP, TLS and
-    # HTTPS clients are pooled, and appending to those accumulates.
-    #
-    # Two configured options rather than one, which is not padding. With three codes
-    # in play, "replace the option with this code" and "replace an option without it"
-    # stop agreeing. With two they agree: a search for the wrong code finds the only
-    # other entry, each assignment writes over the other's slot, and the list ends up
-    # holding one of each in the opposite order - which section 6.1.2 makes
-    # indistinguishable. That gap was found in the test before it was written down.
-    "the-options-a-query-leaves-with": {
-        "DNS/Client/DNSClient.cs": {1391, 1398, 1412, 1431, 1432},
-    },
-
-    # How often, and how soon, a client asks again. RFC 1035 section 7.1 is the
-    # anchor: "The amount of work which a resolver will do in response to a client
-    # request must be limited", by a counter decremented on every action,
-    # "retransmission timeout, retransmission, etc.".
-    #
-    # 1489 is a retry: a response whose cookie fails RFC 7873 section 5.3 is
-    # discarded, and discarding it leaves the query unanswered rather than answered
-    # badly. An attacker who wins one race needs the client to give up. The test that
-    # was already there forges every time and therefore cannot see whether a second
-    # attempt was made at all; this one forges once.
-    #
-    # 1504 is a bound rather than a retry. The BADCOOKIE retry is gated by a flag
-    # that latches instead of by the counter, so nothing else stops it: a peer that
-    # keeps answering BADCOOKIE with a fresh cookie would be asked forever. The peer
-    # in the test falls silent from the third query on, so a client that does ask
-    # again ends the test by timing out rather than hanging it.
-    #
-    # 1535 is neither. `if (attempts <= MaxRetries)` sits fourteen lines above
-    # `while (attempts <= MaxRetries)` and guards only a log line and a 200 ms pause -
-    # remove its condition and the same two datagrams go out, back to back. So the
-    # count test cannot reach it and a second test times the gap instead, as a lower
-    # bound, which is the direction that holds under load: a scheduled delay can be
-    # late but never early. The rule is worth having on its own. SERVFAIL is what a
-    # name server answers when it is in trouble, and the answer to trouble is not the
-    # same question arriving in the same millisecond.
-    "how-often-and-how-soon-a-client-asks-again": {
-        "DNS/Client/DNSClient.cs": {1489, 1504, 1535},
-    },
-
-    # Killed by not terminating, which is the one verdict in this ledger that no
-    # assertion produced. `while (allDNSServerRequests.Count > 0)` against `>= 0`
-    # leaves the loop calling Task.WhenAny on an empty list, which throws into the
-    # generic catch eight lines above and goes round again forever. Every test that
-    # queries through DNSClient hangs, so the suite does not fail - it does not
-    # finish.
-    #
-    # Measured twice and hung twice: the original sweep recorded it among the six
-    # lines that got no verdict, and the round that closed this file wedged on it for
-    # twenty-one hours because the verify script had its own subprocess runner instead
-    # of the harness's kill_tree. MUTATION.md carries that second measurement, which
-    # is about the tooling rather than about Hermod.
+    # Killed by not terminating, as at cc8323d5, where the line was 870. `while
+    # (allDNSServerRequests.Count > 0)` against `>= 0` leaves the loop calling
+    # Task.WhenAny on an empty list, which throws into the generic catch above it
+    # and goes round again for ever. Every test that queries through DNSClient
+    # hangs, so pass 1 stopped the judge after 606 s, and pass 2's seven projects
+    # never build a DNSClient that races two servers.
     "a-race-that-does-not-end": {
-        "DNS/Client/DNSClient.cs": {870},
+        "DNS/Client/DNSClient.cs": {982},
     },
 
 }
@@ -1172,342 +877,196 @@ CLIENT_KILLED = {
 
 CLIENT_EQUIVALENT = {
 
-    # The three shapes below repeat across both stream transports, so each reason is
-    # written once and referred to twice. All three are conditions this code decides
-    # twice over, which is why their mutants survive: the second decision has the
-    # same effect as the first.
+    # Fourteen rows of DNSCache are one argument and an arithmetic identity. The
+    # argument: each of the thirteen compares a stored moment against a clock read
+    # at the moment of comparison, and each mutant moves the comparison across the
+    # single point where the two are equal. That point is not hard to reach, it is
+    # not reachable. Every stored moment here is `Timestamp.Now + TTL` evaluated
+    # when the thing was stored - an entry's EndOfLife (DNSCache 238, 248, 362), a
+    # record's (ADNSResourceRecord 152 and 193), a NODATA entry's (772), an NSEC
+    # range's expiry (860) - and every `now` is `Timestamp.Now` read later, when it
+    # is looked at. For the two to be equal the later reading would have to land on
+    # the tick of the earlier one plus the TTL, a hundred nanoseconds wide, and
+    # nothing a test can do arranges that. A zero TTL comes closest and still
+    # misses: the stored moment is the construction instant, already behind any
+    # later reading, so both readings of the comparison agree that it has passed.
+    #
+    # Nine are the first sweep's nine, one of which - 975's clock half, then 777 - it
+    # had filed under the kill of the same line. Three are new in TryGetAnswer, and
+    # one is 869's clock half, which the first sweep had filed the same way.
+    # CacheBoundaryTests asserts what both readings produce on both sides of each
+    # comparison, which is the most a black-box test can say here.
+    "DNS/Client/Cache/DNSCache.cs": {
 
-    "DNS/Client/DNSTLSClient.cs": {
+        483: "dnsCacheEntry.EndOfLife <= Timestamp.Now, the negative entry's own lifetime",
+        573: "rr.EndOfLife <= now in TryGetAnswer, an RRset with an expired member",
+        587: "rr.EndOfLife > now in TryGetAnswer, the authority section beside it",
+        630: "rr.EndOfLife <= now in TryGetAnswer, an expired link in the alias chain",
+        679: "rr.EndOfLife > now, filtering the answer section on read",
+        683: "rr.EndOfLife > now, and the authority section beside it",
+        812: "entry.EndOfLife > Timestamp.Now in TryGetNoData",
+        (869, "le-to-less"):
+             "e.Expiry <= now, an NSEC range that has run out when a new one for the "
+             "zone arrives. The line's other mutant, || to &&, is killed",
+        927: "expiry <= now, skipping an NSEC range that has run out",
+        (975, "less-to-less-or-equal"):
+             "entry.Value.EndOfLife < now, the first half of the sweep's condition. The "
+             "line's other mutant, && to ||, is killed",
+        976: "rr.EndOfLife <= now, the second half of the sweep's condition",
+        990: "entry.Value.EndOfLife < now, the NODATA entries the sweep removes",
+        1001: "e.Expiry < now, the NSEC ranges it removes",
 
-        709: "responseLength < 12 on a framed response. RFC 7766 section 8 puts a two-octet "
-             "length in front, so a response can declare exactly twelve octets and be "
-             "internally consistent - RFC 1035 section 4.1.1 makes the header that long. It "
-             "is still not an answer to this query: QDCOUNT is zero, and RFC 5452 section "
-             "9.1 matches a response on 'Query ID, Query name, Query type, Query class', "
-             "three of which are absent rather than wrong. Both readings refuse it, one at "
-             "the length and one at the question, and the object that reaches the caller is "
-             "the same either way. FramedTransportQueryTests asserts the outcome both "
-             "produce. The same argument closes DNSHTTPSClient 1027",
-
-        434: "EDNSOptions.Count > 0 ? EDNSOptions : null. The mutant makes the condition "
-             "always true, so an empty list is passed where null was - and OPT's constructor "
-             "does `this.Options = Options ?? []`, which makes the two the same object state "
-             "before anything is written. Serialisation sums over Options for the RDLENGTH "
-             "and writes nothing for an empty one, so the octets are identical. The OPT "
-             "record itself is not at stake: it exists because UDPPayloadSize > 0, not "
-             "because the option list is non-null",
-
-        395: "ForceUpdate = false, a parameter default nothing reads. The transport forwards it "
-             "to the overload that takes a DNSServiceName and from there to nowhere: see "
-             "DNSClient 1467, which grepped the folder for a reader and found one, in "
-             "DNSClient itself. The streams slice measures the same defaults at cbdd1bb1 "
-             "(DNSTLSClient 430 and 450, DNSTCPClient 233 and 253) and records them "
-             "equivalent for the same reason",
-        415: "ForceUpdate = false, a parameter default - see DNSTLSClient 395",
+        745: "soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a "
+             "minimum written as a conditional. RFC 2308 section 5 asks for exactly that: "
+             "the negative answer's TTL 'is taken from the minimum of the SOA.MINIMUM "
+             "field and SOA's TTL'. The mutant moves the comparison to "
+             "<=, which changes only the case where the two fields are equal - and there "
+             "both arms return the same value. A boundary on which the two programs "
+             "compute the same number. CacheBoundaryTests checks the rule from both sides",
 
     },
 
-    "DNS/Client/DNSTCPClient.cs": {
+    # The first sweep's five, each read again at its new line. Four are conditions
+    # decided twice or values nobody reads; the fifth is a flag guarding a body
+    # that is idempotent without it.
+    "DNS/Client/DNSClient.cs": {
 
-        473: "responseLength < 12 on a framed response - see DNSTLSClient 709, the same line "
-             "in the same shape",
+        456: "DomainName.IsNullOrEmpty() || DNSInformation is null, the guard on AddToCache. "
+             "The four call sites (908, 937, 952, 1145) were read again: the name is either "
+             "the query name, which the guard at the top of Query has already proved "
+             "non-empty, or a parsed record's owner name, which is never null and is '.' at "
+             "its shortest; and the response is non-null at each site by the condition that "
+             "leads there. Both operands are false wherever this runs, so || and && do the "
+             "same nothing",
 
-        247: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSTLSClient 434",
+        801: "EDNSOptions.Count > 0 ? EDNSOptions : null, building the query DNSClient hands "
+             "on. [] and null make the same OPT record - OPT's constructor does `Options ?? "
+             "[]` (OPT.cs 183), and the record exists because UDPPayloadSize > 0 "
+             "(DNSPacket 381), not because the list is non-null. Beyond that this query's "
+             "options never reach the wire: QueryDNSServerAsync assigns effectiveQuery "
+             "(1468), rebuilds it with the per-server cookie (1494) and never reads it "
+             "again, and the transport takes the options from its own EDNSOptions",
 
-        208: "ForceUpdate = false, a parameter default - see DNSTLSClient 395",
-        228: "ForceUpdate = false, a parameter default - see DNSTLSClient 395",
+        876: "nsecRecords.Count > 0, feeding the RFC 8198 denial cache. The block is guarded "
+             "by firstResponse?.DNSSECStatus == DNSSECValidationResult.Secure, and "
+             "DNSSECStatus is assigned nowhere in Hermod/DNS - it is a settable property the "
+             "caller fills in after the fact, and the object read here was created inside "
+             "this call. The comment above it says so: the path 'stays dormant. It is meant "
+             "to'. Dead by design, so the mutant cannot be reached",
 
-    },
+        1559: "the `false` handed to transportClient.Query as its ForceUpdate. Grepped across "
+              "the client folder at d906af2d: DNSClient.cs:682 is the only line that reads "
+              "ForceUpdate. The transports declare the parameter and forward it, and none "
+              "of them acts on it - they have no cache to bypass",
 
-    "DNS/Client/DNSKeepalivePolicy.cs": {
-
-        203: "disposed = true, the flag that makes Dispose idempotent. What it guards already "
-             "is: Timer.Change on a timer that has been disposed returns false rather than "
-             "throwing, and a second Timer.Dispose returns at once - both in TimerQueueTimer, "
-             "which checks its own _canceled first. A second Dispose with the flag never set "
-             "does the same nothing the flag prevents. The streams slice records the same line "
-             "at cbdd1bb1, DNSKeepalivePolicy 216, for the same reason",
+        1832: "disposedValue = true, the flag that makes Dispose idempotent. The body it "
+              "guards already is: DNSCache.Dispose() is `cleanUpTimer.Dispose()` and a "
+              "Timer tolerates being disposed twice, and transportClients is cleared on the "
+              "first pass, so the second finds nothing. A second Dispose with the flag never "
+              "set does the same nothing the flag prevents",
 
     },
 
     "DNS/Client/DNSUDPClient.cs": {
 
-        386: "received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the "
+        429: "received < 2 || ((data[0] << 8) | data[1]) != dnsQuery.TransactionId, the "
              "RFC 5452 section 4.2 pre-filter on an incoming datagram. Both of its mutants "
              "survive, and for one reason: the transaction id is checked twice and both "
              "checks react the same way. Whatever gets past this guard reaches "
              "DNSInfo.ReadResponse, which compares the id again and returns Invalid when it "
-             "differs - and the caller answers `if (!response.IsValid) continue;`, which is "
-             "the same `continue` this guard would have taken. Turning the || into && makes "
-             "the pre-filter a no-op for any datagram of two octets or more, and moving the "
-             "< to <= changes only where a two-octet datagram is dropped. Neither changes "
-             "what the client does or how long it waits; the difference is one parse and one "
-             "log line. Written as a property worth having rather than a redundancy: the "
-             "file's own comment says the check and the reaction have to be decided "
-             "together, and it decides them twice the same way. "
-             "UdpDatagramAcceptanceTests asserts the behaviour both readings produce",
+             "differs, and the caller answers `if (!response.IsValid) continue;` (476) - the "
+             "`continue` this guard would have taken. || to && makes the pre-filter a no-op "
+             "for any datagram of two octets or more, and < to <= moves only where a "
+             "two-octet datagram is dropped. Neither changes what the client does or how "
+             "long it waits. UdpDatagramAcceptanceTests asserts what both produce",
+
+        244: "ForceUpdate = false, a parameter default nothing reads - see DNSClient 1559",
+        264: "ForceUpdate = false, a parameter default - see DNSClient 1559",
+
+        336: "EDNSOptions.Count > 0 ? EDNSOptions : null - [] and null make the same OPT "
+             "record, see DNSClient 801. Here the query does reach the wire, and the octets "
+             "are the same: an empty option list adds nothing to the RDLENGTH and writes "
+             "nothing",
+
+        # First recorded killed, at cc8323d5 as line 317: two types at one name made two
+        # questions, and the second name was a candidate for a pointer. Since finding 86
+        # every query carries one question, so nothing is left to point at.
+        360: "Serialize(ms, UseCompression: false) for the UDP query. Since finding 86 a "
+             "query carries exactly one question (the guard at 314 sends several types as "
+             "several queries), and the only other name in it is the OPT record's owner, "
+             "the root, which DNSServiceName.Serialize writes as a single zero octet before "
+             "it ever looks at the offsets. With one name there is nothing a pointer could "
+             "point at, so true and false write the same octets. A TSIG or SIG(0) record is "
+             "appended after serialisation, by TransactionSecurity.SignQuery, and does not "
+             "see the flag",
+        702: "Serialize(ms, UseCompression: false) for the TCP retry - the same query, see 360",
+
+        699: "new NetworkStream(socket, ownsSocket: false) in the TCP retry. With true the "
+             "stream closes the socket when its `using` ends, at the end of the try block; "
+             "the finally right after it (886) disposes the socket anyway, and Socket.Dispose "
+             "is idempotent. The socket is closed a moment earlier, by the same call",
+
+        1329: "disposedValue = true. The flag guards one call, lifetime.Cancel(), which is "
+              "idempotent on a source that is never disposed - and `lifetime` is not. A "
+              "second Dispose with the flag never set cancels a cancelled source again",
+        1339: "Dispose(Disposing: true) from Dispose(). The parameter is read nowhere in "
+              "Dispose(Boolean); true and false run the same body",
+        1345: "Dispose(Disposing: true) from DisposeAsync() - see 1339",
 
     },
 
     "DNS/Client/DNSHTTPSClient.cs": {
 
-        1027: "body.Length < 12, the minimum-length guard on a DoH response body. RFC 1035 "
-              "section 4.1.1 makes the header exactly twelve octets, so twelve is the "
-              "smallest whole message and the guard is written correctly - but its boundary "
-              "cannot be reached from outside, because a stricter rule sits behind it. A "
-              "twelve-octet body has QDCOUNT zero, and RFC 5452 section 9.1 has a resolver "
-              "match a response to 'Query ID, Query name, Query type, Query class': with no "
-              "question section there is nothing to match, so the response is refused either "
-              "way. The two readings differ only in which branch refuses it - Invalid rather "
-              "than Failed - and those two carry the same response code, the same IsValid, "
-              "the same IsTimeout and the same empty sections. The test for the rule that "
-              "makes it unreachable is in DohResponseAcceptanceTests; it was first written "
-              "the other way round, asserting that twelve octets are read, and being "
-              "well-formed turned out not to be the same as being an answer to this question",
+        875: "ForceUpdate = false, a parameter default - see DNSClient 1559",
+        894: "ForceUpdate = false, a parameter default - see DNSClient 1559",
+        918: "ForceUpdate = false, a parameter default - see DNSClient 1559",
+        936: "ForceUpdate = false, a parameter default - see DNSClient 1559",
 
-    },
+        998: "EDNSOptions.Count > 0 ? EDNSOptions : null - see DNSUDPClient 336, the same "
+             "line in the same shape",
 
-    # Nine rows of DNSCache are one argument, not nine. Each compares a stored
-    # moment against a clock read at the moment of comparison, and each mutant moves
-    # the comparison across the single point where the two are equal: 463 and 729 on
-    # an entry's or a range's expiry, 506 and 510 on a record's, 619 on a NODATA
-    # entry's, 777 and 778 and 792 and 803 inside the periodic sweep.
-    #
-    # That point is not hard to reach, it is not reachable. Every stored moment here
-    # is `Timestamp.Now + TTL` evaluated when the thing was stored, and every `now`
-    # is `Timestamp.Now` read later, when it is looked at. For the two to be equal
-    # the second reading would have to land on the same tick as the first plus the
-    # TTL - a DateTimeOffset tick, a hundred nanoseconds - and nothing a test can do
-    # arranges that. A zero TTL comes closest and still misses: it makes the stored
-    # moment the construction instant, which is already behind any later reading, so
-    # both readings of the comparison agree that it has passed.
-    #
-    # CacheBoundaryTests asserts what both readings produce, on both sides of each
-    # comparison, which is the most a black-box test can say here: that a record
-    # which may not be cached is not served, and that one with time left is.
-    "DNS/Client/Cache/DNSCache.cs": {
+        # The two `true`s handed to AHTTPClient's constructor after the buffer size, in
+        # each of the three constructors, are ConsumeRequestChunkedTEImmediately and
+        # ConsumeResponseChunkedTEImmediately (AHTTPClient 228, 229).
+        377: "true as ConsumeRequestChunkedTEImmediately. AHTTPClient puts it on the request "
+             "builder (298) and so on every request this client sends - and the only reader "
+             "of a PDU's flag in the client is AHTTPClient 1346, which reads it on the "
+             "*response*. On a request it is copied (HTTPRequest 1765) and never acted on: "
+             "it decides how an incoming chunked body is read, and the client does not read "
+             "its own request",
+        502: "true as ConsumeRequestChunkedTEImmediately - see 377",
+        625: "true as ConsumeRequestChunkedTEImmediately - see 377",
 
-        463: "dnsCacheEntry.EndOfLife <= Timestamp.Now, the negative entry's own lifetime",
-        506: "rr.EndOfLife > now, filtering the answer section on read",
-        510: "rr.EndOfLife > now, and the authority section beside it",
-        619: "endOfLife > Timestamp.Now in IsNoData",
-        729: "expiry <= now, skipping an NSEC range that has run out",
-        778: "rr.EndOfLife <= now, the second half of the sweep's condition",
-        792: "entry.Value < now, the NODATA entries the sweep removes",
-        803: "e.Expiry < now, the NSEC ranges it removes",
+        378: "true as ConsumeResponseChunkedTEImmediately, the client's default. It is read "
+             "where SendRequest is handed null for its own parameter (AHTTPClient 886 and "
+             "917), and the DoH client never hands it null: both of its sends pass `true` "
+             "explicitly (1121, 1141). On a DNS query the default is not consulted",
+        503: "true as ConsumeResponseChunkedTEImmediately - see 378",
+        626: "true as ConsumeResponseChunkedTEImmediately - see 378",
 
-        572: "soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive, which is a "
-             "minimum written as a conditional. RFC 2308 section 5 asks for exactly that: "
-             "the negative TTL comes from 'the minimum of the MINIMUM field of the SOA "
-             "record and the TTL of the SOA itself'. The mutant moves the comparison to "
-             "<=, which changes only the case where the two fields are equal - and there "
-             "both arms return the same value. Not a boundary that is hard to reach: a "
-             "boundary on which the two programs compute the same number. The test for "
-             "the rule is in CacheBoundaryTests and checks it from both sides, which is "
-             "worth having and is not what closes this line",
-
-    },
-
-    # Twelve rows, and eight of them are conditions this file decides twice over -
-    # the pattern that has now turned up in five separate places in this block. The
-    # other four are values the code computes and then discards, which is the same
-    # observation arriving from the other side.
-    "DNS/Client/DNSClient.cs": {
-
-        405: "DomainName.IsNullOrEmpty() || DNSInformation is null, the guard on AddToCache. "
-             "All four call sites were read: the name is either the query name, which the "
-             "guard at the top of Query has already proved non-empty, or a parsed record's "
-             "owner name, which is never null and is '.' at its shortest since "
-             "ToPresentationName returns a dot for zero labels; and the response is non-null "
-             "at each site by the condition that leads there. Both operands are already "
-             "false wherever this runs, so || and && do the same nothing",
-
-        621: "FirstOrDefault(rr => rr.Type == CNAME), the record that gates the rest of a "
-             "cache hit. The mutant picks the first non-CNAME answer instead, and the gate "
-             "then tests that record's TTL - but every record in hand is live already. "
-             "DNSCache.TryGetDNSInfo calls FilterExpiredRecords first, which drops every "
-             "answer whose EndOfLife has passed and returns null when none is left, so an "
-             "expired CNAME is gone before DNSClient sees it. Negative entries skip the "
-             "filter, and they return from this method twenty lines earlier. Whichever "
-             "record is chosen, the gate passes",
-
-        625: "resourceRecord.EndOfLife > now, the per-record TTL check on a cache hit - see "
-             "621. The check is a second reading of one the cache has already made, and the "
-             "boundary between them is a Timestamp.Now read microseconds after the one that "
-             "did the filtering",
-
-        626: "cnameRecord.EndOfLife > now, the gate's own TTL check - see 621 and 625",
-
-        696: "EDNSOptions.Count > 0 ? EDNSOptions : null. The same line in DNSTLSClient and "
-             "DNSTCPClient is equivalent because [] and null serialise to the same octets. "
-             "Here the reason is stronger and has nothing to do with serialisation: the query "
-             "this builds never reaches the wire. QueryDNSServerAsync assigns `effectiveQuery "
-             "= DNSQuery`, rebuilds it with the per-server cookie, and then never reads it - "
-             "every use is of DNSQuery, and only of its Questions and its RecursionDesired. "
-             "The options reach the wire by the other path, the transfer onto "
-             "transportClient.EDNSOptions. Two mechanisms for one job, one of them inert",
-
-        765: "nsecRecords.Count > 0, feeding the RFC 8198 denial cache. The block is guarded "
-             "by firstResponse?.DNSSECStatus == DNSSECValidationResult.Secure, and "
-             "DNSSECStatus is assigned nowhere in Hermod/DNS - it is a settable property the "
-             "caller fills in after the fact, and the object read here was created inside "
-             "this call. The code above it says as much: 'DNSSECStatus is normally null here "
-             "and this path stays dormant. It is meant to'. Dead by design, so the mutant "
-             "cannot be reached",
-
-        1467: "the `false` handed to transportClient.Query as its ForceUpdate. Grepped across "
-              "the whole client folder: DNSClient.cs:586 is the only line in it that reads "
-              "ForceUpdate. Every transport declares the parameter and forwards it onward - "
-              "DNSHTTPSClient passes it from QueryHTTP to QueryHTTPMultiTypeJSONAsync and "
-              "back to QueryHTTP - and none of them acts on it. No cache to bypass, so "
-              "nothing to ask for",
-
-        1740: "disposedValue = true, the flag that makes Dispose idempotent. The body it "
-              "guards already is: DNSCache.Dispose() is `cleanUpTimer.Dispose()` and Timer "
-              "tolerates being disposed twice, transportClients is cleared on the first pass "
-              "so the second finds nothing, and no exception is possible either way. A second "
-              "Dispose with the flag never set does the same nothing the flag prevents",
+        # The object TryParseJSONResponse builds for an empty body, written into its out
+        # parameter just before it returns false. The only caller (1213) takes the
+        # object only when the method returns true; on false it runs on into the binary
+        # path, where an empty body is shorter than twelve octets and DNSInfo.Failed is
+        # what returns. Each of these mutants changes a field of an object nobody reads.
+        # The `return false` itself, 1584, is not here: with true the object is returned,
+        # and a test can tell.
+        1570: "IsAuthoritativeAnswer: false in an object the caller discards - see the comment above",
+        1571: "IsTruncated: false in an object the caller discards",
+        1572: "RecursionDesired: true in an object the caller discards",
+        1573: "RecursionAvailable: false in an object the caller discards",
+        1578: "IsValid: false in an object the caller discards",
+        1579: "IsTimeout: false in an object the caller discards",
 
     },
 
 }
 
 
-CLIENT_SUPERSEDED = {
-
-    # Forty-one rows that fixes closed by moving or removing the line the sweep had
-    # measured: thirty-seven by the six of the client round, and four by finding 87's. CORE_SUPERSEDED's finding-57 entry sets the shape: a fix does
-    # not let a row off, it relocates the rule, and the rule is re-measured where the fix
-    # put it.
-    #
-    # Twenty-nine of the thirty-seven are the same parameter default in six files. The
-    # argument for all of them is written once, at IDNSClient.cs:64.
-    #
-    # DNSClient.cs:917 is the one worth reading twice. It was recorded equivalent because
-    # no chain could make the counter bind, and that was true: the chase took its next hop
-    # by calling Query again, so the counter counted one call rather than the descent. The
-    # unreachable mutant was the evidence for finding 61 - and then the first attempt at
-    # that fix handed the budget down by value, which bounded the recursion and not the
-    # work, at 2^8 = 256 queries for a chain of eight names. The test written for this row
-    # is what said so, which is the whole argument for writing it.
-
-    "DNS/Client/DNSClient.cs": {
-
-         466: "Boolean? RecursionDesired = true, a parameter default - see IDNSClient.cs:64",
-         495: "see IDNSClient.cs:64",
-
-         521: "RecursionDesired: true at the refusal to ask - finding 60",
-         673: "RecursionDesired: true at the NSEC denial - finding 60",
-        1042: "RecursionDesired: true when nothing answered - finding 60",
-
-         695: "this.RecursionDesired ?? RecursionDesired ?? true, the RD the outgoing query was "
-              "built with. Hoisted to line 581, where one resolution now serves the query and "
-              "the three answers this method builds itself, and killed there by "
-              "ClientDefaultsTests - findings 60 and 63",
-
-         917: "for (var hop = 0; hop < MaxCNAMEFollows; hop++). The bound is now a counter on "
-              "an AliasChase shared by the whole descent, at line 1014, and killed there by a "
-              "chain of distinct names longer than the limit - finding 61",
-
-    },
-
-    "DNS/Client/DNSUDPClient.cs": {
-
-        229: "see IDNSClient.cs:64",
-        249: "see IDNSClient.cs:64",
-
-        268: "RecursionDesired: true for an empty query name - finding 60",
-        475: "RecursionDesired: false for a socket the host refused - finding 60, and the "
-             "literal that disagreed with 268's. One of the two was wrong for every call and "
-             "there was no call for which both were right, which is what made the pair the "
-             "clearest evidence in the finding",
-
-        291: "this.RecursionDesired ?? RecursionDesired ?? true, hoisted to line 262 and killed "
-             "there by ClientQueryConstructionTests - findings 60 and 63. It needed a test that "
-             "drives the UDP client directly: through a DNSClient the transport is built fresh "
-             "per query and handed an already-resolved value, so its own fallback is never "
-             "reached from there",
-
-    },
-
-    "DNS/Client/IDNSClient.cs": {
-
-        64:  "Boolean? RecursionDesired = true, a parameter default - finding 63. All twenty-nine "
-             "of these now read `= null`, and nothing mutable is left on any of them. The change "
-             "was not cosmetic: with the default at true the argument is never absent, so the "
-             "client-wide field could never be consulted and `client.RecursionDesired = false` "
-             "did nothing at all. Swapping the resolution order alone would not have helped. The "
-             "rule these twenty-nine stood for - what a caller who says nothing gets - is "
-             "re-measured where the fix put it, at the one expression each call now resolves to "
-             "(DNSClient.cs:581 and DNSUDPClient.cs:262, true-to-false), and killed there",
-
-        94:  "see 64",
-        126: "see 64",
-        150: "see 64",
-        174: "see 64",
-        195: "see 64",
-        216: "see 64",
-        253: "see 64",
-        274: "see 64",
-        295: "see 64",
-        330: "see 64",
-        361: "see 64",
-        392: "see 64",
-        432: "see 64",
-        456: "see 64",
-        485: "see 64",
-        496: "see 64",
-
-    },
-
-    "DNS/Client/DNSHTTPSClient.cs": {
-        752: "see IDNSClient.cs:64",
-        771: "see IDNSClient.cs:64",
-        795: "see IDNSClient.cs:64",
-        813: "see IDNSClient.cs:64",
-    },
-
-    "DNS/Client/DNSTCPClient.cs": {
-        207: "see IDNSClient.cs:64",
-        227: "see IDNSClient.cs:64",
-
-        276: "!IsConnected || tcpClient is null - moved by finding 87's fix to line 383, and "
-             "killed there in the streams slice by the refused-connection test. See "
-             "DNSTLSClient 455 for why it was never equivalent",
-    },
-
-    "DNS/Client/DNSTLSClient.cs": {
-
-        394: "see IDNSClient.cs:64",
-        414: "see IDNSClient.cs:64",
-
-        # Vanaheimr/Hermod#192 (finding 87) rewrote both stream clients' queries
-        # and moved every line below them. Its four files were swept again at
-        # cbdd1bb1 as the streams slice, and these two lines of the URL
-        # constructor are measured there.
-        355: "the `true` the URL constructor hands its base class - moved by finding 87's "
-             "fix to line 390, and killed there in the streams slice's first pass",
-        375: "RecursionDesired ?? true in the URL constructor - moved by finding 87's fix to "
-             "line 410, and killed there in the streams slice's first pass",
-
-        # These two were recorded equivalent, and wrongly. The argument was that a
-        # client disconnected but still holding its TcpClient writes into it, the
-        # write throws, and a `catch (IOException)` below reconnects and asks again.
-        # But GetStream() came before that try, at cc8323d5 as at cbdd1bb1, and on a
-        # TcpClient that is not connected it throws InvalidOperationException or
-        # ObjectDisposedException, which no retry catches. And the state is
-        # reachable: ATCPClient puts the new TcpClient in its field before it
-        # connects, and a refused connect disposes it without taking it out again.
-        # The test that seemed to confirm the argument closed the connection from the
-        # server's side, which leaves Connected true until something fails.
-        455: "!IsConnected || tcpClient is null - moved by finding 87's fix to line 558, and "
-             "killed there in the streams slice by the refused-connection test: a client "
-             "whose first connect was refused keeps the disposed TcpClient in its field, and "
-             "the mutant never connects again",
-
-    },
-
-}
+# The first sweep's forty-one were rows whose lines fixes had moved or removed. At
+# d906af2d each such rule was measured again where its fix put it, so there is
+# nothing to supersede yet.
+CLIENT_SUPERSEDED = {}
 
 
 # ---------------------------------------------------------------------------
@@ -2095,7 +1654,8 @@ SVCPARAM_SUPERSEDED = {}
 # had a stream reader close its own connection rather than the one in the field.
 # Line numbers are that revision's. The two sweeps before kept their files in
 # results/streams-cbdd1bb1/ and results/streams-4edc4c98/ and their ledgers in
-# this file's history. The client block's own ledger stays keyed to cc8323d5.
+# this file's history. The client block's own ledger is keyed to d906af2d, where
+# these four files are as they were at 0f595ac4, and leaves them to this one.
 #
 # No round of tests: every real gap pass 2 left is equivalent, or reachable only
 # through a race, or open because the RFCs are (MUTATION.md, "The result: the
