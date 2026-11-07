@@ -918,6 +918,17 @@ CLIENT_KILLED = {
         "DNS/Client/DNSHTTPSClient.cs": {996, 1183, 1584, 1971},
     },
 
+    # Killed once Hermod 38f6a355 is pinned. 786 is the TCP retry's catch for a
+    # client disposed under it, and the mutant's || takes every cancellation the
+    # caller did not cause, the deadline included. At d906af2d the retry's token
+    # carried the deadline, so the condition was false for it as well. From
+    # 38f6a355 the deadline is the retry's own, and
+    # A_Udp_Query_Whose_Tcp_Fallback_Runs_Out_Of_Time_Says_So fails. Planted at
+    # 38f6a355, where the line is 801.
+    "the-retry-keeps-its-deadline": {
+        "DNS/Client/DNSUDPClient.cs": {786},
+    },
+
 }
 
 

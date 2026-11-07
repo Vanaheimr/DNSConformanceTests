@@ -4,7 +4,6 @@ using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.HTTP;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -74,7 +73,6 @@ public class TimeoutReportingTests
     #region A_Udp_Query_Whose_Tcp_Fallback_Runs_Out_Of_Time_Says_So()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7766 §5")]
     public async Task A_Udp_Query_Whose_Tcp_Fallback_Runs_Out_Of_Time_Says_So()
     {

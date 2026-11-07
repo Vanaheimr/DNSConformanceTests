@@ -224,11 +224,11 @@ its signatures and the CNAME or DNAME chain that leads to it, each link signed
 Resolution Delay for the other family. And a server listed twice is one server,
 DoH asks for recursion when nobody said otherwise, an empty JSON body is a
 failure like any other, and a disposed DoH client sends nothing. Three of the
-cases are red at d906af2d and carry `KnownIssue`. A UDP query whose TCP retry
-runs out of time reports a failure rather than a timeout, and a response refused
-for not answering the question reports a timeout and a runtime of zero. Neither
-is an RFC deviation, so neither is a finding. With them the Client project is
-259 ✅ · 3 ❌, and the offline suite 1885 ✅ · 3 ❌ · 4 skips.
+cases were red at d906af2d. A UDP query whose TCP retry ran out of time reported
+a failure rather than a timeout, and a response refused for not answering the
+question reported a timeout and a runtime of zero. Neither is an RFC deviation,
+so neither is a finding. The three pass from 38f6a355 on. With them the Client
+project is 262 ✅ · 0 ❌, and the offline suite 1888 ✅ · 0 ❌ · 4 skips.
 
 And §11's other half, which needs a second host: with the WSL virtual machine as
 one, a unicast from an address on no subnet of the receiving interface is not on
