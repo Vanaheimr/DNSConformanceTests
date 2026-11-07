@@ -66,7 +66,13 @@ BLOCKS = {
     "multicast": dict(root=r"DNS\Multicast", exclude=(), judge="Multicast"),
     "dnssec":    dict(root=r"DNS\DNSSEC",    exclude=(), judge="Dnssec"),
     "tsig":      dict(root=r"DNS\TSIG",      exclude=(), judge="SecureTransports"),
-    "client":    dict(root=r"DNS\Client",    exclude=(), judge="Client"),
+    # The client block without the four files of the streams slice below. They
+    # were measured on their own at 0f595ac4 and are the same at d906af2d, where
+    # the block was measured a second time; the rest of the folder had gained
+    # 1533 lines and lost 306 in 23 commits since the first sweep's cc8323d5.
+    "client":    dict(root=r"DNS\Client",    exclude=(), judge="Client",
+                      skip=("DNSTCPClient.cs", "DNSTLSClient.cs",
+                            "DNSStreamPipeline.cs", "DNSKeepalivePolicy.cs")),
     "server":    dict(root=r"DNS\Server",    exclude=(), judge="Server"),
     "records":   dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords"),
 
@@ -211,6 +217,8 @@ def mutants_in(block):
 
         for filename in sorted(names):
             if "only" in block and filename not in block["only"]:
+                continue
+            if filename in block.get("skip", ()):
                 continue
             if filename.endswith(".cs"):
                 full = os.path.join(dirpath, filename)
