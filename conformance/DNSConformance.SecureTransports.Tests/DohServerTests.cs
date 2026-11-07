@@ -682,6 +682,35 @@ public class DohServerTests
 
     #endregion
 
+    #region Server_Refuses_A_Post_That_Carries_No_Content_At_All()
+
+    [Test]
+    [Property("RFC", "8484 §4.1, 9113 §8.1")]
+    public async Task Server_Refuses_A_Post_That_Carries_No_Content_At_All()
+    {
+
+        // The test above sends an empty body, and HTTP carries it as one: a
+        // Content-Length of zero over HTTP/1.1, and over HTTP/2 a DATA frame with
+        // nothing in it. A POST can also have no content at all, no body and no
+        // Content-Type. RFC 9113 §8.1 makes the DATA frames of a message "zero or
+        // more", and a request without content is sent as a single HEADERS frame
+        // that ends the stream (§8.8.1). It is the same malformed request as the
+        // one above and wants the same answer.
+        //
+        // It also reaches the server by a different road. A body that was never
+        // sent is not an empty one, and the HTTP/2 listener hands the resource no
+        // body rather than an empty one. That is the case the guard's first term
+        // is there for, and the empty-body test cannot reach it.
+        await using var server = await StartServerAsync();
+
+        var result = await RawDoHProbe.SendRawAsync(HttpMethod.Post, server.Url, HTTPClient: server.Http);
+
+        Assert.That(result.Status, Is.EqualTo(400), () => RawDoHProbe.Describe(result));
+
+    }
+
+    #endregion
+
     #region The_Largest_Message_Allowed_Is_Allowed()
 
     [Test]

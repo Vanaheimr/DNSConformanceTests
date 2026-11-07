@@ -570,78 +570,52 @@ DNSSEC_SUPERSEDED = {
 #  server
 # ---------------------------------------------------------------------------
 
+# Keyed to Hermod 38f6a355, the revision the second sweep of this block
+# measured. The first sweep measured cc8323d5, and its files are in
+# results/server-cc8323d5/. Its ledger - 19 rows killed in six rounds, 34
+# equivalent - is in this file's history, as of 8c1939e.
+#
+# None of the killed rows is carried over, and none needs to be: a gap a test
+# closed is killed by that test in the new sweep and never reaches the
+# classification. Three commits changed the folder since: CA2007's
+# ConfigureAwait(false) on every await (360c8e28), timers that stop when a
+# server is disposed (3f5d5961), and the fix for finding 76 (925c80d5), which
+# changed a comment here and the parser elsewhere.
+#
+# The equivalents were read again against 38f6a355 rather than moved with their
+# numbers, including the code outside the folder their arguments lean on:
+# TSIGSigner changed for finding 58 and TryStripTSIG in it did not; AHTTPPDU's
+# body reader changed and still answers [] where there is no body stream or a
+# Content-Length of zero; HTTPMethod gained a method and TryParse did not
+# change. Thirty-two stand. One expired as its entry said it would: the BADTIME
+# conditional, DNSMessagePipeline 374, which the test for finding 58 now kills.
+# One is new, DNSMessagePipeline 490. And one was wrong from the start -
+# DNSOverHTTPSResource 312, whose argument said the HTTP layer never hands a
+# null body. HTTP/1.1 never does. A POST that HTTP/2 ends with its HEADERS
+# frame arrives with a null one, and there the two readings answer 400 and
+# 500. It is below with the test that kills it.
+
 SERVER_KILLED = {
 
-    # RFC 4034 section 4.1.1: the last NSEC of a zone names the apex, so a zone
-    # holding nothing but its apex has one NSEC whose next name is its own
-    # owner. Its span is then everything below the apex rather than an interval
-    # inside it, and a reading that wants "after the owner AND before the next"
-    # answers no for every name there is. The NSEC3 chain has the same shape and
-    # one failure more: owner and next being the same twenty octets is the only
-    # call where the hash comparison runs to the end of both arrays.
-    "apex-only-zone": {
-        "DNS/Server/ZoneDenialOfExistence.cs": {311, 443, 597},
+    # RFC 8484 section 4.1 puts a POST's query in its body, and RFC 9113 section
+    # 8.1 makes the DATA frames of an HTTP/2 message "zero or more": a POST
+    # without content is one HEADERS frame that ends the stream (section 8.8.1),
+    # and the HTTP/2 listener hands the resource no body rather than an empty one.
+    # The first sweep's ledger called this connective equivalent because HTTP/1.1
+    # never hands a null, and the empty-body test sends an empty DATA frame. With
+    # no content at all, the original answers 400 and the mutant reads the length
+    # of a null, which the DoH/2 handler's catch turns into a 500.
+    "a-post-without-content": {
+        "DNS/Server/DNSOverHTTPSResource.cs": {(312, "logical-or-to-and")},
     },
 
-    # RFC 4035 section 3.2.1 gates every answer a signed zone gives, not only
-    # "no such name" - the existing test walked one of the four paths an
-    # authoritative server reaches it from. Section 3.1.4 wants a referral to a
-    # signed child to carry "both the DS RRset and its associated RRSIG RR(s)",
-    # and a referral that drops the signature works for everyone who is not
-    # validating. RFC 6672 section 2.3 allows a DNAME beside an NS RRset at the
-    # zone apex and nowhere else, which makes it the last candidate the walk up
-    # from QNAME considers - and the only one a bound a step short can lose.
-    "signed-answers-and-the-apex": {
-        "DNS/Server/InMemoryDNSZone.cs": {672, 684, 718, 754, 984},
-    },
-
-    # RFC 6891 section 6.2.3 calls the advertised size "the largest UDP payload
-    # that can be reassembled and delivered", so a message of exactly that many
-    # octets belongs on the inside of the limit - and the limit is consulted once
-    # for the whole answer and again for each shortened one on the way down.
-    # Section 6.1.1 has no exception for a response that had to shed everything:
-    # the OPT is not an answer record and is not what had to go. And RFC 1035
-    # section 4.1.1's header is twelve octets, which is the shortest message a
-    # server can answer at all, because the transaction id is in the first two.
-    "sizes-and-edges": {
-        "DNS/Server/DNSMessagePipeline.cs": {150, 594, 602, 623},
-    },
-
-    # RFC 9110 section 12.4.2: "a value of 0 means 'not acceptable'", so naming
-    # application/dns-message with q=0 names the only media type this server has
-    # in order to exclude it - a refusal written as a mention, which anything
-    # comparing media types alone reads as the opposite. And a DNS message is at
-    # most 65535 octets because that is what RFC 1035 section 4.2.2's length
-    # prefix can count, which makes 65535 the largest one allowed rather than the
-    # first one too many.
-    "doh-media-type-and-size": {
-        "DNS/Server/DNSOverHTTPSResource.cs": {318, 494, 495},
-    },
-
-    # RFC 9018 section 4.3: a server "SHOULD allow cookies within a 1-hour period
-    # in the past and a 5-minute period into the future" - a period OF an hour, so
-    # a cookie exactly that old is inside it and one exactly five minutes ahead is
-    # too. Both edges belong to the window. And RFC 7873 section 4.2 gives the
-    # server cookie "a variable length, from 8 to 32 octets", so every legal
-    # length arrives whatever this server mints; the ones it does not mint have to
-    # be turned away by their length, with a timestamp current enough that nothing
-    # else turns them away first.
-    "cookie-window-and-lengths": {
-        "DNS/Server/DNSCookies.cs": {159, 181, 182},
-    },
-
-    # RFC 2931 section 3 identifies the whole mechanism by one field: a SIG(0) is
-    # "identified by having a 'type covered' field of zero". A SIG record with any
-    # other value is an ordinary RFC 2535 signature over an RRset that happens to
-    # travel in the additional section - it authenticates nothing about the
-    # request, so the request is unsigned and has to be served as one.
-    #
-    # The line carries the same operator twice and the two mutants disagree. The
-    # first connective guards a null TryStripSIG0 cannot produce, and is in
-    # SERVER_EQUIVALENT beside 418; the second drops the type-covered test
-    # itself, and that one now fails a test.
-    "the-sig-that-is-not-a-signature": {
-        "DNS/Server/DNSMessagePipeline.cs": {(419, "logical-or-to-and", 1)},
+    # No RFC: what DisposeAsync (3f5d5961) does with the listener. Its guard
+    # against a second call, read the wrong way round, returns at once from the
+    # first, so nothing is stopped and the port the server reported stays open.
+    # The test connects before and after, so the open port is shown to be the
+    # server's before the test asks it to be gone.
+    "a-disposed-doh2-server": {
+        "DNS/Server/DNSOverHTTP2Server.cs": {407},
     },
 
 }
@@ -652,10 +626,10 @@ SERVER_EQUIVALENT = {
     "DNS/Server/ZoneDenialOfExistence.cs": {
 
         # The two branches compute the same value.
-        445: "Left[i] < Right[i] ? -1 : 1, under an if that has already established "
+        447: "Left[i] < Right[i] ? -1 : 1, under an if that has already established "
              "Left[i] != Right[i]. Less-than and less-or-equal cannot disagree where "
              "equality is excluded",
-        565: "Skip >= Labels.Length ? \".\" : String.Join('.', Labels.Skip(Skip)) + \".\". "
+        567: "Skip >= Labels.Length ? \".\" : String.Join('.', Labels.Skip(Skip)) + \".\". "
              "At equality the other branch joins nothing and appends the dot, which is "
              "the same dot the first branch returns",
 
@@ -679,15 +653,15 @@ SERVER_EQUIVALENT = {
              "null on the next line anyway",
         352: "the same guard in CoveringNSEC3. Name can be null here - NextCloser returns "
              "null when QNAME is the encloser - but HashOf answers null for that too",
-        424: "label is null || label.Length == 0 in OwnerHashOf. Split always yields at "
+        426: "label is null || label.Length == 0 in OwnerHashOf. Split always yields at "
              "least one element, so FirstOrDefault over it is never null and only the "
              "length test can fire",
-        528: "qnameLabels.Length <= encloserLabels.Length in NextCloser. The closest "
+        530: "qnameLabels.Length <= encloserLabels.Length in NextCloser. The closest "
              "provable encloser is an ancestor of QNAME and never QNAME itself, because "
              "a name with a matching NSEC3 is a name that exists",
 
         # The mutation removes a path whose answer another path supplies.
-        466: "the bound of ClosestEncloser's walk. Stopping one candidate short loses "
+        468: "the bound of ClosestEncloser's walk. Stopping one candidate short loses "
              "exactly the apex, and the return below the loop is the apex",
         371: "the NSEC3 wrap, and NOT for the reason its NSEC twin at 311 dies. The two "
              "readings differ only when owner and next are the same hash, which needs a "
@@ -728,10 +702,10 @@ SERVER_EQUIVALENT = {
         # The guard chains, as in the tsig block - checked again for these call
         # sites rather than carried over. TryStripTSIG and TryStripSIG0 each have
         # exactly one `return true`, with every out parameter set above it, and
-        # return false with both null on every other path. So a null output beside
-        # a true result cannot arise, which is what the second and third terms of
-        # each chain test for, and the expression agrees with the original on both
-        # of the two cases that can actually happen.
+        # return false with the message output null on every other path. So a null
+        # output beside a true result cannot arise, which is what the second and
+        # third terms of each chain test for, and the expression agrees with the
+        # original on both of the two cases that can actually happen.
         349: "!TryStripTSIG(...) || unsigned is null - the second term cannot be true "
              "when the first is false",
         350: "unsigned is null || tsig is null, the same chain one term along",
@@ -740,27 +714,23 @@ SERVER_EQUIVALENT = {
              "unsigned is null || sig is null, that chain one term along. The second || "
              "on the line is the type-covered test, and a test kills it",
 
-        374: "result.Error == BADTIME ? key : null, and equivalent only because of what "
-             "BuildErrorResponse does with that key: nothing. It builds every refusal with "
-             "MAC: [] and OtherData: [], so the argument reaches the record owner name and "
-             "stops there - and when it is null the fallback makes an equivalent key out of "
-             "the request TSIG, so both readings emit the same bytes. THIS ENTRY EXPIRES "
-             "WITH FINDING 58: once a BADTIME reply is signed as RFC 8945 section 5.2.3 "
-             "requires, the two readings differ and the test written for that finding kills "
-             "this mutation",
-
         471: "the twelve-octet floor of BuildNotAuthorizedResponse. It answers a request "
              "whose signature did not verify, so the request carried a TSIG or a SIG(0) "
              "and is an order of magnitude longer than the header it is measured against",
+
+        490: "end < 0 ? null : response[..end], under FindEndOfQuestions, which sets the "
+             "stream to offset 12 before it reads a question and returns either its "
+             "position or -1. Zero is not among its answers, so < 0 and <= 0 agree on "
+             "every one. The first sweep recorded this line killed by Dnssec, one test "
+             "of 326, in a pass-2 row that had come back BUILD-FAILED and was measured "
+             "again by hand; nothing in the line or in the function below it has changed "
+             "since, and the second sweep finds no project that fails. The kill was the "
+             "re-measurement's noise",
 
     },
 
     "DNS/Server/DNSOverHTTPSResource.cs": {
 
-        312: "queryBytes is null || queryBytes.Length == 0 for a POST body. The HTTP layer "
-             "hands an empty array and never a null, so the first term is dead; and the "
-             "second is redundant with the parser below, which refuses a nought-octet "
-             "message anyway. Both readings answer 400, by different routes",
         556: "soa.Minimum < soa.TimeToLive ? soa.Minimum : soa.TimeToLive. Where the two are "
              "equal the branches return the same number, which is the only case the "
              "comparison could be changed about",
@@ -770,10 +740,11 @@ SERVER_EQUIVALENT = {
     "DNS/Server/DNSOverHTTPSServer.cs": {
 
         313: "Request.HTTPMethod == POST, guarding the body read. The comment above it warns "
-             "that asking a GET for its body would wait for octets never promised - and it "
-             "would not: with no Content-Length the read returns at once, and for a POST the "
-             "body is already materialised by the time this runs. The guard is belt and "
-             "braces against a hazard this stack does not have",
+             "that asking a GET for its body would wait for octets never promised - and the "
+             "constructor call below asks every request for Request.HTTPBody whatever its "
+             "method, whose getter runs the same reader and keeps what it read. The guard "
+             "chooses only whether the read happens here, asynchronously, or there, "
+             "synchronously, and either way it happens once and for every method",
 
     },
 
@@ -810,15 +781,15 @@ SERVER_EQUIVALENT = {
 
     "DNS/Server/DNSOverHTTP2Server.cs": {
 
-        463: "IsHEAD: false on the 'not an HTTP method this server knows' reply. HTTPMethod."
+        495: "IsHEAD: false on the 'not an HTTP method this server knows' reply. HTTPMethod."
              "TryParse returns null only for a name that violates RFC 9110 section 9.1's "
              "token syntax - an unknown but well-formed name becomes a new HTTPMethod - and "
              "a :method pseudo-header that breaks the token rules is refused by the client "
              "stack before it reaches a socket",
-        470: "target.IndexOf('?') is var mark && mark >= 0. The two readings differ only for "
+        502: "target.IndexOf('?') is var mark && mark >= 0. The two readings differ only for "
              "a :path that begins with the question mark, and HTTP/2 origin-form requires it "
              "to begin with a slash",
-        531: "IsHEAD: false on the 500. Reaching it needs the handler to throw, which a "
+        563: "IsHEAD: false on the 500. Reaching it needs the handler to throw, which a "
              "well-formed request cannot arrange from outside",
 
     },

@@ -35,7 +35,7 @@ test project that exercises each:
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **13 open** |
 | `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
-| `server` | `DNS/Server` | Server | 361 | measured, **34 open**, 1 never measured |
+| `server` | `DNS/Server` | Server | 414 | measured twice, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
 
@@ -86,7 +86,10 @@ is not an error: finding 57's fix and the compression-table fix each added a
 comparison. The measured figure stays, because it is what was measured. The
 `client` row said 558 for the whole folder at `cc8323d5`. It says 487 because the
 block was measured a second time, at `d906af2d`, without the four files the
-`streams` slice measures (*The result: the client, measured again*).
+`streams` slice measures (*The result: the client, measured again*). The
+`server` row said 361 at `cc8323d5`. It says 414 because the block was measured
+a second time, at `38f6a355`, after CA2007 had put `ConfigureAwait(false)` on
+every await in the folder (*The result: the server, measured again*).
 
 
 
@@ -96,7 +99,7 @@ block was measured a second time, at `d906af2d`, without the four files the
 
 ---
 
-## The two hundred and thirty-two that no test host can see
+## The two hundred and eighty-four that no test host can see
 
 `await x.ConfigureAwait(false)` says: do not resume on the caller's
 synchronization context. Read as `true` it says the opposite, and the two
@@ -105,7 +108,7 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. Two hundred and thirty-two of these sit across the measured blocks, and
+same as equivalent**. Two hundred and eighty-four of these sit across the measured blocks, and
 not one of them is work waiting to be done: no test written for a DNS
 conformance suite will ever close one.
 
@@ -121,7 +124,11 @@ findings 78 to 85 rewrote two of the client's awaits into two others, and gave
 the browser one more, before its first query. The `client` block's second sweep
 leaves the four stream files to the `streams` slice and counts fifty-seven, and
 the slice counts forty-three: a hundred in the folder where the first sweep
-found sixty-eight.
+found sixty-eight. The `server` block's second sweep counts eighty-one where the
+first counted twenty-nine. `360c8e28` wrote `ConfigureAwait(false)` on every
+await in `DNS` that did not have it yet, fifty of them in the server folder and
+forty-four of those in `DNSServer.cs`, and `3f5d5961` gave DoH/2's new
+`DisposeAsync` two more.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -134,7 +141,7 @@ neither.
 | `core` | 133 | 0 | 1 |
 | `dnssec` | 47 | **1** | 19 |
 | `tsig` | 42 | **2** | — |
-| `server` | 87 | **34** | 29 |
+| `server` | 69 | **34** | 81 |
 | `client` | 97 | **13** | 57 |
 | `streams` | 26 | **9** | 43 |
 | `multicast` | 236 | **54** | 83 |
@@ -412,6 +419,166 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
+
+## The result: the server, measured again
+
+The first measurement of this block, at `cc8323d5`, ended with 34 rows open and
+one mutant that never finished (*The result: the server*, below). By the
+suite's pin, **`38f6a355`**, three Hermod commits had changed the folder, by 101
+lines added and 64 removed. `360c8e28` wrote `ConfigureAwait(false)` on every
+await in `DNS` that did not have it yet (CA2007). `3f5d5961` gave the DoH/2
+server a `DisposeAsync` that stops it and lets go of its HTTP/1.1 renderer, and
+made `DNSServer.Stop()` dispose of its two DoH listeners rather than only stop
+them.
+`925c80d5`, the fix for finding 76, changed a comment here and the parser
+elsewhere.
+
+The block was swept again at `38f6a355` with the same judge and the same two
+passes. The first measurement's files moved to `results/server-cc8323d5/`
+unchanged, and its ledger stays in the history of `make_closed_folder.py`.
+
+| | `cc8323d5` | `38f6a355` |
+|---|---:|---:|
+| mutants | 361 | 414 |
+| not viable (would not compile) | 63 | 63 |
+| killed by Server, pass 1 | 106 | 116 |
+| killed by another project | 69 | 78 |
+| survived everywhere | 122 | 156 |
+| never finished | 1 | 1 |
+| `ConfigureAwait(false)`, host-only | 29 | 81 |
+| real gaps | 87 | 69 |
+| killed by a test written for them | 19 | 2 |
+| equivalent | 34 | 33 |
+| open | **34** | **34** |
+
+The 156 are 69 real gaps, 81 `ConfigureAwait(false)` that no test host can see,
+and six that are not code. The 53 mutants the folder gained are the 52
+`ConfigureAwait(false)` the two commits wrote and the guard of the new
+`DisposeAsync`.
+
+### The same thirty-four
+
+Every row the first measurement left open is open again, on the same line save
+one: DoH/2's `ServeHTTP11ViaALPN && certificate is not null` moved from `:222` to
+`:226`. None of the code they sit in changed, and the reasons in *The result:
+the server* stand as written:
+
+| | open | why |
+|---|---:|---|
+| `DNSServer.cs` | 13 | the bind retry policy (six), the "no IPv6 on this host" filter, two multicast socket options, `leaveInnerStreamOpen`, a zero `TCPReadTimeout`, and the two DoH port-collision tests |
+| `InMemoryDNSZone.cs` | 7 | six in `Remove`, which nothing that speaks DNS calls, and the boundary of the signature refresh |
+| `DNSOverHTTPSServer.cs` | 6 | options of the embedded HTTP server: `AutoStart`, maintenance and warden tasks, certificate revocation |
+| `DNSServerOptions.cs` | 5 | the transport and compression defaults, which every fixture states |
+| `AuthoritativeDNSRequestHandler.cs` | 2 | the CNAME and DNAME chain limits, which no RFC names |
+| `DNSOverHTTP2Server.cs` | 1 | `ServeHTTP11ViaALPN`, which the DoH fixture does not offer |
+
+`DNSServer.cs:297`, `retry` stuck `true`, is the one that never finishes. Planted
+again by hand under `ServerWildcardTests`, it was still running after 600 s, and
+it keeps its TIMED-OUT as before.
+
+### Nine timeouts, and the same nine
+
+Pass 1 gave a mutant 200 s, ten times the clean run, and nine did not finish in
+it: the same nine lines as at `cc8323d5`. Four of them died in pass 2, where
+Dnssec fails 27 of its 379 tests on each: `AuthoritativeDNSRequestHandler.cs:311`
+and `:349`, and `DNSMessagePipeline.cs:347` and `:416`. The other five were
+planted one at a time and judged by one test class run on its own, twelve tests
+in 154 ms clean:
+
+| | with the mutant |
+|---|---|
+| `DNSServer.cs:374` `==`→`!=` | **12 of 12 failed**, 2 m 5 s |
+| `DNSServer.cs:427` `==`→`!=` | **12 of 12 failed**, 2 m 5 s |
+| `DNSServer.cs:718` `==`→`!=` | **12 of 12 failed**, 2 m 5 s |
+| `DNSServer.cs:330` `&&`→`\|\|` | 0 of 12 failed, 159 ms |
+| `DNSServer.cs:297` `false`→`true` | **still running after 600 s** |
+
+The numbers are the first measurement's to the second, and so are the
+corrections. Three rows are KILLED, one is SURVIVED and a gap, and `297` keeps
+its timeout. `server-pass1.tsv.before-timeout-recheck` and
+`server-pass2.tsv.before-timeout-recheck` keep what the sweep measured.
+
+### Thirty-three equivalents, read again
+
+Thirty-two of the first measurement's thirty-four stand. Most are on their old
+lines. Five in `ZoneDenialOfExistence.cs` moved two lines on, and the three in
+`DNSOverHTTP2Server.cs` moved thirty-two. They were read again against
+`38f6a355` rather than moved with their numbers, and so was the code outside the
+folder that some of them lean on. `TSIGSigner.cs` changed for finding 58, and
+`TryStripTSIG` in it did not. `AHTTPPDU`'s body reader changed and still answers
+`[]` when there is no body stream or a Content-Length of zero. `HTTPMethod`
+gained a method and `TryParse` did not change. One argument is sharper than it
+was. `DNSOverHTTPSServer.cs:313` guards an explicit read of a POST body, and the
+constructor call a few lines below asks every request for `Request.HTTPBody`,
+whose getter runs the same reader and keeps what it read. The guard only decides
+where the body is read, and the body is read once either way.
+
+Two of the thirty-four are gone, for two different reasons.
+
+**One expired, as its entry said it would.** `DNSMessagePipeline.cs:374`, the
+BADTIME conditional, was equivalent only because `BuildErrorResponse` signed
+nothing. The ledger entry said *this entry expires with finding 58*. Planted on
+its own, the mutant fails one test of the Server project's 154,
+`TsigServerTests.A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not`, the test
+written for that finding.
+
+**And one was wrong from the start** (below).
+
+One is new. `DNSMessagePipeline.cs:490`, `end < 0 ? null : response[..end]`,
+reads the answer of `FindEndOfQuestions`. That function sets its stream to
+offset 12 before it reads a question and returns the stream's position or −1.
+Zero is not among its answers, so `< 0` and `<= 0` agree on every one. The first
+measurement recorded the line killed by Dnssec, one test of 326. That row was one
+of the 179 that pass 2 filed as not viable, in a row, after one test run came
+back without a summary (`server-pass2.tsv.as-measured` keeps them), and it got
+its verdict when they were measured again. Nothing in the line or in the
+function under it has changed since, and the second sweep finds no project that
+fails. The kill was noise in that re-measurement.
+
+### A body that was never sent, and a server that was not stopped
+
+The first measurement's chapter said of the empty-POST test that it *asks for
+400 and gets 400 — with the mutation in place as well, by a different route.
+The HTTP layer hands an empty array and never a null.* That holds for HTTP/1.1.
+It does not hold for HTTP/2, and it did not at `cc8323d5` either.
+
+RFC 9113 §8.1 makes the DATA frames of a message *"zero or more"*, and §8.8.1
+sends a request without content as a single HEADERS frame that ends the stream.
+Hermod's HTTP/2 connection creates a body buffer only for a stream that stays
+open after its headers, so a POST ended by its HEADERS frame reaches the DoH
+resource with no body at all. The original refuses it with 400, because a null
+is the first thing `queryBytes is null || queryBytes.Length == 0` asks about.
+The mutant, `&&`, goes on to read the length of the null, and the DoH/2
+handler's catch turns the exception into a 500.
+
+The empty-POST test could not see it. .NET sends empty content as content, and
+it reaches the resource as an empty array, not a null: with the mutant planted,
+that test still passes over HTTP/2.
+`Server_Refuses_A_Post_That_Carries_No_Content_At_All` sends a POST with no
+content at all, on both versions. It is the same malformed request under RFC
+8484 §4.1 and wants the same 400. Planted, the mutant fails it over HTTP/2 with
+*But was: 500* and passes it over HTTP/1.1.
+
+The second is `DNSOverHTTP2Server.cs:407`, the guard at the top of the
+`DisposeAsync` that `3f5d5961` added:
+`if (Interlocked.Exchange(ref disposed, 1) == 1) return;`. Read as `!=`, the
+first call returns at once, so `Stop()` never runs and the listener keeps the
+port the server reported. No RFC asks anything of a disposed server, and Hermod
+does the right thing, so there is nothing to number. It is what the API does
+with what it opened, which is what `ClientLifecycleTests` asks of the clients.
+`DohServerLifecycleTests.A_Disposed_Http2_Server_Accepts_No_Connection`
+connects before disposing and after. The first connection is the positive
+control: it shows that the port is the server's before the test asks for it to
+be gone. Planted, the mutant fails it, and the two empty-POST tests beside it
+pass.
+
+### What the first measurement's chapter now is
+
+*The result: the server*, below, is the measurement at `cc8323d5`, and its line
+numbers are that revision's. Its rounds, its findings, its account of the
+timeouts and of `DNSServer.cs` stand. Two of its statements are corrected
+here: the null the HTTP layer never hands, which HTTP/2 does, and the Dnssec
+kill of `DNSMessagePipeline.cs:490`, which was noise.
 
 ## The result: the client, measured again
 
