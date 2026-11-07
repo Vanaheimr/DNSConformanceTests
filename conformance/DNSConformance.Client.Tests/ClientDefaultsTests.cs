@@ -82,6 +82,13 @@ public class ClientDefaultsTests
     private static Boolean[] RecursionAsked(ScriptedUdpServer Server)
         => [.. Server.Requests.Select(request => RawDnsReader.Parse(request).RD)];
 
+    /// <summary>How many resolvers of the given family this machine lists on interfaces that are up.</summary>
+    private static Int32 MachineResolvers(AddressFamily Family)
+        => NetworkInterface.GetAllNetworkInterfaces().
+               Where     (networkInterface => networkInterface.OperationalStatus == OperationalStatus.Up).
+               SelectMany(networkInterface => networkInterface.GetIPProperties().DnsAddresses).
+               Count     (address          => address.AddressFamily == Family);
+
     #endregion
 
 
@@ -277,6 +284,17 @@ public class ClientDefaultsTests
                                QueryTimeout:      ShortTimeout
                            );
 
+        // And the same two parameters passed as null, which is what a caller
+        // forwarding an optional setting of its own hands on. Null is "nothing said",
+        // and on this constructor nothing said is the false it declares - not the
+        // true of the other one, which would add the machine's resolvers after all.
+        using var nulled = new DNSClient(
+                               ManualDNSServers:         [ new DNSServerConfig(IPv4Address.Localhost, UnusedPort) ],
+                               QueryTimeout:             ShortTimeout,
+                               SearchForIPv4DNSServers:  null,
+                               SearchForIPv6DNSServers:  null
+                           );
+
         Assert.Multiple(() => {
 
             Assert.That(client.DNSServers,                   Has.Count.EqualTo(1),
@@ -284,7 +302,17 @@ public class ClientDefaultsTests
 
             Assert.That(client.DNSServers.First().IPAddress, Is.EqualTo(IPv4Address.Localhost));
 
+            Assert.That(nulled.DNSServers,                   Has.Count.EqualTo(1),
+                        "and null for both searches still means the one server that was named");
+
         });
+
+        // Like the test below, this one can only be as strict as the machine is: on
+        // one with no resolver configured, a search would find nothing to add.
+        TestContext.Out.WriteLine(
+            $"resolvers a search would have added here — IPv4: {MachineResolvers(AddressFamily.InterNetwork)}, " +
+            $"IPv6: {MachineResolvers(AddressFamily.InterNetworkV6)}"
+        );
 
     }
 
@@ -387,6 +415,63 @@ public class ClientDefaultsTests
             $"judged here — IPv4: search {(upIPv4 ? "yes" : "no")}, up-only {(upIPv4 && !downIPv4 ? "yes" : "no")}; " +
             $"IPv6: search {(upIPv6 ? "yes" : "no")}, up-only {(upIPv6 && !downIPv6 ? "yes" : "no")}"
         );
+
+    }
+
+
+    [Test]
+    public void One_Server_Named_Twice_Is_One_Server()
+    {
+
+        // A machine lists its resolvers once per interface, so the search finds the
+        // same server as often as there are interfaces holding it - a router's
+        // address twice, the IPv6 site-local defaults three times each. Kept apart,
+        // each is asked again when a query goes unanswered. Two configurations of
+        // the same transport to the same address on the same port are one server,
+        // and a client handed both has one. The timeout is not part of which server
+        // it is: it says how long to wait, and the two here differ in it.
+        using var client = new DNSClient(
+                               ManualDNSServers:  [
+                                                      new DNSServerConfig(IPv4Address.Localhost, UnusedPort, DNSTransport.UDP),
+                                                      new DNSServerConfig(IPv4Address.Localhost, UnusedPort, DNSTransport.UDP, QueryTimeout: ShortTimeout)
+                                                  ],
+                               QueryTimeout:      ShortTimeout
+                           );
+
+        Assert.That(client.DNSServers, Has.Count.EqualTo(1),
+                    "the same server, listed twice");
+
+    }
+
+
+    [Test]
+    public void Servers_That_Differ_In_Transport_Port_Address_Or_Name_Are_Different_Servers()
+    {
+
+        // The other half, asked of the comparison itself. A set looks at the hash
+        // code first and asks Equals only when two collide, so a client handed four
+        // different servers would keep all four even if Equals called them one - and
+        // the first collision would then lose a server nobody chose to drop. Each
+        // configuration below differs from the first in exactly one thing.
+        var server        = new DNSServerConfig(IPv4Address.Localhost,             UnusedPort,                    DNSTransport.UDP);
+        var same          = new DNSServerConfig(IPv4Address.Localhost,             UnusedPort,                    DNSTransport.UDP);
+        var otherTransport= new DNSServerConfig(IPv4Address.Localhost,             UnusedPort,                    DNSTransport.TCP);
+        var otherPort     = new DNSServerConfig(IPv4Address.Localhost,             IPPort.Parse((UInt16) 53998),  DNSTransport.UDP);
+        var otherAddress  = new DNSServerConfig(IPv4Address.Parse("127.0.0.2"),    UnusedPort,                    DNSTransport.UDP);
+
+        var named         = new DNSServerConfig(DomainName.Parse("one.resolver.example."), IPv4Address.Localhost, UnusedPort, DNSTransport.TLS);
+        var otherName     = new DNSServerConfig(DomainName.Parse("two.resolver.example."), IPv4Address.Localhost, UnusedPort, DNSTransport.TLS);
+
+        Assert.Multiple(() => {
+
+            Assert.That(server.Equals(same),            Is.True,  "the control: the same transport, address and port");
+            Assert.That(server.Equals(otherTransport),  Is.False, "another transport");
+            Assert.That(server.Equals(otherPort),       Is.False, "another port");
+            Assert.That(server.Equals(otherAddress),    Is.False, "another address");
+            Assert.That(named. Equals(otherName),       Is.False, "another name at the same address");
+            Assert.That(server.Equals((DNSServerConfig?) null), Is.False, "and no server at all");
+
+        });
 
     }
 
@@ -524,6 +609,43 @@ public class ClientDefaultsTests
         var asked = RecursionAsked(server);
 
         Assert.That(asked, Has.Length.EqualTo(3), "three queries went out");
+
+        Assert.Multiple(() => {
+
+            Assert.That(asked[0], Is.True, "Query(DNSServiceName, ...) with the parameter omitted");
+            Assert.That(asked[1], Is.True, "Query(DomainName, ...) with the parameter omitted");
+            Assert.That(asked[2], Is.True, "and with the parameter passed as null");
+
+        });
+
+    }
+
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1, 8484 §4.1")]
+    public async Task Recursion_Unmentioned_Everywhere_Is_Still_Asked_For_Over_Https()
+    {
+
+        // The test above, for the DoH client, which resolves RD in its own body and
+        // has its own `?? true` at the end of the chain. RFC 8484 §4.1 sends the DNS
+        // message as it is, so the RD bit the server sees is the one in the octets
+        // the client wrote - read here on the server's side of the exchange.
+        await using var peer = new ScriptedDoHServer(request => RawDnsResponder.Answer(
+                                   request,
+                                   ($"{RawDnsReader.Parse(request).Questions[0].Name.Canonical}.", RawDnsType.A, 300, [192, 0, 2, 2])));
+
+        await using var client = new DNSHTTPSClient(org.GraphDefined.Vanaheimr.Hermod.HTTP.URL.Parse(peer.Url),
+                                                    QueryTimeout: TimeSpan.FromSeconds(5));
+
+        client.RecursionDesired = null;
+
+        await client.Query(DNSServiceName.Parse("byservicename.example."), [ DNSResourceRecordTypes.A ], TimeSpan.FromSeconds(5));
+        await client.Query(DomainName.    Parse("bydomainname.example."),  [ DNSResourceRecordTypes.A ], TimeSpan.FromSeconds(5));
+        await client.Query(DNSServiceName.Parse("bynull.example."),        [ DNSResourceRecordTypes.A ], TimeSpan.FromSeconds(5), RecursionDesired: null);
+
+        var asked = peer.Exchanges.Select(exchange => RawDnsReader.Parse(exchange.DnsMessage).RD).ToArray();
+
+        Assert.That(asked, Has.Length.EqualTo(3), "three queries reached the server");
 
         Assert.Multiple(() => {
 

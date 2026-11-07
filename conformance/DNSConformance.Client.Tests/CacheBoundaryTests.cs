@@ -347,8 +347,8 @@ public class CacheBoundaryTests
     public void The_Negative_Cache_Ttl_Is_The_Lesser_Of_The_Soa_Minimum_And_Its_Own_Ttl()
     {
 
-        // RFC 2308 §5: the negative TTL "is set from the minimum of the MINIMUM
-        // field of the SOA record and the TTL of the SOA itself". Two fields, and
+        // RFC 2308 §5: the SOA a negative answer carries has a TTL that "is taken
+        // from the minimum of the SOA.MINIMUM field and SOA's TTL". Two fields, and
         // whichever is smaller wins — so the rule has to be checked from both
         // sides. A resolver that always took MINIMUM would keep a denial for the
         // hour that field usually carries even when the zone shortened the SOA's

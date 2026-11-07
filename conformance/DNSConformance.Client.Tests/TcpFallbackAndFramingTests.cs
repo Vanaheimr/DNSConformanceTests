@@ -62,6 +62,56 @@ public class TcpFallbackAndFramingTests
 
     #endregion
 
+    #region A_Refused_Tcp_Retry_Reports_The_Time_The_Query_Had_And_Took()
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "5452 §9.1")]
+    public async Task A_Refused_Tcp_Retry_Reports_The_Time_The_Query_Had_And_Took()
+    {
+
+        // The TCP side answers with a bare twelve-octet header: a whole message,
+        // and no question in it, so RFC 5452 §9.1 leaves nothing to match it to
+        // and the client refuses it. That refusal is a failed query, and a failed
+        // query reports what every failure reports (HeaderFlagsAndFailedQueryTests):
+        // the timeout it was given and the time it ran. Neither is zero. Whether
+        // the client should go on waiting after such a message is not asked here.
+        var (udpServer, tcpServer) = await ScriptedServerPair.CreateAsync(
+            UdpResponder: request => RawDnsResponder.Truncated(request),
+            TcpResponder: request => new RawDnsWriter().
+                                         Header(RawDnsReader.Parse(request).Id,
+                                                (UInt16) (RawDnsFlags.QR | RawDnsFlags.RD | RawDnsFlags.RA),
+                                                0, 0, 0, 0).
+                                         ToArray()
+        );
+
+        await using var udp = udpServer;
+        await using var tcp = tcpServer;
+
+        var timeout = TimeSpan.FromSeconds(3);
+
+        await using var client = new DNSUDPClient(
+                                     IPv4Address.Localhost,
+                                     IPPort.Parse((UInt16) udp.Port),
+                                     QueryTimeout: timeout
+                                 );
+
+        var response = await client.Query<A>(DomainName.Parse("tc.example."), Timeout: timeout);
+
+        Assert.Multiple(() => {
+
+            Assert.That(tcp.Requests,     Is.Not.Empty, "the positive control: the retry went out over TCP");
+
+            Assert.That(response.IsValid, Is.False,                       "the question-less message is refused");
+            Assert.That(response.Timeout, Is.EqualTo(timeout),            "the timeout the query was given");
+            Assert.That(response.Runtime, Is.GreaterThan(TimeSpan.Zero),  "and the time it ran, which was not none");
+
+        });
+
+    }
+
+    #endregion
+
     #region Tcp_Query_Uses_TwoByte_Length_Prefix()
 
     [Test]
