@@ -215,6 +215,21 @@ It sent every second query of its series. The case is finding 97, red at
 a12603df and passing from d906af2d on. With it the Multicast project is
 218 ✅ · 0 ❌, and the offline suite 1865 ✅ · 0 ❌ · 4 skips.
 
+And the tests the client block asked for when it was measured again
+(MUTATION.md, *Thirty-five of thirty-five, and two answers that misreported their
+time*): twenty-three cases. They cover a cached answer that holds the RRset with
+its signatures and the CNAME or DNAME chain that leads to it, each link signed
+(RFC 4035 §3.1.1, RFC 6672 §5.3.1), and is a miss for an expired link or a loop
+(RFC 1034 §3.6.2). They cover the addresses to connect to, with RFC 8305 §3's
+Resolution Delay for the other family. And a server listed twice is one server,
+DoH asks for recursion when nobody said otherwise, an empty JSON body is a
+failure like any other, and a disposed DoH client sends nothing. Three of the
+cases are red at d906af2d and carry `KnownIssue`. A UDP query whose TCP retry
+runs out of time reports a failure rather than a timeout, and a response refused
+for not answering the question reports a timeout and a runtime of zero. Neither
+is an RFC deviation, so neither is a finding. With them the Client project is
+259 ✅ · 3 ❌, and the offline suite 1885 ✅ · 3 ❌ · 4 skips.
+
 And §11's other half, which needs a second host: with the WSL virtual machine as
 one, a unicast from an address on no subnet of the receiving interface is not on
 the local link, and a multicast from it is. The two tests are in the WSL

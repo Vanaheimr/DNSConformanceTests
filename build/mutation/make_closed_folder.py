@@ -872,6 +872,52 @@ CLIENT_KILLED = {
         "DNS/Client/DNSClient.cs": {982},
     },
 
+    # The first round of tests at d906af2d, planted one mutant at a time under the
+    # Client project's 262 tests. Three of them are red at d906af2d on purpose and
+    # carry KnownIssue, so a kill here means a test outside those three failed.
+    #
+    # TryGetAnswer, e2caece9's cached answer: the RRset asked for, the RRSIGs that
+    # cover it, and the CNAME or DNAME chain that leads to it, each link with its
+    # own signature (RFC 1034 section 3.6.2, RFC 4035 sections 3.1.1 and 4.5, RFC
+    # 6672 sections 3.1 and 5.3.1). CachedAliasChainTests drives the cache
+    # directly: a chain through a CNAME and through a DNAME, a DNAME beside the
+    # chain that leads elsewhere, an expired link, a loop, a name with nothing
+    # cached, and records put in one by one rather than as a response. Each line
+    # carrying two mutants loses both.
+    "an-rrset-and-the-chain-that-leads-to-it": {
+        "DNS/Client/Cache/DNSCache.cs": {541, 545, 603, 612, 613, 620, 621, 624,
+                                          625, 626, 631, 640},
+    },
+
+    # Query_IPAddressesToConnect with RFC 8305 section 3's Resolution Delay: the
+    # other family's answer within the delay is taken, past it is not waited for,
+    # and a negative first answer does not end the wait (ResolutionDelayTests,
+    # with a server that answers each type on its own schedule). And the
+    # ForceUpdate default of each of its three overloads, which a second lookup
+    # answered from the cache reads (ConvenienceLookupCacheTests).
+    "the-addresses-to-connect-to": {
+        "DNS/Client/IDNSClient.cs": {474, 500, 519, 520, 568},
+    },
+
+    # Which servers a client asks and what it holds open to them. A client given
+    # servers and handed null for both searches asks only those (11d9076a). A
+    # server listed twice is one server, and two that differ in transport, port,
+    # address or name are two (0b4fee16). CloseConnection says whether there was a
+    # pooled connection to close, and closes it.
+    "which-servers-and-which-connection": {
+        "DNS/Client/DNSClient.cs":       {339, 350, 423, 438},
+        "DNS/Client/DNSServerConfig.cs": {224, 225, 226, 227},
+    },
+
+    # DoH's own defaults and endings. A query that mentions recursion nowhere still
+    # asks for it, over DoH as over the other transports.
+    # A server that hangs up on the request is a failure, not a timeout. An empty
+    # JSON body is a failure like any other, with no header bit and with its
+    # runtime. A disposed client refuses the next query and sends nothing.
+    "doh-defaults-and-endings": {
+        "DNS/Client/DNSHTTPSClient.cs": {996, 1183, 1584, 1971},
+    },
+
 }
 
 

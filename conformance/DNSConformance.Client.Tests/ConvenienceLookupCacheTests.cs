@@ -16,11 +16,12 @@ namespace DNSConformance.Client.Tests;
 /// <para>
 /// <see cref="ClientDefaultsTests"/> pins the cache of <c>DNSClient.Query</c>
 /// itself. Most callers never reach that method directly: they ask for "the IPv4
-/// addresses of", "the SRV records of", "this type, mapped to that" — sixteen
-/// extension methods and two interface methods, and each of them declares its
-/// own <c>ForceUpdate = false</c> and passes it on. The value that reaches the
-/// cache is whichever one the method the caller named declared, so each of
-/// those sixteen defaults decides on its own whether its callers get a cache.
+/// addresses of", "the SRV records of", "this type, mapped to that", "the
+/// addresses to connect to" — eighteen extension methods and two interface
+/// methods, and each of them declares its own <c>ForceUpdate = false</c> and
+/// passes it on. The value that reaches the cache is whichever one the method
+/// the caller named declared, so each of those twenty defaults decides on its
+/// own whether its callers get a cache.
 /// </para>
 /// <para>
 /// This is not a conformance rule — RFC 1035 §7.4 permits a cache rather than
@@ -102,6 +103,16 @@ public class ConvenienceLookupCacheTests
         yield return Case("Query_IPAddresses(DomainName)",           2, client => client.Query_IPAddresses(Name,    Timeout));
         yield return Case("Query_IPAddresses(DNSServiceName)",       2, client => client.Query_IPAddresses(Service, Timeout));
         yield return Case("Query_IPAddresses(URL)",                  2, client => client.Query_IPAddresses(Address, Timeout));
+
+        // RFC 8305 §3's lookup asks both families too. Its Resolution Delay is set
+        // to the whole timeout here, because what is counted is what reaches the
+        // cache: a family whose answer came after the 50 ms default had run out
+        // would have been cancelled rather than cached, and the second lookup would
+        // ask for it again for a reason other than its default. See
+        // ResolutionDelayTests for the delay itself.
+        yield return Case("Query_IPAddressesToConnect(DomainName)",      2, client => client.Query_IPAddressesToConnect(Name,    ResolutionDelay: Timeout, Timeout: Timeout));
+        yield return Case("Query_IPAddressesToConnect(DNSServiceName)",  2, client => client.Query_IPAddressesToConnect(Service, ResolutionDelay: Timeout, Timeout: Timeout));
+        yield return Case("Query_IPAddressesToConnect(URL)",             2, client => client.Query_IPAddressesToConnect(Address, ResolutionDelay: Timeout, Timeout: Timeout));
 
         yield return Case("Query_DNSService(DomainName, SRV_Spec)",  1, client => client.Query_DNSService(Name, SRV_Spec.UDP("sip"), Timeout));
         yield return Case("Query_DNSService(DNSServiceName)",        1, client => client.Query_DNSService(SRVName, Timeout));

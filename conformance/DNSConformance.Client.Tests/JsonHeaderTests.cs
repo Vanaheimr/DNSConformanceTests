@@ -170,6 +170,31 @@ public class JsonHeaderTests
 
     }
 
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    public async Task An_Empty_Json_Body_Is_A_Failure_Like_Any_Other()
+    {
+
+        // A 200 with nothing in it: no Status to read, no flag, no record. That
+        // is not an answer but a failed exchange, and a failed exchange looks the
+        // same whichever transport it failed on (HeaderFlagsAndFailedQueryTests).
+        // It claims no bit of a header it never saw — RD included, which the
+        // JSON reader repeats only for an answer it read — and it reports the
+        // time the exchange took, which on loopback is short and not nothing.
+        var info = await Ask("");
+
+        Assert.Multiple(() => {
+            Assert.That(info.IsValid,            Is.False, "nothing was read");
+            Assert.That(info.IsTimeout,          Is.False, "and nothing ran out of time");
+            Assert.That(info.ResponseCode,       Is.EqualTo(DNSResponseCodes.ServerFailure));
+            Assert.That(info.RecursionRequested, Is.False, "no header was seen to repeat RD from");
+            Assert.That(info.Runtime,            Is.GreaterThan(TimeSpan.Zero).And.LessThan(Timeout),
+                                                 "the time the exchange took");
+        });
+
+    }
+
     #endregion
 
 

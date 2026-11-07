@@ -121,6 +121,53 @@ public class ClientLifecycleTests
 
     }
 
+
+    [Test]
+    [Property("RFC", "7766 §6.2.3")]
+    public async Task Closing_One_Pooled_Connection_Ends_It_And_Says_Whether_There_Was_One()
+    {
+
+        // The same cleanup for one server rather than all of them, while the client
+        // goes on: for a caller who changed what that server's certificate is held
+        // to, or knows it moved. CloseConnection answers whether there was anything
+        // to close, and that answer is the caller's only way of telling "closed it"
+        // from "there was nothing" - so it is asserted both ways, with the server's
+        // own count of ended connections as what makes the first one true.
+        await using var server = new ScriptedTcpServer(OneAddress);
+
+        var config = new DNSServerConfig(IPv4Address.Localhost,
+                                         IPPort.Parse((UInt16) server.Port),
+                                         DNSTransport.TCP);
+
+        var never  = new DNSServerConfig(IPv4Address.Localhost,
+                                         IPPort.Parse((UInt16) 53998),
+                                         DNSTransport.TCP);
+
+        using var client = TcpClientFor(server);
+
+        Assert.That(client.CloseConnection(config), Is.False,
+                    "before the first query there is no connection to the server to close");
+
+        await client.Query(DNSServiceName.Parse("closeone.example."), [ DNSResourceRecordTypes.A ], Timeout);
+
+        Assert.That(server.ClosedByPeer, Is.Zero, "the connection is kept for the next query");
+
+        var closed  = client.CloseConnection(config);
+        var ended   = await PeerClosedWithin(server, Timeout);
+        var again   = client.CloseConnection(config);
+        var other   = client.CloseConnection(never);
+
+        Assert.Multiple(() => {
+
+            Assert.That(closed, Is.True,  "after it there is one, and closing it says so");
+            Assert.That(ended,  Is.True,  "and it is closed: the server sees its peer end it");
+            Assert.That(again,  Is.False, "closed once, there is nothing left to close");
+            Assert.That(other,  Is.False, "and a server this client was never told about has no connection either");
+
+        });
+
+    }
+
     #endregion
 
 
@@ -205,6 +252,35 @@ public class ClientLifecycleTests
 
             Assert.That(tcpServer.Requests.Count, Is.EqualTo(1), "and nothing more reached the TCP server");
             Assert.That(tlsServer.Requests.Count, Is.EqualTo(1), "nor the DoT server");
+
+        });
+
+    }
+
+
+    [Test]
+    public async Task A_Disposed_Doh_Client_Refuses_A_Query_And_Sends_Nothing()
+    {
+
+        // The same for DoH, whose connection is an HTTP one and whose disposal is
+        // its own. A DoH client that had let go of its connection and then took a
+        // query anyway would connect again to ask it - and that connection would
+        // belong to a client nobody will dispose a second time.
+        await using var server = new ScriptedDoHServer(OneAddress);
+
+        var doh = new DNSHTTPSClient(org.GraphDefined.Vanaheimr.Hermod.HTTP.URL.Parse(server.Url),
+                                     QueryTimeout: Timeout);
+
+        await doh.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], Timeout);
+
+        await doh.DisposeAsync();
+
+        Assert.Multiple(() => {
+
+            Assert.That(async () => await doh.Query(DNSServiceName.Parse("after.example."), [ DNSResourceRecordTypes.A ], Timeout),
+                        Throws.InstanceOf<ObjectDisposedException>(), "DNSHTTPSClient refuses the query");
+
+            Assert.That(server.Exchanges.Count, Is.EqualTo(1), "and nothing more reached the DoH server");
 
         });
 

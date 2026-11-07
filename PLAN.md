@@ -307,13 +307,18 @@ round-trip where supported.
 | 7766 §6.2.4, 7858 §7 | a connection that ends under a query: closed or reset between queries, the query is asked once more on a new connection, and a server that ends every connection it is given gets the query and one retry, not a client that opens connections until the deadline. A connection that ends *inside* an answer is asked again the same way — the query cut off and every one pipelined beside it, whose answers never began ✅ (finding 91) | ✅ |
 | 7766 §7 | an answer that arrives out of order reaches its caller when it arrives: three queries pipelined, the third answered first, and it returns while the other two are still held | ✅ |
 | 7828 §3.2.2, §3.1 | TIMEOUT 0 with an answer still outstanding: nothing more goes out on that connection, and the outstanding answer is waited for. And the 0 is about the connection it arrived on — a later connection that never sent the option is reused, and a query asked while the 0 drains is answered on the next connection, which the query after it shares ✅ (finding 92). The DoT client built from a URL keeps an advertised idle timeout like the one built from an address | ✅ |
-| lifecycle | a disposed TCP or DoT client refuses the next query with `ObjectDisposedException` and sends nothing | ✅ |
+| lifecycle | a disposed TCP, DoT or DoH client refuses the next query with `ObjectDisposedException` and sends nothing | ✅ |
 | lifecycle | a TCP or DoT client whose connection was refused connects again for the next query, rather than holding on to the socket that never connected | ✅ |
 | 1035 §4.2.1 | UDP timeout respected; silence never hangs the caller | ✅ |
 | 1035 §3.2.1 | a record stops being served when its own TTL is over, while a longer-lived record cached beside it at the same name goes on being served — the entry has a lifetime and so does every record in it, and only the second is the one the TTL is about | ✅ |
 | consistency | one event, four transports: a query that runs out of its own time reports `IsTimeout` over UDP, TCP, DoT and DoH alike. DoH used to call its own deadline a plain failure, because the HTTP layer turned the cancellation into a statusless response before the timeout path could see it — no wire rule, but it decides whether a caller retries a slow resolver or writes it off as broken | ✅ |
+| consistency | the TCP retry of a truncated UDP answer is the same query: when it runs out of the query's time, that is a timeout too | ❌ |
+| consistency | a response refused for its transaction id, its question or its cookie reports the timeout its query had and the time it ran, as every other failure does — over DoH and on the UDP client's TCP retry, where the refusal reaches the caller | ❌ |
 | robustness | garbage responses produce a result object, not an unhandled exception | ✅ |
 | 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |
+| 1034 §3.6.2, 4035 §3.1.1, §4.5, 6672 §3.1, §5.3.1 | a cached answer holds the RRset asked for with the RRSIGs that cover it, and the CNAME or DNAME chain that leads to it with each link's signature; a DNAME beside the chain is left out, and an expired link or a loop is a miss | ✅ |
+| 8305 §3 | the addresses to connect to: the other family's answer within the Resolution Delay is taken, one past it is not waited for, and a negative answer first does not end the wait | ✅ |
+| configuration | a server listed twice is one server, and two that differ in transport, port, address or name are two; a client given servers asks only those, also when both searches are handed null; closing a pooled connection says whether there was one | ✅ |
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
 | 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
 | 2308 §4 | negative TTL is min(SOA MINIMUM, SOA TTL), and the entry actually expires | ✅ |

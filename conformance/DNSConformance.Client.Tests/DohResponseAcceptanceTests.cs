@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.HTTP;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -97,6 +98,32 @@ public class DohResponseAcceptanceTests
 
             Assert.That(answer.IsValid, Is.False,
                         "§9.1: an unmatchable response is not one a resolver may use");
+
+        });
+
+    }
+
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "5452 §9.1")]
+    public async Task A_Refused_Response_Still_Reports_The_Time_The_Query_Had_And_Took()
+    {
+
+        // The refusal above is right; what is reported beside it is the question
+        // here. A refused response is a failed query, and a failed query says what
+        // every failure says (HeaderFlagsAndFailedQueryTests): the timeout it was
+        // given and the time it ran - here a round trip to a server that sent
+        // something unusable. Neither is zero.
+        await using var peer = new ScriptedDoHServer(request => BareHeader(request, 0));
+
+        var answer = await AskOverDoH(peer);
+
+        Assert.Multiple(() => {
+
+            Assert.That(answer.IsValid, Is.False,                       "refused, as above");
+            Assert.That(answer.Timeout, Is.EqualTo(Timeout),            "the timeout the query was given");
+            Assert.That(answer.Runtime, Is.GreaterThan(TimeSpan.Zero),  "and the time it ran, which was not none");
 
         });
 

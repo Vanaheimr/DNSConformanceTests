@@ -614,6 +614,79 @@ Four rows stay open by choice rather than for want of a test:
 `DNSUDPClient.cs:516` to `:525`, the fields of that answer, are reachable only on
 a host without one of the two address families.
 
+### Thirty-five of thirty-five, and two answers that misreported their time
+
+The first round of tests is for the 35 open rows that a test can reach without
+taking a side. Each mutant was planted on its own at `d906af2d` under the
+Client project's 262 tests, and each fails a test written for it.
+
+- **The cached answer, `DNSCache.cs`, seventeen rows.** `CachedAliasChainTests`
+  drives `TryGetAnswer` directly. It covers a chain through a CNAME and through a
+  DNAME, each link with its RRSIG beside it (RFC 4035 §3.1.1, RFC 6672 §5.3.1), a
+  DNAME in the cache that leads somewhere else, an expired link, a loop (RFC 1034
+  §3.6.2), a name nothing was cached for, and records put in one by one rather
+  than as a response. Each of the four lines with two mutants loses both.
+- **The addresses to connect to, `IDNSClient.cs`, five rows.** `ResolutionDelayTests`
+  asks a server that answers each type on its own schedule. The other family's
+  answer within RFC 8305 §3's Resolution Delay is taken. One past it is not waited
+  for, and a NODATA answer first does not end the wait. Three more cases of
+  `ConvenienceLookupCacheTests` read the `ForceUpdate` default of each
+  `Query_IPAddressesToConnect` overload.
+- **Servers and connections, `DNSClient.cs` and `DNSServerConfig.cs`, nine rows.**
+  A client given servers and handed `null` for both searches asks only those
+  servers. A server listed twice is one server. Two servers that differ in
+  transport, port, address or name are two. `CloseConnection` says whether there
+  was a pooled connection, and closes it.
+- **DoH, four rows.** A query that mentions recursion nowhere still asks for it.
+  A server that hangs up on the request is a failure, not a timeout. An empty JSON
+  body is a failure like any other. A disposed client refuses the next query and
+  sends nothing.
+
+**Three of the tests are red at `d906af2d`, for two defects.** Neither defect
+breaks an RFC, so neither is a finding (the rule `0b0c6f1` wrote down). Both
+are about values every caller reads.
+
+- **A UDP query whose TCP retry runs out of time is a failure, not a timeout.**
+  The retry was handed the UDP attempt's token, which carries the deadline as
+  well as the caller's cancellation. Its catches tell the two apart by asking
+  whether that token was cancelled, and it always was. So the catch written for
+  a caller who cancelled took the deadline too.
+  `A_Udp_Query_Whose_Tcp_Fallback_Runs_Out_Of_Time_Says_So` gets `IsTimeout`
+  false.
+- **A refused response reports a timeout and a runtime of zero.** This is what
+  the open rows `DNSHTTPSClient.cs:1227` and `DNSUDPClient.cs:725` asked.
+  `DNSInfo.Invalid` sets both to zero. The DoH client and the UDP client's TCP
+  retry hand it to their caller. `A_Refused_Response_Still_Reports_The_Time_The_Query_Had_And_Took`
+  and `A_Refused_Tcp_Retry_Reports_The_Time_The_Query_Had_And_Took` send a bare
+  twelve-octet header, which is refused for carrying no question.
+
+The three carry `KnownIssue` until the Hermod fix is pinned. Planted at the
+fix, the mutants of three open rows say what the fix changes:
+
+- `DNSUDPClient.cs:786` is the retry's catch for a client disposed under it. The
+  mutant turns `&&` into `||`, and so takes every cancellation the caller did not
+  cause, the deadline included. At `d906af2d` the token the retry was given was
+  cancelled by the deadline too, so the mutant's condition was false there as
+  well. With the fix the deadline is the retry's own, and the timeout test fails. The row is killed
+  once the fix is pinned.
+- `:1227` and `:725` heal the two refused-response tests at `d906af2d`. The
+  length guard's `DNSInfo.Failed` reports the times that `Invalid` dropped. With
+  the fix both readings report them, and the mutants survive. One difference is
+  left. Twelve octets that carry another transaction id come back with that id
+  from `Invalid`, and with the query's own id from `Failed`. No RFC says which id
+  a refused response should report, so both rows stay open, with that as the
+  reason.
+
+`DNSHTTPSClient.cs:1061`'s two mutants survive as well. The reconnect test asks
+what `SendRequest` asks again inside it, so whatever the DoH client lets through,
+`SendRequest` reconnects. The first mutant needs a connection where only one of
+`!IsConnected` and `!IsHTTPConnected` is true. The fourth needs one whose lifetime
+is over while its `TcpClient` is still held, and `SendRequest` reconnects that
+one too. Whether either difference reaches a caller is still open.
+
+That leaves **14 open**: the nine of *Where the 49 are* that stay open by choice
+or for a second host, `:725`, `:786` and `:1227`, and both of `:1061`.
+
 ### What the first measurement's chapter now is
 
 *The result: the client*, below, is the measurement at `cc8323d5`, over the
