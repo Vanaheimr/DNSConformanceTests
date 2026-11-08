@@ -12,7 +12,7 @@ states:
 
     python build/mutation/make_closed_folder.py core
 
-Line numbers are the sweep's own — for the core block, Hermod `e592b5e7`.
+Line numbers are the sweep's own — for the core block, Hermod `38f6a355`.
 """
 
 import io
@@ -25,85 +25,32 @@ from sweep_folder import BLOCKS
 
 
 # ---------------------------------------------------------------------- core
+#
+# Keyed to Hermod 38f6a355, the revision the second sweep of this block
+# measured. The first sweep measured e592b5e7, and its files are in
+# results/core-e592b5e7/. Its ledger - 114 rows killed in seven rounds, 18
+# equivalent, one superseded - is in this file's history, as of c5d8a39.
+#
+# None of the killed rows is carried over, and none needs to be: a gap a test
+# closed is killed by that test in the new sweep and never reaches the
+# classification, and all 114 were - eight in pass 1, 106 in pass 2. The
+# superseded row is gone with its line: finding 57 replaced the length check,
+# and the comparison it wrote in its place is killed in pass 1. Six commits
+# changed the block since: finding 57 (3c24141d), the compression table
+# (53f20591), an NSEC's next name read from the wire (9f797748), the root's
+# wildcard "*." (925c80d5, finding 76), and the timeout and runtime a failed or
+# refused query reports (05855f8c, 38f6a355). Their three new mutants are all
+# killed.
+#
+# The equivalents were read again against 38f6a355 rather than moved with their
+# numbers, and so was the code they lean on. All eighteen stand; four of them
+# moved, the three in DomainName.cs by 48 lines and the one in DNSInfo.cs by
+# two. DNSZoneFile.cs:275 was recorded killed once, "Multicast: 1 of 220", by a
+# project that cannot reach the zone-file reader - only InMemoryDNSZone's
+# AddZoneFile calls it, and only the Dnssec and ResourceRecords tests call that.
+# Measured again on its own, nothing fails.
 
-CORE_KILLED = {
-
-    # RFC 9525 §6.3 and §7.1, reached from RFC 8310 §8.1: which certificate
-    # vouches for which host name. Twenty of the twenty-one, by mutations taken
-    # from this sweep's own output.
-    "pattern": {
-        "DNS/DNSNamePattern.cs": {40, 47, 218, 231, 234, 259, 268, 279,
-                                  329, 341, 342, 349, 355, 359, 378,
-                                  422, 430, 438, 446, 503},
-    },
-
-    # RFC 1035 §4.1.2 and §4.1.1, and RFC 5452 §9.1: a question is a name, a type
-    # and a class, all three of them, in that order — and a query that names no
-    # type still asks for something. The last of the block.
-    "question": {
-
-        "DNS/DNSQuestion.cs": {190, 193, 227, 229, 230},
-        "DNS/DNSPacket.cs":   {260, 372},
-
-    },
-
-    # RFC 6763 §4.1/§4.1.1: the Service Instance Name — an instance label, the one
-    # restriction on what a person may write in it, and Net-Unicode. Fifteen of
-    # the sixteen; the type had no test of its own before this round.
-    "instancename": {
-
-        "DNS/DNSServiceInstanceName.cs": {43, 50, 175, 179, 194, 197, 200, 203,
-                                          342, 357, 372, 387, 455},
-
-    },
-
-    # RFC 1035 §5.1: the master file format, and what it refuses — the directives,
-    # the owner name a line does not state, and where a backslash stops a
-    # semicolon or a parenthesis from meaning what it usually means.
-    "zonefile": {
-
-        "DNS/DNSZoneFile.cs": {123, 129, 181, 215, 229, 321, 328},
-
-    },
-
-    # RFC 1035 §3.3/§4.1.1/§4.1.4 and §2.3.4: the helpers every message passes
-    # through — reading a name and a character-string off the wire, writing a name
-    # back, and the compression table a serializer leaves behind. Eleven of the
-    # fifteen; the other four are real and unobservable.
-    "dnstools": {
-
-        "DNS/Helpers/DNSTools.cs": {(33, "true-to-false"), 224, 243, 314, 347,
-                                    351, 368, 389, 414, 422, 550},
-
-    },
-
-    # RFC 1035 §2.3.1/§2.3.4/§4.1.4/§5.1 and RFC 4343: what a name is made of, how
-    # long it may be, what a backslash means in it, and which two names are one.
-    # Three files taken together because they answer the same rules — thirty-five
-    # of their forty-one gaps, plus the line the length fix replaced, re-measured
-    # where the fix put it (DomainName.cs:431, killed, and no longer a sweep row).
-    "names": {
-
-        "DNS/DNSServiceName.cs": {43, 50, (181, "true-to-false"), 194, 215, 218, 230,
-                                  245, 271, 283, 311, 345, 426, 516, 531, 546, 561},
-
-        "DNS/DomainName.cs":     {41, 48, 133, 158, 167, 378, 414, 423, 500, 561,
-                                  650, 665, 680, 695},
-
-        "DNS/IDomainName.cs":    {40, 47},
-
-    },
-
-    # RFC 1035 §4.1.1 header flags as the client reads them, and what a query
-    # that never got an answer is allowed to claim. Nineteen of the twenty.
-    "dnsinfo": {
-        "DNS/DNSInfo.cs": {321, 323, 326, 433,
-                           524, 525, 526, 527, 532,
-                           543, 544, 545, 546, 552,
-                           568, 569, 570, 571, 577},
-    },
-
-}
+CORE_KILLED = {}
 
 CORE_EQUIVALENT = {
 
@@ -220,26 +167,29 @@ CORE_EQUIVALENT = {
 
     "DNS/DomainName.cs": {
 
-        462:
-            "the label-length refusal cannot be reached. Every label is matched by "
-            "DomainNameRegExpr first, whose label is [A-Za-z0-9] followed by at most "
-            "[A-Za-z0-9-]{0,61} and a closing [A-Za-z0-9] — 63 characters at the outside — so a "
-            "label of 64 is refused as a format error several lines earlier. RFC 1035 §2.3.4's "
-            "rule is enforced; this is the second guard on it",
+        510:
+            "the label-length refusal cannot be reached. Every label is matched by a regex "
+            "first - DomainNameRegExpr, or DomainNameWithUnderscoresRegExpr where underscores "
+            "are allowed - and in both a label is one character that is not a hyphen, followed "
+            "by at most 61 that may be and a closing one that is not: 63 characters at the "
+            "outside, so a label of 64 is refused as a format error several lines earlier. "
+            "Only two names skip the regex, the root and, since finding 76, the root's "
+            "wildcard '*.', and their labels are the empty one and the asterisk. RFC 1035 "
+            "§2.3.4's rule is enforced; this is the second guard on it",
 
-        465:
-            "the hyphen check cannot be reached either, and for the same reason: the regex "
-            "requires a letter or digit at both ends of every label, so no label arriving here "
-            "starts or ends with one. Whether the condition is || or && makes no difference to "
-            "a condition that is never true",
+        513:
+            "the hyphen check cannot be reached either, and for the same reason: both regexes "
+            "require a character other than a hyphen at both ends of every label, so no label "
+            "arriving here starts or ends with one. Whether the condition is || or && makes no "
+            "difference to a condition that is never true",
 
-        468:
+        516:
             "the refusal belonging to that unreachable hyphen check",
 
     },
 
     "DNS/DNSInfo.cs": {
-        319: "the QR bit is read into a local that nothing reads back — it appears twice in the "
+        321: "the QR bit is read into a local that nothing reads back — it appears twice in the "
              "file, one of them in the licence header — so both readings assign a value nobody "
              "observes. Not checking it is conformant besides: RFC 5452 §9.1 enumerates what a "
              "resolver MUST match a response against, and the six are the addresses, the port, "
@@ -255,16 +205,7 @@ CORE_EQUIVALENT = {
 
 }
 
-CORE_SUPERSEDED = {
-
-    "DNS/DomainName.cs": {
-        420: "the length check the sweep measured counted characters and was one too loose; "
-             "finding 57 replaced it with one that counts the wire form of RFC 1035 §3.1. The "
-             "rule did not go away with the line — it was re-measured where the fix put it "
-             "(line 431, greater-to-ge) and killed there by two tests",
-    },
-
-}
+CORE_SUPERSEDED = {}
 
 
 # ---------------------------------------------------------------------- tsig
