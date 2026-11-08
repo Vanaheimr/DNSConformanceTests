@@ -30,7 +30,7 @@ test project that exercises each:
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
-| `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
+| `core` | `DNS` (the files directly in it) | ResourceRecords | 480 | measured twice, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **13 open** |
@@ -81,9 +81,10 @@ files changed before the sweep measured `925c80d5`. It says 632 now because the
 block was measured a second time, at `0f595ac4`, after findings 78 to 85.
 
 The four rows that were right — `records`, `core`, `client`, `server` — are right to
-the mutant. `core` counts 479 today rather than the 478 it was measured at, which
-is not an error: finding 57's fix and the compression-table fix each added a
-comparison. The measured figure stays, because it is what was measured. The
+the mutant. The `core` row said 478 at `e592b5e7`. It says 480 because the
+block was measured a second time, at `38f6a355`, after finding 57's fix had
+replaced one comparison and the compression table and finding 76 had added one
+each (*The result: the code every query passes through, measured again*). The
 `client` row said 558 for the whole folder at `cc8323d5`. It says 487 because the
 block was measured a second time, at `d906af2d`, without the four files the
 `streams` slice measures (*The result: the client, measured again*). The
@@ -423,6 +424,150 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
+
+## The result: the code every query passes through, measured again
+
+The first measurement of this block, at `e592b5e7`, ended with nothing open:
+114 gaps killed by tests written for them in seven rounds, 18 equivalent, and
+one superseded by finding 57 (*The result: the code every query passes
+through*, below). By **`38f6a355`**, six Hermod commits had changed three of the
+block's eleven files, by 112 lines added and 16 removed:
+
+- `3c24141d`, finding 57: a name's length is counted in the octets of its wire
+  form, as RFC 1035 §2.3.4 counts it, and not in characters.
+- `53f20591`: the compression table pointed at the wrong octet, and now advances
+  label by label.
+- `9f797748`: an NSEC's next domain name is read from the wire as it stands,
+  through the new `DomainName.FromWire`.
+- `925c80d5`, finding 76: the root's wildcard `*.` is a name.
+- `05855f8c` and `38f6a355`: a query that fails or is refused reports the
+  timeout and the runtime it had.
+
+The suite has pinned `ce2f06b8` since Vanaheimr/DNSConformanceTests#91, merged
+while this sweep ran. Nothing under `Hermod/DNS` differs between the two, so the
+measurement describes the pinned code as well.
+
+The block was swept again at `38f6a355` with the same judge and the same two
+passes. The first measurement's files moved to `results/core-e592b5e7/`
+unchanged, and its ledger stays in the history of `make_closed_folder.py`.
+
+| | `e592b5e7` | `38f6a355` |
+|---|---:|---:|
+| mutants | 478 | 480 |
+| not viable (would not compile) | 103 | 103 |
+| killed by ResourceRecords, pass 1 | 110 | 120 |
+| killed by another project | 60 | 167 |
+| survived everywhere | 205 | 90 |
+| not really code | 71 | 71 |
+| host-only (`ConfigureAwait`) | 1 | 1 |
+| real gaps | 133 | 18 |
+| killed by a test written for them | 114 | 0 |
+| equivalent | 18 | 18 |
+| superseded | 1 | 0 |
+| open | **0** | **0** |
+
+The first column counts the files as they stand, not the first chapter's table.
+The two mutants of `DNSZoneFile.cs:270` it lists as not judged were measured
+later, and the `ConfigureAwait` it counted among its 132 gaps is host-only now.
+The block gained two mutants net: finding 57 took one comparison away and put
+one back, and the compression table and finding 76 brought one each.
+
+**Score as measured: 76.1 %. With the noise removed: 93.8 %.** The first
+measurement's were 45.3 % and 55.9 %. The 117 kills more are the 114 of the
+first measurement's rounds and the three new mutants, and the second sweep
+finds no new gap.
+
+### 114 kills, found again
+
+All 114 rows the first measurement's rounds closed are killed again. Eight die
+in pass 1: the seven of the zone-file round, whose tests are in
+ResourceRecords, and `DomainName.cs:465`, the refusal finding 57 now returns.
+The other 106 die in pass 2, each in the project its round's tests went to:
+
+| project | kills | the rounds |
+|---|---:|---|
+| WireFormat | 67 | names, service and instance names, questions, the reading helpers |
+| SecureTransports | 20 | the host-name patterns of RFC 9525 |
+| Client | 19 | `DNSInfo`'s header flags and the results of a query that got no answer |
+
+That is most of the step from 60 to 167. The rest are the 60 the first sweep's
+pass 2 already killed, each killed again by the same project, and one new
+mutant.
+
+### Three new mutants, all killed
+
+- `DomainName.cs:462`, `Text.Length + 1 > 255` read as `>=`: finding 57's check
+  refuses a name of exactly 255 octets. ResourceRecords kills it in pass 1.
+- `DNSTools.cs:424`, `i < labels.Length` read as `<=`: the loop that writes a
+  name and fills the compression table indexes one label past the end and
+  throws. ResourceRecords kills it in pass 1.
+- `DomainName.cs:488`, `textToValidate.Length == 2` read as `!=`: the strip
+  finding 76 wrote turns `*.` into an empty string the regex refuses again, and
+  any longer wildcard name into the root, which skips the regex. Dnssec kills it
+  in pass 2, 3 of 380, where finding 76's tests are.
+
+### Eleven verdicts the second pass could not be trusted with
+
+**Six runs came back without a summary.** Pass 2 recorded six `PARSE-ERROR`s
+among nine rows, 119 to 127 of 257, five in WireFormat and one in
+SecureTransports, all between about 17:00 and 17:12. Two MSBuild nodes that
+the sweep did not start began at 17:06. It builds with `-nodeReuse:false`, and
+they ran with node reuse on, so another build on the machine is the likeliest
+cause. The row just before the six, a mutant of an attribute, failed 13 of
+Client's 262 tests. Measured again, five of the six are killed. The two that
+the first sweep killed in pass 2 died where they died then, `DNSInfo.cs:364` in
+Server with six failures and `DNSInfo.cs:375` in Client with three. The other
+three are rows of the first ledger, and they died where its tests are. The
+sixth, `[NotNullWhen(false)]` on `DomainName.cs:427`, survives, as a mutant of
+an attribute does.
+
+**Five kills came from projects that cannot see the code.** Four are not code
+at all. Two of them are the `true` of a `[NotNullWhen(true)]`, which only the
+compiler reads, and two are the `==` in a `#region Operator ==` line, which
+nobody reads. Client failed one test of 262 on two of them and the 13 on a
+third, and Multicast one of 220 on the fourth. The fifth is
+`DNSZoneFile.cs:275`, one of the first ledger's equivalents, recorded killed by
+"Multicast: 1 of 220". Only `InMemoryDNSZone`'s `AddZoneFile` calls the
+zone-file reader, and only the Dnssec and ResourceRecords tests call that, so
+the Multicast tests never get there. Measured again, all five survive
+everywhere.
+
+The eleven were re-measured by the sweep itself: their rows were taken out of
+`core-pass2.tsv` and `sweep_wide_folder.py` measured what was missing.
+`core-pass2.as-measured.tsv` keeps the file as the run left it, which is the
+same treatment *One verdict the harness could not read* gave DNSSEC's.
+
+A one-test kill in pass 2 is not evidence on its own. Five of 257 runs failed
+tests that the mutant could not have reached, and all five were in projects
+whose tests run against the clock. Every other kill in this sweep falls where a
+round's tests or the first sweep put it.
+
+### Eighteen equivalents, read again
+
+All eighteen of the first measurement's equivalents stand. Four moved: the three
+in `DomainName.cs` by 48 lines, and the QR bit in `DNSInfo.cs` by two. They were
+read again against `38f6a355` rather than moved with their numbers, and so was
+the code they lean on.
+
+- **`DomainName.cs:510`, `513` and `516`.** The label-length and hyphen checks
+  sit behind a regex that allows neither. Two names skip the regex: the root,
+  and since finding 76 the root's wildcard `*.`. Their labels are the empty one
+  and the asterisk, neither long nor hyphenated. `FromWire` builds its name from
+  labels and never reaches `TryParse`.
+- **`DNSNamePattern.cs:347`.** No name with an empty first label among two or
+  more can be built. `FromWire`'s labels come from `TryParseLabels`, which
+  refuses an empty label.
+- **`DNSTools.cs:96`.** Its only callers, `TSIGSigner` and `SIG0Signer`, still
+  refuse a message shorter than twelve octets before they call it.
+
+Nothing else they lean on has changed.
+
+### What the first measurement's chapter now is
+
+*The result: the code every query passes through*, below, is the measurement at
+`e592b5e7`, and its line numbers are that revision's. Its rounds and its
+equivalents stand. Its superseded row is gone with its line: the check finding
+57 put in its place is `DomainName.cs:462`, and pass 1 kills it.
 
 ## The result: transaction security, measured again
 
