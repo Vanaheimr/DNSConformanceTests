@@ -235,6 +235,14 @@ one, a unicast from an address on no subnet of the receiving interface is not on
 the local link, and a multicast from it is. The two tests are in the WSL
 category as well. With them the Multicast project is 220 ✅ · 0 ❌.
 
+And the two cases the server block asked for when it was measured again
+(MUTATION.md, *A body that was never sent, and a server that was not stopped*).
+A POST with no content at all, which HTTP/2 sends as a single HEADERS frame (RFC
+9113 §8.1), is refused with 400 like an empty one (RFC 8484 §4.1), over both
+versions of HTTP. And a disposed DoH/2 server no longer listens on its port.
+Hermod passed both already. With them the SecureTransports project is
+167 ✅ · 0 ❌, and the offline suite 1891 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

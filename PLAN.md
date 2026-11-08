@@ -371,6 +371,8 @@ round-trip where supported.
 | 8484 §4.2, §7.1 | DoH server: `application/dns-message` on the way back, and *without* a charset — §7.1 registers no parameters and the payload is binary | ✅ |
 | 8484 §4.2.1 | DoH server: NXDOMAIN and NODATA are answers and travel with 200; a 4xx carries no reply to the question it refused; 415 for a body announced as something else, 406 for an Accept that rules the media type out — and `*/*`, `application/*` or no Accept at all rule out nothing | ✅ |
 | 9110 §10.2.1 | DoH server: a 405 names the methods it does serve | ✅ |
+| 8484 §4.1, 9113 §8.1 | DoH server: a POST with no body is refused with 400, and so is a POST with no content at all, which HTTP/2 sends as a single HEADERS frame and which reaches the resource as no body rather than an empty one | ✅ |
+| lifecycle | a disposed DoH/2 server no longer listens on the port it reported. No RFC asks it; the guard that keeps `DisposeAsync` from running twice decides whether it runs at all | ✅ |
 | 8484 §5.1 | DoH server: an explicit freshness lifetime on every answer, ≤ the smallest Answer TTL (and equal to it, the RECOMMENDED value), and for a denial ≤ the SOA MINIMUM rather than the SOA's own TTL | ✅ |
 | 8484 §6 | DoH server: the advertised EDNS(0) payload size is ignored — it neither truncates an answer that exceeds it nor shortens the padding to it | ✅ |
 | 7830 §4, 8467 §4.1 | DoH server: pads a padded query's response to the first 468-octet boundary that holds it, pads nothing when the query announced no EDNS(0) | ✅ |
