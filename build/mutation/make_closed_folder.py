@@ -268,41 +268,42 @@ CORE_SUPERSEDED = {
 
 
 # ---------------------------------------------------------------------- tsig
+#
+# Keyed to Hermod 38f6a355, the revision the second sweep of this block
+# measured. The first sweep measured 53f20591, and its files are in
+# results/tsig-53f20591/. Its ledger - 20 rows killed in three rounds, 19
+# equivalent, one superseded - is in this file's history, as of 445b179.
+#
+# None of the killed rows is carried over, and none needs to be: a gap a test
+# closed is killed by that test in the new sweep and never reaches the
+# classification, and all twenty were. The superseded row is gone with its
+# line. Two commits changed the folder since: the dead owner-name ternary in
+# TryStripSIG0 went (cc8323d5), and BuildErrorResponse signs a BADTIME refusal
+# and writes the server's clock into it (7d86efd6, finding 58).
+#
+# The equivalents were read again against 38f6a355 rather than moved with their
+# numbers, and so was the code outside the folder they lean on. TryStripTSIG
+# and TryStripSIG0 still set both outputs before their single 'return true',
+# and DNSTools, whose FindLastRecordOffset and ExtractName the length and
+# offset arguments rest on, has not changed since 53f20591. All nineteen
+# stand. Six of them moved: five in TSIGSigner.cs, by what finding 58 added
+# to BuildErrorResponse in front of them, and one in SIG0Signer.cs, by the five
+# lines of comment written above the line the ternary was on.
 
 TSIG_KILLED = {
 
-    # RFC 8945 §5.2.3's fudge and §4.3.1's request MAC, RFC 2931 §3.3's validity
-    # bracket, and the algorithm allow-list — the four places where one comparison
-    # decides whether a captured message still works. Each was already tested and
-    # each test stepped over the boundary without landing on it.
-    "windows": {
-
-        "DNS/TSIG/SIG0Signer.cs":     {398},
-        "DNS/TSIG/TSIGAlgorithms.cs": {86},
-        "DNS/TSIG/TSIGSigner.cs":     {181, 337},
-
-    },
-
-    # RFC 8945 §5.1 and RFC 2931 §3/§3.2 — the front door. What the two strip
-    # functions say about a message before a key is chosen: too short to be a
-    # message, an ARCOUNT that lies, a record cut off, octets after the last
-    # record, something at the end that is not a signature, and a SIG that covers
-    # an RRset rather than this message.
-    "stripping": {
-
-        "DNS/TSIG/SIG0Signer.cs": {148, 283, 434, 439, 447, 456, 475},
-        "DNS/TSIG/TSIGSigner.cs": {103, 396, 412},
-
-    },
-
-    # RFC 2539 §2's length-prefixed Diffie-Hellman fields and RFC 2930 §4.1's
-    # XOR. Three refusals that each need their own shape of malformed RDATA to
-    # reach, the one length that is well formed and zero, and the operand that
-    # runs out first in every real exchange.
-    "tkey": {
-
-        "DNS/TSIG/TKEYExchange.cs": {198, 265, 290, 291, 297},
-
+    # RFC 8945 section 5.2.1 and 5.2.2: a BADKEY and a BADSIG response "MUST be
+    # unsigned as specified in Section 5.3.2", and section 5.2.3: a BADTIME one
+    # "MUST be signed by the same key as the request". BuildErrorResponse
+    # decides between them with Error == BADTIME && Key is not null. Hermod's
+    # server hands it the key for BADTIME and for nothing else, so there the
+    # two terms never disagree and either connective gives the same refusal.
+    # The method is public, and its own documentation leaves the key out only
+    # "when the failure was that no such key exists" - which a MAC that does not
+    # verify under a key this party holds is not. Handed the key with BADSIG or
+    # BADKEY, the || reading signs the refusal.
+    "badtime-alone-is-signed": {
+        "DNS/TSIG/TSIGSigner.cs": {(310, "logical-and-to-or")},
     },
 
 }
@@ -333,16 +334,16 @@ TSIG_EQUIVALENT = {
              "and a successful one leaves neither",
         149: "the 'tsig is null' term of the same chain, with the same argument",
         212: "the same chain again in BuildErrorResponse's sibling",
-        249: "SignedRequest.Length < 12 in BuildErrorResponse. At exactly twelve octets the "
+        278: "SignedRequest.Length < 12 in BuildErrorResponse. At exactly twelve octets the "
              "mutant returns null at once and the original walks one step further into "
              "TryStripTSIG, which refuses a twelve-octet message for its own reasons and "
              "returns null too",
-        255: "the !TryStripTSIG(...) term of BuildErrorResponse's chain",
-        256: "the 'unsigned is null' term of it",
-        395: "SignedMessage.Length < 12 in TryStripTSIG. Twelve octets is a header and nothing "
+        284: "the !TryStripTSIG(...) term of BuildErrorResponse's chain",
+        285: "the 'unsigned is null' term of it",
+        448: "SignedMessage.Length < 12 in TryStripTSIG. Twelve octets is a header and nothing "
              "else: with ARCOUNT zero the walk has no records to find and with ARCOUNT set the "
              "walk reads past the end and throws into the catch. Both readings answer false",
-        411: "offset < 0 after FindLastRecordOffset. That method returns -1 or a position it "
+        464: "offset < 0 after FindLastRecordOffset. That method returns -1 or a position it "
              "took at the start of a record, and the first record cannot begin before octet "
              "twelve — so zero is not among its answers and <= 0 tests for a value that never "
              "arrives",
@@ -356,36 +357,21 @@ TSIG_EQUIVALENT = {
         309: "TryStripTSIG(...) && withoutTSIG is not null in the same method",
         335: "the !TryStripSIG0(...) term of the single-key Verify's chain",
         336: "the 'sig is null' term of it",
-        433: "SignedMessage.Length < 12 in TryStripSIG0 — the same argument as TSIGSigner:395",
-        446: "offset < 0 in TryStripSIG0 — the same argument as TSIGSigner:411",
+        433: "SignedMessage.Length < 12 in TryStripSIG0 — the same argument as TSIGSigner:448",
+        446: "offset < 0 in TryStripSIG0 — the same argument as TSIGSigner:464",
 
-        527: "Request.Length > 0 before folding the request into the signed data. SIG(0) "
+        532: "Request.Length > 0 before folding the request into the signed data. SIG(0) "
              "writes the request's octets and nothing else, so an empty request writes "
-             "nothing under either reading. TSIGSigner's counterpart at line 337 looks "
+             "nothing under either reading. TSIGSigner's counterpart at line 390 looks "
              "identical and is not: it writes a two-octet length first, so an empty MAC puts "
              "00 00 into the digest that a peer would not have. The same guard, one of them "
-             "load-bearing and one not — which is why 337 was killed by a test and this was "
+             "load-bearing and one not — which is why 390 was killed by a test and this was "
              "predicted to be and was not",
     },
 
 }
 
-TSIG_SUPERSEDED = {
-
-    "DNS/TSIG/SIG0Signer.cs": {
-        459: "the owner.Length == 0 test in TryStripSIG0's ternary, whose true branch no "
-             "caller could reach: DNSTools.ExtractName ends on String.IsNullOrEmpty(result) "
-             "? \".\" : result and never hands back an empty string, so the guard answered "
-             "for a case that does not arrive. The mutation was not equivalent - inverting "
-             "it gave every SIG(0) the root as its owner name, and RFC 2931 section 3 "
-             "allows a real one there, calling the field meaningless and the root a SHOULD. "
-             "So the behaviour was pinned first, by a test that reads back a SIG(0) whose "
-             "owner is not root and watches the verdict not move, and the dead branch was "
-             "removed after. The line the verdict was measured on is gone and nothing "
-             "mutable is left on it",
-    },
-
-}
+TSIG_SUPERSEDED = {}
 
 
 # -------------------------------------------------------------------- dnssec

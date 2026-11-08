@@ -31,7 +31,7 @@ test project that exercises each:
 |---|---|---|---:|---|
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 478 | measured, **closed** |
-| `tsig` | `DNS/TSIG` | SecureTransports | 94 | measured, **2 open** |
+| `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
 | `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **13 open** |
 | `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
@@ -89,7 +89,11 @@ block was measured a second time, at `d906af2d`, without the four files the
 `streams` slice measures (*The result: the client, measured again*). The
 `server` row said 361 at `cc8323d5`. It says 414 because the block was measured
 a second time, at `38f6a355`, after CA2007 had put `ConfigureAwait(false)` on
-every await in the folder (*The result: the server, measured again*).
+every await in the folder (*The result: the server, measured again*). The `tsig`
+row said 94 at `53f20591`. It says 95 because the block was measured a second
+time, at `38f6a355`, after a dead comparison had gone and finding 58 had given
+`BuildErrorResponse` the two operators that decide whether a refusal is signed
+(*The result: transaction security, measured again*).
 
 
 
@@ -140,7 +144,7 @@ neither.
 | `records` | 252 | 0 | — |
 | `core` | 133 | 0 | 1 |
 | `dnssec` | 47 | **1** | 19 |
-| `tsig` | 42 | **2** | — |
+| `tsig` | 22 | **2** | — |
 | `server` | 69 | **34** | 81 |
 | `client` | 97 | **13** | 57 |
 | `streams` | 26 | **9** | 43 |
@@ -419,6 +423,146 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
+
+## The result: transaction security, measured again
+
+The first measurement of this block, at `53f20591`, ended with two rows open:
+both readings of a property nothing calls (*The result: transaction security*
+and *The five that had fallen out*, below). By the suite's pin, **`38f6a355`**,
+two Hermod commits had changed the folder, by 93 lines added and 17 removed.
+`cc8323d5` took out the owner-name ternary in `TryStripSIG0` whose dead branch
+the first measurement had found. `7d86efd6`, the fix for finding 58, made
+`BuildErrorResponse` sign a BADTIME refusal and write the server's clock into
+it.
+
+The block was swept again at `38f6a355` with the same judge and the same two
+passes. The first measurement's files moved to `results/tsig-53f20591/`
+unchanged, and its ledger stays in the history of `make_closed_folder.py`.
+
+| | `53f20591` | `38f6a355` |
+|---|---:|---:|
+| mutants | 94 | 95 |
+| not viable (would not compile) | 5 | 5 |
+| killed by SecureTransports, pass 1 | 26 | 24 |
+| killed by another project | 21 | 44 |
+| survived everywhere | 42 | 22 |
+| real gaps | 42 | 22 |
+| killed by a test written for them | 20 | 1 |
+| equivalent | 19 | 19 |
+| superseded | 1 | 0 |
+| open | **2** | **2** |
+
+The first column counts the two mutants the harness refused at first as what
+they turned out to be once they were measured, two survivors (*The five that had
+fallen out*). The block gained one mutant net: the ternary's comparison went,
+and the line that decides whether a refusal is signed brought two. Every
+survivor is a real gap, as before. The classifier found nothing in the folder
+that is not code, and `DNS/TSIG` has not one `await`, so no `ConfigureAwait`
+either.
+
+The two open rows are the ones the first measurement left. `IsActive` in
+`DNSTransactionSecurity.cs:73` still has no caller, in Hermod's DNS code or in
+this suite, and its two `||` are what they were.
+
+### Twenty kills that moved to the second pass
+
+The twenty gaps the first measurement's rounds closed are all killed again, and
+all twenty in pass 2: fifteen by Dnssec, five by ResourceRecords. That is where
+their tests are. `TsigSigningTests`, `Sig0SigningTests` and
+`TransactionSignatureStrippingTests` are in the Dnssec project and
+`TkeyExchangeTests` is in ResourceRecords, and none of them are in
+SecureTransports, the block's judge. Those twenty are most of the step from 21
+to 44. The other three are below: two verdicts that moved on lines that did not
+change, and the new line's second mutant.
+
+### Two verdicts that moved, on lines that did not
+
+`DNSTransactionSecurity.cs:197` is the last `return true` of
+`TryAcceptResponse`, which the UDP, DoT and DoH clients ask about every response.
+It is reached whenever no TSIG key is configured, so read as `false` it refuses
+every answer such a client receives. At `53f20591` SecureTransports failed 14 of its 156 tests on it. At `38f6a355` it
+was still running after the 169 s a mutant gets, and in pass 2 Server fails 5
+of 154. The line and the method around it are as they were. The verdict is a
+kill either way, so it was not measured again.
+
+`TKEYExchange.cs:264`, `i < Left.Length` read as `<=` in the XOR of RFC 2930
+§4.1, was killed in the first sweep's pass 1 by one SecureTransports test of
+156. It cannot have been. Nothing in Hermod outside `TKEYExchange.cs` calls
+`TKEYExchange`, at `53f20591` or now, and no file of the SecureTransports
+project has ever mentioned TKEY. The test that failed failed for a reason of its
+own, which makes the kill noise. The mutant is reachable, and this time
+ResourceRecords kills it, 5 of 562. Most of `TkeyExchangeTests` use a shared
+secret shorter than the two digests it is XORed against, so the mutant reads one
+octet past the secret's end.
+
+### Nineteen equivalents, read again
+
+All nineteen of the first measurement's equivalents stand. Six moved: five in
+`TSIGSigner.cs`, behind what finding 58 added to `BuildErrorResponse`, and one in
+`SIG0Signer.cs`, behind the comment written above the line the ternary was on.
+They were read again against `38f6a355` rather than moved with their numbers,
+and so was the code outside the folder they lean on. `TryStripTSIG` and
+`TryStripSIG0` still set both outputs before their single `return true`.
+`DNSTools`, whose `FindLastRecordOffset` and `ExtractName` the length and offset
+arguments rest on, has not changed since `53f20591`. And SIG(0)'s
+`Request.Length > 0` is still equivalent next to TSIG's, which its test still
+kills, for the reason *Two guards that look identical and are not* gives.
+
+The superseded row is gone with its line. `SIG0Signer.cs:459` was the ternary,
+and nothing mutable is left where it was.
+
+### The key a refusal is handed
+
+One survivor is new: the line finding 58 wrote to choose between the two kinds
+of refusal.
+
+```csharp
+var signable = Error == BADTIME && Key is not null;
+```
+
+RFC 8945 asks opposite things of them. §5.2.1 and §5.2.2 say a BADKEY and a
+BADSIG response *"MUST be unsigned"*, and §5.3.2: *"It MUST NOT send back a
+signed error message."* §5.2.3 says a BADTIME one *"MUST be signed by the same
+key as the request"*.
+
+Hermod's server is the only caller, and it passes the key for BADTIME and for
+nothing else:
+
+```csharp
+result.Error == TSIGSigner.BADTIME ? key : null
+```
+
+Through the server the key is there exactly when the error is BADTIME, so the
+two terms never disagree. Read as `!=`, the first term turns the BADTIME refusal
+unsigned, and the Server project fails one test of its 154. Planted again on its
+own, that test is the one written for finding 58,
+`TsigServerTests.A_Badtime_Refusal_Is_Signed_And_A_Badsig_One_Is_Not`. Read as
+`||`, the second term would sign whatever it is handed a key for. The server
+hands it none outside BADTIME, and nothing anywhere failed.
+
+That is not equivalence. `BuildErrorResponse` is public, and its documentation
+leaves the key out only *"when the failure was that no such key exists"*. A MAC
+that does not verify under a key this party holds is not that failure. Neither
+is a key whose name matches and whose algorithm does not. A caller that reads
+the documentation may well pass the key along for BADSIG or BADKEY, and under
+the mutant that caller sends a signed refusal.
+
+`TsigSigningTests.A_Key_Or_Mac_Refusal_Is_Unsigned_Even_When_The_Key_Is_At_Hand`
+hands `BuildErrorResponse` the same key three times, with BADTIME, BADSIG and
+BADKEY, and reads the three refusals with RawDns. BADTIME is the positive
+control. It comes back signed, with 32 octets of MAC and six of Other Data, so
+the key is one the signer can use, and an unsigned BADSIG is the error code's
+doing. Planted, the `||` mutant fails the test on BADSIG's MAC size, *But was:
+32*. The `!=` mutant fails it on BADTIME's, *But was: 0*. Hermod passes it, so
+there is nothing to number.
+
+### What the first measurement's chapter now is
+
+*The result: transaction security*, below, is the measurement at `53f20591`, and
+its line numbers are that revision's. Its rounds, its equivalents and its
+account of the dead ternary stand. One of its numbers is corrected here: of the
+26 that SecureTransports killed in pass 1, one was the noise at
+`TKEYExchange.cs:264`.
 
 ## The result: the server, measured again
 
