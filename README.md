@@ -243,6 +243,13 @@ versions of HTTP. And a disposed DoH/2 server no longer listens on its port.
 Hermod passed both already. With them the SecureTransports project is
 167 ✅ · 0 ❌, and the offline suite 1891 ✅ · 0 ❌ · 4 skips.
 
+And the case the transaction-security block asked for when it was measured
+again (MUTATION.md, *The key a refusal is handed*). Handed the key it shares
+with the sender, the TSIG signer still answers BADSIG and BADKEY with an
+unsigned refusal (RFC 8945 §5.2.1, §5.2.2, §5.3.2), and with the same key it
+signs a BADTIME one (§5.2.3). Hermod passed it already. With it the Dnssec
+project is 376 ✅ · 0 ❌ · 4 skips, and the offline suite 1892 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

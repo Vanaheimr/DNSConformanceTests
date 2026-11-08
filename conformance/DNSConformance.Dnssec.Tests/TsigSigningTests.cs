@@ -311,6 +311,64 @@ public class TsigSigningTests
 
     #endregion
 
+    #region A_Key_Or_Mac_Refusal_Is_Unsigned_Even_When_The_Key_Is_At_Hand()
+
+    [Test]
+    [Property("RFC", "8945 §5.2.1")]
+    [Property("RFC", "8945 §5.2.2")]
+    [Property("RFC", "8945 §5.3.2")]
+    public void A_Key_Or_Mac_Refusal_Is_Unsigned_Even_When_The_Key_Is_At_Hand()
+    {
+
+        // BuildErrorResponse is handed the key to sign a refusal with, and its
+        // documentation leaves the key out only "when the failure was that no such
+        // key exists". A MAC that does not verify under a key this party holds is
+        // not that failure, and neither is a key whose name matches and whose
+        // algorithm does not - so a caller may well pass the key along. Whether
+        // the refusal is signed must not depend on it.
+        //
+        // §5.2.1 says a BADKEY response "MUST be unsigned as specified in Section
+        // 5.3.2", §5.2.2 says the same of BADSIG, and §5.3.2 itself: "It MUST NOT
+        // send back a signed error message." §5.2.3 asks the opposite of BADTIME,
+        // which "MUST be signed by the same key as the request".
+        //
+        // Hermod's own server passes the key for BADTIME and for nothing else, so
+        // through the server the error code and the key always agree, and which of
+        // the two decides cannot be seen there. Only a direct call can separate them.
+        var request  = TSIGSigner.Sign(Query(), Key(), TimeSigned: 1_700_000_000);
+
+        var badTime  = TsigErrorOf(TSIGSigner.BuildErrorResponse(request, TSIGSigner.BADTIME, Key(), ServerTime: 1_700_000_900), "BADTIME");
+        var badSig   = TsigErrorOf(TSIGSigner.BuildErrorResponse(request, TSIGSigner.BADSIG,  Key()), "BADSIG");
+        var badKey   = TsigErrorOf(TSIGSigner.BuildErrorResponse(request, TSIGSigner.BADKEY,  Key()), "BADKEY");
+
+        Assert.Multiple(() => {
+
+            // The positive control: the same key, handed over the same way, signs
+            // the one refusal §5.2.3 wants signed. So the key is one the signer can
+            // use, and an unsigned refusal below is the error code's doing.
+            Assert.That(badTime.Error,    Is.EqualTo(TSIGSigner.BADTIME));
+            Assert.That(badTime.MacSize,  Is.EqualTo(32),
+                        "§5.2.3 — a BADTIME refusal is signed, here with HMAC-SHA256's 32 octets");
+            Assert.That(badTime.OtherLen, Is.EqualTo(6),
+                        "§5.2.3 — and carries the server's time in six octets");
+
+            Assert.That(badSig.Error,     Is.EqualTo(TSIGSigner.BADSIG));
+            Assert.That(badSig.MacSize,   Is.Zero,
+                        "§5.2.2 — a BADSIG refusal MUST be unsigned, whatever key the signer was handed");
+            Assert.That(badSig.OtherLen,  Is.Zero,
+                        "and says nothing about the clock, which was not the problem");
+
+            Assert.That(badKey.Error,     Is.EqualTo(TSIGSigner.BADKEY));
+            Assert.That(badKey.MacSize,   Is.Zero,
+                        "§5.2.1 — a BADKEY refusal MUST be unsigned as well");
+            Assert.That(badKey.OtherLen,  Is.Zero);
+
+        });
+
+    }
+
+    #endregion
+
     #region Unsigned_Message_Is_Not_Mistaken_For_A_Signed_One()
 
     [Test]
@@ -364,6 +422,44 @@ public class TsigSigningTests
 
 
     #region (private static) Helpers
+
+    /// <summary>
+    /// The Error, MAC Size and Other Len of a message's TSIG, read with RawDns
+    /// rather than with Hermod's parser.
+    /// </summary>
+    /// <remarks>
+    /// RFC 8945 §4.2: after the algorithm name, which is never compressed, come
+    /// Time Signed (6), Fudge (2), MAC Size (2), MAC, Original ID (2), Error (2),
+    /// Other Len (2) and Other Data.
+    /// </remarks>
+    private static (UInt16 Error, Int32 MacSize, Int32 OtherLen) TsigErrorOf(Byte[]? Message, String Because)
+    {
+
+        Assert.That(Message, Is.Not.Null, $"a {Because} refusal is built");
+
+        var tsig    = RawDnsReader.Parse(Message!).Additionals[^1];
+
+        Assert.That(tsig.Type, Is.EqualTo(RawDnsType.TSIG), $"a {Because} refusal ends with a TSIG");
+
+        var data    = tsig.Rdata;
+        var offset  = 0;
+
+        while (data[offset] != 0)
+            offset += data[offset] + 1;
+
+        offset += 1 + 6 + 2;
+
+        var macSize  = (data[offset] << 8) | data[offset + 1];
+        offset      += 2 + macSize + 2;
+
+        var error    = (UInt16) ((data[offset] << 8) | data[offset + 1]);
+        offset      += 2;
+
+        var otherLen = (data[offset] << 8) | data[offset + 1];
+
+        return (error, macSize, otherLen);
+
+    }
 
     private static Byte[] CanonicalWire(String Name)
     {
