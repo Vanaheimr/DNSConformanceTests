@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""The sweep, pointed at a folder other than the resource records.
+"""The sweep, pointed at any folder of the DNS code.
 
-`sweep.py` is kept as it ran: it produced `results/records-pass1.tsv` and
-MUTATION.md describes it. This is the same harness with the folder, the judging
-test project and the results file taken from a table instead of written into the
-source, because the resource records were one of six places the DNS code lives
-and the other five had never been measured.
+`sweep.py` is kept as it ran: it produced the resource records' first
+measurement, now `results/records-973fed31/records-pass1.tsv`, and MUTATION.md
+describes it. This is the same harness with the folder, the judging test project
+and the results file taken from a table instead of written into the source,
+because the resource records were one of six places the DNS code lives and the
+other five had never been measured. The resource records' second measurement
+ran here.
 
 The blocks are here rather than in a command line so that the map is readable in
 one screen and each row can be run on its own:
@@ -53,8 +55,7 @@ def assembly(name):
 
 
 # Every part of the DNS code, which folder it is, and the cheapest project that
-# exercises it. "records" is the block the first sweep measured, kept here so the
-# map is complete rather than because it needs running again.
+# exercises it. "records" is the block the first sweep measured, with sweep.py.
 BLOCKS = {
 
     # The code every query passes through, whatever its type: names, the message,
@@ -74,7 +75,13 @@ BLOCKS = {
                       skip=("DNSTCPClient.cs", "DNSTLSClient.cs",
                             "DNSStreamPipeline.cs", "DNSKeepalivePolicy.cs")),
     "server":    dict(root=r"DNS\Server",    exclude=(), judge="Server"),
-    "records":   dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords"),
+    # The records block without the three files of the svcparam slice below, for
+    # the same reason as the client's: they were measured on their own at
+    # 4edc4c98 and are the same at 38f6a355, where the block was measured a
+    # second time. The first sweep, at 973fed31, measured SVCB and HTTPS whole,
+    # before Vanaheimr/Hermod#191 moved their presentation into a file of its own.
+    "records":   dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords",
+                      skip=("SVCB.cs", "HTTPS.cs", "SVCParameterPresentation.cs")),
 
     # Not blocks but slices of two: the files a fix rewrote after its block was
     # measured, swept again at the fix's revision. Re-sweeping the whole block
