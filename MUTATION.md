@@ -29,7 +29,7 @@ test project that exercises each:
 
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
-| `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
+| `records` | `DNS/ResourceRecords` without the three files of `svcparam` | ResourceRecords | 615 | measured twice, **15 open** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 480 | measured twice, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 324 | measured three times, **1 open** |
@@ -83,7 +83,10 @@ files changed before the sweep measured `925c80d5`. It says 632 now because the
 block was measured a second time, at `0f595ac4`, after findings 78 to 85.
 
 The four rows that were right — `records`, `core`, `client`, `server` — are right to
-the mutant. The `core` row said 478 at `e592b5e7`. It says 480 because the
+the mutant. The `records` row said 687 for the whole folder at `973fed31`. It
+says 615 because the block was measured a second time, at `38f6a355`, without
+the three files the `svcparam` slice measures (*The result: the resource
+records, measured again*). The `core` row said 478 at `e592b5e7`. It says 480 because the
 block was measured a second time, at `38f6a355`, after finding 57's fix had
 replaced one comparison and the compression table and finding 76 had added one
 each (*The result: the code every query passes through, measured again*). The
@@ -144,9 +147,9 @@ neither.
 
 | block | real gaps | of those open | host-only |
 |---|---:|---:|---:|
-| `records` | 252 | 0 | — |
-| `core` | 133 | 0 | 1 |
-| `dnssec` | 47 | **1** | 19 |
+| `records` | 57 | **15** | 2 |
+| `core` | 18 | 0 | 1 |
+| `dnssec` | 13 | **1** | 19 |
 | `tsig` | 22 | **2** | — |
 | `server` | 69 | **34** | 81 |
 | `client` | 97 | **13** | 57 |
@@ -155,10 +158,12 @@ neither.
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
-where both readings are conformant because no RFC names a limit. The row above
-is the second sweep of the block, after the validator was rewritten. It found
-thirty-eight, all but three in new code, and what the rounds since have left is
-the same depth limit — see *The result: DNSSEC, measured again*.
+where both readings are conformant because no RFC names a limit. The second
+sweep of the block, after the validator was rewritten, found thirty-eight, all
+but three in new code, and what its rounds left is the same depth limit — see
+*The result: DNSSEC, measured again*. The row above is the third, at
+`38f6a355`, and it left the same one (*The result: DNSSEC, measured a third
+time*).
 
 **The argument had already been written twice before it had a name.** One entry
 in the core ledger and one in the DNSSEC ledger had each worked out, separately,
@@ -425,6 +430,196 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 56, and 370 survive: 118 not really code and 252 real gaps. The score as
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
+
+
+## The result: the resource records, measured again
+
+The first measurement of this block, at `973fed31`, ended closed (*The result:
+the record types*, below). Nine rounds of tests had killed its real gaps, the
+rest were equivalent, and four sat on lines that fixes had replaced. By
+**`38f6a355`**, five Hermod commits had changed eight of the block's files, by
+134 lines added and 31 removed:
+- `e592b5e7`, findings 55 and 56, gave SIG and RRSIG one reader for Type
+  Covered. It also rewrote TXT's quoted reader for `\X` and `\DDD`, and sent a
+  single quoted string through it as well.
+- `9f797748`, finding 66, lets an NSEC's next domain name hold any octets.
+- `cf4f3c81` has URI's length guard state RFC 7553's minimum.
+- `18ccace4` gives `DNSSRVEndpoint` an `Equals` and a `CompareTo`.
+- `360c8e28`, CA2007, put `ConfigureAwait(false)` on A's and AAAA's awaits.
+
+The suite pins `ce2f06b8`. Nothing under `Hermod/DNS` differs between the two,
+so the measurement describes the pinned code as well.
+
+The block was swept again at `38f6a355` with the same judge and the same two
+passes, **without the three files of the `svcparam` slice**. Those were
+measured on their own at `4edc4c98` and are the same at `38f6a355` (*The
+result: both slices again, after findings 90 to 92*). `sweep_folder.py` skips
+them for this block now, as it skips the `streams` files for `client`. The
+first measurement's files moved to `results/records-973fed31/` unchanged, and
+its ledger stays in the history of `make_closed.py`. Its column below is
+counted over the same files: 598 of its 687 mutants.
+
+| | `973fed31` | `38f6a355` |
+|---|---:|---:|
+| mutants | 598 | 615 |
+| not viable (would not compile) | 54 | 54 |
+| killed by ResourceRecords, pass 1 | 168 | 344 |
+| killed by another project | 54 | 45 |
+| survived everywhere | 322 | 172 |
+| not really code | 114 | 113 |
+| host-only (`ConfigureAwait`) | — | 2 |
+| real gaps | 208 | 57 |
+| killed by a test written for them | 160 | 0 |
+| equivalent | 44 | 42 |
+| the line is gone | 4 | 0 |
+| open | **0** | **15** |
+
+Pass 1 kills 176 more:
+- **157 old survivors.** They are the rounds' 145 (below), ten that only
+  another project had killed, `:433`, which had been declared equivalent
+  (below), and a default the triage had filed as not code.
+- **21 new mutants**, of the 31 the changed code brought. Sixteen of the 31 are
+  in `DNSSRVEndpoint`'s `Equals` and `CompareTo`, twelve in TXT's quoted
+  reader, one in URI's guard, and two are `ConfigureAwait`.
+- **Two old kills fewer.** `SIG.cs:111` moved to pass 2 (below), and
+  `SIG.cs:265`'s line was replaced by finding 55.
+
+Pass 2's 45 kills:
+- Dnssec's 24: CDS's and CDNSKEY's delete sentinel, OPT's DO bit, and
+  `SIG.cs:111`;
+- Edns's 12;
+- WireFormat's 7, a name in each of seven types that goes out uncompressed;
+- one each by Client and SecureTransports: a cookie option with no server
+  cookie, and an option with no data.
+
+### Where the 160 went
+
+**145 die again**, all in pass 1. **8** sat on lines of TXT's quoted reader
+that `e592b5e7` replaced, and the reader that replaced them has seven survivors
+of its own (below). **7 survive everywhere**, and none of them is a test that
+stopped working:
+
+The first ledger keyed its rounds by line. A round planted one mutant on a
+line, saw it fall, and the entry named the line, so every other operator on
+that line was closed with it, unseen. *One row per mutant* asked whether a
+round had planted what an entry covers, but only for the occurrences that
+classifying by mutant had added. The operators that were rows already were not
+asked about. The client's ledger had the same blind spot at `DNSCache.cs:869`
+and `:975` (*Where the 79 went*). These seven are lines with two operators, and
+the round had seen one:
+
+| line | killed by the round | survives |
+|---|---|---|
+| `ADNSResourceRecord.cs:690` | `true-to-false` | `&&` read as `\|\|` |
+| `ADNSResourceRecord.cs:832` | `\|\|` read as `&&` | `< 0` read as `<= 0`, `> UInt32.MaxValue` read as `>=` |
+| `RRSIG.cs:291` | `true-to-false` | `&&` read as `\|\|` |
+| `SSHFP.cs:169` | `==` read as `!=`, `!=` read as `==` | `&&` read as `\|\|` |
+| `SSHFP.cs:172` | the same | `&&` read as `\|\|` |
+| `DHCID.cs:191` | — | `>= HeaderLength` read as `>` |
+
+`DHCID.cs:191` is the other way round: the round's test reads a DHCID of
+exactly its header from the wire, `\# 3 000201`, which kills `:157`, the wire
+constructor's guard. `:191` is the same guard in the constructor that takes the
+data, which the presentation form reaches, and the entry named both lines.
+
+One more row moved, and is still killed. `SIG.cs:111`, `IsTransactionSignature`,
+died in pass 1 at `973fed31`, when SIG's writer asked it whether to print
+`TYPE0`. Finding 55 removed that special case, and the property's callers now
+are the SIG(0) signer and the server's message pipeline. Dnssec kills it, with
+13 tests.
+
+### One verdict the second pass could not be trusted with
+
+Pass 2 recorded `SRV/SRVSpec.cs:321` as killed by "SecureTransports: 1 of 167".
+The line is `#region Operator >  (SRVSpec1, SRVSpec2)`, and the mutation turned
+the `>` in the region's name into `>=`, which no compiler reads. Measured again
+on its own, it survives everywhere, and the classification files it as not
+code. It was re-measured by the steps *Eleven verdicts the second pass could not
+be trusted with* gives for the `core` block. `records-pass2.as-measured.tsv`
+keeps the file as the run left it.
+
+### Forty-two equivalents, read again
+
+Of the first measurement's 44, 42 stand. Thirty-nine sit on lines of files that
+did not change. Outside the folder, two things they rely on changed, and the
+arguments hold against both:
+- `DomainName.Serialize` and `DNSServiceName.Serialize` still start an empty
+  offset table when they are handed none. The four arguments that a name is
+  written with nothing to point at (`ADNSResourceRecord.cs:567`, `:622`,
+  `:1387`, `IPSECKEY.cs:419`) rest on that.
+- `DomainName` now measures RFC 1035 §2.3.4's 255 octets on the wire, the root
+  label included, which is stricter than before. The ten 65535 guards rest on
+  that limit.
+
+The other three are TXT's, on lines that moved. `:515` and `:516` are
+`ParseKeyValues`' `equals < 0` again, seven lines further down, behind the same
+skip of a string that starts with `=`. `:459` is the splitter's `current.Length
+> 0` after its loop. Its argument was that only an empty text leaves the
+builder empty. An empty text now returns before the loop, so the builder always
+holds the text's last rune at that line, and the ledger words it that way.
+
+**One argument was wrong.** `ADNSResourceRecord.cs:433`, `isEscaped = false`
+read as `true`, is the record lexer's escape never ending. The argument was that
+whatever the lexer then fails to split is rejoined with single blanks before any
+RDATA parser sees it, so nothing could tell. It dies in pass 1 now, and planted
+on its own it fails one test:
+`An_Escape_Quotes_One_Character_And_Not_The_Rest_Of_The_Line`. That test was
+written the day after this block's first sweep, for the master file's own lexer
+in the `core` block. Its record continues over three lines in parentheses, after
+an escape:
+- with the escape ended, the lexer drops the grouping parentheses;
+- with it stuck, they are data, and the TXT string reads `has\;semi ( more )`.
+
+The argument had considered whitespace and missed the parentheses.
+
+And one line is gone: `URI.cs:192`, the guard that let an RDLENGTH of four
+through. `cf4f3c81` replaced it with one that states RFC 7553 §4.5's minimum,
+and that one is open (below).
+
+### Fifteen open
+
+The seven above, and eight in code that changed since the first measurement:
+- `TXT.cs:564` to `:589`, seven mutants of the quoted reader that `e592b5e7`
+  wrote. They are its test for three digits, its refusal of a `\DDD` above 255,
+  and its refusal of a backslash at the end of the text.
+- `URI.cs:199`, `RDLength < 5` read as `<= 5`, which refuses a target of one
+  octet.
+
+Tests can kill most of them as they are:
+- a valid SSHFP in RFC 3597 §5's generic form, which every `||` refuses;
+- a DHCID of exactly its header, written in base64;
+- signature times at 1970 and at the last second of 2106, both of which the
+  reader takes;
+- a `\X` followed by two digits, such as `"\;12"`, and a `\255`.
+
+Reading what the others guard turned up three things to take further, in the
+round of tests that follows this measurement:
+- **The type and class readers take what .NET's `Enum.TryParse` takes.** That
+  includes a comma-separated list, combined bitwise: `A,MX` is read as MX in a
+  record's header, in an RRSIG's Type Covered and in an NSEC's bit map, and
+  `IN,CH` as CH. For a class it also includes a bare decimal. The header tries
+  the class before the TTL, so `host.example. 1 IN A 192.0.2.1` comes out with
+  TTL 0, and `host.example. 3 A 192.0.2.1` in class CH. Finding 23 removed the
+  class reader's own fallback to a decimal. `Enum.TryParse` has one as well,
+  for the six classes that have names, and finding 23's test used 3600, which
+  has none. `ADNSResourceRecord.cs:690` and `RRSIG.cs:291` are these readers.
+- **A URI's target is read as a `URL` of Hermod's HTTP layer.** RFC 7553 §4.4
+  makes it a URI "as specified in RFC 3986". A target without `://` gets
+  `https://` put in front of it: `mailto:a@example.com` comes out as
+  `https://mailto:a@example.com`, and a target of one octet, `a`, as
+  `https://a`. `urn:isbn:0451450523` is refused. `URI.cs:199` is the length
+  guard in front of that parse.
+- **A quoted TXT string the reader refuses is read a second time, as unquoted
+  text with the quotes taken off.** `"a\256b"` becomes the six characters
+  `a\256b`, and a string whose closing quote is escaped is taken as it stands.
+  `TXT.cs:564`, `:575`, `:588` and `:589` are those refusals.
+
+### What the first measurement's chapter now is
+
+*The result: the record types*, below, with *One row per mutant*, *The records
+headline* and *Standing state*, is the measurement at `973fed31`. Its line
+numbers are that revision's. Its kills stand except the seven above, and its
+equivalents stand except `:433`.
 
 
 ## The result: DNSSEC, measured a third time
@@ -6185,9 +6380,13 @@ not make was recorded as a statement about the code.**
 
 ## Standing state
 
-The results in `build/mutation/results/` are a **snapshot pinned to Hermod
-`973fed31`**, not a live view. Line numbers move; a re-run is the only way to
-refresh them.
+This section is the first measurement's. The block was measured a second time,
+at `38f6a355`, and what `standing.py` prints now is that one: **15 open** (*The
+result: the resource records, measured again*). The first measurement's results
+are in `build/mutation/results/records-973fed31/`.
+
+They are a **snapshot pinned to Hermod `973fed31`**, not a live view. Line
+numbers move; a re-run is the only way to refresh them.
 
 Since the sweep, **194 of the 252 are closed** and **54 were declared equivalent
 rather than chased**. **4 more are gone**: the lines their verdicts were measured
@@ -6212,7 +6411,7 @@ The count above was recomputed by hand four times and was wrong twice, both
 times because the triage read a source tree that had moved under it while the
 verdicts stayed pinned to the revision they were measured on. Two files now hold
 what the source used to be asked for — `results/records-classified.tsv`, every
-survivor classified against Hermod `973fed31`, and `results/records-closed.tsv`,
+survivor classified against the revision the sweep measured, and `results/records-closed.tsv`,
 every gap since closed or declared equivalent, keyed the same way. `standing.py`
 reads those two and nothing else, so it cannot drift no matter how far the code
 moves.

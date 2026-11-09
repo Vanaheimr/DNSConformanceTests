@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Write down which gaps are closed, so the standing count is derived instead of
-typed. Seven rounds so far, each verified by mutations taken from the sweep's own
-output.
+typed. Keyed to the block's second measurement, at Hermod 38f6a355. The first,
+at 973fed31, and its nine rounds of tests are in this file's history; every
+kill of those rounds dies again, and what they left open is listed here.
 
 Three ways a gap stops being one:
 
@@ -18,104 +19,20 @@ HERE       = os.path.dirname(os.path.abspath(__file__))
 CLASSIFIED = os.path.join(HERE, "results", "records-classified.tsv")
 OUT        = os.path.join(HERE, "results", "records-closed.tsv")
 
-# Line numbers as the sweep measured them, at Hermod 973fed31.
-KILLED = {
-    "apl":    {"DNS/ResourceRecords/APL.cs": {114, 178, 181, 189, 192, 202, 203, 206, 216, 217, 220, 231, 317}},
-    "txt":    {"DNS/ResourceRecords/TXT.cs": {338, 392, 478, 503, 534, 535, 539, 540, 551, 554, 555, 557,
-                                              561, 569, 570, 573, 578, 581}},
-    "adns":   {"DNS/ResourceRecords/ADNSResourceRecord.cs": {515, 703, 731, 758, 759, 761, 778, 779, 827,
-                                                             832, 833, 953, 959, 1045, 1052, 1056,
-                                                             1171, 1179, 1180, 1191}},
-    "bounds": {"DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs":  {162, 177, 192, 207},
-               "DNS/ResourceRecords/SRV/SRVSpec.cs":         {302, 317, 332, 347},
-               "DNS/ResourceRecords/IPSECKEY.cs":            {230, 231, 232},
-               "DNS/ResourceRecords/DHCID.cs":               {157, 191},
-               "DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs": {265, 270},
-               "DNS/ResourceRecords/SVCB.cs":                {368, 376},
-               "DNS/ResourceRecords/HTTPS.cs":               {274},
-               "DNS/ResourceRecords/NSEC.cs":                {175},
-               "DNS/ResourceRecords/LOC.cs":                 {451}},
-
-    # Branches: conditions whose two sides were never both taken. Only the lines
-    # actually mutated and seen to fall are listed; the neighbouring ones that a
-    # test happens to cover are not claimed without a verdict.
-    #
-    # The quote test of SVCB's and HTTPS's parameter splitter carries two `==`,
-    #     if (Input[i] == '"' && (i == 0 || Input[i - 1] != '\\'))
-    # and the first falls: to pass 1 in SVCB, to this round's tests in HTTPS. The
-    # second, i != 0, only matters for a quote with a backslash before it, and
-    # none of this round's tests writes one: planted on its own it survived every
-    # project. So these two lines are claimed operator by operator here, and the
-    # second == is the 'quote' round's.
-    "branch": {"DNS/ResourceRecords/SSHFP.cs":     {169, 172},
-               "DNS/ResourceRecords/SVCB.cs":      {(434, "logical-or-to-and"), (434, "inequality-to-equality"),
-                                                    437},
-               "DNS/ResourceRecords/HTTPS.cs":     {(340, "logical-and-to-or"), (340, "logical-or-to-and"),
-                                                    (340, "equality-to-inequality", 0),
-                                                    (340, "inequality-to-equality"), 343},
-               "DNS/ResourceRecords/IPSECKEY.cs":  {166, 175, 187},
-               "DNS/ResourceRecords/LOC.cs":       {470, 471, 486},
-               "DNS/ResourceRecords/ADNSResourceRecord.cs": {656, 690},
-               "DNS/ResourceRecords/RRSIG.cs":     {291}},
-
-    # The rest of the boundaries. Twelve of these are the same guard in twelve
-    # record types — RFC 1035 §4.1.3's 65535 — reached from both sides for the
-    # first time; the others are where a presentation format is allowed to stop.
-    "bounds2": {"DNS/ResourceRecords/TXT.cs":            {614},
-                "DNS/ResourceRecords/SPF.cs":            {197},
-                "DNS/ResourceRecords/URI.cs":            {258},
-                "DNS/ResourceRecords/UnknownRecord.cs":  {127},
-                "DNS/ResourceRecords/RRSIG.cs":          {364},
-                "DNS/ResourceRecords/SIG.cs":            {361},
-                "DNS/ResourceRecords/TSIG.cs":           {280},
-                "DNS/ResourceRecords/TKEY.cs":           {272},
-                "DNS/ResourceRecords/NSEC.cs":           {219},
-                "DNS/ResourceRecords/ADNSResourceRecord.cs": {344, 388, 617, 1013},
-                "DNS/ResourceRecords/SVCB.cs":           {172, 288, 330, 496},
-                "DNS/ResourceRecords/HTTPS.cs":          {196, 237, 282, 402},
-                "DNS/ResourceRecords/LOC.cs":            {257, 337, 477, 481, 482, 484, 493},
-                "DNS/ResourceRecords/NSEC3.cs":          {439},
-                "DNS/ResourceRecords/NSEC3PARAM.cs":     {211},
-                "DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs": {161},
-                "DNS/ResourceRecords/IPSECKEY.cs":       {314}},
-
-    # The branches, and the last six rejections. Where a line carries several
-    # mutations of one operator — LOC's four hemisphere spellings, the printable
-    # range's three ands — every one of them was run, because the sweep's row does
-    # not say which of them survived.
-    "branch2": {"DNS/ResourceRecords/A.cs":                          {209, 234},
-                "DNS/ResourceRecords/AAAA.cs":                       {208, 233},
-                "DNS/ResourceRecords/ADNSResourceRecord.cs":         {425, 440, 858, 862, 874, 1010, 1075, 1376},
-                "DNS/ResourceRecords/CSYNC.cs":                      {182},
-                "DNS/ResourceRecords/HTTPS.cs":                      {277, 335},
-                "DNS/ResourceRecords/LOC.cs":                        {256, 487},
-                "DNS/ResourceRecords/NAPTR.cs":                      {227},
-                "DNS/ResourceRecords/OTP/EDNSClientSubnetOption.cs": {171},
-                "DNS/ResourceRecords/OTP/EDNSCookieOption.cs":       {79},
-                "DNS/ResourceRecords/RP.cs":                         {222},
-                "DNS/ResourceRecords/RRSIG.cs":                      {301, 307, 310},
-                "DNS/ResourceRecords/SRV/DNSSRVManager.cs":          {92},
-                "DNS/ResourceRecords/SRV/SRVSpec.cs":                {38, 45, 163, 168, 175, 383, 423},
-                "DNS/ResourceRecords/SVCB.cs":                       {371}},
-
-    # The last two rows of the sweep, and the pair that had been left open on
-    # the grounds that RFC 1876 §2 does not say in prose which hemisphere the
-    # reference point itself is in. It does not — but §5 publishes the
-    # conversion, and loc_ntoa gives 'S' to latval < 0 and 'N' to everything
-    # else. Zero is northern, and eastern, because the RFC's own code says so.
-    "loc":     {"DNS/ResourceRecords/LOC.cs": {549, 558}},
-
-    # The two the occurrences brought back: the look-behind of the parameter
-    # splitter, i == 0 read as i != 0, so that a quote with a backslash before
-    # it ends the value it is in. RFC 1035 §5.1's backslash takes the special
-    # meaning from the character after it. Each type has its own copy of the
-    # splitter and its own test, and each mutant fails that test and nothing
-    # else.
-    "quote":   {"DNS/ResourceRecords/SVCB.cs":  {(434, "equality-to-inequality", 1)},
-                "DNS/ResourceRecords/HTTPS.cs": {(340, "equality-to-inequality", 1)}},
-}
+# Line numbers as the sweep measured them, at Hermod 38f6a355.
+#
+# Nothing is listed as killed. Every row the first measurement's rounds closed
+# by a test dies again in one of the two passes — except seven, which those
+# rounds had claimed by line: a test killed one operator on the line and the
+# entry named the line, so a second operator on it was closed unseen. Those
+# seven are open here, as the sweep found them. MUTATION.md, "The result: the
+# resource records, measured again", lists them.
+KILLED = {}
 
 # Mutations that are real and unobservable: the program is the same either way.
+# Read again against 38f6a355. The first measurement argued all of them but the
+# three in TXT, whose lines moved when e592b5e7 (findings 55 and 56) rewrote the
+# quoted reader, and whose arguments are worded for the code they now sit in.
 EQUIVALENT = {
     "DNS/ResourceRecords/APL.cs": {
         144:  "width is 4, 16, or AFDPart.Length itself, so both branches return the same octets",
@@ -123,26 +40,19 @@ EQUIVALENT = {
         401:  "TryParse nulls Item on every false it returns, so the two operands never differ",
     },
     "DNS/ResourceRecords/TXT.cs": {
-        452:  "only an empty text leaves the builder empty, and ValidateStrings turns [] into [\"\"] anyway",
-        508:  "equals is 0 only when the text starts with '=', which ParseKeyValues skipped four lines earlier",
-        509:  "the same: position zero is unreachable here",
+        459:  "an empty text returns before the loop, and every other text leaves its last rune in the builder, "
+              "so the builder is never empty here",
+        515:  "equals is 0 only when the text starts with '=', which ParseKeyValues skipped five lines earlier",
+        516:  "the same: position zero is unreachable here",
     },
     "DNS/ResourceRecords/ADNSResourceRecord.cs": {
         1162: "a window header at the very end of the buffer carries no bitmap, so entering it and skipping it both end in false",
-
-        # The rest of the boundaries, sixth round.
         572:  "the owner name of a record it has just serialized always ends in a root label, so the walk cannot reach the end of the buffer",
         1206: "entering the loop at the end of the bitmap breaks at the window-header check two lines below",
         1209: "a window header with nothing behind it adds no types whether the loop leaves here or at the bitmap-length check",
         1222: "0x80 >> 8 is zero, so the ninth pass masks nothing and adds nothing",
-
-        # The branches, seventh round.
         244:  "both call sites ask whether the record is null before calling, so the null check inside is one "
               "the caller has already made",
-        433:  "an escape can only appear in the RDATA, and the RDATA tokens are rejoined with a single blank "
-              "before any type parser sees them — so where the lexer split them survives as whitespace that "
-              "every RDATA parser normalises again. In the header it would tell, and a name carrying an escape "
-              "is refused before the lexer's state is ever consulted",
         567:  "Serialize is called with no offset table, and DomainName.Serialize starts a fresh empty one per "
               "name, so nothing is ever in it to point at",
         622:  "the name is the first thing written into a fresh stream with an empty table",
@@ -174,21 +84,6 @@ EQUIVALENT = {
         331: "9e9 centimetres reduces through the loop to 9e0 as well, so both paths return 0x99",
     },
 
-    "DNS/ResourceRecords/SVCB.cs": {
-        382: "a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey",
-        383: "the same token: the key name has already dropped the parameter, whatever the value is",
-        439: "an empty token between two separators is yielded and then dropped for having no key name",
-        446: "a trailing separator yields an empty final token, dropped for the same reason",
-        518: "the '=' sits outside the conditional, so an empty value renders as 'key=' from both sides of it",
-    },
-    "DNS/ResourceRecords/HTTPS.cs": {
-        288: "a token beginning with '=' gives either an empty key name or the whole token, and neither is a SvcParamKey",
-        289: "the same token: the key name has already dropped the parameter, whatever the value is",
-        345: "an empty token between two separators is yielded and then dropped for having no key name",
-        352: "a trailing separator yields an empty final token, dropped for the same reason",
-        424: "the '=' sits outside the conditional, so an empty value renders as 'key=' from both sides of it",
-    },
-
     "DNS/ResourceRecords/NSEC3.cs": {
         364: "base32hex: whenever a five-bit group is emitted it is still the k-th group of the stream, "
              "and the trailing partial group is written with an expression that coincides with the loop's "
@@ -214,12 +109,6 @@ EQUIVALENT = {
         419: "the gateway name is serialized on its own, with no offset table at all",
         432: "parts[4..] of a four-element array is empty, and Convert.FromBase64String(\"\") is the empty array the other branch starts with",
     },
-    "DNS/ResourceRecords/URI.cs": {
-        192: "at this revision the guard was one octet loose — RFC 7553 §4.5 needs at least five — but the "
-             "empty target it let through was refused by URL.Parse on the next line, and both callers treat "
-             "the two refusals alike: an UnknownRecord on the wire, 'could not parse RDATA' in a zone file. "
-             "The guard has since been tightened to state the rule; the behaviour is the same",
-    },
     "DNS/ResourceRecords/SRV/DNSSRVCacheEntry.cs": {
         50: "the boundary is one instant of the system clock, and no test can place Timestamp.Now exactly on it",
     },
@@ -231,19 +120,10 @@ EQUIVALENT = {
 }
 
 # Lines a fix removed. The verdict was measured on code that is no longer there,
-# so neither "killed" nor "equivalent" would be a true thing to write down.
-SUPERSEDED = {
-    "DNS/ResourceRecords/SIG.cs": {
-        265: "finding 55 replaced this condition with a call to the reader RRSIG already had, so SIG no longer "
-             "has a type-covered parser of its own to get wrong",
-        266: "the same line, and the TYPE0 special case with it: type 0 has no mnemonic, so the general rule "
-             "writes and reads it like any other",
-    },
-    "DNS/ResourceRecords/SRV/DNSSRVEndpoint.cs": {
-        272: "the body of the Equals that returned false unconditionally. The boundaries round replaced it with "
-             "a seven-field comparison, and the mutants of that replacement (162, 177, 192, 207) were killed there",
-    },
-}
+# so neither "killed" nor "equivalent" would be a true thing to write down. The
+# first measurement had three; at 38f6a355 none of their lines carries a
+# survivor, so there is nothing here to supersede.
+SUPERSEDED = {}
 
 def listed(entries, line, operator, occurrence):
     for entry in ((line, operator, occurrence), (line, operator), line):
