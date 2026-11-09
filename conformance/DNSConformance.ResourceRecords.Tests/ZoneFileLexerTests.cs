@@ -67,6 +67,12 @@ public class ZoneFileLexerTests
     [TestCase("\"a\\098c\"",            "abc",             TestName = "\\098 is the octet 98, which is 'b'")]
     [TestCase("\"v=spf1 -all\"",        "v=spf1 -all",     TestName = "a policy with nothing to escape")]
     [TestCase("\"\\032\"",              " ",               TestName = "\\032 is a blank inside a character-string")]
+    // \X quotes one character even when two digits follow it: the three digits
+    // that make \DDD have to stand right behind the backslash.
+    [TestCase("\"\\;12\"",              ";12",             TestName = "\\; before two digits quotes the semicolon alone")]
+    // 255 is the largest octet there is. This type holds text, so the octet
+    // comes out as the code point of the same number (finding 56's limit).
+    [TestCase("\"a\\255b\"",            "a\u00FFb",        TestName = "\\255 is the largest octet, and still one")]
     public void An_Escape_Denotes_What_It_Quotes(String Written, String Meant)
     {
 

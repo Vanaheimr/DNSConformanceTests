@@ -250,6 +250,16 @@ unsigned refusal (RFC 8945 §5.2.1, §5.2.2, §5.3.2), and with the same key it
 signs a BADTIME one (§5.2.3). Hermod passed it already. With it the Dnssec
 project is 376 ✅ · 0 ❌ · 4 skips, and the offline suite 1892 ✅ · 0 ❌ · 4 skips.
 
+And the cases the resource-record block asked for when it was measured again
+(MUTATION.md, *Eight of fifteen*): eight. An SSHFP in RFC 3597 §5's generic
+form is the same record as in its own (RFC 4255 §3.1.3, RFC 6594 §3), and a
+DHCID of exactly its header has its two type codes in base64 as well (RFC 4701
+§3.5). A signature time at the epoch and at the last second 32 bits can count
+is read, and one second past either end is refused (RFC 4034 §3.2). A `\X`
+quotes one character even when two digits follow it, and `\255` is one octet
+(RFC 1035 §5.1). Hermod passed them all already. With them the ResourceRecords
+project is 570 ✅ · 0 ❌, and the offline suite 1900 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

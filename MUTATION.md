@@ -29,7 +29,7 @@ test project that exercises each:
 
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
-| `records` | `DNS/ResourceRecords` without the three files of `svcparam` | ResourceRecords | 615 | measured twice, **15 open** |
+| `records` | `DNS/ResourceRecords` without the three files of `svcparam` | ResourceRecords | 615 | measured twice, **7 open** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 480 | measured twice, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 324 | measured three times, **1 open** |
@@ -147,7 +147,7 @@ neither.
 
 | block | real gaps | of those open | host-only |
 |---|---:|---:|---:|
-| `records` | 57 | **15** | 2 |
+| `records` | 57 | **7** | 2 |
 | `core` | 18 | 0 | 1 |
 | `dnssec` | 13 | **1** | 19 |
 | `tsig` | 22 | **2** | — |
@@ -613,6 +613,32 @@ round of tests that follows this measurement:
   text with the quotes taken off.** `"a\256b"` becomes the six characters
   `a\256b`, and a string whose closing quote is escaped is taken as it stands.
   `TXT.cs:564`, `:575`, `:588` and `:589` are those refusals.
+
+### Eight of fifteen
+
+Six cases, for the eight rows a test reaches without a fix. Planted on its own
+at `38f6a355`, each mutant fails the case written for it and nothing else:
+
+| row | the case that kills it |
+|---|---|
+| `SSHFP.cs:169`, `:172` | `A_Fingerprint_In_The_Generic_Form_Is_The_Same_Record`: a valid SHA-1 and SHA-256 fingerprint in RFC 3597 §5's generic form |
+| `DHCID.cs:191` | `A_Dhcid_Of_Exactly_Its_Header_Has_An_Empty_Digest`, written in base64 now as well as in the generic form |
+| `ADNSResourceRecord.cs:832`, both | `A_Signature_Time_At_Either_End_Of_The_Field_Reads`: `19700101000000` and `21060207062815` |
+| `TXT.cs:565`, `:566` | `"\;12"` is `;12`: a `\X` quotes one character even when two digits follow it |
+| `TXT.cs:574` | `"a\255b"`: 255 is the largest octet there is, and still one |
+
+Two cases more go to the refusal of a signature time outside the field: the
+seconds just past either end, so both sides of each comparison are asked.
+
+The ledger keys this round by operator. An entry that names an operator and
+matches no open row stops `make_closed.py`, so the first ledger's mistake cannot
+be made in it.
+
+The seven left are the three things above. `ADNSResourceRecord.cs:690` and
+`RRSIG.cs:291` are the mnemonic readers, `URI.cs:199` is the guard in front of
+the URL parse, and `TXT.cs:564`, `:575`, `:588` and `:589` are the quoted
+reader's refusals. A test can kill each of them only by asking what the reader
+ought to do in those cases, and at `38f6a355` it does something else.
 
 ### What the first measurement's chapter now is
 
@@ -6381,7 +6407,7 @@ not make was recorded as a statement about the code.**
 ## Standing state
 
 This section is the first measurement's. The block was measured a second time,
-at `38f6a355`, and what `standing.py` prints now is that one: **15 open** (*The
+at `38f6a355`, and what `standing.py` prints now is that one: **7 open** (*The
 result: the resource records, measured again*). The first measurement's results
 are in `build/mutation/results/records-973fed31/`.
 

@@ -21,13 +21,27 @@ OUT        = os.path.join(HERE, "results", "records-closed.tsv")
 
 # Line numbers as the sweep measured them, at Hermod 38f6a355.
 #
-# Nothing is listed as killed. Every row the first measurement's rounds closed
-# by a test dies again in one of the two passes — except seven, which those
-# rounds had claimed by line: a test killed one operator on the line and the
-# entry named the line, so a second operator on it was closed unseen. Those
-# seven are open here, as the sweep found them. MUTATION.md, "The result: the
-# resource records, measured again", lists them.
-KILLED = {}
+# Every row the first measurement's rounds closed by a test dies again in one
+# of the two passes — except seven, which those rounds had claimed by line: a
+# test killed one operator on the line and the entry named the line, so a
+# second operator on it was closed unseen. MUTATION.md, "The result: the
+# resource records, measured again", lists them. So every entry here names its
+# operator, and an entry that names one matching no open row stops the script.
+KILLED = {
+
+    # The rows a test could reach without a fix: SSHFP in RFC 3597 §5's generic
+    # form, a DHCID of exactly its header in base64, the two ends of a signature
+    # time, \X before two digits, and \255. Each was planted on its own and
+    # fails its own test and nothing else.
+    "the-open-rows-a-test-reaches": {
+        "DNS/ResourceRecords/SSHFP.cs":              {(169, "logical-and-to-or"), (172, "logical-and-to-or")},
+        "DNS/ResourceRecords/DHCID.cs":              {(191, "ge-to-greater")},
+        "DNS/ResourceRecords/ADNSResourceRecord.cs": {(832, "less-to-less-or-equal"), (832, "greater-to-ge")},
+        "DNS/ResourceRecords/TXT.cs":                {(565, "logical-and-to-or"), (566, "logical-and-to-or"),
+                                                      (574, "greater-to-ge")},
+    },
+
+}
 
 # Mutations that are real and unobservable: the program is the same either way.
 # Read again against 38f6a355. The first measurement argued all of them but the
