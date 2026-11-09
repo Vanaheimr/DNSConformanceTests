@@ -1671,6 +1671,113 @@ STREAMS_EQUIVALENT = {
 STREAMS_SUPERSEDED = {}
 
 
+# The 'presentation' slice: ADNSResourceRecord.cs, RRSIG.cs, SPF.cs, TXT.cs and
+# URI.cs swept at cf1e9954, the revision that fixed findings 98 to 100 with a
+# mnemonic looked up by its name, URI's target as text, and one reader for
+# every character-string. The records block was measured at 38f6a355, before
+# any of it existed, and its ledger is make_closed.py's. Line numbers are
+# cf1e9954's.
+#
+# 190 mutants. 42 left pass 1 without a kill: 35 survived and 7 never finished.
+# Pass 2 killed two of the seven, and two more never finished there either.
+# The other three survived the seven other projects, which says nothing about
+# the judge, and were planted again by hand. They and the two never come back
+# (MUTATION.md, "Five that never come back"), so the classification has 5 rows
+# without a verdict and 18 real gaps. Of the 18, thirteen are the records
+# block's equivalents on their new lines, and five are new code that one round
+# of tests kills.
+
+PRESENTATION_KILLED = {
+
+    # Google's JSON API hands over a TXT's text bare, and a text that starts
+    # with a quote and does not read as character-strings to the end is that
+    # text (TXT.IsPresentationFormat). The reader's refusals are what tell the
+    # two apart, and every refusal the suite asked for came from a zone file,
+    # whose TryParseZoneFile turns an exception into the same null. Through
+    # TryParseFromJSON the mutants lose the record: 716 and 735's >= throw
+    # IndexOutOfRangeException for a backslash at the end and for two digits
+    # at the end, and 682 says it read a bad escape and hands back no strings,
+    # which the constructor refuses. TxtRejectionTests,
+    # A_Data_Field_That_Is_Not_A_List_Of_Quoted_Strings_Is_One_Text.
+    "google-text-the-reader-cannot-finish": {
+        "DNS/ResourceRecords/TXT.cs": {(682, "false-to-true"), (716, "ge-to-greater"),
+                                       (735, "ge-to-greater")},
+    },
+
+    # RFC 1035 section 5.1's \DDD has three digits, and the guard checks the two
+    # after the first. The suite's "\1x" has both wrong and its "\12" has the
+    # closing quote third, which the outer mutant takes into the escape and
+    # then refuses the line for the string that never ends. "\1 2" has only the
+    # second wrong and "\12 b" only the third. BIND 9.20 refuses both as
+    # "syntax error". ZoneFileLexerTests,
+    # A_Character_String_The_Reader_Cannot_Finish_Is_Refused.
+    "both-characters-after-the-first-digit": {
+        "DNS/ResourceRecords/TXT.cs": {(735, "logical-or-to-and"), (736, "logical-or-to-and")},
+    },
+
+}
+
+PRESENTATION_EQUIVALENT = {
+
+    # The records block's equivalents at 38f6a355, read again against cf1e9954.
+    # The mnemonic lookup put 41 lines in front of the last six; the code they
+    # sit in, and what their arguments lean on, did not change.
+    "DNS/ResourceRecords/ADNSResourceRecord.cs": {
+
+        (244, "false-to-true"): "Record is null in InTheClassTheLineStated. Both call sites "
+            "ask whether the record is null before calling, so the null check inside is one "
+            "the caller has already made",
+
+        (567, "false-to-true"): "UseCompression in RDataOf. Serialize is called with no offset "
+            "table, and DomainName.Serialize starts a fresh empty one per name, so nothing is "
+            "ever in it to point at",
+
+        (572, "less-to-less-or-equal"): "the owner name of a record RDataOf has just serialized "
+            "always ends in a root label, so the walk cannot reach the end of the buffer",
+
+        (622, "false-to-true"): "UseCompression in ReadBackFromWire. The name is the first thing "
+            "written into a fresh stream with an empty table",
+
+        (1130, "false-to-true"): "the class check after the RDATA. InTheClassTheLineStated "
+            "reads a record in another class back through the wire form with the stated "
+            "class, and TKEY and TSIG are built in it, so a record reaching this line is "
+            "already in the class the line stated",
+
+        (1203, "le-to-less"): "TypeBitMapContains. A window header at the very end of the "
+            "buffer carries no bitmap, so entering it and skipping it both end in false",
+
+        (1247, "less-to-less-or-equal"): "DecodeTypeBitMaps. Entering the loop at the end of "
+            "the bitmap breaks at the window-header check two lines below",
+
+        (1250, "greater-to-ge"): "DecodeTypeBitMaps. A window header with nothing behind it "
+            "adds no types whether the loop leaves here or at the bitmap-length check",
+
+        (1263, "less-to-less-or-equal"): "DecodeTypeBitMaps. 0x80 >> 8 is zero, so the ninth "
+            "pass masks nothing and adds nothing",
+
+        (1428, "false-to-true"): "UseCompression in the owner rewrite: the new owner goes "
+            "first, into an empty stream with an empty table",
+
+    },
+
+    "DNS/ResourceRecords/TXT.cs": {
+
+        (530, "greater-to-ge"): "SplitText's last string. An empty text returns before the "
+            "loop, and every other text leaves its last rune in the builder, so the builder "
+            "is never empty here",
+
+        (586, "less-to-less-or-equal"): "ParseKeyValues. equals is 0 only when the text starts "
+            "with '=', which the loop skipped five lines earlier",
+
+        (587, "less-to-less-or-equal"): "the same: position zero is unreachable here",
+
+    },
+
+}
+
+PRESENTATION_SUPERSEDED = {}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
@@ -1680,6 +1787,7 @@ LEDGERS = {
     "multicast": (MULTICAST_KILLED, MULTICAST_EQUIVALENT, MULTICAST_SUPERSEDED),
     "svcparam": (SVCPARAM_KILLED, SVCPARAM_EQUIVALENT, SVCPARAM_SUPERSEDED),
     "streams": (STREAMS_KILLED, STREAMS_EQUIVALENT, STREAMS_SUPERSEDED),
+    "presentation": (PRESENTATION_KILLED, PRESENTATION_EQUIVALENT, PRESENTATION_SUPERSEDED),
 }
 
 

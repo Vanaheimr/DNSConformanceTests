@@ -177,17 +177,28 @@ public class ZoneFileLexerTests
     // a digit", and \X take "any character other than a digit". So a backslash
     // and a digit are three digits or nothing the RFC defines, 256 is no octet,
     // and a backslash at the end of a string quotes nothing. A quoted string
-    // also ends in a quote. BIND 9.20 refuses each of these lines: the first
-    // three as "syntax error", the backslash at the end as "unexpected end of
-    // input", and the last two as "unbalanced quotes".
+    // also ends in a quote. BIND 9.20 refuses each of these lines: the five
+    // with a digit after the backslash and the \256 without quotes as "syntax
+    // error", the backslash at the end as "unexpected end of input", and the
+    // two strings that never end as "unbalanced quotes".
     //
     // Hermod's quoted reader refused them as well, and then the TXT reader read
     // the text a second time as if it were unquoted, with its outer quotes
     // trimmed: "a\256b" came out as the six characters a\256b, backslash and
     // all, which is finding 56 again on the path that finding left.
+    //
+    // The sweep at cf1e9954 showed that "\1x" and "\12" cannot tell a reader
+    // that checks both characters after the first digit from one that checks
+    // only the third, or that refuses only when both are wrong. In "\1x" both
+    // are wrong. In "\12" the third is the closing quote, and a reader that
+    // takes it into the escape loses the end of the string and refuses the
+    // line for that instead. "\1 2" has only the second character wrong, and
+    // "\12 b" only the third.
     [TestCase("\"a\\256b\"", TestName = "{m}: \\256, which is no octet")]
     [TestCase("\"a\\1x\"",   TestName = "{m}: a backslash and one digit")]
     [TestCase("\"a\\12\"",   TestName = "{m}: a backslash and two digits")]
+    [TestCase("\"a\\1 2\"",  TestName = "{m}: a backslash, one digit, a blank and a digit")]
+    [TestCase("\"a\\12 b\"", TestName = "{m}: a backslash, two digits and a blank")]
     [TestCase("\"ab\\",      TestName = "{m}: a backslash with nothing behind it")]
     [TestCase("\"ab\\\"",    TestName = "{m}: the closing quote quoted, so the string never ends")]
     [TestCase("\"abc",       TestName = "{m}: no closing quote")]

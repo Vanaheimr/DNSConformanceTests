@@ -38,18 +38,21 @@ test project that exercises each:
 | `server` | `DNS/Server` | Server | 414 | measured twice, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
+| `presentation` | `ADNSResourceRecord.cs`, `RRSIG.cs`, `SPF.cs`, `TXT.cs` and `URI.cs` in `DNS/ResourceRecords` | ResourceRecords | 190 | a slice, measured once, **closed**, 5 that never finish |
 
-The last two rows are not blocks. They are the files a fix rewrote after its
+The last three rows are not blocks. They are the files a fix rewrote after its
 block had been measured, swept again at the fix's revision with the block's
 judge, and given ledgers of their own: findings 88 and 89 rewrote the SvcParam
 presentation, and finding 87 the TCP and TLS clients' queries. Findings 90 to
 92 changed both again, and both were swept a second time at the fixes' revision.
 Vanaheimr/Hermod#219 changed the stream clients a third time, and the `streams`
-slice was swept again at its revision. The counts in the table are each slice's
-latest measurement. See *The result: the stream clients after #219*, *The
-result: both slices again, after findings 90 to 92*, and before them *The
-result: the stream clients, measured* and *The result: the SvcParam
-presentation, measured again*.
+slice was swept again at its revision. Findings 98 to 100 changed five files of
+the `records` block after its second measurement, and the `presentation` slice
+measured them at the fixes' revision. The counts in the table are each slice's
+latest measurement. See *The result: the presentation readers of findings 98 to
+100*, *The result: the stream clients after #219*, *The result: both slices
+again, after findings 90 to 92*, and before them *The result: the stream
+clients, measured* and *The result: the SvcParam presentation, measured again*.
 
 One line of `sweep_folder.py` runs any of them. The `multicast` row used to carry
 a warning here: its judge had **four tests** for 598 mutable places, so whatever
@@ -432,6 +435,170 @@ measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
 
+## The result: the presentation readers of findings 98 to 100
+
+Hermod `cf1e9954` fixed findings 98 to 100 after the `records` block had been
+measured a second time, and the code it brought had not been swept:
+- the mnemonic lookup `TryParseMnemonic`;
+- URI's target as text;
+- `TryParseCharacterStrings`, the one reader of every character-string, with
+  its escapes. TXT and SPF share it, and so do TXT's JSON reader and its
+  zone-file reader.
+
+Sweeping the block again for this code would have measured 615 mutants to learn
+about the few dozen the fix brought. The `presentation` slice is therefore the
+five files `cf1e9954` changed in `DNS/ResourceRecords`. It was swept at that
+revision, which is the suite's pin, with the block's judge and the same two
+passes. The `records` ledger stays keyed to `38f6a355`, and its rows on these
+five files are true of the code they were measured on.
+
+| | |
+|---|---:|
+| mutants | 190 |
+| not viable (would not compile) | 18 |
+| killed by ResourceRecords, pass 1 | 130 |
+| no verdict in pass 1 | 7 |
+| killed by another project | 2 |
+| survived everywhere | 35 |
+| not really code | 17 |
+| no verdict, after a recheck by hand | 5 |
+| real gaps | **18** |
+| killed by a test written for them | 5 |
+| equivalent | 13 |
+| open | **0** |
+
+By file, the 190 are:
+
+| file | mutants |
+|---|---:|
+| `ADNSResourceRecord.cs` | 123 |
+| `TXT.cs` | 48 |
+| `RRSIG.cs` | 11 |
+| `URI.cs` | 5 |
+| `SPF.cs` | 3 |
+
+The mnemonic lookup is a dictionary and has no mutant that compiles. The class,
+type and bitmap readers that call it lose all six of theirs in pass 1, and so
+does every mutant of `URI.cs`, `SPF.cs` and `RRSIG.cs` that is code. The 17 not
+code are:
+- `[NotNullWhen]` arguments;
+- `UseCompression = true` defaults;
+- the `#region` lines that repeat those defaults.
+
+What is left is `TXT.cs`, and in it the character-string reader.
+
+### Five that never come back
+
+A mutant gets ten times the clean run, which is 120 s for this judge. Seven did
+not finish in it, and all seven are in `TryParseCharacterStrings` and
+`TryParseEscape`. In each, the reader's loop stops moving forward.
+
+Pass 2 killed two of them in the Client project, whose DoH tests read
+Cloudflare's quoted TXT data:
+- `TXT.cs:646`, `while (true)` never entered: 9 of 262 failed;
+- `TXT.cs:675`, `&&`→`||`, where every character ends an unquoted string: 2 of
+  262 failed.
+
+The other five were planted one at a time, with the new tests below in place.
+`ZoneFileLexerTests` was run on its own with a bound of 600 s:
+
+| | with the mutant |
+|---|---|
+| `TXT.cs:639` `==`→`!=` | **still running after 600 s** |
+| `TXT.cs:663` `==`→`!=` | **still running after 600 s** |
+| `TXT.cs:717` `false`→`true` | **still running after 600 s** |
+| `TXT.cs:739` `false`→`true` | **still running after 600 s** |
+| `TXT.cs:747` `false`→`true` | **still running after 600 s** |
+
+`:639` and `:663` break every quoted string. `:639` takes its opening quote for
+the end of an unquoted string, and `:663` takes every character but a quote for
+the end of one. Either way, the reader adds an empty string and does not move.
+`:717`,
+`:739` and `:747` are the escape refusals. `TryParseEscape` says it read the
+escape it refused, without moving past it, and the reader asks it again for
+ever. The suite reaches each of these refusals: the backslash at the end, the
+backslash with fewer than three digits, and `\256` are all cases in
+`ZoneFileLexerTests`.
+
+This is the `svcparam` slice's verdict again (*Three that never come back*).
+The five stay TIMED-OUT, because nothing more is true. A test with a deadline
+would not change that, because every other test that reads such a line would
+hang beside it. The pass-1 rows record the recheck.
+
+Pass 2's rows for `:717`, `:739` and `:747` say TIMED-OUT now too, as
+`svcparam`'s do. SURVIVED-EVERYWHERE is true of the other seven projects and
+says nothing about the judge. `presentation-pass2.tsv.before-timeout-recheck`
+keeps what the sweep measured.
+
+### Thirteen equivalents, on new lines
+
+The `records` block's ten equivalents in `ADNSResourceRecord.cs` and three in
+`TXT.cs` survive here again:
+- Four ADNS lines kept their numbers.
+- The other six ADNS lines are 41 lines further down, behind the mnemonic
+  lookup.
+- TXT's 459, 515 and 516 are 530, 586 and 587.
+
+Each was read again against `cf1e9954`, along with what its argument leans on:
+- Both call sites of `InTheClassTheLineStated` still ask for a record before
+  calling it.
+- `RDataOf`, `ReadBackFromWire` and the owner rewrite still write into fresh
+  streams with empty tables.
+- The type bitmap's two walkers did not change.
+- TXT's `SplitText` and `ParseKeyValues` did not change either.
+
+### Five new, and two kinds of case
+
+The five real gaps the fix brought are in `TryParseEscape` and the line that
+calls it, and the suite reached every one of them. It never asked what the
+reader does when it goes wrong in a way that still ends in a refusal.
+
+**Three are refusals turned into something else:**
+- `:682` says it read a bad escape, and hands back no strings.
+- `:716` reads a backslash at the end one character past it.
+- `:735` `>=`→`>` reads two digits at the end one character past them.
+
+On a zone-file line, all three end where the original does. `TryParseZoneFile`
+catches the exception, or the constructor's refusal of no strings, and returns
+null. Through `TryParseFromJSON` they do not. Google's JSON API hands over a
+TXT's text bare, and a text that begins with a quote and does not read as
+character-strings to the end is that text: the reader's refusal is what keeps
+it. With the mutants, the record is lost. Three cases in `TxtRejectionTests`
+now give Google's text with a backslash the presentation format cannot read:
+`"ab\`, `"a\12` and `"a\256b"`.
+
+**Two are the `\DDD` guard's `||`s.** The guard checks the two characters after
+the first digit. The suite's `"\1x"` and `"\12"` cannot tell it from a guard
+that checks only the third character, or that refuses only when both are wrong:
+- In `"\1x"` both are wrong.
+- In `"\12"` the third is the closing quote. A reader that takes it into the
+  escape loses the end of the string, and refuses the line for that instead.
+
+`"\1 2"` has only the second character wrong, and `"\12 b"` only the third.
+BIND 9.20 refuses both as "syntax error".
+
+Each mutant was planted on its own at `cf1e9954`, and each fails only the cases
+written for it:
+
+| row | fails |
+|---|---|
+| `TXT.cs:682` | the three JSON cases |
+| `TXT.cs:716` | `"ab\` |
+| `TXT.cs:735` `>=`→`>` | `"a\12` |
+| `TXT.cs:735` `\|\|`→`&&` | `"\1 2"`, and `"a\12`, where it reads past the end |
+| `TXT.cs:736` `\|\|`→`&&` | `"\1 2"` and `"\12 b"` |
+
+The ledger keys the round by operator. `standing.py presentation` reports
+nothing open and five rows without a verdict.
+
+### What this slice does not measure
+
+`DNSHTTPSClient.cs` turns Google's bare TXT text into the presentation format
+with `TXT.PresentationOf` before its zone-file reader sees it. That call is in
+the `client` block. That block is stale since `cf1e9954` and the commits before
+it, and `NameResolution.cs` is new there.
+
+
 ## The result: the resource records, measured again
 
 The first measurement of this block, at `973fed31`, ended closed (*The result:
@@ -658,7 +825,8 @@ the block is **closed** again.
 It is closed for the code it measured. The fixes brought new code that no sweep
 has seen: `TryParseMnemonic`, `TryParseCharacterStrings` with its escapes, and
 URI's target as text. Measuring it is a slice's job, as `svcparam` was for the
-code Vanaheimr/Hermod#191 moved.
+code Vanaheimr/Hermod#191 moved, and the `presentation` slice has measured it
+(*The result: the presentation readers of findings 98 to 100*, above).
 
 ### What the first measurement's chapter now is
 

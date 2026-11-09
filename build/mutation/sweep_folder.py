@@ -95,6 +95,13 @@ BLOCKS = {
                       only=("DNSTCPClient.cs", "DNSTLSClient.cs",
                             "DNSStreamPipeline.cs", "DNSKeepalivePolicy.cs")),
 
+    # The five files of the resource records that Hermod cf1e9954 changed for
+    # findings 98 to 100: the mnemonic lookup, URI's target as text, and one
+    # reader for every character-string, which TXT and SPF share. The records
+    # block was measured at 38f6a355, before any of it existed.
+    "presentation": dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords",
+                         only=("ADNSResourceRecord.cs", "RRSIG.cs", "SPF.cs", "TXT.cs", "URI.cs")),
+
 }
 
 FAILED = re.compile(r"(?:Fehler|Failed):\s*(\d+)")

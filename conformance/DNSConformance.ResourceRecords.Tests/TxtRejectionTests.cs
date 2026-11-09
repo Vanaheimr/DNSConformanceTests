@@ -103,12 +103,23 @@ public class TxtRejectionTests
     // (Google), and Google's text may itself begin with a quote. Data that does
     // not start with one, or does and does not read as character-strings to
     // the end, is that text: refusing to split is not refusing to parse.
+    //
+    // Google's text may also hold a backslash that no escape of the
+    // presentation format reads: one at the end, two digits at the end, or
+    // \256. The sweep at cf1e9954 found that a reader which threw on these
+    // instead of refusing them, or which said it had read them and handed
+    // back nothing, lost the record, and no test noticed. Every such refusal
+    // the suite asked for came from a zone file, whose reader turns an
+    // exception into the same refusal.
     [TestCase("plain text",            TestName = "no quotes at all")]
     [TestCase("",                      TestName = "nothing at all")]
     [TestCase("   ",                   TestName = "whitespace only")]
     [TestCase("x \"a\" \"b\"",         TestName = "a word before the first quote")]
     [TestCase("\"unterminated",        TestName = "a quote that is never closed")]
     [TestCase("\"a\" \"unterminated",  TestName = "the second string never closed")]
+    [TestCase("\"ab\\",                TestName = "a quote, and a backslash at the end")]
+    [TestCase("\"a\\12",               TestName = "a quote, and a backslash and two digits at the end")]
+    [TestCase("\"a\\256b\"",           TestName = "a quote, and \\256, which is no octet")]
     public void A_Data_Field_That_Is_Not_A_List_Of_Quoted_Strings_Is_One_Text(String Data)
     {
 

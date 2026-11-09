@@ -275,6 +275,18 @@ backslash, and two read JSON data that mixes quoted and bare strings as one
 text. The four now say what BIND says. With them the ResourceRecords project is
 609 ✅ · 0 ❌, and the offline suite 1939 ✅ · 0 ❌ · 4 skips.
 
+And the cases the readers of those three fixes asked for when they were measured
+(MUTATION.md, *The result: the presentation readers of findings 98 to 100*):
+five.
+- A `\DDD` with only its second or only its third character wrong is refused,
+  as BIND refuses it (RFC 1035 §5.1).
+- Google's JSON text for a TXT can begin with a quote and hold a backslash that
+  no escape reads: at the end, before two digits at the end, or as `\256`. It
+  is that one text, and not nothing.
+
+Hermod passed them all already. With them the ResourceRecords project is
+614 ✅ · 0 ❌, and the offline suite 1944 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
