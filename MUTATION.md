@@ -638,7 +638,8 @@ The seven left are the three things above. `ADNSResourceRecord.cs:690` and
 `RRSIG.cs:291` are the mnemonic readers, `URI.cs:199` is the guard in front of
 the URL parse, and `TXT.cs:564`, `:575`, `:588` and `:589` are the quoted
 reader's refusals. A test can kill each of them only by asking what the reader
-ought to do in those cases, and at `38f6a355` it does something else.
+ought to do in those cases, and at `38f6a355` it does something else. Those
+are findings 98, 99 and 100, whose trackers are red until Hermod changes.
 
 ### What the first measurement's chapter now is
 

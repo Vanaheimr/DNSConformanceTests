@@ -3,6 +3,8 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
+
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -164,6 +166,37 @@ public class ZoneFileLexerTests
             Assert.That(txt!.Text,            Is.EqualTo("a\"  b"), "two blanks, both of them data");
         });
 
+    }
+
+    #endregion
+
+
+    #region A quoted string that is not one (RFC 1035 §5.1 — finding 100)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1035 §5.1")]
+    // RFC 1035 §5.1 has a backslash before a digit start \DDD, "where each D is
+    // a digit", and \X take "any character other than a digit". So a backslash
+    // and a digit are three digits or nothing the RFC defines, 256 is no octet,
+    // and a backslash at the end of a string quotes nothing. A quoted string
+    // also ends in a quote. BIND 9.20 refuses each of these lines: the first
+    // three as "syntax error", the backslash at the end as "unexpected end of
+    // input", and the last two as "unbalanced quotes".
+    //
+    // Hermod's quoted reader refused them as well, and then the TXT reader read
+    // the text a second time as if it were unquoted, with its outer quotes
+    // trimmed: "a\256b" came out as the six characters a\256b, backslash and
+    // all, which is finding 56 again on the path that finding left.
+    [TestCase("\"a\\256b\"", TestName = "{m}: \\256, which is no octet")]
+    [TestCase("\"a\\1x\"",   TestName = "{m}: a backslash and one digit")]
+    [TestCase("\"a\\12\"",   TestName = "{m}: a backslash and two digits")]
+    [TestCase("\"ab\\",      TestName = "{m}: a backslash with nothing behind it")]
+    [TestCase("\"ab\\\"",    TestName = "{m}: the closing quote quoted, so the string never ends")]
+    [TestCase("\"abc",       TestName = "{m}: no closing quote")]
+    public void A_Quoted_String_The_Reader_Cannot_Finish_Is_Refused(String Written)
+    {
+        Refuse($"probe.example. 3600 IN TXT {Written}");
     }
 
     #endregion

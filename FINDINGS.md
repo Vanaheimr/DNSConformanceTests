@@ -1,10 +1,12 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. Ninety-seven RFC deviations in the Hermod DNS stack, each
+What this suite caught. One hundred RFC deviations in the Hermod DNS stack, each
 with chapter and verse, the mechanism, the fix, and the test that now pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last three is fixed and every one is defended by a
+test — so this reads as a record, not a backlog. Findings 98 to 100, which the
+records block's second mutation sweep turned up, are open, and their trackers
+are red on purpose. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -113,6 +115,9 @@ what is queued, what is out of scope — are not here at all; they live in
 | 95 | A record a browser kept alive was asked for once, at 80 % | Low (recommendation) | 6762 §5.2 | ✅ fixed |
 | 96 | Records of another class answered lookups and made instances | Low | 1034 §3.7.1 | ✅ fixed |
 | 97 | A browser took its own IPv6 query for another host's, and skipped every second query | Low (SHOULD) | 6762 §7.3, §5.2 | ✅ fixed |
+| 98 | A TTL that a class has the number of is read as that class, and a list of mnemonics as one | Medium | 1035 §5.1, 3597 §5 | ⏳ **open** |
+| 99 | A URI record's target is read as an HTTP URL | Medium | 7553 §4.4, 3597 §3 | ⏳ **open** |
+| 100 | A quoted TXT string the reader refuses is read again, unquoted | Low | 1035 §5.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5691,6 +5696,189 @@ local addresses. `LocalAddresses` is unchanged: it is what a caller may advertis
 Hermod's own `Browser_DoesNotTakeItsOwnIPv6QueryForAnotherHosts` browses over the
 host's sockets and counts four queries where the old check let two through. Merged as
 [`d906af2d`](https://github.com/Vanaheimr/Hermod/commit/d906af2d08c4660dc5dcf4b9d15fc23ffee9d675), a fast-forward of Hermod's master.
+
+---
+
+## 98 — A TTL that a class has the number of is read as that class, and a list of mnemonics as one
+
+*RFC 1035 §5.1* writes a record as `[<TTL>] [<class>] <type> <RDATA>` or
+`[<class>] [<TTL>] <type> <RDATA>`, and says: "Class and type use the standard
+mnemonics, TTL is a decimal integer." *RFC 3597 §5* adds `CLASSnn` and `TYPEnnn`
+for the values that have no mnemonic, and gives the reason:
+
+> This convention allows types and classes to be distinguished from each other
+> and from TTL values, allowing the "[\<TTL\>] [\<class\>] \<type\> \<RDATA\>" and
+> "[\<class\>] [\<TTL\>] \<type\> \<RDATA\>" forms of [RFC1035] to both be
+> unambiguously parsed.
+
+Hermod's zone-file reader reads a class, and a type, with .NET's `Enum.TryParse`
+and then asks `Enum.IsDefined`:
+
+```csharp
+if (Enum.TryParse(Text, true, out Class) &&
+    Enum.IsDefined(Class))
+```
+
+`Enum.TryParse` takes more than names. It takes a decimal, and it takes a
+comma-separated list of names, whose values it combines with a bitwise OR.
+`IsDefined` then asks only whether the result has a name.
+
+- **A TTL that a class has the number of is read as that class.** The header
+  tries the class before the TTL. In `x.example. 1 IN A 192.0.2.1` the 1 is IN,
+  `IN` sets it again, and the TTL is never filled: the record comes out with
+  the caller's default, or with zero. In `x.example. 3 A 192.0.2.1` the 3 is CH,
+  and the record is in class CH. The same goes for 2 (CS), 4 (HS), 254 (NONE)
+  and 255 (ANY). That is finding 23 again. Its fix removed the class reader's own
+  fallback to a bare decimal, and its test used 3600, which no class has.
+  `Enum.TryParse` has a fallback of its own, for the six that have names.
+- **A list of mnemonics is read as one.** `A,MX` is 1 | 15, which is MX, and
+  `IN,CH` is 1 | 3, which is CH, so a header with either reads as a record of
+  that type or class. The same reader decides an RRSIG's and a SIG's Type
+  Covered, and a signature read from `RRSIG A,MX …` claims to cover MX. The type
+  bit map's reader does the same, and an NSEC read from `… NSEC next.example.
+  A,MX` asserts that an MX exists. `TypeMnemonicTests` already asked the bit map
+  about `A,NS`, and passed, because 1 | 2 is 3, which is MD, and Hermod has no
+  name for MD.
+
+BIND 9.20's `named-compilezone` reads the 3 and the 255 as TTLs, and refuses
+`A,MX` and `IN,CH` as "unknown RR type".
+
+**What it costs.** A zone that gives a record a TTL of one second, as a record
+meant to change quickly may have, publishes it with the zone's default or with
+zero. A TTL of three in front of a record with no class moves the record into
+class CH, where no query of class IN finds it. A comma between two mnemonics,
+which is a typo, becomes a record of a type nobody wrote, and under an NSEC a
+denial that asserts a type.
+
+**How it was found.** By the records block's second mutation sweep (MUTATION.md,
+*The result: the resource records, measured again*). `ADNSResourceRecord.cs:690`
+and `RRSIG.cs:291`, each `&&` read as `||`, survived. They differ from the
+original only for a token that `Enum.TryParse` reads as a value no type has.
+Asking which tokens those are turned up the ones it reads as values that do.
+
+**Repro**: `MnemonicSyntaxTests`, twelve cases, red at `38f6a355`: six TTLs,
+each in three header orders; `A,MX`, `IN,CH` and `In,Ch` in a header; `A,MX` as
+an RRSIG's and a SIG's Type Covered; and `A,MX` in an NSEC's bit map.
+
+**The fix**: ⏳ open.
+
+Severity is **Medium**, as finding 23's was. A valid line reads with the wrong
+TTL, or in the wrong class, and nothing says so.
+
+---
+
+## 99 — A URI record's target is read as an HTTP URL
+
+*RFC 7553 §4.4*: "This field holds the URI of the target, enclosed in
+double-quote characters ('"'), where the URI is as specified in RFC 3986".
+*§4.5* carries it on the wire as "the URI as a sequence of octets". And *RFC 3597
+§3*: "servers MUST also exactly preserve the RDATA of RRs of known type, except
+for changes due to compression or decompression where allowed by section 4 of
+this memo."
+
+Hermod's `URI` holds its target as a `URL`, the type of its HTTP layer, and both
+of its readers go through `URL.Parse`. That parser has two habits that serve an
+HTTP client and are wrong here:
+
+- **A text without `://` is given a scheme.** It runs
+  `Text = $"https://{Text}"` first. A URI of RFC 3986 needs no `//`, and four of
+  §1.1.2's eight examples have none. `mailto:John.Doe@example.com` comes out as
+  `https://mailto:John.Doe@example.com`, a different URI in different octets.
+  A target with no scheme, which is no URI, comes out as one: `example.com/x`
+  as `https://example.com/x`, and a target of one octet, `a`, as `https://a`.
+- **What it then cannot take apart as scheme, host and path is refused.**
+  `tel:+1-816-555-1212`, `news:comp.infosystems.www.servers.unix` and
+  `urn:oasis:names:specification:docbook:dtd:xml:4.1.2` are each refused, in
+  the presentation form and off the wire.
+
+BIND 9.20 reads all of these and writes them back as they were, including the
+two that are not URIs. RFC 7553's two MUSTs on the target are both about
+emptiness, §4.4's "MUST NOT be an empty URI" and §4.5's length "greater than
+zero", and that is what BIND enforces.
+
+**What it costs.** A URI record exists to publish a URI of any scheme, and the
+RFC's own wording (§4.4: "Resolution of the URI is according to the definitions
+for the Scheme of the URI") assumes the scheme survives. A resolver built on
+Hermod hands a client a mailto: it has rewritten into an https:, and drops the
+records whose scheme it cannot fit into a URL. A server built on it serves RDATA
+that is not what its zone holds, which RFC 3597 §3 forbids in so many words, and
+an RRSIG over the original octets no longer verifies over what it serves.
+
+**How it was found.** By the records block's second mutation sweep. `URI.cs:199`,
+`RDLength < 5` read as `<= 5`, survived: it refuses a target of one octet, and
+the original read one. Reading what the original made of it gave `https://a`.
+
+**Repro**: `UriTargetTests`, six cases red at `38f6a355`: the four examples of
+RFC 3986 §1.1.2 without `//`, a target with no scheme, and a target of one
+octet. Each is read in the presentation form or in the generic form, and its
+presentation and its octets are compared with what was written. The other four
+examples and RFC 7553 §5.1's own pass, and are the control.
+
+**The fix**: ⏳ open.
+
+Severity is **Medium**. It changes record content silently, which made finding
+56 High, but on a type far fewer zones carry than TXT.
+
+---
+
+## 100 — A quoted TXT string the reader refuses is read again, unquoted
+
+*RFC 1035 §5.1* gives a master file two escapes:
+
+> `\X` where X is any character other than a digit (0-9), is used to quote that
+> character so that its special meaning does not apply.
+
+> `\DDD` where each D is a digit is the octet corresponding to the decimal
+> number described by DDD.
+
+So a backslash and a digit are three digits or nothing §5.1 defines, `\256` is
+no octet, and a backslash at the end of a string quotes nothing. A quoted string
+also ends in a quote.
+
+Finding 56 gave TXT a quoted reader that knows this, and the reader refuses a
+`\DDD` above 255, a backslash at the end, and a string with no closing quote.
+But the TXT reader does not take that refusal for an answer:
+
+```csharp
+if (TryParseQuotedStrings(Data, out var quotedStrings))
+    return new TXT(Name, DNSQueryClasses.IN, TimeToLive, quotedStrings);
+
+return new TXT(Name, DNSQueryClasses.IN, TimeToLive, Data.Trim('"'));
+```
+
+The second line is meant for unquoted text, which §5.1 makes a single
+character-string with nothing to unescape. A quoted string the reader refused
+reaches it as well, and it trims the outer quotes and keeps the rest as it lies.
+`"a\256b"` comes out as the six characters `a\256b`, with the backslash, which
+is finding 56 again on the one path that finding left. And the quoted reader
+takes `\1` before a non-digit for `\X`, quoting the digit, although §5.1's `\X`
+is for a character other than a digit: `"a\1x"` comes out as `a1x`.
+
+BIND 9.20 refuses all six lines of the repro: three as "syntax error", the
+backslash at the end as "unexpected end of input", and the two whose string
+never ends as "unbalanced quotes".
+
+**What it costs.** Nothing for a line that is right. A line that is wrong is
+read as something, and what it is read as keeps backslashes and digits that the
+zone's author meant as an escape. The record is published with octets the
+author did not mean, where every other implementation refuses the zone and says
+on which line.
+
+**How it was found.** By the records block's second mutation sweep. Four rows of
+the quoted reader survived, `TXT.cs:564`, `:575`, `:588` and `:589`, and each of
+them is a refusal: the reader saying no in a different way, or saying yes with
+nothing to show. A refusal that is overruled one line later cannot be told from
+another refusal.
+
+**Repro**: `ZoneFileLexerTests.A_Quoted_String_The_Reader_Cannot_Finish_Is_Refused`,
+six cases red at `38f6a355`: `\256`, a backslash and one digit, a backslash and
+two digits, a backslash at the end, a closing quote that is quoted, and no
+closing quote.
+
+**The fix**: ⏳ open.
+
+Severity is **Low**. Only malformed lines are affected, and a zone that loads in
+Hermod and nowhere else is noticed when it is served by anything else.
 
 ---
 
