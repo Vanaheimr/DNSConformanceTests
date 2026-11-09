@@ -41,6 +41,16 @@ KILLED = {
                                                       (574, "greater-to-ge")},
     },
 
+    # URI's length guard, RDLength < 5 read as <= 5, which refuses a target of
+    # one octet. At 38f6a355 the original read that octet and the URL reader
+    # behind it made https://a of it, so nothing could ask for it. Finding 99's
+    # fix carries the target as written, and planted on the same line at Hermod
+    # cf1e9954 the mutant fails the one-octet case of UriTargetTests and
+    # nothing else.
+    "finding-99": {
+        "DNS/ResourceRecords/URI.cs":                {(199, "less-to-less-or-equal")},
+    },
+
 }
 
 # Mutations that are real and unobservable: the program is the same either way.
@@ -136,8 +146,24 @@ EQUIVALENT = {
 # Lines a fix removed. The verdict was measured on code that is no longer there,
 # so neither "killed" nor "equivalent" would be a true thing to write down. The
 # first measurement had three; at 38f6a355 none of their lines carries a
-# survivor, so there is nothing here to supersede.
-SUPERSEDED = {}
+# survivor. The six below are the open rows findings 98 and 100 removed, in
+# Hermod cf1e9954.
+SUPERSEDED = {
+    "DNS/ResourceRecords/ADNSResourceRecord.cs": {
+        690: "finding 98 replaced Enum.TryParse && Enum.IsDefined with a lookup of the mnemonic by its name, "
+             "so the type reader has no second condition left to join the wrong way",
+    },
+    "DNS/ResourceRecords/RRSIG.cs": {
+        291: "the same lookup, in the reader of a Type Covered",
+    },
+    "DNS/ResourceRecords/TXT.cs": {
+        564: "finding 100 replaced the quoted-string reader with one that reads every character-string, "
+             "quoted or not; its escapes are read by TryParseEscape, and no refusal is overruled afterwards",
+        575: "the refusal of a \\DDD above 255, in the reader finding 100 replaced",
+        588: "the refusal of a backslash at the end, in the reader finding 100 replaced",
+        589: "the same refusal",
+    },
+}
 
 def listed(entries, line, operator, occurrence):
     for entry in ((line, operator, occurrence), (line, operator), line):

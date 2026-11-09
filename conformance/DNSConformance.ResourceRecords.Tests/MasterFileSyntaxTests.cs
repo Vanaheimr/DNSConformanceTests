@@ -196,8 +196,12 @@ public class MasterFileSyntaxTests
 
         Assert.That(records!.Single(), Is.InstanceOf<TXT>());
 
+        // Two character-strings without quotes, and the escape is syntax, not
+        // data (finding 100): BIND 9.20 reads this line as "v=DKIM1;" "k=rsa".
+        // This test used to expect the one string v=DKIM1\; k=rsa, backslash
+        // and all, which is what Hermod's fallback for unquoted text made of it.
         Assert.That(((TXT) records.Single()).Strings,
-                    Is.EqualTo(new[] { "v=DKIM1\\; k=rsa" }),
+                    Is.EqualTo(new[] { "v=DKIM1;", "k=rsa" }),
                     "everything behind the escaped semicolon is still RDATA; had it " +
                     "started a comment, the record would end at the backslash");
 
@@ -261,8 +265,11 @@ public class MasterFileSyntaxTests
             Assert.That(records, Has.Count.EqualTo(1),
                         "the parenthesis after the escape still groups the three lines into one record");
 
+            // Two character-strings, has;semi and more, as BIND 9.20 reads them.
+            // This used to expect the one string has\;semi more, which is what
+            // Hermod's fallback for unquoted text made of it (finding 100).
             Assert.That(((TXT) records!.Single()).Strings,
-                        Is.EqualTo(new[] { "has\\;semi more" }),
+                        Is.EqualTo(new[] { "has;semi", "more" }),
                         "and the escaped semicolon is data inside it");
 
         });

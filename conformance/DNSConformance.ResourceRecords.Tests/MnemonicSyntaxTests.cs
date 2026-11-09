@@ -3,8 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -53,7 +51,6 @@ public class MnemonicSyntaxTests
     #region A bare decimal is a TTL, also where a class has that number (RFC 3597 §5 — finding 98)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "3597 §5")]
     [Property("RFC", "1035 §5.1")]
     [TestCase(  1, TestName = "{m}: 1, the number of IN")]
@@ -94,7 +91,6 @@ public class MnemonicSyntaxTests
     #region A list of names is not a name (RFC 1035 §5.1, RFC 4034 §3.2, §4.2 — finding 98)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §5.1")]
     [TestCase("x.example. 3600 IN A,MX 10 mail.example.", TestName = "{m}: a type, A,MX, which combines to MX")]
     [TestCase("x.example. 3600 IN,CH A 192.0.2.1",        TestName = "{m}: a class, IN,CH, which combines to CH")]
@@ -111,7 +107,6 @@ public class MnemonicSyntaxTests
     }
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4034 §3.2")]
     [TestCase("RRSIG", TestName = "{m}: an RRSIG")]
     [TestCase("SIG",   TestName = "{m}: a SIG")]
@@ -125,7 +120,6 @@ public class MnemonicSyntaxTests
     }
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4034 §4.2")]
     public void A_Comma_Separated_List_In_A_Type_Bit_Map_Names_No_Type()
     {

@@ -9,10 +9,12 @@ DNS/ResourceRecords/IPSECKEY.cs	419	false-to-true	equivalent		the gateway name i
 DNS/ResourceRecords/LOC.cs	331	ge-to-greater	equivalent		9e9 centimetres reduces through the loop to 9e0 as well, so both paths return 0x99	0
 DNS/ResourceRecords/NSEC3.cs	364	ge-to-greater	equivalent		base32hex: whenever a five-bit group is emitted it is still the k-th group of the stream, and the trailing partial group is written with an expression that coincides with the loop's at that offset — the same string comes out either way, which a test written to kill it proved by surviving	0
 DNS/ResourceRecords/OTP/EDNSExtendedDNSError.cs	247	greater-to-ge	equivalent		Array.Copy of zero octets is exactly what the skipped branch does	0
+DNS/ResourceRecords/RRSIG.cs	291	logical-and-to-or	superseded		the same lookup, in the reader of a Type Covered	0
 DNS/ResourceRecords/SRV/DNSSRVCacheEntry.cs	50	greater-to-ge	equivalent		the boundary is one instant of the system clock, and no test can place Timestamp.Now exactly on it	0
 DNS/ResourceRecords/SRV/SRVSpec.cs	77	logical-or-to-and	equivalent		the constructor is private and TryParse refuses a half, so the two identifiers are empty together or neither is — and || and && agree on both states	0
 DNS/ResourceRecords/SSHFP.cs	169	logical-and-to-or	killed	the-open-rows-a-test-reaches		0
 DNS/ResourceRecords/TXT.cs	459	greater-to-ge	equivalent		an empty text returns before the loop, and every other text leaves its last rune in the builder, so the builder is never empty here	0
+DNS/ResourceRecords/URI.cs	199	less-to-less-or-equal	killed	finding-99		0
 DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	equivalent		both call sites ask whether the record is null before calling, so the null check inside is one the caller has already made	0
 DNS/ResourceRecords/APL.cs	188	less-to-less-or-equal	equivalent		a slash at position 0 leaves an empty address the parser refuses twelve lines later	0
 DNS/ResourceRecords/IPSECKEY.cs	432	greater-to-ge	equivalent		parts[4..] of a four-element array is empty, and Convert.FromBase64String("") is the empty array the other branch starts with	0
@@ -41,12 +43,17 @@ DNS/ResourceRecords/ADNSResourceRecord.cs	572	less-to-less-or-equal	equivalent		
 DNS/ResourceRecords/DNAME.cs	372	greater-to-ge	equivalent		one name, and RFC 1035 §2.3.4 stops a name at 255 octets	0
 DNS/ResourceRecords/LOC.cs	468	less-to-less-or-equal	equivalent		idx is at most 3 and parts.Length at least 4	0
 DNS/ResourceRecords/OTP/OPT.cs	146	greater-to-ge	equivalent		ReadExactly of zero octets is exactly what the skipped branch does	0
+DNS/ResourceRecords/TXT.cs	564	less-to-less-or-equal	superseded		finding 100 replaced the quoted-string reader with one that reads every character-string, quoted or not; its escapes are read by TryParseEscape, and no refusal is overruled afterwards	0
 DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	equivalent		the name is the first thing written into a fresh stream with an empty table	0
 DNS/ResourceRecords/TXT.cs	565	logical-and-to-or	killed	the-open-rows-a-test-reaches		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	690	logical-and-to-or	superseded		finding 98 replaced Enum.TryParse && Enum.IsDefined with a lookup of the mnemonic by its name, so the type reader has no second condition left to join the wrong way	0
 DNS/ResourceRecords/TXT.cs	566	logical-and-to-or	killed	the-open-rows-a-test-reaches		0
 DNS/ResourceRecords/ADNSResourceRecord.cs	832	less-to-less-or-equal	killed	the-open-rows-a-test-reaches		0
 DNS/ResourceRecords/TXT.cs	574	greater-to-ge	killed	the-open-rows-a-test-reaches		0
 DNS/ResourceRecords/ADNSResourceRecord.cs	832	greater-to-ge	killed	the-open-rows-a-test-reaches		0
+DNS/ResourceRecords/TXT.cs	575	false-to-true	superseded		the refusal of a \DDD above 255, in the reader finding 100 replaced	0
+DNS/ResourceRecords/TXT.cs	588	ge-to-greater	superseded		the refusal of a backslash at the end, in the reader finding 100 replaced	0
+DNS/ResourceRecords/TXT.cs	589	false-to-true	superseded		the same refusal	0
 DNS/ResourceRecords/ADNSResourceRecord.cs	1089	false-to-true	equivalent		ReadBackFromWire writes the stated class into the wire form it reads back, so a record reaching this line is already in the class the line stated	0
 DNS/ResourceRecords/ADNSResourceRecord.cs	1162	le-to-less	equivalent		a window header at the very end of the buffer carries no bitmap, so entering it and skipping it both end in false	0
 DNS/ResourceRecords/ADNSResourceRecord.cs	1206	less-to-less-or-equal	equivalent		entering the loop at the end of the bitmap breaks at the window-header check two lines below	0

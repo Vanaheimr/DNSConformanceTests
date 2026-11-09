@@ -5,8 +5,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -83,7 +81,6 @@ public class UriTargetTests
     #region Any URI of RFC 3986 is a target (RFC 7553 §4.4, RFC 3597 §3 — finding 99)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7553 §4.4")]
     [Property("RFC", "3597 §3")]
     [Property("RFC", "3986 §1.1.2")]
@@ -119,7 +116,6 @@ public class UriTargetTests
     }
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "3597 §3")]
     [Property("RFC", "7553 §4.5")]
     [TestCase("example.com/x", TestName = "{m}: a target with no scheme")]
