@@ -32,7 +32,7 @@ test project that exercises each:
 | `records` | `DNS/ResourceRecords` | ResourceRecords | 687 | measured, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 480 | measured twice, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
-| `dnssec` | `DNS/DNSSEC` | Dnssec | 323 | measured twice, **1 open** |
+| `dnssec` | `DNS/DNSSEC` | Dnssec | 324 | measured three times, **1 open** |
 | `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **13 open** |
 | `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
 | `server` | `DNS/Server` | Server | 414 | measured twice, **34 open**, 1 never measured |
@@ -73,9 +73,11 @@ when they were typed, and nothing caught them because the column looks measured
 and only two of its rows were. The `tsig` sweep is what found it: it announced 94
 mutants against a row promising 70.
 
-The `dnssec` row says 323 now for a different reason, and a good one: the
+The `dnssec` row said 323 for a different reason, and a good one: the
 validator was rewritten, and the block was measured a second time, against
-`bbbf88b6`. 227 is still right for `53f20591`. The `multicast` row said 592 for
+`bbbf88b6`. 227 is still right for `53f20591`. It says 324 because the block
+was measured a third time, at `38f6a355`, after finding 77 had given the signer
+one comparison more (*The result: DNSSEC, measured a third time*). The `multicast` row said 592 for
 the same kind of reason: 598 was right for `53f20591`, and three of the folder's
 files changed before the sweep measured `925c80d5`. It says 632 now because the
 block was measured a second time, at `0f595ac4`, after findings 78 to 85.
@@ -424,6 +426,117 @@ reads. Of the 605 viable mutants, the record tests catch 179 and another project
 measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
+
+## The result: DNSSEC, measured a third time
+
+The second measurement of this block, at `bbbf88b6`, ended with one row open.
+Its rounds had killed 34 gaps with tests written for them, and 12 were
+equivalent. The open row was the depth limit of the walk down from an anchor,
+which no RFC sets (*The result: DNSSEC, measured again*, below).
+
+By **`38f6a355`**, one Hermod commit had changed one of the block's seven files,
+by 12 lines added and 2 removed: `925c80d5`, findings 76 and 77, which lets the
+signer sign a root zone with NSEC3. Two places in the signer had broken on the
+root:
+- the walk that collects empty non-terminals kept a name only if it ended in a
+  dot and the apex, and for the root that is two dots;
+- an NSEC3's owner was the hash, a dot and the apex, which for the root is
+  `<hash>..`.
+
+Outside the folder, the same commit lets `DomainName` take the root's wildcard
+`*.`, which the validator builds when a name error is proven at the root.
+
+The suite pins `ce2f06b8`. Nothing under `Hermod/DNS` differs between the two,
+so the measurement describes the pinned code as well.
+
+The block was swept again at `38f6a355` with the same judge and the same two
+passes. The second measurement's files moved to `results/dnssec-bbbf88b6/`
+unchanged, and its ledger stays in the history of `make_closed_folder.py`.
+
+| | `bbbf88b6` | `38f6a355` |
+|---|---:|---:|
+| mutants | 323 | 324 |
+| not viable (would not compile) | 60 | 60 |
+| killed by Dnssec, pass 1 | 196 | 231 |
+| killed by another project | 0 | 0 |
+| survived everywhere | 67 | 33 |
+| not really code | 1 | 1 |
+| host-only (`ConfigureAwait`) | 19 | 19 |
+| real gaps | 47 | 13 |
+| killed by a test written for them | 34 | 0 |
+| equivalent | 12 | 12 |
+| open | **1** | **1** |
+
+The first column counts the ledger as it stands. The second chapter's own table
+was written before its rounds, and it says 38 open. The 35 more kills in pass 1
+are the 34 of the second measurement's rounds plus the one new mutant. The third
+sweep finds no new gap.
+
+### Thirty-four kills, found again
+
+All 34 rows that the second measurement's rounds closed are killed again. All
+of them die in pass 1, by Dnssec, which holds their tests. They cover:
+- the proofs that a delegation is unsigned;
+- the DS step of the walk up;
+- the walk down from the anchor;
+- the CNAME synthesised from a verified DNAME;
+- the root as a closest encloser.
+
+Pass 2 killed nothing, as in both measurements before.
+
+### One new mutant, killed
+
+The mutant is `DNSSECZoneSigner.cs:357`, `Apex == "."` read as `!=`:
+- every zone but the root takes the dot alone as the suffix its names must end
+  in, and every name ends in it;
+- the root takes two dots again, and no name ends in them.
+
+The root zone therefore loses its empty non-terminals. Finding 77's test,
+`A_Root_Zone_Signed_With_Nsec3_Keeps_Its_Chain_One_Label_Below_The_Root`, puts
+`host.tld.` in the root and asks for the NSEC3 of `tld.`. Pass 1 recorded one
+failure of 380. Planted on its own, the mutant fails that test and no other.
+
+### One verdict the second pass could not be trusted with
+
+Pass 2 recorded `DenialOfExistence.cs:370`, `queryName.Length > 0` read as
+`>= 0`, as killed by "Client: 1 of 262". It is one of the twelve equivalents,
+and Client cannot reach it:
+- `VerifyNSEC` is reached only through `DNSSECValidator`;
+- no Client test creates a `DNSSECValidator`;
+- the client's aggressive NSEC cache calls only `CompareCanonical`.
+
+Measured again on its own, the mutant survives everywhere. It was re-measured
+by the same steps *Eleven verdicts the second pass could not be trusted with*
+gives for the `core` block. `dnssec-pass2.as-measured.tsv` keeps the file as
+the run left it.
+
+### Twelve equivalents, read again
+
+All twelve stand. Eleven sit on lines that did not move, in two files that did
+not change. Outside the folder, only one thing they rely on changed: the
+validator's wildcard at the root is a name now. One argument meets it, and it
+still holds. The argument for 450 is that `FindCover` is never handed a name
+whose hash matches an owner. That stays true for the wildcard, because
+`FindMatch` looks at it first, as it does at every other name.
+
+The twelfth is the signer's belt in front of the empty-non-terminal walk. It
+sits five lines further down now, at 386, and finding 77 changed the walk
+itself. The argument was that a step past the end leaves a name the check after
+it refuses, because the name does not end in a dot and the apex. That check now
+asks for `insideTheZone`, which for the root is the dot alone. A name with no
+dot does not end in a dot either, and neither does the empty name. The ledger
+now words the argument that way.
+
+### The depth limit, still open
+
+`DNSSECValidator.cs:1101`, `depth < 20` read as `<=`, stays open for the
+reason *The result: DNSSEC* gives: no RFC names a limit on a chain of trust,
+so both readings are conformant.
+
+### What the second measurement's chapter now is
+
+*The result: DNSSEC, measured again*, below, is the measurement at `bbbf88b6`.
+Its line numbers are that revision's. Its rounds and its equivalents stand.
 
 ## The result: the code every query passes through, measured again
 

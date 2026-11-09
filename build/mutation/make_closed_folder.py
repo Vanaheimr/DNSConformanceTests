@@ -317,84 +317,30 @@ TSIG_SUPERSEDED = {}
 
 # -------------------------------------------------------------------- dnssec
 #
-# Keyed to Hermod bbbf88b6, the revision the second sweep of this block
-# measured. The first sweep measured 53f20591, and its ledger - sixty-five gaps
-# closed by tests in twelve rounds, nine mutants declared equivalent - is kept
-# as it was written: the rows in results/dnssec-53f20591/dnssec-closed.tsv, and
-# the tables that produced them in this file as of b07f4c1.
+# Keyed to Hermod 38f6a355, the revision the third sweep of this block
+# measured. The first sweep measured 53f20591 and the second bbbf88b6; their
+# files are in results/dnssec-53f20591/ and results/dnssec-bbbf88b6/. The second
+# ledger - 34 rows killed in rounds, 12 equivalent, one left open - is in this
+# file's history, as of 7c18a49.
 #
-# None of those is carried over by number, and none needs to be. A gap a test
-# closed is killed by that test in the new pass 1 and never reaches the
-# classification. A row that would need its old entry here is one the test no
-# longer catches - and two of them did not, which MUTATION.md tells.
+# None of the killed rows is carried over, and none needs to be: a gap a test
+# closed is killed by that test in the new sweep and never reaches the
+# classification, and all 34 were, in pass 1. One commit changed the folder
+# since: 925c80d5, findings 76 and 77, which let the signer sign a root zone
+# with NSEC3. Its one new mutant is killed.
+#
+# The equivalents were read again against 38f6a355 rather than moved with their
+# numbers, and so was the code they lean on. All twelve stand - nine argued by
+# the first sweep, and 1178, 1422 and 370 by the second's last round. One moved:
+# the signer's belt, by five lines, and its argument is worded anew for the
+# suffix finding 77 gave it. DenialOfExistence.cs:370 was recorded killed once, "Client:
+# 1 of 262", where the argument below says nothing can tell the readings apart.
+# Measured again on its own, nothing fails.
+#
+# The depth limit, DNSSECValidator.cs:1101, stays open, as MUTATION.md explains.
 
-DNSSEC_KILLED = {
+DNSSEC_KILLED = {}
 
-    # RFC 6672 section 5.3.1: the CNAME a server synthesizes from a DNAME "will
-    # never be signed", and the validator accepts it because the signed DNAME
-    # beside it produces it - and for no other reason. No test had handed the
-    # validator a DNAME at all. One answer the DNAME does explain, and three it
-    # does not: a target rewritten (section 5.3.4's own attack), a CNAME at the
-    # DNAME's own owner name, which section 2.3 says is not redirected, and one
-    # across a label boundary, which section 2.2's table says is no match.
-    "dname-synthesis": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {684, 685, 687, 689, 693},
-    },
-
-    # RFC 4035 section 5.2, the step up from a signed answer: the DS RRset is
-    # "authenticated using some DNSKEY RR in the parent's apex DNSKEY RRset", so
-    # a signer that is not strictly above the child (1202, 1203) is nobody's
-    # word; a proof that the DS is absent is the parent's too, and a child that
-    # signs one for itself (1350) proves nothing; and that proof counts only
-    # once the walk has authenticated the parent's keys above it (1178). Whether
-    # a missing DS needed a proof at all is the anchors' to say (720). And
-    # section 5.3.1's first condition, "the same owner name", holds for the
-    # key set's own signature as well as the answer's (1854).
-    "the-ds-step": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {720, (1178, "inequality-to-equality"), 1202, 1203, 1350, 1854},
-    },
-
-    # RFC 4035 sections 4.3 and 5.2, the walk down from the closest anchor for
-    # an answer that came unsigned. It asks about the owner itself, which is the
-    # delegation when the answer is at a child's apex (1572); it crosses a signed
-    # zone cut on the way, and checks the DS, its signature and the child's key
-    # set as it does (1681, 1692, 1713) - a DS whose signature the parent's keys
-    # do not verify leads nowhere (1692, 1693); and it goes on through a name
-    # of the zone that is no zone cut, an empty non-terminal included (1733).
-    "the-walk-down": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {1572, 1681, 1692, 1693, 1713, 1733},
-    },
-
-    # What may count as the proof that a delegation is unsigned. RFC 6840
-    # section 4.4: "MUST check for the presence of the NS bit", or the genuine
-    # NSEC of any ordinary name spoofs a delegation there (157, 259). The NSEC
-    # has to be one the zone's keys verify (1422, 1423), under the zone's own
-    # name (1406). The NSEC3 forms of the same proof: a record matching a
-    # delegation, read from the reference chain only (246, 247), and an opt-out
-    # span (213) - believed below an ordinary closest encloser and not below an
-    # "ancestor delegation", RFC 6840 section 4.1 (165, 166).
-    "what-proves-a-delegation-unsigned": {
-        "DNS/DNSSEC/DNSSECValidator.cs": {1406, (1422, "logical-and-to-or"), 1423},
-        "DNS/DNSSEC/DenialOfExistence.cs": {157, 165, 166, 213, 246, 247, 259},
-    },
-
-    # RFC 5155 section 8.3: for a top-level domain the only ancestor is the
-    # root, so in a root zone signed with NSEC3 the root's own record is the
-    # closest encloser - the last candidate of both walks up, the one that reads
-    # the denial (300) and the one that reads its bitmap (218).
-    "the-root-as-closest-encloser": {
-        "DNS/DNSSEC/DenialOfExistence.cs": {218, 300},
-    },
-
-}
-
-# The nine mutants the first sweep argued equivalent all survived again, on
-# lines whose text did not change. Each argument was read again against the new
-# code rather than moved with its number, because what makes a mutation
-# equivalent is usually a caller, and the callers did change. Three are the
-# second sweep's own, from the round that closed its rows: 1178 and 1422, two
-# operands that cannot disagree and a set that cannot add anything, and 370,
-# a guard in front of a clause that is false where the guard is.
 DNSSEC_EQUIVALENT = {
 
     "DNS/DNSSEC/DNSSECValidator.cs": {
@@ -429,16 +375,20 @@ DNSSEC_EQUIVALENT = {
 
     "DNS/DNSSEC/DNSSECZoneSigner.cs": {
 
-        381: "the belt in front of the empty-non-terminal walk, whose every escape the "
-             "braces two lines below already catch. All three mutations of it were run "
-             "and all three survived, and the argument is that they must. dot <= 0 "
-             "differs only for a name beginning with a dot, which a DomainName cannot "
-             "hold and which stripping a label cannot produce. The other two let the "
-             "walk take one more step, and that step either leaves the name unchanged "
-             "(no dot) or empties it (the dot is last) - after which the very next "
-             "line, name == Apex or name not ending in '.' + Apex, breaks before "
-             "owners.Add is reached. The set of empty non-terminals is the same under "
-             "all three readings",
+        386: "the belt in front of the empty-non-terminal walk, whose every escape the "
+             "braces below it already catch. All three mutations of it were run and all "
+             "three survived, and the argument is that they must. dot <= 0 differs only "
+             "for a name that begins with a dot and goes on after it, which a DomainName "
+             "cannot hold and which stripping a label cannot produce; the root's own "
+             "name, the dot alone, is the apex of a root zone, which the walk skips, and "
+             "the other half of the condition breaks on it anywhere else. The other two "
+             "let the walk take one more step, and that step either leaves the name "
+             "unchanged (no dot) or empties it (the dot is last). After it, name == Apex "
+             "and a name that does not end in insideTheZone break before owners.Add is "
+             "reached: insideTheZone is a dot and the apex, or since finding 77 the dot "
+             "alone for the root, and neither a name without a dot nor the empty name "
+             "ends in either. The set of empty non-terminals is the same under all three "
+             "readings",
 
     },
 
@@ -486,8 +436,7 @@ DNSSEC_EQUIVALENT = {
 
 }
 
-DNSSEC_SUPERSEDED = {
-}
+DNSSEC_SUPERSEDED = {}
 
 
 
