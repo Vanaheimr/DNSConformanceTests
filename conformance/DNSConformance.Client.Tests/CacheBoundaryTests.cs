@@ -442,8 +442,9 @@ public class CacheBoundaryTests
     {
 
         // "loopback." is not a name any RFC makes special — RFC 6761 §6.3 covers
-        // "localhost." and nothing else — so this is a convenience of this library
-        // and is asserted as one. What is worth pinning is that it does not differ
+        // "localhost." and the names below it, and nothing else — so this is a
+        // convenience of this library and is asserted as one. What is worth
+        // pinning is that it does not differ
         // from its neighbour by accident: two entries written twenty lines apart
         // with the same six fields is exactly the arrangement in which one of them
         // quietly drifts.
