@@ -266,10 +266,11 @@ TTL, and a comma-separated list of mnemonics as the two values combined: `A,MX`
 as MX (RFC 1035 §5.1, RFC 3597 §5). A URI record's target was read as an HTTP
 URL, so `mailto:` gained an `https://` and `urn:` was refused (RFC 7553 §4.4,
 RFC 3597 §3). And a quoted TXT string the escape reader refused was read a
-second time as unquoted text, backslashes and all (RFC 1035 §5.1). The cases
-are findings 98 to 100, twenty-four of them red at 38f6a355 and marked
-`KnownIssue`. With them the ResourceRecords project is 575 ✅ · 24 ❌, and the
-offline suite 1905 ✅ · 24 ❌ · 4 skips.
+second time as unquoted text, backslashes and all, and so was every line with
+a string written without quotes, and every SPF record (RFC 1035 §5.1, RFC 7208
+§3.3). The cases are findings 98 to 100, thirty-four of them red at 38f6a355
+and marked `KnownIssue`. With them the ResourceRecords project is
+575 ✅ · 34 ❌, and the offline suite 1905 ✅ · 34 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

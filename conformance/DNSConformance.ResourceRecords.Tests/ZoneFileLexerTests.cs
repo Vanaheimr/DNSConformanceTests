@@ -171,7 +171,7 @@ public class ZoneFileLexerTests
     #endregion
 
 
-    #region A quoted string that is not one (RFC 1035 §5.1 — finding 100)
+    #region Every character-string, quoted or not (RFC 1035 §5.1 — finding 100)
 
     [Test]
     [Category(TestCategories.KnownIssue)]
@@ -194,9 +194,60 @@ public class ZoneFileLexerTests
     [TestCase("\"ab\\",      TestName = "{m}: a backslash with nothing behind it")]
     [TestCase("\"ab\\\"",    TestName = "{m}: the closing quote quoted, so the string never ends")]
     [TestCase("\"abc",       TestName = "{m}: no closing quote")]
-    public void A_Quoted_String_The_Reader_Cannot_Finish_Is_Refused(String Written)
+    [TestCase("a\\256b",     TestName = "{m}: \\256 in a string without quotes")]
+    public void A_Character_String_The_Reader_Cannot_Finish_Is_Refused(String Written)
     {
         Refuse($"probe.example. 3600 IN TXT {Written}");
+    }
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1035 §5.1")]
+    [Property("RFC", "1035 §3.3.14")]
+    // RFC 1035 §5.1: a <character-string> "is expressed in one or two ways: as
+    // a contiguous set of characters without interior spaces, or as a string
+    // beginning with a " and ending with a "". TXT-DATA is "One or more
+    // <character-string>s" (§3.3.14), and a line may write each of them either
+    // way. The escapes are §5.1's for the whole file, not for quoted strings
+    // only. BIND 9.20 reads each of these lines as the strings here.
+    //
+    // Hermod read character-strings only when every one on the line was
+    // quoted. Anything else became one string, as it lay between the outer
+    // quotes: a b was "a b", "a" b was a" b, and a\;b kept its backslash.
+    [TestCase("a b",         new[] { "a", "b" },   TestName = "{m}: two strings without quotes are two")]
+    [TestCase("\"a\" b",     new[] { "a", "b" },   TestName = "{m}: a quoted string and one without")]
+    [TestCase("a \"b c\"",   new[] { "a", "b c" }, TestName = "{m}: one without quotes and a quoted one")]
+    [TestCase("a\\;b",       new[] { "a;b" },      TestName = "{m}: \\X in a string without quotes")]
+    [TestCase("a\\032b",     new[] { "a b" },      TestName = "{m}: \\DDD in a string without quotes")]
+    public void Every_Character_String_Is_Read_Whichever_Way_It_Is_Written(String Written, String[] Meant)
+    {
+
+        var txt = Read($"probe.example. 3600 IN TXT {Written}") as TXT;
+
+        Assert.That(txt!.Strings, Is.EqualTo(Meant));
+
+    }
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1035 §5.1")]
+    [Property("RFC", "7208 §3.3")]
+    // SPF's record type carries TXT's RDATA, and Hermod holds it as the one
+    // text RFC 7208 §3.3 makes of it: several character-strings "MUST be
+    // treated as if those strings are concatenated together without adding
+    // spaces". Its presentation reader took the quotes off both ends and kept
+    // everything between, escapes and the quotes of a second string included.
+    [TestCase("\"v=spf1 a\\;b -all\"",  "v=spf1 a;b -all", TestName = "{m}: \\X in a quoted string")]
+    [TestCase("\"a\\\"b\"",             "a\"b",            TestName = "{m}: a quoted quote")]
+    [TestCase("\"v=spf1 \" \"-all\"",   "v=spf1 -all",     TestName = "{m}: two quoted strings, joined")]
+    [TestCase("v=spf1 -all",            "v=spf1-all",      TestName = "{m}: two strings without quotes, joined without a blank")]
+    public void An_Spf_Record_Reads_Its_Character_Strings_As_Txt_Does(String Written, String Meant)
+    {
+
+        var spf = Read($"probe.example. 3600 IN SPF {Written}") as SPF;
+
+        Assert.That(spf!.Rules, Is.EqualTo(Meant));
+
     }
 
     #endregion

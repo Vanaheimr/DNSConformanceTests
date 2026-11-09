@@ -117,7 +117,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 97 | A browser took its own IPv6 query for another host's, and skipped every second query | Low (SHOULD) | 6762 §7.3, §5.2 | ✅ fixed |
 | 98 | A TTL that a class has the number of is read as that class, and a list of mnemonics as one | Medium | 1035 §5.1, 3597 §5 | ⏳ **open** |
 | 99 | A URI record's target is read as an HTTP URL | Medium | 7553 §4.4, 3597 §3 | ⏳ **open** |
-| 100 | A quoted TXT string the reader refuses is read again, unquoted | Low | 1035 §5.1 | ⏳ **open** |
+| 100 | Unless every string on a TXT line is quoted, a character-string is read with its escapes and quotes in it | Medium | 1035 §5.1, 7208 §3.3 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5821,9 +5821,17 @@ Severity is **Medium**. It changes record content silently, which made finding
 
 ---
 
-## 100 — A quoted TXT string the reader refuses is read again, unquoted
+## 100 — Unless every string on a TXT line is quoted, a character-string is read with its escapes and quotes in it
 
-*RFC 1035 §5.1* gives a master file two escapes:
+*RFC 1035 §5.1*:
+
+> \<character-string\> is expressed in one or two ways: as a contiguous set of
+> characters without interior spaces, or as a string beginning with a " and
+> ending with a ".
+
+TXT's RDATA is "One or more \<character-string\>s" (§3.3.14), and a line may
+write each of them either way. The same section gives the whole file two
+escapes:
 
 > `\X` where X is any character other than a digit (0-9), is used to quote that
 > character so that its special meaning does not apply.
@@ -5832,12 +5840,12 @@ Severity is **Medium**. It changes record content silently, which made finding
 > number described by DDD.
 
 So a backslash and a digit are three digits or nothing §5.1 defines, `\256` is
-no octet, and a backslash at the end of a string quotes nothing. A quoted string
-also ends in a quote.
+no octet, a backslash at the end of a string quotes nothing, and a quoted string
+ends in a quote.
 
-Finding 56 gave TXT a quoted reader that knows this, and the reader refuses a
-`\DDD` above 255, a backslash at the end, and a string with no closing quote.
-But the TXT reader does not take that refusal for an answer:
+Finding 56 gave TXT a reader that knows the escapes, but only for quoted
+strings, and only when every string on the line is one. The TXT reader does not
+take its refusal for an answer:
 
 ```csharp
 if (TryParseQuotedStrings(Data, out var quotedStrings))
@@ -5846,39 +5854,61 @@ if (TryParseQuotedStrings(Data, out var quotedStrings))
 return new TXT(Name, DNSQueryClasses.IN, TimeToLive, Data.Trim('"'));
 ```
 
-The second line is meant for unquoted text, which §5.1 makes a single
-character-string with nothing to unescape. A quoted string the reader refused
-reaches it as well, and it trims the outer quotes and keeps the rest as it lies.
-`"a\256b"` comes out as the six characters `a\256b`, with the backslash, which
-is finding 56 again on the one path that finding left. And the quoted reader
-takes `\1` before a non-digit for `\X`, quoting the digit, although §5.1's `\X`
-is for a character other than a digit: `"a\1x"` comes out as `a1x`.
+The second line is meant for unquoted text, which the comment above it takes to
+be a single character-string with nothing to unescape. It is neither. It trims
+the outer quotes and keeps the rest as it lies, and everything the quoted
+reader does not take reaches it:
+- **Strings without quotes.** `a b` is two character-strings, and Hermod reads
+  one, `a b`. `a\;b` is the three octets `a;b`, and Hermod keeps the backslash,
+  which is finding 56 again on the one path that finding left. So is
+  `a\032b`.
+- **A line that mixes the two.** `"a" b` is the strings `a` and `b`, and Hermod
+  reads one, `a" b`. `a "b c"` comes out as `a "b c`.
+- **A quoted string the quoted reader refuses.** `"a\256b"` comes out as the six
+  characters `a\256b`, backslash and all, and a string whose closing quote is
+  missing or quoted is taken as it stands. The quoted reader also takes `\1`
+  before a non-digit for `\X`, quoting the digit, so `"a\1x"` comes out as
+  `a1x`.
 
-BIND 9.20 refuses all six lines of the repro: three as "syntax error", the
-backslash at the end as "unexpected end of input", and the two whose string
-never ends as "unbalanced quotes".
+SPF's record type carries the same RDATA, and Hermod holds it as the one text
+*RFC 7208 §3.3* makes of several strings: they "MUST be treated as if those
+strings are concatenated together without adding spaces". SPF has no quoted
+reader at all. It takes the quotes off both ends and keeps the rest:
+`"v=spf1 a\;b -all"` keeps the backslash, `"a\"b"` keeps it in front of the
+quote, and `"v=spf1 " "-all"` comes out as `v=spf1 " "-all`.
 
-**What it costs.** Nothing for a line that is right. A line that is wrong is
-read as something, and what it is read as keeps backslashes and digits that the
-zone's author meant as an escape. The record is published with octets the
-author did not mean, where every other implementation refuses the zone and says
-on which line.
+BIND 9.20 reads every valid line here as the strings above, and refuses every
+invalid one: `\256`, a backslash and one or two digits as "syntax error", a
+backslash at the end as "unexpected end of input", and a string that never ends
+as "unbalanced quotes".
 
-**How it was found.** By the records block's second mutation sweep. Four rows of
-the quoted reader survived, `TXT.cs:564`, `:575`, `:588` and `:589`, and each of
-them is a refusal: the reader saying no in a different way, or saying yes with
-nothing to show. A refusal that is overruled one line later cannot be told from
-another refusal.
+**What it costs.** A TXT written without quotes, or with some, is published with
+other strings than the zone holds: other boundaries, or a backslash and the
+digits of an escape where the author meant one octet. RFC 6763 §6.3 encodes
+each DNS-SD key/value pair "as its own constituent string", so two pairs written
+`a=1 b=2` become one pair whose value has a blank in it. An SPF record written with an
+escape, or as two strings, is published as a policy with characters the policy
+does not have. A malformed line is read as something, where every other
+implementation refuses the zone and says on which line.
 
-**Repro**: `ZoneFileLexerTests.A_Quoted_String_The_Reader_Cannot_Finish_Is_Refused`,
-six cases red at `38f6a355`: `\256`, a backslash and one digit, a backslash and
-two digits, a backslash at the end, a closing quote that is quoted, and no
-closing quote.
+**How it was found.** By the records block's second mutation sweep (MUTATION.md,
+*The result: the resource records, measured again*). Four rows of the quoted
+reader survived, `TXT.cs:564`, `:575`, `:588` and `:589`, and each of them is a
+refusal: the reader saying no in another way, or saying yes with nothing to
+show. A refusal that is overruled one line later cannot be told from another
+refusal. Asking what overrules it turned up the path, and what else takes it.
+
+**Repro**: sixteen cases in `ZoneFileLexerTests`, red at `38f6a355`:
+`A_Character_String_The_Reader_Cannot_Finish_Is_Refused`, seven lines BIND
+refuses; `Every_Character_String_Is_Read_Whichever_Way_It_Is_Written`, five
+lines with a string written without quotes; and
+`An_Spf_Record_Reads_Its_Character_Strings_As_Txt_Does`, four SPF lines.
 
 **The fix**: ⏳ open.
 
-Severity is **Low**. Only malformed lines are affected, and a zone that loads in
-Hermod and nowhere else is noticed when it is served by anything else.
+Severity is **Medium**. It changes what a valid line says, on the most widely
+deployed record type there is, but only for lines written in the less common
+of their two forms; and SPF's own type is one RFC 7208 has retired.
 
 ---
 
