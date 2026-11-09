@@ -3,6 +3,8 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
+
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -67,6 +69,12 @@ public class ZoneFileLexerTests
     [TestCase("\"a\\098c\"",            "abc",             TestName = "\\098 is the octet 98, which is 'b'")]
     [TestCase("\"v=spf1 -all\"",        "v=spf1 -all",     TestName = "a policy with nothing to escape")]
     [TestCase("\"\\032\"",              " ",               TestName = "\\032 is a blank inside a character-string")]
+    // \X quotes one character even when two digits follow it: the three digits
+    // that make \DDD have to stand right behind the backslash.
+    [TestCase("\"\\;12\"",              ";12",             TestName = "\\; before two digits quotes the semicolon alone")]
+    // 255 is the largest octet there is. This type holds text, so the octet
+    // comes out as the code point of the same number (finding 56's limit).
+    [TestCase("\"a\\255b\"",            "a\u00FFb",        TestName = "\\255 is the largest octet, and still one")]
     public void An_Escape_Denotes_What_It_Quotes(String Written, String Meant)
     {
 
@@ -157,6 +165,88 @@ public class ZoneFileLexerTests
             Assert.That(txt!.Strings.Count(), Is.EqualTo(1));
             Assert.That(txt!.Text,            Is.EqualTo("a\"  b"), "two blanks, both of them data");
         });
+
+    }
+
+    #endregion
+
+
+    #region Every character-string, quoted or not (RFC 1035 §5.1 — finding 100)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1035 §5.1")]
+    // RFC 1035 §5.1 has a backslash before a digit start \DDD, "where each D is
+    // a digit", and \X take "any character other than a digit". So a backslash
+    // and a digit are three digits or nothing the RFC defines, 256 is no octet,
+    // and a backslash at the end of a string quotes nothing. A quoted string
+    // also ends in a quote. BIND 9.20 refuses each of these lines: the first
+    // three as "syntax error", the backslash at the end as "unexpected end of
+    // input", and the last two as "unbalanced quotes".
+    //
+    // Hermod's quoted reader refused them as well, and then the TXT reader read
+    // the text a second time as if it were unquoted, with its outer quotes
+    // trimmed: "a\256b" came out as the six characters a\256b, backslash and
+    // all, which is finding 56 again on the path that finding left.
+    [TestCase("\"a\\256b\"", TestName = "{m}: \\256, which is no octet")]
+    [TestCase("\"a\\1x\"",   TestName = "{m}: a backslash and one digit")]
+    [TestCase("\"a\\12\"",   TestName = "{m}: a backslash and two digits")]
+    [TestCase("\"ab\\",      TestName = "{m}: a backslash with nothing behind it")]
+    [TestCase("\"ab\\\"",    TestName = "{m}: the closing quote quoted, so the string never ends")]
+    [TestCase("\"abc",       TestName = "{m}: no closing quote")]
+    [TestCase("a\\256b",     TestName = "{m}: \\256 in a string without quotes")]
+    public void A_Character_String_The_Reader_Cannot_Finish_Is_Refused(String Written)
+    {
+        Refuse($"probe.example. 3600 IN TXT {Written}");
+    }
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1035 §5.1")]
+    [Property("RFC", "1035 §3.3.14")]
+    // RFC 1035 §5.1: a <character-string> "is expressed in one or two ways: as
+    // a contiguous set of characters without interior spaces, or as a string
+    // beginning with a " and ending with a "". TXT-DATA is "One or more
+    // <character-string>s" (§3.3.14), and a line may write each of them either
+    // way. The escapes are §5.1's for the whole file, not for quoted strings
+    // only. BIND 9.20 reads each of these lines as the strings here.
+    //
+    // Hermod read character-strings only when every one on the line was
+    // quoted. Anything else became one string, as it lay between the outer
+    // quotes: a b was "a b", "a" b was a" b, and a\;b kept its backslash.
+    [TestCase("a b",         new[] { "a", "b" },   TestName = "{m}: two strings without quotes are two")]
+    [TestCase("\"a\" b",     new[] { "a", "b" },   TestName = "{m}: a quoted string and one without")]
+    [TestCase("a \"b c\"",   new[] { "a", "b c" }, TestName = "{m}: one without quotes and a quoted one")]
+    [TestCase("a\\;b",       new[] { "a;b" },      TestName = "{m}: \\X in a string without quotes")]
+    [TestCase("a\\032b",     new[] { "a b" },      TestName = "{m}: \\DDD in a string without quotes")]
+    public void Every_Character_String_Is_Read_Whichever_Way_It_Is_Written(String Written, String[] Meant)
+    {
+
+        var txt = Read($"probe.example. 3600 IN TXT {Written}") as TXT;
+
+        Assert.That(txt!.Strings, Is.EqualTo(Meant));
+
+    }
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "1035 §5.1")]
+    [Property("RFC", "7208 §3.3")]
+    // SPF's record type carries TXT's RDATA, and Hermod holds it as the one
+    // text RFC 7208 §3.3 makes of it: several character-strings "MUST be
+    // treated as if those strings are concatenated together without adding
+    // spaces". Its presentation reader took the quotes off both ends and kept
+    // everything between, escapes and the quotes of a second string included.
+    [TestCase("\"v=spf1 a\\;b -all\"",  "v=spf1 a;b -all", TestName = "{m}: \\X in a quoted string")]
+    [TestCase("\"a\\\"b\"",             "a\"b",            TestName = "{m}: a quoted quote")]
+    [TestCase("\"v=spf1 \" \"-all\"",   "v=spf1 -all",     TestName = "{m}: two quoted strings, joined")]
+    [TestCase("v=spf1 -all",            "v=spf1-all",      TestName = "{m}: two strings without quotes, joined without a blank")]
+    public void An_Spf_Record_Reads_Its_Character_Strings_As_Txt_Does(String Written, String Meant)
+    {
+
+        var spf = Read($"probe.example. 3600 IN SPF {Written}") as SPF;
+
+        Assert.That(spf!.Rules, Is.EqualTo(Meant));
 
     }
 

@@ -97,7 +97,10 @@ public class RecordBoundaryTests
 
     [Test]
     [Property("RFC", "4701 §3.1")]
-    public void A_Dhcid_Of_Exactly_Its_Header_Has_An_Empty_Digest()
+    [Property("RFC", "4701 §3.5")]
+    [TestCase(@"\# 3 000201", TestName = "{m}: in the generic form, read off the wire")]
+    [TestCase("AAIB",         TestName = "{m}: in base64, RFC 4701 §3.5's own form")]
+    public void A_Dhcid_Of_Exactly_Its_Header_Has_An_Empty_Digest(String RData)
     {
 
         // RFC 4701 §3.1: two octets of identifier type and one of digest type,
@@ -105,7 +108,11 @@ public class RecordBoundaryTests
         // digest — unusual, but well-formed, and the fields have to come out of
         // it. One step tighter and they all stay unset while the record still
         // looks like it parsed.
-        var record = Read(@"probe.example. 3600 IN DHCID \# 3 000201") as DHCID;
+        //
+        // The two forms reach two copies of that step: the generic form the
+        // wire reader's, and base64 the one in the constructor that is handed
+        // the RDATA as it stands.
+        var record = Read($"probe.example. 3600 IN DHCID {RData}") as DHCID;
 
         Assert.Multiple(() => {
             Assert.That(record!.IdentifierType, Is.EqualTo((UInt16) 2));

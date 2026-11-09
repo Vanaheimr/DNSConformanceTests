@@ -254,6 +254,8 @@ public class ZoneFileRejectionTests
     [TestCase("20261332083329", TestName = "month thirteen")]
     [TestCase("19600101000000", TestName = "before the epoch")]
     [TestCase("21500101000000", TestName = "past what 32 bits of seconds can count")]
+    [TestCase("19691231235959", TestName = "the last second before the epoch")]
+    [TestCase("21060207062816", TestName = "the first second 32 bits of seconds cannot count")]
     public void A_Signature_Time_Outside_The_Field_Is_Refused(String Expiration)
     {
         Refused($"a.example.com. 3600 IN RRSIG A 8 3 3600 {Expiration} 20260914083329 1234 example.com. AQID");
@@ -273,6 +275,26 @@ public class ZoneFileRejectionTests
                         Is.True, "§3.2's seconds-since-the-epoch form, which a reader owes as well");
 
         });
+
+    }
+
+    [Test]
+    [Property("RFC", "4034 §3.2")]
+    [TestCase("19700101000000",          0U, TestName = "the epoch itself, second zero")]
+    [TestCase("21060207062815", 4294967295U, TestName = "the last second 32 bits of seconds can count")]
+    public void A_Signature_Time_At_Either_End_Of_The_Field_Reads(String Expiration, UInt32 Seconds)
+    {
+
+        // The refusals above stop one second outside the field on either side.
+        // The field's own two ends are in it: zero seconds since the epoch, and
+        // the largest count 32 bits hold. A reader that refuses either has
+        // taken the end of the range for the first value past it.
+        Assert.That(ADNSResourceRecord.TryParseZoneFileString(
+                        $"a.example.com. 3600 IN RRSIG A 8 3 3600 {Expiration} 20260914083329 1234 example.com. AQID",
+                        out var record, out var error),
+                    Is.True, error);
+
+        Assert.That(((RRSIG) record!).SignatureExpiration, Is.EqualTo(Seconds));
 
     }
 

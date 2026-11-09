@@ -182,6 +182,32 @@ public class RecordBranchTests
 
     }
 
+    [Test]
+    [Property("RFC", "3597 §5")]
+    [Property("RFC", "4255 §3.1.3")]
+    [Property("RFC", "6594 §3")]
+    public void A_Fingerprint_In_The_Generic_Form_Is_The_Same_Record()
+    {
+
+        // RFC 3597 §5: "An implementation MAY also choose to represent some RRs
+        // of known type using the above generic representations". A reader
+        // owes the same record either way. The generic form goes through the
+        // wire reader, whose length checks come after it has taken the
+        // fingerprint. The test above hands them short fingerprints, which they
+        // refuse whichever way their condition is joined, and the valid records
+        // before it are read through the presentation form, which never gets
+        // there. Joined with || instead of &&, either check refuses every
+        // fingerprint of both types.
+        var sha1   = Read($@"probe.example. 3600 IN SSHFP \# 22 0101{Sha1Hex}")   as SSHFP;
+        var sha256 = Read($@"probe.example. 3600 IN SSHFP \# 34 0202{Sha256Hex}") as SSHFP;
+
+        Assert.Multiple(() => {
+            Assert.That(sha1!.  Fingerprint, Is.EqualTo(Convert.FromHexString(Sha1Hex)),   "RFC 4255 §3.1.3");
+            Assert.That(sha256!.Fingerprint, Is.EqualTo(Convert.FromHexString(Sha256Hex)), "RFC 6594 §3");
+        });
+
+    }
+
     #endregion
 
     #region An IPSECKEY gateway is what its type says (RFC 4025 §2.5)

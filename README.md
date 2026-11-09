@@ -250,14 +250,36 @@ unsigned refusal (RFC 8945 §5.2.1, §5.2.2, §5.3.2), and with the same key it
 signs a BADTIME one (§5.2.3). Hermod passed it already. With it the Dnssec
 project is 376 ✅ · 0 ❌ · 4 skips, and the offline suite 1892 ✅ · 0 ❌ · 4 skips.
 
+And the cases the resource-record block asked for when it was measured again
+(MUTATION.md, *Eight of fifteen*): eight. An SSHFP in RFC 3597 §5's generic
+form is the same record as in its own (RFC 4255 §3.1.3, RFC 6594 §3), and a
+DHCID of exactly its header has its two type codes in base64 as well (RFC 4701
+§3.5). A signature time at the epoch and at the last second 32 bits can count
+is read, and one second past either end is refused (RFC 4034 §3.2). A `\X`
+quotes one character even when two digits follow it, and `\255` is one octet
+(RFC 1035 §5.1). Hermod passed them all already. With them the ResourceRecords
+project is 570 ✅ · 0 ❌, and the offline suite 1900 ✅ · 0 ❌ · 4 skips.
+
+And the three things the other seven rows found. A bare decimal that a class
+has the number of, 1 for IN, 3 for CH, was read as that class and not as the
+TTL, and a comma-separated list of mnemonics as the two values combined: `A,MX`
+as MX (RFC 1035 §5.1, RFC 3597 §5). A URI record's target was read as an HTTP
+URL, so `mailto:` gained an `https://` and `urn:` was refused (RFC 7553 §4.4,
+RFC 3597 §3). And a quoted TXT string the escape reader refused was read a
+second time as unquoted text, backslashes and all, and so was every line with
+a string written without quotes, and every SPF record (RFC 1035 §5.1, RFC 7208
+§3.3). The cases are findings 98 to 100, thirty-four of them red at 38f6a355
+and marked `KnownIssue`. With them the ResourceRecords project is
+575 ✅ · 34 ❌, and the offline suite 1905 ✅ · 34 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 97 RFC deviations in Hermod. All are fixed;
-[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
-the test that pins it.
+The suite has found 100 RFC deviations in Hermod. All but findings 98 to 100
+are fixed; [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
+change, and the test that pins it.
 
 ## Getting started
 
