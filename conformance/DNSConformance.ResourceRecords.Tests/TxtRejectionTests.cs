@@ -97,15 +97,16 @@ public class TxtRejectionTests
     }
 
     [Test]
-    // Not a list of quoted strings, each for its own reason, and each of them a
-    // separate `return false` in the reader. What comes back is a single text:
-    // refusing to split is not refusing to parse.
+    // Not the presentation format, each for its own reason. A JSON API writes
+    // a TXT's data either as the presentation format, every string quoted
+    // (Cloudflare), or as the bare text, the strings joined and nothing quoted
+    // (Google), and Google's text may itself begin with a quote. Data that does
+    // not start with one, or does and does not read as character-strings to
+    // the end, is that text: refusing to split is not refusing to parse.
     [TestCase("plain text",            TestName = "no quotes at all")]
     [TestCase("",                      TestName = "nothing at all")]
     [TestCase("   ",                   TestName = "whitespace only")]
     [TestCase("x \"a\" \"b\"",         TestName = "a word before the first quote")]
-    [TestCase("\"a\" x \"b\"",         TestName = "a word between two strings")]
-    [TestCase("\"a\" \"b\" x",         TestName = "a word after the last string")]
     [TestCase("\"unterminated",        TestName = "a quote that is never closed")]
     [TestCase("\"a\" \"unterminated",  TestName = "the second string never closed")]
     public void A_Data_Field_That_Is_Not_A_List_Of_Quoted_Strings_Is_One_Text(String Data)
@@ -114,7 +115,24 @@ public class TxtRejectionTests
         var record = FromJSON(Data);
 
         Assert.That(record.Strings, Has.Count.EqualTo(1),
-                    $"'{Data}' is not a list of quoted strings, so it is one character-string");
+                    $"'{Data}' is not the presentation format, so it is one character-string");
+
+    }
+
+    [Test]
+    [Property("RFC", "1035 §5.1")]
+    // These two used to be in the test above, as one text each. They start
+    // with a quote and read as character-strings to the end, a word without
+    // quotes being one of RFC 1035 §5.1's two ways to write one, so they are
+    // the presentation format: three strings each (finding 100).
+    [TestCase("\"a\" x \"b\"",         new[] { "a", "x", "b" }, TestName = "a word between two strings")]
+    [TestCase("\"a\" \"b\" x",         new[] { "a", "b", "x" }, TestName = "a word after the last string")]
+    public void A_Data_Field_That_Mixes_Quoted_And_Bare_Strings_Is_Each_Of_Them(String Data, String[] Meant)
+    {
+
+        var record = FromJSON(Data);
+
+        Assert.That(record.Strings, Is.EqualTo(Meant));
 
     }
 

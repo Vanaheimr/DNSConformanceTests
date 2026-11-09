@@ -268,18 +268,21 @@ URL, so `mailto:` gained an `https://` and `urn:` was refused (RFC 7553 §4.4,
 RFC 3597 §3). And a quoted TXT string the escape reader refused was read a
 second time as unquoted text, backslashes and all, and so was every line with
 a string written without quotes, and every SPF record (RFC 1035 §5.1, RFC 7208
-§3.3). The cases are findings 98 to 100, thirty-four of them red at 38f6a355
-and marked `KnownIssue`. With them the ResourceRecords project is
-575 ✅ · 34 ❌, and the offline suite 1905 ✅ · 34 ❌ · 4 skips.
+§3.3). The cases are findings 98 to 100, thirty-four of them, red at 38f6a355
+and passing from cf1e9954 on. Four older cases had asserted what the old
+readers did: two read a TXT line written without quotes as one string with its
+backslash, and two read JSON data that mixes quoted and bare strings as one
+text. The four now say what BIND says. With them the ResourceRecords project is
+609 ✅ · 0 ❌, and the offline suite 1939 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 100 RFC deviations in Hermod. All but findings 98 to 100
-are fixed; [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
-change, and the test that pins it.
+The suite has found 100 RFC deviations in Hermod. All are fixed;
+[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
+the test that pins it.
 
 ## Getting started
 

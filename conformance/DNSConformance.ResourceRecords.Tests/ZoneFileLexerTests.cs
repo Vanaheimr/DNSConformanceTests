@@ -3,8 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
-
 namespace DNSConformance.ResourceRecords.Tests;
 
 /// <summary>
@@ -174,7 +172,6 @@ public class ZoneFileLexerTests
     #region Every character-string, quoted or not (RFC 1035 §5.1 — finding 100)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §5.1")]
     // RFC 1035 §5.1 has a backslash before a digit start \DDD, "where each D is
     // a digit", and \X take "any character other than a digit". So a backslash
@@ -201,7 +198,6 @@ public class ZoneFileLexerTests
     }
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §5.1")]
     [Property("RFC", "1035 §3.3.14")]
     // RFC 1035 §5.1: a <character-string> "is expressed in one or two ways: as
@@ -229,7 +225,6 @@ public class ZoneFileLexerTests
     }
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "1035 §5.1")]
     [Property("RFC", "7208 §3.3")]
     // SPF's record type carries TXT's RDATA, and Hermod holds it as the one

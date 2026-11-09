@@ -29,7 +29,7 @@ test project that exercises each:
 
 | block | folder | judged by | mutants | state |
 |---|---|---|---:|---|
-| `records` | `DNS/ResourceRecords` without the three files of `svcparam` | ResourceRecords | 615 | measured twice, **7 open** |
+| `records` | `DNS/ResourceRecords` without the three files of `svcparam` | ResourceRecords | 615 | measured twice, **closed** |
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 480 | measured twice, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 324 | measured three times, **1 open** |
@@ -147,7 +147,7 @@ neither.
 
 | block | real gaps | of those open | host-only |
 |---|---:|---:|---:|
-| `records` | 57 | **7** | 2 |
+| `records` | 57 | 0 | 2 |
 | `core` | 18 | 0 | 1 |
 | `dnssec` | 13 | **1** | 19 |
 | `tsig` | 22 | **2** | — |
@@ -640,6 +640,25 @@ the URL parse, and `TXT.cs:564`, `:575`, `:588` and `:589` are the quoted
 reader's refusals. A test can kill each of them only by asking what the reader
 ought to do in those cases, and at `38f6a355` it does something else. Those
 are findings 98, 99 and 100, whose trackers are red until Hermod changes.
+
+### Seven of seven, by three fixes
+
+Hermod `cf1e9954` fixed findings 98 to 100, and the seven rows went with them:
+
+| row | now |
+|---|---|
+| `ADNSResourceRecord.cs:690`, `RRSIG.cs:291` | the line is gone: a mnemonic is looked up by its name, and `Enum.TryParse`'s two conditions are not there to be joined the wrong way |
+| `TXT.cs:564`, `:575`, `:588`, `:589` | the line is gone: one reader for every character-string replaced the quoted reader, and nothing overrules its refusals |
+| `URI.cs:199` | killed. Planted on the same line at `cf1e9954`, `RDLength < 5` read as `<= 5` fails the one-octet case of `UriTargetTests` and nothing else |
+
+The ledger has the six as superseded and the seventh as the round
+`finding-99`, keyed by operator. `standing.py records` prints nothing left, and
+the block is **closed** again.
+
+It is closed for the code it measured. The fixes brought new code that no sweep
+has seen: `TryParseMnemonic`, `TryParseCharacterStrings` with its escapes, and
+URI's target as text. Measuring it is a slice's job, as `svcparam` was for the
+code Vanaheimr/Hermod#191 moved.
 
 ### What the first measurement's chapter now is
 
@@ -6408,7 +6427,7 @@ not make was recorded as a statement about the code.**
 ## Standing state
 
 This section is the first measurement's. The block was measured a second time,
-at `38f6a355`, and what `standing.py` prints now is that one: **7 open** (*The
+at `38f6a355`, and what `standing.py` prints now is that one: **none open** (*The
 result: the resource records, measured again*). The first measurement's results
 are in `build/mutation/results/records-973fed31/`.
 
