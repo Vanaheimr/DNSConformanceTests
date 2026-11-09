@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -156,7 +155,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     [TestCase("www.localhost.",     TestName = "{m}: www.localhost.")]
     [TestCase("a.b.localhost.",     TestName = "{m}: a.b.localhost., two labels below it")]
@@ -183,7 +181,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     [TestCase("localhost.",     DNSResourceRecordTypes.MX,  TestName = "{m}: MX of localhost.")]
     [TestCase("localhost.",     DNSResourceRecordTypes.TXT, TestName = "{m}: TXT of localhost.")]
@@ -252,7 +249,6 @@ public class SpecialUseNameTests
 
 
     [TestCaseSource(nameof(WithoutTheCachedEntry))]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     public async Task Localhost_Is_The_Loopback_Address_Without_The_Cached_Entry(Boolean                                             UseQueryCache,
                                                                                  Func<DNSClient, ScriptedUdpServer, Task<DNSInfo>>  Ask)
@@ -286,7 +282,6 @@ public class SpecialUseNameTests
     #region Every "invalid" name is NXDOMAIN, at once (RFC 6761 §6.4)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.4")]
     [TestCase("invalid.",       DNSResourceRecordTypes.A,    TestName = "{m}: A of invalid.")]
     [TestCase("host.invalid.",  DNSResourceRecordTypes.A,    TestName = "{m}: A of host.invalid.")]
@@ -333,7 +328,6 @@ public class SpecialUseNameTests
     #region NameResolution recognizes both itself (RFC 6761 §6.3, §6.4)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     [TestCase("www.localhost",   TestName = "{m}: www.localhost")]
     [TestCase("www.localhost.",  TestName = "{m}: www.localhost., with the root's dot")]
@@ -377,7 +371,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.4")]
     [TestCase("host.invalid",   TestName = "{m}: host.invalid")]
     [TestCase("host.invalid.",  TestName = "{m}: host.invalid., with the root's dot")]
