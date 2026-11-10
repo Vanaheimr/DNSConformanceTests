@@ -225,6 +225,7 @@ public static class RawDnsType
     public const UInt16 LOC        = 29;
     public const UInt16 SRV        = 33;
     public const UInt16 NAPTR      = 35;
+    public const UInt16 KX         = 36;
     public const UInt16 CERT       = 37;
     public const UInt16 DNAME      = 39;
     public const UInt16 OPT        = 41;
@@ -237,6 +238,7 @@ public static class RawDnsType
     public const UInt16 NSEC3PARAM = 51;
     public const UInt16 TLSA       = 52;
     public const UInt16 SMIMEA     = 53;
+    public const UInt16 HIP        = 55;
     public const UInt16 CDS        = 59;
     public const UInt16 CDNSKEY    = 60;
     public const UInt16 OPENPGPKEY = 61;
@@ -244,6 +246,10 @@ public static class RawDnsType
     public const UInt16 ZONEMD     = 63;
     public const UInt16 SVCB       = 64;
     public const UInt16 HTTPS      = 65;
+    public const UInt16 NID        = 104;
+    public const UInt16 L32        = 105;
+    public const UInt16 L64        = 106;
+    public const UInt16 LP         = 107;
     public const UInt16 EUI48      = 108;
     public const UInt16 EUI64      = 109;
     public const UInt16 TKEY       = 249;

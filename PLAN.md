@@ -170,7 +170,7 @@ leg covers them. Every deviation the suite has found is fixed; see
 | 1035 §4.1.4 | Compression (encode) | shared suffixes actually emit pointers; repeated labels resolve correctly; mixed case compresses against its lowercase twin | ✅ |
 | 2181 §8 | TTLs | TTL is 31-bit ✅; a received TTL with the sign bit set reads as zero, every value below it is taken literally, a TTL held in memory is capped rather than wrapped on the way out, and OPT keeps the extended RCODE that lives in the same four octets ✅ (finding 38) | ✅ |
 | 3597 §2 | Unknown RR types | an unknown type is kept as opaque data in requests ✅ (findings 16, 21) and in responses, without costing the records behind it ✅ (finding 21) | ✅ |
-| 3597 §4 | RDATA compression | the eleven post-1035 types no longer compress the names in their RDATA ✅ (finding 22); the five RFC 1035 types still do | ✅ |
+| 3597 §4 | RDATA compression | the eleven post-1035 types no longer compress the names in their RDATA ✅ (finding 22), nor do KX, HIP and LP, whose own RFCs forbid it too; the five RFC 1035 types still do | ✅ |
 | 3597 §5 | Presentation format | `\#` generic RDATA both ways, `TYPEnnn`/`CLASSnn`, a bare decimal is a TTL ✅ (finding 23), a known type written generically re-reads as that type | ✅ |
 | 1035 §5.1, 3597 §5, 4034 §3.2, §4.2 | What a mnemonic is | a decimal is a TTL also where a class has its number, and a comma-separated list of mnemonics is no class, no type, no Type Covered and no type in a bit map ✅ (finding 98) | ✅ |
 | 3123 §4 | APL wire form | family, prefix, and the negation flag in the top bit of the length octet — plus the MUST only octets can show: no trailing zero octets in the AFDPART, since `10.0.0.0/16` and `10/16` print identically | ✅ |
@@ -234,6 +234,7 @@ round-trip where supported.
 | 1035 §3.3.14 | TXT: several quoted strings, or one text | the JSON `data` field is read as a list of character-strings only when it is one: an escaped quote belongs to the string it is inside, and a word outside the quotes, an unterminated string, or no quotes at all make it a single text rather than a parse failure. An empty quoted string is still a string — §6.1's "0-255 bytes" includes zero | ✅ |
 | 3596 | AAAA | full/compressed IPv6 forms | ✅ |
 | 1183 | RP, AFSDB | two-name RDATA | ✅ |
+| 2230 | KX | a preference and an exchanger whose case is kept, read and written as BIND writes them, sixteen bits to the preference and nothing after the name; never compressed (§3.1), although MX, whose shape it has, may be. RDATA that is no KX — a pointer, a name cut short or followed by an octet — is kept as the octets that arrived and shown in the generic form, and the record behind it is still read | ✅ |
 | 1876 §2 | LOC | the scaled octet over all 256 values, the lat/lon 2^31 offset, the altitude reference at both extremes | ✅ |
 | 1876 §2 | LOC version | an unrecognised version, or an undefined scaled octet, is written generically per RFC 3597 §5 ✅ (finding 29) | ✅ |
 | 1035 §5.1 | Master file format | `$ORIGIN`, `$TTL`, `@`, omitted owner names, parenthesised records, comments; relative names completed against the origin in the owner and in the RDATA, and refused when there is no origin ✅ (finding 45); the reference interop zone loads whole and into a zone | ✅ |
@@ -249,6 +250,7 @@ round-trip where supported.
 | 4255 | SSHFP | algorithm/fingerprint-type matrix | ✅ |
 | 4398 | CERT | type/keytag/algorithm | ✅ |
 | 6698/8162 | TLSA, SMIMEA | usage/selector/matching-type, underscored owner names | ✅ |
+| 6742 | NID, L32, L64, LP | NID and L64 as four groups of the AAAA syntax and never "::" (§2.1.2, §2.3.2), written as BIND writes them, lowercase and without leading zeros; L32 as a dotted quad with no leading zero, which is how Erratum 3413 corrected the RFC's own examples and what BIND insists on; LP's FQDN uncompressed (§2.4.1.2) and never its own owner, in any case; ten, six and ten octets, and RDATA of any other length kept as it arrived | ✅ |
 | 7043 | EUI48, EUI64 | fixed-width RDATA | ✅ |
 | 7208 | SPF | as TXT-shaped record | ✅ |
 | 7344 §3 | CDS, CDNSKEY | mirror the parent DS/DNSKEY formats | ✅ |
@@ -259,6 +261,7 @@ round-trip where supported.
 | 7477 | CSYNC | SOA-serial + flags + type bitmap | ✅ |
 | 7553 | URI | target is raw remaining octets, **not** a domain name | ✅ |
 | 7929 | OPENPGPKEY | binary blob | ✅ |
+| 8005 | HIP | §5's three boundaries: the HIT and the key where their lengths put them, and the rendezvous servers to the last octet of the RDATA, uncompressed (§5.6); all three examples of §7, the HIT read in either case and written in capitals as BIND writes it, and a key split by whitespace read as a key and a server, as §6 says. A HIT or a key of length zero is not a HIP (§5), nor are lengths that run past the RDATA | ✅ |
 | 8659 | CAA | critical flag bit, length-prefixed tag, unprefixed value | ✅ |
 | 8976 | ZONEMD | serial/scheme/hash | ✅ |
 | 9460 | SVCB, HTTPS | alias mode, service mode + SvcParams, round-trip, RDLENGTH-bounded parsing | ✅ |

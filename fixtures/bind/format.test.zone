@@ -66,3 +66,17 @@ outside     IN  CNAME a.format.test.
 ; Parenthesised continuation outside the SOA, and a comment inside it.
 multiline   IN  TXT   ( "first"      ; a comment mid-record
                         "second" )
+
+; The record types of RFC 2230, RFC 8005 and RFC 6742, written the way a person
+; writes them rather than the way named-checkzone prints them: a relative
+; exchanger in capitals, a NodeID with its leading zeros and in capitals, a
+; locator pointer that is relative too, and a HIP over three lines whose HIT is
+; in lowercase and whose second rendezvous server is relative.
+kx          IN  KX    10 Mail
+nid         IN  NID   10 0014:4FFF:FF20:EE64
+l32         IN  L32   20 10.1.4.0
+l64         IN  L64   10 2001:0DB8:1140:1000
+lp          IN  LP    10 l64-subnet1
+hip         IN  HIP   ( 2 200100107b1a74df365639cc39f1d578
+                        AwEAAbdxyhNuSutc5EMzxTs9LBPCIkOFH8cIvM4p9+LrV4e19WzK00+CI6zBCQTdtWsuxKbWIy87UOoJTwkUs7lBu+Upr1gsNrut79ryra+bSRGQb1slImA8YVJyuIDsj7kwzG7jnERNqnWxZ48AWkskmdHaVDP4BcelrTI3rMXdXF5D
+                        rvs1.example.com. Rvs2 )
