@@ -47,6 +47,15 @@ namespace DNSConformance.Server.Tests;
 /// as special". One is among the guards.
 /// </para>
 /// <para>
+/// RFC 6762 §22.1 registered the link-local names of Multicast DNS: ".local."
+/// and the link-local reverse domains 254.169.in-addr.arpa. and 8.e.f.ip6.arpa.
+/// to b.e.f.ip6.arpa. Item 5: "Authoritative DNS servers SHOULD NOT by default be
+/// configurable to answer queries for these names, and, like caching DNS
+/// servers, SHOULD generate immediate NXDOMAIN responses for all such queries
+/// they may receive." A server may offer an option to answer them; by default it
+/// does not.
+/// </para>
+/// <para>
 /// Every negative answer here cites an SOA, as every other negative answer of
 /// this server does (RFC 2308 §3): without one it is not cached, and a resolver
 /// asks again every time.
@@ -74,6 +83,7 @@ public class SpecialUseNameServerTests
     private const String ConfiguredLocalhostAAAA = "2001:db8::97";
     private const String ConfiguredInvalidA     = "192.0.2.98";
     private const String ConfiguredOnionA       = "192.0.2.99";
+    private const String ConfiguredLocalA       = "192.0.2.100";
 
     private HermodServerFixture server      = null!;
     private HermodServerFixture configured  = null!;
@@ -99,14 +109,16 @@ public class SpecialUseNameServerTests
         // Records at names whose answers RFC 6761 fixes. Item 6 of §6.3 and of
         // §6.4: those answers "cannot be modified by local configuration". And
         // one at a .onion name, which RFC 7686 §2 item 5 has a server answer
-        // with NXDOMAIN whatever it holds.
+        // with NXDOMAIN whatever it holds, and one at a .local name, which RFC
+        // 6762 §22.1 item 5 has a server not answer by default.
         var other = ZoneFixtures.CreateStandardZone();
 
         other.Add(
             new A   (DomainName.Parse("localhost."),     DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredLocalhostA)),
             new AAAA(DomainName.Parse("www.localhost."), DNSQueryClasses.IN, ttl, IPv6Address.Parse(ConfiguredLocalhostAAAA)),
             new A   (DomainName.Parse("host.invalid."),  DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredInvalidA)),
-            new A   (DomainName.Parse("host.onion."),    DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredOnionA))
+            new A   (DomainName.Parse("host.onion."),    DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredOnionA)),
+            new A   (DomainName.Parse("printer.local."), DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredLocalA))
         );
 
         configured  = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = other });
@@ -439,7 +451,6 @@ public class SpecialUseNameServerTests
     #region An_Onion_Name_Is_NXDOMAIN(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7686 §2")]
     [TestCase("onion.",                    RawDnsType.A)]
     [TestCase("hiddenservice.onion.",      RawDnsType.A)]
@@ -465,7 +476,6 @@ public class SpecialUseNameServerTests
     #region A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7686 §2")]
     public async Task A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist()
     {
@@ -479,6 +489,61 @@ public class SpecialUseNameServerTests
             Assert.That(response.RCode,   Is.EqualTo(3), "host.onion. is NXDOMAIN (3) with a record configured at it");
             Assert.That(response.Answers, Is.Empty,      "and the configured record is not served");
             AssertCitesAnSoa(response, "host.onion.");
+        });
+
+    }
+
+    #endregion
+
+
+    // Finding 108: the link-local names of Multicast DNS (RFC 6762 §22.1, item 5)
+
+    #region A_Link_Local_Name_Is_NXDOMAIN(Name, Type)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §22.1")]
+    [TestCase("printer.local.",             RawDnsType.A)]
+    [TestCase("local.",                     RawDnsType.A)]
+    [TestCase("_ipp._tcp.LOCAL.",           RawDnsType.PTR)]
+    [TestCase("4.3.254.169.in-addr.arpa.",  RawDnsType.PTR)]
+    [TestCase("1.8.e.f.ip6.arpa.",          RawDnsType.PTR)]
+    [TestCase("F.B.E.F.IP6.ARPA.",          RawDnsType.PTR)]
+    public async Task A_Link_Local_Name_Is_NXDOMAIN(String Name, UInt16 Type)
+    {
+
+        // §22.1 item 5: "like caching DNS servers, SHOULD generate immediate
+        // NXDOMAIN responses for all such queries they may receive."
+        var response = await Ask(server, Name, Type);
+
+        Assert.Multiple(() => {
+            Assert.That(response.RCode,   Is.EqualTo(3), $"{Name} is NXDOMAIN (3), not refused (5)");
+            Assert.That(response.Answers, Is.Empty,      "and has no answer");
+            AssertCitesAnSoa(response, Name);
+        });
+
+    }
+
+    #endregion
+
+    #region A_Configured_Link_Local_Name_Is_Not_Served_By_Default()
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §22.1")]
+    public async Task A_Configured_Link_Local_Name_Is_Not_Served_By_Default()
+    {
+
+        // §22.1 item 5: "Authoritative DNS servers SHOULD NOT by default be
+        // configurable to answer queries for these names". The zone holds
+        // 192.0.2.100 at printer.local., and the server is in its default
+        // configuration.
+        var response = await Ask(configured, "printer.local.", RawDnsType.A);
+
+        Assert.Multiple(() => {
+            Assert.That(response.RCode,   Is.EqualTo(3), "printer.local. is NXDOMAIN (3) with a record configured at it");
+            Assert.That(response.Answers, Is.Empty,      "and the configured record is not served");
+            AssertCitesAnSoa(response, "printer.local.");
         });
 
     }
@@ -515,6 +580,7 @@ public class SpecialUseNameServerTests
     [Test]
     [Property("RFC", "6761 §6.5")]
     [Property("RFC", "9476 §3.2")]
+    [Property("RFC", "6762 §22.1")]
     [Property("RFC", "1034 §4.3.2")]
     [TestCase("example.")]
     [TestCase("www.example.org.")]
@@ -527,6 +593,12 @@ public class SpecialUseNameServerTests
     [TestCase("onions.")]
     [TestCase("onion.example.com.")]
     [TestCase("name.alt.")]
+    [TestCase("local.example.")]
+    [TestCase("notlocal.")]
+    [TestCase("255.169.in-addr.arpa.")]
+    [TestCase("1.1254.169.in-addr.arpa.")]
+    [TestCase("c.e.f.ip6.arpa.")]
+    [TestCase("18.e.f.ip6.arpa.")]
     [TestCase("11.in-addr.arpa.")]
     [TestCase("15.172.in-addr.arpa.")]
     [TestCase("32.172.in-addr.arpa.")]
