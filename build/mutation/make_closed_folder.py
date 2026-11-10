@@ -681,31 +681,24 @@ SERVER_SUPERSEDED = {}
 #  client
 # ---------------------------------------------------------------------------
 
-# Keyed to Hermod d906af2d, the revision the second sweep of this block measured,
+# Keyed to Hermod cf1e9954, the revision the third sweep of this block measured,
 # without the four files the `streams` slice measures on its own (DNSTCPClient,
-# DNSTLSClient, DNSStreamPipeline, DNSKeepalivePolicy). The first sweep measured
-# cc8323d5 over the whole folder, and its files are in results/client-cc8323d5/.
-# Its ledger - 97 rows killed in seven rounds, 29 equivalent, 41 superseded - is
-# in this file's history, as of 011e346.
+# DNSTLSClient, DNSStreamPipeline, DNSKeepalivePolicy). The second sweep measured
+# d906af2d, and its files are in results/client-d906af2d/. Its ledger - the race
+# below, 36 mutants killed by one round of tests, and 47 equivalent - is in this
+# file's history, as of 951714d. The first sweep measured cc8323d5 over the whole
+# folder, and its files are in results/client-cc8323d5/; its ledger is in this
+# file's history as of 011e346.
 #
-# None of the killed rows is carried over, and none needs to be: a gap a test
-# closed is killed by that test in the new pass 1 and never reaches the
-# classification. Two that seemed to come back had only ever been half closed.
-# DNSCache 869 and 975 each carry two mutants, and the old ledger, keyed by line,
-# recorded both lines killed for the one mutant a test catches - saying in a
-# comment that the other belongs to the clock family. Keyed by operator now, the
-# killed halves die in pass 1 and the clock halves are below with their family.
+# Four Hermod commits changed four of the block's files between the two. 9cc63f9c
+# and 38f6a355 gave the UDP client's TCP retry the caller's token and the query's
+# stopwatch, and DNSInfo.Invalid the times its caller has. 8ba53f6e brought
+# NameResolution.cs, and cf1e9954 DoH's reading of Google's bare TXT text.
 #
-# The equivalents were read again against d906af2d rather than moved with their
-# numbers. Of the first sweep's twenty-nine, nine were in the stream files, which
-# the `streams` slice carries. Fourteen are here on their new lines, and two on
-# lines a rewrite changed: DNSCache 812 and 990, the NODATA lookup and its sweep.
-# Three went with the code they sat in, DNSClient's cache-hit gate, which
-# e2caece9 replaced with DNSCache.TryGetAnswer. The twentieth is not here: DoH's
-# `body.Length < 12`, now 1227, whose argument named the fields the two refusals
-# share and left out the two they do not - DNSInfo.Invalid reports a timeout and
-# a runtime of zero where DNSInfo.Failed reports the real ones. It is open until
-# that is decided (MUTATION.md, "The result: the client, measured again").
+# None of the second sweep's kills is carried over, and none needs to be: all 36
+# die in pass 1 here, and no other mutant changed its verdict. The equivalents
+# were read again against cf1e9954. Five of the UDP client's moved fifteen lines
+# down, with the retry's new parameter and its comment, and say so below.
 
 CLIENT_KILLED = {
 
@@ -713,67 +706,23 @@ CLIENT_KILLED = {
     # (allDNSServerRequests.Count > 0)` against `>= 0` leaves the loop calling
     # Task.WhenAny on an empty list, which throws into the generic catch above it
     # and goes round again for ever. Every test that queries through DNSClient
-    # hangs, so pass 1 stopped the judge after 606 s, and pass 2's seven projects
+    # hangs, so pass 1 stopped the judge after 623 s, and pass 2's seven projects
     # never build a DNSClient that races two servers.
     "a-race-that-does-not-end": {
         "DNS/Client/DNSClient.cs": {982},
     },
 
-    # The first round of tests at d906af2d, planted one mutant at a time under the
-    # Client project's 262 tests. Three of them are red at d906af2d on purpose and
-    # carry KnownIssue, so a kill here means a test outside those three failed.
-    #
-    # TryGetAnswer, e2caece9's cached answer: the RRset asked for, the RRSIGs that
-    # cover it, and the CNAME or DNAME chain that leads to it, each link with its
-    # own signature (RFC 1034 section 3.6.2, RFC 4035 sections 3.1.1 and 4.5, RFC
-    # 6672 sections 3.1 and 5.3.1). CachedAliasChainTests drives the cache
-    # directly: a chain through a CNAME and through a DNAME, a DNAME beside the
-    # chain that leads elsewhere, an expired link, a loop, a name with nothing
-    # cached, and records put in one by one rather than as a response. Each line
-    # carrying two mutants loses both.
-    "an-rrset-and-the-chain-that-leads-to-it": {
-        "DNS/Client/Cache/DNSCache.cs": {541, 545, 603, 612, 613, 620, 621, 624,
-                                          625, 626, 631, 640},
-    },
-
-    # Query_IPAddressesToConnect with RFC 8305 section 3's Resolution Delay: the
-    # other family's answer within the delay is taken, past it is not waited for,
-    # and a negative first answer does not end the wait (ResolutionDelayTests,
-    # with a server that answers each type on its own schedule). And the
-    # ForceUpdate default of each of its three overloads, which a second lookup
-    # answered from the cache reads (ConvenienceLookupCacheTests).
-    "the-addresses-to-connect-to": {
-        "DNS/Client/IDNSClient.cs": {474, 500, 519, 520, 568},
-    },
-
-    # Which servers a client asks and what it holds open to them. A client given
-    # servers and handed null for both searches asks only those (11d9076a). A
-    # server listed twice is one server, and two that differ in transport, port,
-    # address or name are two (0b4fee16). CloseConnection says whether there was a
-    # pooled connection to close, and closes it.
-    "which-servers-and-which-connection": {
-        "DNS/Client/DNSClient.cs":       {339, 350, 423, 438},
-        "DNS/Client/DNSServerConfig.cs": {224, 225, 226, 227},
-    },
-
-    # DoH's own defaults and endings. A query that mentions recursion nowhere still
-    # asks for it, over DoH as over the other transports.
-    # A server that hangs up on the request is a failure, not a timeout. An empty
-    # JSON body is a failure like any other, with no header bit and with its
-    # runtime. A disposed client refuses the next query and sends nothing.
-    "doh-defaults-and-endings": {
-        "DNS/Client/DNSHTTPSClient.cs": {996, 1183, 1584, 1971},
-    },
-
-    # Killed once Hermod 38f6a355 is pinned. 786 is the TCP retry's catch for a
-    # client disposed under it, and the mutant's || takes every cancellation the
-    # caller did not cause, the deadline included. At d906af2d the retry's token
-    # carried the deadline, so the condition was false for it as well. From
-    # 38f6a355 the deadline is the retry's own, and
-    # A_Udp_Query_Whose_Tcp_Fallback_Runs_Out_Of_Time_Says_So fails. Planted at
-    # 38f6a355, where the line is 801.
-    "the-retry-keeps-its-deadline": {
-        "DNS/Client/DNSUDPClient.cs": {786},
+    # DoH's reading of Google's bare TXT text, new in cf1e9954. Google writes the
+    # data of a TXT or an SPF as its character-strings joined with nothing,
+    # unquoted and unescaped, and the client quotes it before the zone-file reader
+    # sees it. With && no type is both, the text stays bare, and the reader splits
+    # it at every blank and takes a semicolon for a comment.
+    # JsonAnswerTests.Google_Writes_A_Txt_Bare_And_It_Is_Read_As_One_Text fails, the
+    # only one of the six JsonAnswerTests that does; pass 1 had the rest of the
+    # Client project miss it. Planted at 88540b71, where DNSHTTPSClient.cs is as it
+    # was at cf1e9954. The line's == dies in pass 1.
+    "googles-bare-txt": {
+        "DNS/Client/DNSHTTPSClient.cs": {(1705, "logical-or-to-and")},
     },
 
 }
@@ -903,19 +852,24 @@ CLIENT_EQUIVALENT = {
              "point at, so true and false write the same octets. A TSIG or SIG(0) record is "
              "appended after serialisation, by TransactionSecurity.SignQuery, and does not "
              "see the flag",
-        702: "Serialize(ms, UseCompression: false) for the TCP retry - the same query, see 360",
+        717: "Serialize(ms, UseCompression: false) for the TCP retry - the same query, see 360",
 
-        699: "new NetworkStream(socket, ownsSocket: false) in the TCP retry. With true the "
+        714: "new NetworkStream(socket, ownsSocket: false) in the TCP retry. With true the "
              "stream closes the socket when its `using` ends, at the end of the try block; "
-             "the finally right after it (886) disposes the socket anyway, and Socket.Dispose "
+             "the finally right after it (901) disposes the socket anyway, and Socket.Dispose "
              "is idempotent. The socket is closed a moment earlier, by the same call",
 
-        1329: "disposedValue = true. The flag guards one call, lifetime.Cancel(), which is "
+        709: "remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, what is left of the "
+             "query's deadline when the TCP retry starts, new in 38f6a355. The mutant moves "
+             "the comparison to >=, which changes only the case where nothing is left - and "
+             "there both arms are TimeSpan.Zero. The same number either way",
+
+        1344: "disposedValue = true. The flag guards one call, lifetime.Cancel(), which is "
               "idempotent on a source that is never disposed - and `lifetime` is not. A "
               "second Dispose with the flag never set cancels a cancelled source again",
-        1339: "Dispose(Disposing: true) from Dispose(). The parameter is read nowhere in "
+        1354: "Dispose(Disposing: true) from Dispose(). The parameter is read nowhere in "
               "Dispose(Boolean); true and false run the same body",
-        1345: "Dispose(Disposing: true) from DisposeAsync() - see 1339",
+        1360: "Dispose(Disposing: true) from DisposeAsync() - see 1354",
 
     },
 

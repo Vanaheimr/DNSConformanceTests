@@ -337,6 +337,14 @@ them, red at f5866619 and passing from 88540b71 on; six guards beside them
 pass. With them the Client project is 317 ✅ · 0 ❌, and the offline suite
 2066 ✅ · 0 ❌ · 4 skips.
 
+And the case the client block asked for when it was measured a third time, at
+cf1e9954 (MUTATION.md, *Google's TXT, written bare*): one. Google's JSON API
+writes the data of a TXT or an SPF bare, its character-strings joined with
+nothing, and it has to arrive as one text rather than one string per word, even
+with a semicolon in it that a zone file would take for a comment. Hermod passed
+it already. With it the Client project is 318 ✅ · 0 ❌, and the offline suite
+2067 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;

@@ -207,6 +207,45 @@ public class JsonAnswerTests
 
     #endregion
 
+    #region Google_Writes_A_Txt_Bare_And_It_Is_Read_As_One_Text()
+
+    [Test]
+    [Property("RFC", "1035 §5.1")]
+    public async Task Google_Writes_A_Txt_Bare_And_It_Is_Read_As_One_Text()
+    {
+
+        // The one place the data field is not the presentation form. Google's
+        // API writes a TXT's or an SPF's data as the bare text, its
+        // character-strings joined with nothing, unquoted and unescaped, where
+        // Cloudflare quotes each string as a zone file does. Read the way a zone
+        // file reads RDATA, the bare text would come apart at every blank, and a
+        // semicolon would start a comment. It is one text, and arrives as the
+        // record its quoted form describes.
+        var cases = new (Int32 Type, String Mnemonic, String Text)[] {
+            (16, "TXT", "v=spf1 a mx -all"),
+            (16, "TXT", "v=DMARC1; p=none"),
+            (99, "SPF", "v=spf1 a mx -all")
+        };
+
+        foreach (var (type, mnemonic, text) in cases)
+        {
+
+            var info = await AskFor("probe.example.", type, text);
+
+            Assert.That(info.Answers.Count(), Is.EqualTo(1), $"{mnemonic} '{text}' arrives over JSON");
+
+            var fromJson  = RData((ADNSResourceRecord) info.Answers.First());
+            var asOne     = RData((ADNSResourceRecord) ADNSResourceRecord.ParseZoneFileString(
+                                      $"probe.example. 60 IN {mnemonic} \"{text}\""));
+
+            Assert.That(fromJson, Is.EqualTo(asOne), $"{mnemonic} '{text}': one character-string, not one per word");
+
+        }
+
+    }
+
+    #endregion
+
 
     #region (private static) RData(Record)
 

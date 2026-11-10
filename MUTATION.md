@@ -33,7 +33,7 @@ test project that exercises each:
 | `core` | `DNS` (the files directly in it) | ResourceRecords | 480 | measured twice, **closed** |
 | `tsig` | `DNS/TSIG` | SecureTransports | 95 | measured twice, **2 open** |
 | `dnssec` | `DNS/DNSSEC` | Dnssec | 324 | measured three times, **1 open** |
-| `client` | `DNS/Client` without the four files of `streams` | Client | 487 | measured twice, **13 open** |
+| `client` | `DNS/Client` without the four files of `streams` | Client | 516 | measured three times, **27 open** |
 | `multicast` | `DNS/Multicast` | Multicast | 632 | measured twice, **54 open** |
 | `server` | `DNS/Server` | Server | 414 | measured twice, **34 open**, 1 never measured |
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
@@ -93,9 +93,11 @@ records, measured again*). The `core` row said 478 at `e592b5e7`. It says 480 be
 block was measured a second time, at `38f6a355`, after finding 57's fix had
 replaced one comparison and the compression table and finding 76 had added one
 each (*The result: the code every query passes through, measured again*). The
-`client` row said 558 for the whole folder at `cc8323d5`. It says 487 because the
-block was measured a second time, at `d906af2d`, without the four files the
-`streams` slice measures (*The result: the client, measured again*). The
+`client` row said 558 for the whole folder at `cc8323d5`, and 487 at `d906af2d`,
+where the block was measured a second time without the four files the `streams`
+slice measures (*The result: the client, measured again*). It says 516 because
+the block was measured a third time, at `cf1e9954`, after `NameResolution.cs`
+had come into the folder (*The result: the client, measured a third time*). The
 `server` row said 361 at `cc8323d5`. It says 414 because the block was measured
 a second time, at `38f6a355`, after CA2007 had put `ConfigureAwait(false)` on
 every await in the folder (*The result: the server, measured again*). The `tsig`
@@ -121,7 +123,7 @@ captures a context can deadlock the caller that is waiting on it.
 
 A test host has no synchronization context. Both continuations go to the thread
 pool, and from here the two readings are **indistinguishable, which is not the
-same as equivalent**. Two hundred and eighty-four of these sit across the measured blocks, and
+same as equivalent**. Two hundred and ninety-three of these sit across the measured blocks, and
 not one of them is work waiting to be done: no test written for a DNS
 conformance suite will ever close one.
 
@@ -141,7 +143,10 @@ found sixty-eight. The `server` block's second sweep counts eighty-one where the
 first counted twenty-nine. `360c8e28` wrote `ConfigureAwait(false)` on every
 await in `DNS` that did not have it yet, fifty of them in the server folder and
 forty-four of those in `DNSServer.cs`, and `3f5d5961` gave DoH/2's new
-`DisposeAsync` two more.
+`DisposeAsync` two more. The `records` block's second sweep added two, A's and
+AAAA's, which `360c8e28` had given the call, and this count had missed them.
+The `client` block's third sweep adds seven, all in `NameResolution.cs`, which
+awaits each step from the name to the connected socket.
 
 Counting them as open gaps said the opposite for months. Rounding them into
 `noise` would have said they are not code, which they are. So they now have a
@@ -155,7 +160,7 @@ neither.
 | `dnssec` | 13 | **1** | 19 |
 | `tsig` | 22 | **2** | — |
 | `server` | 69 | **34** | 81 |
-| `client` | 97 | **13** | 57 |
+| `client` | 77 | **27** | 64 |
 | `streams` | 26 | **9** | 43 |
 | `multicast` | 236 | **54** | 83 |
 
@@ -435,6 +440,208 @@ measured stays at 38.8 %, and with the noise removed it is 48.3 % rather than
 48.6 %.
 
 
+## The result: the client, measured a third time
+
+The second measurement of this block, at `d906af2d`, ended with 13 rows open
+(*The result: the client, measured again*, below). By **`cf1e9954`**, the
+suite's pin when this sweep started, four Hermod commits had changed four of
+the block's files, by 312 lines added and 5 removed:
+- `9cc63f9c` and `38f6a355` are the fix that measurement's round asked for. The
+  UDP client's TCP retry is handed the caller's token and the query's
+  stopwatch, and `DNSInfo.Invalid` the timeout and the runtime its caller has.
+- `8ba53f6e` brought `NameResolution.cs`, the one place Hermod turns a host
+  into the addresses to connect to. It resolves with the DNS client it is
+  given, never with the resolver of the operating system. The TLS warden, the
+  HTTP/2 and HTTP/3 clients, SMTP, SSH and Hermod's other clients resolve
+  through it, and nothing in Hermod's DNS code calls it.
+- `cf1e9954` has DoH's JSON mode quote Google's bare TXT and SPF text before
+  the zone-file reader sees it. The `presentation` slice measured the readers
+  of that fix and left this call to this block (*What this slice does not
+  measure*).
+
+The block was swept again at `cf1e9954` with the same judge and the same two
+passes, without the four files of the `streams` slice. The second
+measurement's files moved to `results/client-d906af2d/` unchanged, and its
+ledger stays in the history of `make_closed_folder.py`.
+
+| | `d906af2d` | `cf1e9954` |
+|---|---:|---:|
+| mutants | 487 | 516 |
+| not viable (would not compile) | 79 | 82 |
+| killed by Client, pass 1 | 208 | 247 |
+| killed by another project | 7 | 7 |
+| survived everywhere | 193 | 180 |
+| real gaps | 97 | 77 |
+| killed by a test written for them | 36 | 1 |
+| killed by not finishing | 1 | 1 |
+| equivalent | 47 | 48 |
+| open | **13** | **27** |
+
+The 180 are 77 real gaps, 64 `ConfigureAwait(false)` that no test host can
+see, and 39 that are not code. The 29 new mutants are `NameResolution.cs`'s 24,
+four on DoH's two new lines and one in the UDP client's retry.
+
+### Thirty-six that died where they were planted
+
+Every row of `d906af2d` was followed to its line at `cf1e9954` by the text of
+both revisions. The 36 that the second measurement's round killed die in pass 1
+now, each on its own line. The retry's catch, `:786` there, is `:801` here,
+fifteen lines down with the retry's new parameter and its comment. No other
+mutant on a line the two revisions share changed its verdict, in either
+direction. So the ledger keyed to `cf1e9954` carries none of those kills.
+
+### The same three that do not finish, and the same stack overflow
+
+Pass 1 ran out of time on the same three rows as at `d906af2d`:
+- `DNSClient.cs:982`, the race that does not end;
+- `DNSUDPClient.cs:430`, the transaction id check made `==`;
+- `:660`, which was `:653`, the `return true` of a response whose signature
+  verified.
+
+Pass 2 killed the same seven as before. `:430` and `:660` fail five of the
+Server project's tests. `DNSClient.cs:654` takes SecureTransports from 167
+tests to 120. DoH's `:152`, `:1450` twice and `:1457` fail SecureTransports'
+tests. `:982` survives every project again, and the ledger records it killed by
+not terminating, as it was.
+
+`DNSUDPClient.cs:314`, the guard in front of `OneQuestionPerQuery`, came back
+without a verdict from both passes again. Planted by hand at `cf1e9954`, and run
+on `Truncated_Udp_Response_Triggers_Tcp_Retry` alone, it crashes the test host.
+Run without `--blame`, the test runner says only that the host crashed. With
+`--blame`, the host's last words are "Stack overflow." and frame after frame of
+`OneQuestionPerQuery.AskEachTypeAsync`. Its row in `client-pass1.tsv` says
+KILLED, and its pass-2 row is gone. `client-pass1.tsv.before-verdict-fix` and
+`client-pass2.as-measured.tsv` keep what the sweep wrote.
+
+### A kill nothing could have made
+
+Pass 2 reported one kill that the second measurement did not have.
+`NameResolution.cs:168` was killed by the Multicast project, 2 of 220 failed.
+The mutant is `ConfigureAwait(true)` on the socket connect of
+`ConnectAsync(Socket, …)`, which no test host can tell apart. Nothing the
+Multicast project runs reaches it:
+- In Hermod, `NameResolution` is called by the TLS warden, the HTTP/2 and
+  HTTP/3 clients, `PublicAddresses`, SMTP's MTA-STS resolver, SSH, Modbus,
+  `UDPSender` and Argus. None of these is in the DNS code.
+- No file of the Multicast project or of the suite's `src` names any of them.
+
+The row was taken out of `client-pass2.tsv` and judged again on its own. It
+survives all seven projects. The two failures were the Multicast project's own,
+which is the shape *one-test kills* warned about. `client-pass2.as-measured.tsv`
+keeps the reported kill, so the rejudged row can be compared with it.
+
+### Twenty-four mutants in a file nothing tested
+
+`NameResolution.cs` has 24 mutants:
+- 3 do not compile;
+- the Client project kills none of the others in pass 1;
+- 21 survive every project.
+
+Of the 21, 7 are `ConfigureAwait(false)` and 14 are real gaps. At `cf1e9954` no
+test in the suite called `NameResolution` at all. The 14 are:
+- `TryLiteral`'s five `return true`s (`:60`, `:67`, `:81`, `:87`, `:93`) and
+  its `return false` (`:97`). They cover an IPv4 address, an IPv6 address as a
+  URI writes it, one with its zone written by hand, and the two checks for
+  `localhost`.
+- `:72` and `:78`, the brackets around an address and the check that it is
+  IPv6.
+- `:133`, the `RecursionDesired: true` that `ResolveAsync` asks with, and
+  `:139`, which refuses an empty answer.
+- `:220`, `ConnectCallback`'s refusal when no address is allowed.
+- Three settings of the HTTP handler's socket: `NoDelay` (`:224`), the stream
+  that owns the socket (`:229`) and `UseProxy = false` (`:253`).
+
+They stay open here, and none is argued. The file changed after `cf1e9954`.
+Since `56f2c957`, `TryLiteral` takes every name below `localhost.` as the
+loopback addresses (finding 101). Since `56f2c957` and `6ff76e99`,
+`ResolveAsync` refuses "invalid" and `.onion` names before it asks a DNS client
+(findings 102 and 105).
+`SpecialUseNameTests` calls `ResolveAsync` for all three kinds of name, and
+those cases were written after this sweep started. They belong to the next
+measurement of the file (below), not to this one.
+
+### Google's TXT, written bare
+
+`DNSHTTPSClient.cs:1705` to `:1707` are new in `cf1e9954`:
+
+```csharp
+if ((type == (UInt16) DNSResourceRecordTypes.TXT ||
+     type == (UInt16) DNSResourceRecordTypes.SPF) &&
+    !TXT.IsPresentationFormat(data, out _))
+```
+
+The `==` of `:1705` dies in pass 1, because every other type would be quoted
+too. Both mutants of `:1706` die as well. The `||` read as `&&` survives
+everywhere: no type is both TXT and SPF, so the bare text is never quoted. The
+suite's JSON tests wrote TXT and SPF data as Cloudflare does, quoted, and such
+data never reaches the quoting. Google's form had been given only to TXT's own
+JSON reader, in the ResourceRecords project, and never to the DoH client.
+
+`JsonAnswerTests.Google_Writes_A_Txt_Bare_And_It_Is_Read_As_One_Text` writes
+it as Google does, in three cases:
+- `v=spf1 a mx -all` as a TXT;
+- `v=DMARC1; p=none` as a TXT, where the semicolon would start a comment;
+- `v=spf1 a mx -all` as an SPF.
+
+Each has to arrive as one character-string, the record its quoted form
+describes. Planted at `88540b71`, where `DNSHTTPSClient.cs` is as it was at
+`cf1e9954`, the `&&` fails that test and no other of the six `JsonAnswerTests`.
+Pass 1 had the rest of the Client project miss it. The line's `==`, the
+control, fails five of the six. The ledger keys the round by operator.
+
+### One more equivalent
+
+`DNSUDPClient.cs:709`, new in `9cc63f9c`, is what is left of the query's
+deadline when the TCP retry starts:
+
+```csharp
+timeoutCTS.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
+```
+
+`>=` changes only the case where nothing is left, and there both arms are
+`TimeSpan.Zero`. The second measurement's 47 equivalents were read again
+against `cf1e9954`. Five of the UDP client's are fifteen lines further down
+(`:714`, `:717`, `:1344`, `:1354`, `:1360`). The `finally` that closes the
+retry's socket is `:901` now.
+
+### Where the 27 are
+
+| file | open | what it is |
+|---|---:|---|
+| `NameResolution.cs` | 14 | above |
+| `DNSUDPClient.cs` | 7 | the answer to an address family the host does not have (`:514`, and five fields of it, `:523` to `:532`), and the TCP retry's twelve-octet guard (`:740`) |
+| `DNSHTTPSClient.cs` | 5 | the reconnect test (`:1061`, twice), the chunked flag on each send (`:1121`, `:1141`), and the twelve-octet guard (`:1227`) |
+| `DNSClient.cs` | 1 | which interfaces are read (`:352`) |
+
+The thirteen outside `NameResolution.cs` are the second measurement's thirteen
+on their new lines, open for the reasons given there (*Where the 49 are* and
+*Thirty-five of thirty-five*). For the two twelve-octet guards, the reason is the
+one given once `38f6a355` was pinned: with its fix, both readings report the
+times, and only the transaction id still differs.
+
+### The files the special-use fixes changed
+
+From `56f2c957` to `88540b71`, the fixes for findings 101 to 109 changed this
+block again. `SpecialUseNames.cs` is new, and `DNSClient.cs` answers the
+special-use names itself. `NameResolution.cs` answers `localhost` names and
+refuses "invalid" and `.onion` names. Outside the block they changed:
+- in `server`: `SpecialUseZones.cs`, which is new,
+  `AuthoritativeDNSRequestHandler.cs`, `InMemoryDNSZone.cs`,
+  `IDNSZoneStore.cs` and `DNSServer.cs`;
+- in `core`: `DNSPacket.cs`.
+
+This ledger stays keyed to `cf1e9954`, and its rows on those files are true of
+the code they were measured on. Those files are measured next, at `88540b71`,
+and `NameResolution.cs`'s fourteen go with them.
+
+### What the second measurement's chapter now is
+
+*The result: the client, measured again*, below, is the measurement at
+`d906af2d`, and its line numbers are that revision's. Its rounds, its
+equivalents and its account of the stack overflow stand. Its 13 open rows are
+the 13 of *Where the 27 are* that lie outside `NameResolution.cs`.
+
+
 ## The result: the presentation readers of findings 98 to 100
 
 Hermod `cf1e9954` fixed findings 98 to 100 after the `records` block had been
@@ -596,7 +803,8 @@ nothing open and five rows without a verdict.
 `DNSHTTPSClient.cs` turns Google's bare TXT text into the presentation format
 with `TXT.PresentationOf` before its zone-file reader sees it. That call is in
 the `client` block. That block is stale since `cf1e9954` and the commits before
-it, and `NameResolution.cs` is new there.
+it, and `NameResolution.cs` is new there. It was measured at `cf1e9954` next
+(*The result: the client, measured a third time*).
 
 
 ## The result: the resource records, measured again
