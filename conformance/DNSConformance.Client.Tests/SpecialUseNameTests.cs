@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -330,7 +329,6 @@ public class SpecialUseNameTests
     #region Every .onion name is NXDOMAIN (RFC 7686 §2)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7686 §2")]
     [TestCase("onion.",                    DNSResourceRecordTypes.A,    TestName = "{m}: A of onion.")]
     [TestCase("hiddenservice.onion.",      DNSResourceRecordTypes.A,    TestName = "{m}: A of hiddenservice.onion.")]
@@ -447,7 +445,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7686 §2")]
     [TestCase("hiddenservice.onion",   TestName = "{m}: hiddenservice.onion")]
     [TestCase("hiddenservice.onion.",  TestName = "{m}: hiddenservice.onion., with the root's dot")]

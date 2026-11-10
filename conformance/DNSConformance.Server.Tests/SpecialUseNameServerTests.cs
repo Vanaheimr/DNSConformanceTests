@@ -439,7 +439,6 @@ public class SpecialUseNameServerTests
     #region An_Onion_Name_Is_NXDOMAIN(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7686 §2")]
     [TestCase("onion.",                    RawDnsType.A)]
     [TestCase("hiddenservice.onion.",      RawDnsType.A)]
@@ -465,7 +464,6 @@ public class SpecialUseNameServerTests
     #region A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "7686 §2")]
     public async Task A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist()
     {

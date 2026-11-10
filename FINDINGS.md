@@ -4,10 +4,8 @@ What this suite caught. One hundred and six RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them but the last two is fixed and every one is defended by a test
-— so this reads as a record, not a backlog. Findings 105 and 106, the .onion
-names of RFC 7686, are open, and their trackers are red on purpose. It stays
-because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -123,8 +121,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 102 | An "invalid" name went to the configured server | Low (SHOULD) | 6761 §6.4 | ✅ fixed |
 | 103 | The server refused localhost and "invalid" names, and served what a zone held at them | Low (SHOULD) | 6761 §6.3, §6.4 | ✅ fixed |
 | 104 | A test name or a private-address reverse name the server served no zone for was refused | Low (SHOULD) | 6761 §6.1, §6.2 | ✅ fixed |
-| 105 | A .onion name was resolved through the configured server | Medium | 7686 §2 | ⏳ **open** |
-| 106 | The server refused .onion names, and served what a zone held at them | Low | 7686 §2 | ⏳ **open** |
+| 105 | A .onion name was resolved through the configured server | Medium | 7686 §2 | ✅ fixed |
+| 106 | The server refused .onion names, and served what a zone held at them | Low | 7686 §2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6221,33 +6219,39 @@ And item 2: "Applications that do not implement the Tor protocol SHOULD generate
 an error upon the use of .onion and SHOULD NOT perform a DNS lookup."
 
 Hermod speaks no Tor, so NXDOMAIN is the one answer item 3 leaves it. Neither
-`DNSClient` nor `NameResolution` knows the name. `hiddenservice.onion.` is sent
-to the configured server like any other name, and whatever the server answers
-is the answer: the trackers' server answers with an address from the
-documentation ranges, and `NameResolution` hands it to the HTTP, SSH or TCP
+`DNSClient` nor `NameResolution` knew the name. `hiddenservice.onion.` was sent
+to the configured server like any other name, and whatever the server answered
+was the answer: the trackers' server answers with an address from the
+documentation ranges, and `NameResolution` handed it to the HTTP, SSH or TCP
 client that asked.
 
-**What it costs.** A .onion name authenticates the service it names, because it
-is derived from the service's key. Resolved through DNS, it is whatever the
-server that answers says, and the connection goes there — to a host that has no
-claim to the name, with nothing to tell the caller. And the name of the hidden
-service the program meant to reach goes to that server.
+**What it cost.** A .onion name authenticates the service it names, because it
+is derived from the service's key. Resolved through DNS, it was whatever the
+server that answered said, and the connection went there — to a host that has
+no claim to the name, with nothing to tell the caller. And the name of the
+hidden service the program meant to reach went to that server.
 
 **How it was found.** After findings 101 to 104, by going through the rest of
 IANA's special-use registry. `.alt` (RFC 9476 §3.2) and `home.arpa.` (RFC 8375
 §4) ask a resolver library to treat their names like any other, and Hermod
 does; .onion asks the opposite, with a MUST.
 
-**Repro**: seven cases in `SpecialUseNameTests`, red at `c2f4bdde`:
-`An_Onion_Name_Is_NXDOMAIN`, four names and types, and
+**Repro**: seven cases in `SpecialUseNameTests`, red at `c2f4bdde` and passing
+from `6ff76e99` on: `An_Onion_Name_Is_NXDOMAIN`, four names and types, and
 `NameResolution_Refuses_An_Onion_Name_Without_Asking`, three hosts. The first
 asserts only the answer, which is what item 3 prescribes; whether `DNSClient`
 asks first is left open. The second asserts that no DNS client is asked: item 2
 is addressed to applications, and the lookups of Hermod's are `NameResolution`'s.
 
-**The fix**: ⏳ open.
+**The fix**: `SpecialUseNames.IsOnion` recognizes "onion." and every name below
+it by the last label, as it recognizes "invalid.", and `TryAnswer` answers both
+with NXDOMAIN, so `DNSClient.Query` asks no server for either.
+`NameResolution` refuses a .onion name with its `NameResolutionException`
+before any DNS client is asked. Merged as
+[`6ff76e99`](https://github.com/Vanaheimr/Hermod/commit/6ff76e99ba807daa48996c405dd8073074230a0f),
+with finding 106.
 
-Severity is **Medium**: a MUST, and an answer from a server stands in for the
+Severity was **Medium**: a MUST, and an answer from a server stood in for the
 name's own authentication.
 
 ---
@@ -6262,21 +6266,22 @@ name's own authentication.
 Item 6: "Operators MUST NOT configure an authoritative DNS server to answer
 queries for .onion."
 
-`AuthoritativeDNSRequestHandler` answers "invalid" names with NXDOMAIN since
-finding 103, whatever the zone holds, and .onion names not at all. One the zone
-holds nothing at is outside every zone and refused; one it holds a record at is
-served. The trackers' second server holds an A of `192.0.2.99` at `host.onion.`
-and answers with it.
+`AuthoritativeDNSRequestHandler` has answered "invalid" names with NXDOMAIN
+since finding 103, whatever the zone holds, and answered .onion names not at
+all. One the zone held nothing at was outside every zone and refused; one it
+held a record at was served. The trackers' second server holds an A of
+`192.0.2.99` at `host.onion.` and answered with it.
 
-**What it costs.** Little, as with finding 103: a resolver asks this server
-about a .onion name only when a client is pointed at it directly. Then REFUSED
-sends the name on, and a configured record answers it: a configuration item 6
+**What it cost.** Little, as with finding 103: a resolver asks this server about
+a .onion name only when a client is pointed at it directly. Then REFUSED sent
+the name on, and a configured record answered it: a configuration item 6
 forbids, and item 5 answers NXDOMAIN regardless.
 
 **How it was found.** With finding 105.
 
-**Repro**: five cases in `SpecialUseNameServerTests`, red at `c2f4bdde`:
-`An_Onion_Name_Is_NXDOMAIN`, four names and types, and
+**Repro**: five cases in `SpecialUseNameServerTests`, red at `c2f4bdde` and
+passing from `6ff76e99` on: `An_Onion_Name_Is_NXDOMAIN`, four names and types,
+and
 `A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist`. Each NXDOMAIN has to
 cite an SOA at or above the name (*RFC 2308 §3*), as the server's other negative
 answers do. Three guards join `A_Name_Beside_The_Special_Ones_Is_Refused` and
@@ -6284,10 +6289,14 @@ pass: `onions.`, `onion.example.com.`, and `name.alt.`, since *RFC 9476 §3.2*
 item 5 says "Authoritative DNS servers SHOULD NOT recognize names in the .alt
 pseudo-TLD as special".
 
-**The fix**: ⏳ open.
+**The fix**: `SpecialUseZones` answers a .onion name with NXDOMAIN before the
+zone is asked, as it answers an "invalid" one, citing an SOA at `onion.` in the
+form *RFC 6303 §3* gives the empty zones of special-use domains. Merged as
+[`6ff76e99`](https://github.com/Vanaheimr/Hermod/commit/6ff76e99ba807daa48996c405dd8073074230a0f),
+with finding 105.
 
-Severity is **Low**: a MUST, but one that matters only where a client asks this
-server directly or an operator configured what item 6 forbids.
+Severity was **Low**: a MUST, but one that mattered only where a client asked
+this server directly or an operator configured what item 6 forbids.
 
 ---
 
