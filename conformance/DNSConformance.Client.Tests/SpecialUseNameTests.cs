@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -503,7 +502,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "8880 §7.2")]
     [TestCase("170.0.0.192.in-addr.arpa.",  TestName = "{m}: 170.0.0.192.in-addr.arpa.")]
     [TestCase("171.0.0.192.IN-ADDR.ARPA.",  TestName = "{m}: 171.0.0.192.IN-ADDR.ARPA., in another case")]
@@ -522,7 +520,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "8880 §7.2")]
     [TestCase("170.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.A,   TestName = "{m}: A of 170.0.0.192.in-addr.arpa.")]
     [TestCase("171.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.TXT, TestName = "{m}: TXT of 171.0.0.192.in-addr.arpa.")]
@@ -541,7 +538,6 @@ public class SpecialUseNameTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "8880 §7.2")]
     [TestCase("x.170.0.0.192.in-addr.arpa.",    DNSResourceRecordTypes.PTR, TestName = "{m}: PTR of x.170.0.0.192.in-addr.arpa.")]
     [TestCase("a.b.171.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.A,   TestName = "{m}: A of a.b.171.0.0.192.in-addr.arpa.")]
