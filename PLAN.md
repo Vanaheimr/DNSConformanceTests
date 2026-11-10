@@ -323,7 +323,7 @@ round-trip where supported.
 | 8305 §3 | the addresses to connect to: the other family's answer within the Resolution Delay is taken, one past it is not waited for, and a negative answer first does not end the wait | ✅ |
 | 6761 §6.3, §6.4 | special-use names: every name below localhost is the loopback address, and a localhost name asked for another type a negative answer, with the cache or without it (finding 101); every "invalid" name is NXDOMAIN (finding 102). None of them is sent, by `DNSClient` or by `NameResolution` ✅ (findings 101, 102) | ✅ |
 | 7686 §2 | .onion names: NXDOMAIN from `DNSClient`, whatever the server answers, and `NameResolution` refuses them without asking a DNS client (finding 105) | ✅ |
-| 6762 §22.1 | the link-local names of Multicast DNS — `.local.`, `254.169.in-addr.arpa.`, `8.e.f.ip6.arpa.` to `b.e.f.ip6.arpa.` — are not sent to a unicast server, and the names beside them, label by label, are (finding 107) | ❌ |
+| 6762 §22.1 | the link-local names of Multicast DNS — `.local.`, `254.169.in-addr.arpa.`, `8.e.f.ip6.arpa.` to `b.e.f.ip6.arpa.` — are not sent to a unicast server unless the client is told to, and the names beside them, label by label, are (finding 107) | ✅ |
 | configuration | a server listed twice is one server, and two that differ in transport, port, address or name are two; a client given servers asks only those, also when both searches are handed null; closing a pooled connection says whether there was one | ✅ |
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
 | 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
@@ -364,7 +364,7 @@ round-trip where supported.
 | 2308 §3 | every NXDOMAIN and NODATA cites the zone's SOA, so the answer can be cached | ✅ |
 | 6761 §6.1–§6.5 | special-use names: every localhost name is the loopback address and NODATA for another type, every "invalid" name NXDOMAIN, also with records configured at them (finding 103); a test name or a private-address reverse name no zone is served for gets a negative answer, NODATA above a name that is served (finding 104); each with an SOA. Served names are answered, and example names and the names beside the special ones are still refused | ✅ |
 | 7686 §2, 9476 §3.2 | every .onion name is NXDOMAIN, also with a record configured at it, and with an SOA (finding 106); a .alt name is not special and is still refused | ✅ |
-| 6762 §22.1 | every link-local name is NXDOMAIN by default, also with a record configured at it, and with an SOA (finding 108) | ❌ |
+| 6762 §22.1 | every link-local name is NXDOMAIN by default, also with a record configured at it, and with an SOA (finding 108); a server told to serves them from its zone | ✅ |
 | 2931 §3.1 | SIG(0): a signed query verified before it is served, a bad one refused NOTAUTH, an unsigned one still served, over UDP and TCP alike | ✅ |
 | 2931 §3.2 | a signed query ignored without error when no key is configured; a message carrying both a TSIG and a SIG(0) refused | ✅ |
 

@@ -4,10 +4,8 @@ What this suite caught. One hundred and eight RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them but the last two is fixed and every one is defended by a test
-— so this reads as a record, not a backlog. Findings 107 and 108, the
-link-local names of RFC 6762, are open, and their trackers are red on purpose.
-It stays because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -125,8 +123,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 104 | A test name or a private-address reverse name the server served no zone for was refused | Low (SHOULD) | 6761 §6.1, §6.2 | ✅ fixed |
 | 105 | A .onion name was resolved through the configured server | Medium | 7686 §2 | ✅ fixed |
 | 106 | The server refused .onion names, and served what a zone held at them | Low | 7686 §2 | ✅ fixed |
-| 107 | A link-local name went to the configured unicast server | Low (SHOULD) | 6762 §22.1 | ⏳ **open** |
-| 108 | The server refused link-local names, and served what a zone held at them | Low (SHOULD) | 6762 §22.1 | ⏳ **open** |
+| 107 | A link-local name went to the configured unicast server | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
+| 108 | The server refused link-local names, and served what a zone held at them | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6325,31 +6323,39 @@ speaks unicast only, and it sent `printer.local.`, `_ipp._tcp.local.` and
 `4.3.254.169.in-addr.arpa.` to its configured servers like any other name, and
 returned what they said.
 
-**What it costs.** Every lookup of a printer or a service on the link goes to
+**What it cost.** Every lookup of a printer or a service on the link went to
 the configured resolver and on to the root, which item 3 is there to spare. And
-where a unicast server answers a .local name, its answer stands in for the
+where a unicast server answered a .local name, its answer stood in for the
 device on the link that owns the name.
 
 Some networks do serve ".local" by unicast DNS — Active Directory domains named
 that way are the common case — and *Appendix G* has the RFC "recommend against
-using ".local" as a private Unicast DNS top-level domain". The fix is therefore
-to come with an option that sends link-local names to the servers again, off by
+using ".local" as a private Unicast DNS top-level domain". The fix therefore
+came with an option that sends link-local names to the servers again, off by
 default.
 
 **How it was found.** With findings 105 and 106, going through IANA's
 special-use registry, in which RFC 6762 has six entries.
 
-**Repro**: seven cases in `SpecialUseNameTests`, red at `6ff76e99`:
-`A_Link_Local_Name_Is_Not_Sent_To_A_Unicast_Server`, the three kinds of
+**Repro**: seven cases in `SpecialUseNameTests`, red at `6ff76e99` and passing
+from `850cab3d` on: `A_Link_Local_Name_Is_Not_Sent_To_A_Unicast_Server`, the
+three kinds of
 domain in both cases. Item 3 says what is not to be sent and not what the
 answer is, so the tests assert that the server got nothing and that no records
 came back. `A_Name_Beside_The_Link_Local_Ones_Is_Sent` holds eight names that
 only look link-local at being sent, `1.1254.169.in-addr.arpa.` and
 `18.e.f.ip6.arpa.` among them: the domains are matched label by label.
+`A_Link_Local_Name_Is_Sent_When_The_Client_Is_Told_To` pins the option.
 
-**The fix**: ⏳ open.
+**The fix**: `SpecialUseNames.IsLinkLocal` recognizes the six domains label by
+label, and `TryAnswer` answers a link-local name NXDOMAIN, as item 4 has a
+caching server do, so `DNSClient` sends none to its servers.
+`DNSClient.SendLinkLocalNamesToServers`, off by default, sends them again.
+`HybridDNSClient` resolves them with Multicast DNS, as before. Merged as
+[`850cab3d`](https://github.com/Vanaheimr/Hermod/commit/850cab3dc499065f70b7e57b11158ec3eb818fc8),
+with finding 108.
 
-Severity is **Low (SHOULD)**.
+Severity was **Low (SHOULD)**.
 
 ---
 
@@ -6367,28 +6373,38 @@ Severity is **Low (SHOULD)**.
 zone held nothing, and served where it did. The trackers' second server holds
 an A of `192.0.2.100` at `printer.local.` and answered with it.
 
-**What it costs.** Little where resolvers find the server by delegation; where a
-client asks it directly, REFUSED sends the name on, and a .local record in a
-zone answers in the name of a device on the link.
+**What it cost.** Little where resolvers find the server by delegation; where a
+client asked it directly, REFUSED sent the name on, and a .local record in a
+zone answered in the name of a device on the link.
 
 One thing is outside item 5: `DNSServer` joins the Multicast DNS group
 224.0.0.251 by default, on port 6363, and answers what arrives there from the
 same zone. A
 query for a .local name that arrives by multicast is what such names are for.
-The trackers ask over unicast UDP, and the fix is to leave the multicast
-listener's answers as they are.
+The trackers ask over unicast UDP, and the fix left the multicast listener's
+answers as they were.
 
 **How it was found.** With finding 107.
 
-**Repro**: seven cases in `SpecialUseNameServerTests`, red at `6ff76e99`:
-`A_Link_Local_Name_Is_NXDOMAIN`, six names of the three kinds of domain, and
+**Repro**: seven cases in `SpecialUseNameServerTests`, red at `6ff76e99` and
+passing from `850cab3d` on: `A_Link_Local_Name_Is_NXDOMAIN`, six names of the
+three kinds of domain, and
 `A_Configured_Link_Local_Name_Is_Not_Served_By_Default`. Each NXDOMAIN has to
 cite an SOA at or above the name (*RFC 2308 §3*). Six guards join
-`A_Name_Beside_The_Special_Ones_Is_Refused` and pass.
+`A_Name_Beside_The_Special_Ones_Is_Refused` and pass, and
+`A_Configured_Link_Local_Name_Is_Served_When_The_Server_Is_Told_To` pins the
+option, on a third server whose fixture sets it.
 
-**The fix**: ⏳ open.
+**The fix**: `SpecialUseZones` answers a link-local name asked by unicast with
+NXDOMAIN before the zone is asked, citing an SOA at its link-local domain. The
+handler option `ServeLinkLocalNames`, off by default, is the one item 5 allows,
+and answers them from the zone. `DNSServer` marks what arrives on its multicast
+listener with `DNSPacket.ReceivedViaMulticast`, and the handler answers
+link-local names from the zone for it either way. Merged as
+[`850cab3d`](https://github.com/Vanaheimr/Hermod/commit/850cab3dc499065f70b7e57b11158ec3eb818fc8),
+with finding 107.
 
-Severity is **Low (SHOULD)**.
+Severity was **Low (SHOULD)**.
 
 ---
 
