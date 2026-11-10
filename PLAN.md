@@ -324,6 +324,7 @@ round-trip where supported.
 | 6761 §6.3, §6.4 | special-use names: every name below localhost is the loopback address, and a localhost name asked for another type a negative answer, with the cache or without it (finding 101); every "invalid" name is NXDOMAIN (finding 102). None of them is sent, by `DNSClient` or by `NameResolution` ✅ (findings 101, 102) | ✅ |
 | 7686 §2 | .onion names: NXDOMAIN from `DNSClient`, whatever the server answers, and `NameResolution` refuses them without asking a DNS client (finding 105) | ✅ |
 | 6762 §22.1 | the link-local names of Multicast DNS — `.local.`, `254.169.in-addr.arpa.`, `8.e.f.ip6.arpa.` to `b.e.f.ip6.arpa.` — are not sent to a unicast server unless the client is told to, and the names beside them, label by label, are (finding 107) | ✅ |
+| 8880 §7.2 | the reverse names of ipv4only.arpa are answered without asking: PTR `ipv4only.arpa.`, NODATA for another type, NXDOMAIN below them (finding 109) | ✅ |
 | configuration | a server listed twice is one server, and two that differ in transport, port, address or name are two; a client given servers asks only those, also when both searches are handed null; closing a pooled connection says whether there was one | ✅ |
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
 | 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
