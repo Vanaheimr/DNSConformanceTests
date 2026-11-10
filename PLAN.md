@@ -360,6 +360,7 @@ round-trip where supported.
 | 4592 §2.2.2 | an empty non-terminal exists: NODATA rather than NXDOMAIN, and no wildcard applies to it | ✅ |
 | 1034 §4.3.2 | a zone cut ends the search: NS records in the authority section, in-subtree glue in the additional section, AA clear — while the apex's own NS records are not a delegation | ✅ |
 | 2308 §3 | every NXDOMAIN and NODATA cites the zone's SOA, so the answer can be cached | ✅ |
+| 6761 §6.1–§6.5 | special-use names: every localhost name is the loopback address and NODATA for another type, every "invalid" name NXDOMAIN, also with records configured at them (finding 103); a test name or a private-address reverse name no zone is served for gets a negative answer, NODATA above a name that is served (finding 104); each with an SOA. Served names are answered, and example names and the names beside the special ones are still refused | ❌ |
 | 2931 §3.1 | SIG(0): a signed query verified before it is served, a bad one refused NOTAUTH, an unsigned one still served, over UDP and TCP alike | ✅ |
 | 2931 §3.2 | a signed query ignored without error when no key is configured; a message carrying both a TSIG and a SIG(0) refused | ✅ |
 
