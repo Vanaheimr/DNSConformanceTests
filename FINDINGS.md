@@ -4,10 +4,8 @@ What this suite caught. One hundred and nine RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 109, the reverse names of
-ipv4only.arpa, is open, and its trackers are red on purpose. It stays because
-the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -127,7 +125,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 106 | The server refused .onion names, and served what a zone held at them | Low | 7686 §2 | ✅ fixed |
 | 107 | A link-local name went to the configured unicast server | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
 | 108 | The server refused link-local names, and served what a zone held at them | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
-| 109 | The reverse names of ipv4only.arpa went to the configured server | Low (SHOULD) | 8880 §7.2 | ⏳ **open** |
+| 109 | The reverse names of ipv4only.arpa went to the configured server | Low (SHOULD) | 8880 §7.2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6442,16 +6440,17 @@ asked about here.
 reverse name and returned what the server said: the trackers' server answers a
 PTR query with an empty NOERROR, and an A query with an address.
 
-**What it costs.** Little: the RFC itself calls the names "rarely used". A query
-for one goes to the configured resolver and on to the in-addr.arpa servers, and
-the answer is whatever they hold rather than the one the specification fixes.
+**What it cost.** Little: the RFC itself calls the names "rarely used". A query
+for one went to the configured resolver and on to the in-addr.arpa servers, and
+the answer was whatever they held rather than the one the specification fixes.
 
 **How it was found.** The last of IANA's special-use registry, after findings
 105 to 108. RFC 9462's "resolver.arpa" names a feature, Discovery of Designated
 Resolvers, which Hermod does not implement, and asks nothing of an
 authoritative server (§8.2 item 5).
 
-**Repro**: six cases in `SpecialUseNameTests`, red at `f5866619`:
+**Repro**: six cases in `SpecialUseNameTests`, red at `f5866619` and passing
+from `88540b71` on:
 `An_Ipv4only_Reverse_Name_Points_To_Ipv4only_Arpa`, both names;
 `Another_Type_Of_An_Ipv4only_Reverse_Name_Is_NoData`, two; and
 `A_Name_Below_An_Ipv4only_Reverse_Name_Is_NXDOMAIN`, two. Each asserts that
@@ -6459,9 +6458,14 @@ nothing was sent. `A_Name_Beside_The_Ipv4only_Reverse_Names_Is_Sent` holds six
 names at being sent, among them `1170.0.0.192.in-addr.arpa.` and
 `ipv4only.arpa.` itself.
 
-**The fix**: ⏳ open.
+**The fix**: `SpecialUseNames.IsIPv4OnlyReverse` recognizes the two names and
+the names below them, octet by octet as *RFC 1035 §3.5* writes them, and
+`TryAnswer` gives the answers item 3 fixes — a PTR to `ipv4only.arpa.` for PTR
+and ANY, NODATA for any other type, NXDOMAIN below — so `DNSClient` sends none
+of them. Merged as
+[`88540b71`](https://github.com/Vanaheimr/Hermod/commit/88540b714fa71a66e099a00d172ec2ecf269aa5f).
 
-Severity is **Low (SHOULD)**.
+Severity was **Low (SHOULD)**.
 
 ---
 
