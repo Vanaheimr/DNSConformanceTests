@@ -321,6 +321,7 @@ round-trip where supported.
 | 2308 §2.1/§2.2 | NXDOMAIN vs NODATA reported distinctly; per-(name,type) keying | ✅ |
 | 1034 §3.6.2, 4035 §3.1.1, §4.5, 6672 §3.1, §5.3.1 | a cached answer holds the RRset asked for with the RRSIGs that cover it, and the CNAME or DNAME chain that leads to it with each link's signature; a DNAME beside the chain is left out, and an expired link or a loop is a miss | ✅ |
 | 8305 §3 | the addresses to connect to: the other family's answer within the Resolution Delay is taken, one past it is not waited for, and a negative answer first does not end the wait | ✅ |
+| 6761 §6.3, §6.4 | special-use names: every name below localhost is the loopback address, and a localhost name asked for another type a negative answer, with the cache or without it (finding 101); every "invalid" name is NXDOMAIN (finding 102). None of them is sent, by `DNSClient` or by `NameResolution` ✅ (findings 101, 102) | ✅ |
 | configuration | a server listed twice is one server, and two that differ in transport, port, address or name are two; a client given servers asks only those, also when both searches are handed null; closing a pooled connection says whether there was one | ✅ |
 | 2308 §5 | NXDOMAIN served from the negative cache | ✅ |
 | 2308 §5 | NODATA served from the negative cache; a referral is not mistaken for one | ✅ |
