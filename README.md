@@ -296,17 +296,17 @@ server. So did localhost itself from a client without a cache, with
 name below `.invalid`, and whatever the server answered was the answer.
 `NameResolution`, which Hermod's other clients resolve through, took only the
 text `localhost` as the loopback addresses. The cases are findings 101 and 102,
-nineteen of them, red at cf1e9954 and marked `KnownIssue`. With them the
-Client project is 263 ✅ · 19 ❌, and the offline suite 1945 ✅ · 19 ❌ · 4 skips.
+nineteen of them, red at cf1e9954 and passing from 56f2c957 on. With them the
+Client project is 282 ✅ · 0 ❌, and the offline suite 1964 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 102 RFC deviations in Hermod. All but findings 101 and 102
-are fixed; [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
-change, and the test that pins it.
+The suite has found 102 RFC deviations in Hermod. All are fixed;
+[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
+the test that pins it.
 
 ## Getting started
 
