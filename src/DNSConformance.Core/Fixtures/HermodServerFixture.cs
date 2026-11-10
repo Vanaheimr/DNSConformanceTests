@@ -67,6 +67,13 @@ public sealed class HermodServerFixtureOptions
     /// </summary>
     public Boolean               RequireDNSCookies { get; init; }
 
+    /// <summary>
+    /// Whether unicast queries for the link-local names of Multicast DNS are
+    /// answered from the zone — the option RFC 6762 §22.1 item 5 lets a server
+    /// offer. Off, as the server's own default is.
+    /// </summary>
+    public Boolean               ServeLinkLocalNames { get; init; }
+
 }
 
 
@@ -138,7 +145,8 @@ public sealed class HermodServerFixture : IAsyncDisposable
                              new AuthoritativeDNSRequestHandler(
                                  zone,
                                  DNSCookieSecret:    Options.DNSCookieSecret,
-                                 RequireDNSCookies:  Options.RequireDNSCookies
+                                 RequireDNSCookies:  Options.RequireDNSCookies,
+                                 ServeLinkLocalNames: Options.ServeLinkLocalNames
                              ),
 
                              new DNSServerOptions {

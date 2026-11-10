@@ -3,7 +3,6 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -371,7 +370,6 @@ public class SpecialUseNameTests
     #region A link-local name is not sent to a unicast server (RFC 6762 §22.1)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §22.1")]
     [TestCase("printer.local.",              DNSResourceRecordTypes.A,    TestName = "{m}: A of printer.local.")]
     [TestCase("local.",                      DNSResourceRecordTypes.A,    TestName = "{m}: A of local.")]
@@ -435,6 +433,31 @@ public class SpecialUseNameTests
 
         Assert.That(server.Requests.Count, Is.EqualTo(1),
                     $"{Name} is no link-local name, and is sent");
+
+    }
+
+
+    [Test]
+    [Property("RFC", "6762 §22.1")]
+    public async Task A_Link_Local_Name_Is_Sent_When_The_Client_Is_Told_To()
+    {
+
+        // The option for a network that serves ".local" by unicast DNS, as
+        // Active Directory domains named so do, although RFC 6762 Appendix G
+        // recommends against it.
+        await using var server = AnswerEveryName();
+        using       var client = ClientOf(server);
+
+        client.SendLinkLocalNamesToServers = true;
+
+        var answer = await client.Query(DNSServiceName.Parse("printer.local."), [ DNSResourceRecordTypes.A ], Timeout);
+
+        Assert.Multiple(() => {
+            Assert.That(server.Requests.Count, Is.EqualTo(1),
+                        "told to, the client sends a link-local name to its server");
+            Assert.That(answer.Answers.OfType<A>().Select(record => record.IPv4Address).ToArray(), Is.EqualTo(new[] { Wrong4 }),
+                        "and the server's answer is the answer");
+        });
 
     }
 

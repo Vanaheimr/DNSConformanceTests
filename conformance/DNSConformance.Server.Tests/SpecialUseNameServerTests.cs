@@ -87,6 +87,7 @@ public class SpecialUseNameServerTests
 
     private HermodServerFixture server      = null!;
     private HermodServerFixture configured  = null!;
+    private HermodServerFixture linkLocal   = null!;
 
     #endregion
 
@@ -123,6 +124,10 @@ public class SpecialUseNameServerTests
 
         configured  = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = other });
 
+        // The same records, on a server told to answer link-local names from
+        // its zone — the option RFC 6762 §22.1 item 5 lets server software offer.
+        linkLocal   = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = other, ServeLinkLocalNames = true });
+
     }
 
     [OneTimeTearDown]
@@ -130,6 +135,7 @@ public class SpecialUseNameServerTests
     {
         await server.    DisposeAsync();
         await configured.DisposeAsync();
+        await linkLocal. DisposeAsync();
     }
 
     #endregion
@@ -501,7 +507,6 @@ public class SpecialUseNameServerTests
     #region A_Link_Local_Name_Is_NXDOMAIN(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §22.1")]
     [TestCase("printer.local.",             RawDnsType.A)]
     [TestCase("local.",                     RawDnsType.A)]
@@ -529,7 +534,6 @@ public class SpecialUseNameServerTests
     #region A_Configured_Link_Local_Name_Is_Not_Served_By_Default()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6762 §22.1")]
     public async Task A_Configured_Link_Local_Name_Is_Not_Served_By_Default()
     {
@@ -544,6 +548,28 @@ public class SpecialUseNameServerTests
             Assert.That(response.RCode,   Is.EqualTo(3), "printer.local. is NXDOMAIN (3) with a record configured at it");
             Assert.That(response.Answers, Is.Empty,      "and the configured record is not served");
             AssertCitesAnSoa(response, "printer.local.");
+        });
+
+    }
+
+    #endregion
+
+    #region A_Configured_Link_Local_Name_Is_Served_When_The_Server_Is_Told_To()
+
+    [Test]
+    [Property("RFC", "6762 §22.1")]
+    public async Task A_Configured_Link_Local_Name_Is_Served_When_The_Server_Is_Told_To()
+    {
+
+        // §22.1 item 5: "DNS server software MAY provide a configuration option
+        // to override this default". With it, the zone answers.
+        var response = await Ask(linkLocal, "printer.local.", RawDnsType.A);
+
+        Assert.Multiple(() => {
+            Assert.That(response.RCode,   Is.Zero,              "printer.local. is answered from the zone");
+            Assert.That(response.Answers, Has.Count.EqualTo(1), "with the record configured at it");
+            if (response.Answers.Count == 1)
+                Assert.That(response.Answers[0].Rdata, Is.EqualTo(RawDnsWriter.IPv4(ConfiguredLocalA)));
         });
 
     }
