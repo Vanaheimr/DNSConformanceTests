@@ -1,0 +1,44 @@
+# Every mutant of the 'presentation' block that survived every project,
+# classified against Hermod cf1e9954 — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source	occurrence
+DNS/ResourceRecords/ADNSResourceRecord.cs	211	true-to-false	noise-attribute	[NotNullWhen(true)] out IDNSResourceRecord?  ResourceRecord,	0
+DNS/ResourceRecords/RRSIG.cs	332	true-to-false	noise-region	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/SPF.cs	220	true-to-false	noise-region	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/TXT.cs	455	true-to-false	noise-attribute	[NotNullWhen(true)] out List<String>?  Strings)	0
+DNS/ResourceRecords/URI.cs	313	true-to-false	noise-region	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	rejection	return false;	0
+DNS/ResourceRecords/RRSIG.cs	341	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/SPF.cs	229	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/TXT.cs	530	greater-to-ge	boundary	if (current.Length > 0)	0
+DNS/ResourceRecords/URI.cs	322	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	504	true-to-false	noise-attribute	[NotNullWhen(true)] out Byte[]?   Bytes)	0
+DNS/ResourceRecords/TXT.cs	586	less-to-less-or-equal	boundary	var key    = equals < 0 ? text : text[..equals];	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	branch	ResourceRecord.Serialize(wire, UseCompression: false);	0
+DNS/ResourceRecords/TXT.cs	587	less-to-less-or-equal	boundary	var value  = equals < 0 ? null : text[(equals + 1)..];	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	572	less-to-less-or-equal	boundary	while (offset < bytes.Length && bytes[offset] != 0)	0
+DNS/ResourceRecords/TXT.cs	621	true-to-false	noise-attribute	[NotNullWhen(true)] out List<String>?  Strings)	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	branch	DNSServiceName.Serialize(wire, 0, UseCompression: false, Offsets: []);	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	981	true-to-false	noise-attribute	[NotNullWhen(true)]  out IDNSResourceRecord?  ResourceRecord,	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	982	false-to-true	noise-attribute	[NotNullWhen(false)] out String?              ErrorResponse,	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1130	false-to-true	rejection	return false;	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1203	le-to-less	boundary	while (offset + 2 <= TypeBitMaps.Length)	0
+DNS/ResourceRecords/TXT.cs	682	false-to-true	rejection	return false;	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1247	less-to-less-or-equal	boundary	while (offset < TypeBitMaps.Length)	0
+DNS/ResourceRecords/TXT.cs	716	ge-to-greater	boundary	if (Index + 1 >= Text.Length)	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1250	greater-to-ge	boundary	if (offset + 2 > TypeBitMaps.Length)	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1263	less-to-less-or-equal	boundary	for (var bit = 0; bit < 8; bit++)	0
+DNS/ResourceRecords/TXT.cs	735	logical-or-to-and	branch	if (Index + 3 >= Text.Length ||	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1343	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/TXT.cs	735	ge-to-greater	boundary	if (Index + 3 >= Text.Length ||	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1348	true-to-false	noise-region	#region Serialize(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/TXT.cs	736	logical-or-to-and	branch	!Char.IsAsciiDigit(Text[Index + 2]) ||	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1357	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1428	false-to-true	branch	NewOwner.Serialize(rewritten, 0, UseCompression: false, Offsets: []);	0
+DNS/ResourceRecords/TXT.cs	770	true-to-false	noise-region	#region (protected override) SerializeRRData(Stream, UseCompression = true, CompressionOffsets = null)	0
+DNS/ResourceRecords/TXT.cs	779	true-to-false	noise-default	Boolean                     UseCompression       = true,	0
+DNS/ResourceRecords/TXT.cs	639	equality-to-inequality	unmeasured-timeout	var quoted = Text[i] == '"';	0
+DNS/ResourceRecords/TXT.cs	663	equality-to-inequality	unmeasured-timeout	if (character == '"')	0
+DNS/ResourceRecords/TXT.cs	717	false-to-true	unmeasured-timeout	return false;	0
+DNS/ResourceRecords/TXT.cs	739	false-to-true	unmeasured-timeout	return false;	0
+DNS/ResourceRecords/TXT.cs	747	false-to-true	unmeasured-timeout	return false;	0

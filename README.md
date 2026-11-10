@@ -275,12 +275,36 @@ backslash, and two read JSON data that mixes quoted and bare strings as one
 text. The four now say what BIND says. With them the ResourceRecords project is
 609 ✅ · 0 ❌, and the offline suite 1939 ✅ · 0 ❌ · 4 skips.
 
+And the cases the readers of those three fixes asked for when they were measured
+(MUTATION.md, *The result: the presentation readers of findings 98 to 100*):
+five.
+- A `\DDD` with only its second or only its third character wrong is refused,
+  as BIND refuses it (RFC 1035 §5.1).
+- Google's JSON text for a TXT can begin with a quote and hold a backslash that
+  no escape reads: at the end, before two digits at the end, or as `\256`. It
+  is that one text, and not nothing.
+
+Hermod passed them all already. With them the ResourceRecords project is
+614 ✅ · 0 ❌, and the offline suite 1944 ✅ · 0 ❌ · 4 skips.
+
+And the names a resolver answers itself (RFC 6761 §6.3, §6.4), asked while the
+client block was measured a third time. The cache answers `localhost.` with
+the loopback addresses, and that is all Hermod did. A name below it, such as
+`www.localhost.`, and an MX or TXT query for localhost went to the configured
+server. So did localhost itself from a client without a cache, with
+`ForceUpdate`, or after `SetDNSServers` had emptied the cache. So did every
+name below `.invalid`, and whatever the server answered was the answer.
+`NameResolution`, which Hermod's other clients resolve through, took only the
+text `localhost` as the loopback addresses. The cases are findings 101 and 102,
+nineteen of them, red at cf1e9954 and passing from 56f2c957 on. With them the
+Client project is 282 ✅ · 0 ❌, and the offline suite 1964 ✅ · 0 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 100 RFC deviations in Hermod. All are fixed;
+The suite has found 102 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

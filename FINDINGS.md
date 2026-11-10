@@ -1,7 +1,8 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. One hundred RFC deviations in the Hermod DNS stack, each
-with chapter and verse, the mechanism, the fix, and the test that now pins it.
+What this suite caught. One hundred and two RFC deviations in the Hermod DNS
+stack, each with chapter and verse, the mechanism, the fix, and the test that now
+pins it.
 
 Every one of them is fixed and every one is defended by a test — so this reads
 as a record, not a backlog. It stays because the tests do not explain
@@ -116,6 +117,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 98 | A TTL that a class had the number of was read as that class, and a list of mnemonics as one | Medium | 1035 §5.1, 3597 §5 | ✅ fixed |
 | 99 | A URI record's target was read as an HTTP URL | Medium | 7553 §4.4, 3597 §3 | ✅ fixed |
 | 100 | Unless every string on a TXT line was quoted, a character-string was read with its escapes and quotes in it | Medium | 1035 §5.1, 7208 §3.3 | ✅ fixed |
+| 101 | A name below localhost, and localhost asked for another type, went to the configured server | Low (SHOULD) | 6761 §6.3 | ✅ fixed |
+| 102 | An "invalid" name went to the configured server | Low (SHOULD) | 6761 §6.4 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -5951,6 +5954,123 @@ their two forms; and SPF's own type is one RFC 7208 has retired.
 
 ---
 
+## 101 — A name below localhost, and localhost asked for another type, went to the configured server
+
+*RFC 6761 §6.3* makes "localhost." special "and any names falling within
+".localhost."". Item 3:
+
+> Name resolution APIs and libraries SHOULD recognize localhost names as special
+> and SHOULD always return the IP loopback address for address queries and
+> negative responses for all other query types. Name resolution APIs SHOULD NOT
+> send queries for localhost names to their configured caching DNS server(s).
+
+Hermod's `DNSClient` kept this rule with one cache entry. `DNSCache` is created
+holding an A and an AAAA for `localhost.`, and a query for `localhost.` found
+them before anything was sent (`CacheBoundaryTests`,
+`Localhost_Is_Answered_Without_Asking_Anyone`). Whatever the entry did not cover
+went to the configured server, and what the server answered was the answer:
+
+- **A name below localhost.** `www.localhost.` had no entry, and its A and AAAA
+  queries were sent.
+- **Another type.** The entry holds two RRsets, and since finding 74 the cache
+  hands out the RRset asked for. An MX or a TXT query for `localhost.` found
+  none, and was sent.
+- **Localhost itself, without the entry.** A client made with
+  `UseQueryCache: false` never looked, and a query with `ForceUpdate: true`
+  looked past it. `SetDNSServers` empties the cache, so that nothing the old
+  servers said outlives them, and the entry went with it: from then on that
+  client sent `localhost.` too.
+- **`NameResolution`**, which Hermod's other clients resolve through, took
+  `localhost` as the loopback addresses before it asked anybody, by comparing the
+  text. `localhost.` with the root's dot and `www.localhost` were host names to
+  it. Without a DNS client it refused them, and with one it handed them over.
+
+**What it cost.** Item 1 tells users that they "may assume that IPv4 and IPv6
+address queries for localhost names will always resolve to the respective IP
+loopback address". Through Hermod a configured server decided it: an
+application that connected to `app.localhost` to reach its own machine
+connected to whatever address that server returned. And every such name was
+sent off the host, which item 3 asks a library not to do.
+
+**How it was found.** While the client block was being measured a third time,
+at `cf1e9954`. `NameResolution.cs` is new in the block, from
+`8ba53f6e`, and no suite test reached it. Asking what it should answer for a
+host turned up RFC 6761. The suite's one test of the rule asked the cache about
+the one name the cache holds.
+
+**Repro**: twelve cases in `SpecialUseNameTests`, red at `cf1e9954` and passing
+from `56f2c957` on:
+`A_Name_Below_Localhost_Is_The_Loopback_Address_And_Is_Not_Sent`, three names;
+`Another_Type_Of_A_Localhost_Name_Is_A_Negative_Answer_And_Is_Not_Sent`, three;
+`Localhost_Is_The_Loopback_Address_Without_The_Cached_Entry`, three clients; and
+`NameResolution_Resolves_A_Localhost_Name_Without_Asking`, three hosts. Their
+server answers every name with an address from the documentation ranges, and
+each test ends with a name that is not special, which the same server answers.
+`Localhost_In_Another_Case_Is_The_Same_Name` passed before the fix as well: the
+cache finds its entry under `LocalHost.`, and the fix had to compare the same
+way.
+
+**The fix**: `SpecialUseNames`, one place that knows both names. It recognizes
+them by the last label, comparing only A to Z without case (RFC 4343 §3), and
+makes the answer: for a localhost name the loopback addresses for A and AAAA,
+both of them for ANY, and NODATA for any other type. The answer is
+authoritative, as the cache's entry for `localhost.` is, because it comes from
+the specification. `DNSClient.Query` asks it before the cache and before the list
+of servers, since none is needed. `NameResolution` takes every localhost name as
+the loopback addresses itself, with a DNS client or without one, because the
+client it is given may be a transport that carries every query to its server.
+Hermod's own `SpecialUseNames_Tests` ask a `DNSClient` that has no server and no
+cache. Merged as
+[`56f2c957`](https://github.com/Vanaheimr/Hermod/commit/56f2c957f43469b54b57c014559cef7de74a6617),
+with finding 102.
+
+Severity was **Low (SHOULD)**.
+
+---
+
+## 102 — An "invalid" name went to the configured server
+
+*RFC 6761 §6.4* makes "invalid." special, and every name below it. Item 3:
+
+> Name resolution APIs and libraries SHOULD recognize "invalid" names as special
+> and SHOULD always return immediate negative responses. Name resolution APIs
+> SHOULD NOT send queries for "invalid" names to their configured caching DNS
+> server(s).
+
+Item 1 tells users that they "MAY assume that queries for "invalid" names will
+always return NXDOMAIN responses", and item 4 has caching servers answer them
+with NXDOMAIN.
+
+Neither `DNSClient` nor `NameResolution` had anything for these names.
+`host.invalid.` was sent like any other name, an address the server returned for
+it was the answer, and `NameResolution` connected to it.
+
+**What it cost.** A name below `.invalid` is what a program uses when it needs
+a name that resolves nowhere. Through Hermod it resolved to whatever the
+configured server said, and every lookup was sent off the host.
+
+**How it was found.** With finding 101.
+
+**Repro**: seven cases in `SpecialUseNameTests`, red at `cf1e9954` and passing
+from `56f2c957` on: `An_Invalid_Name_Is_NXDOMAIN_And_Is_Not_Sent`, four names
+and types, and `NameResolution_Refuses_An_Invalid_Name_Without_Asking`, three
+hosts.
+
+**The fix**: `SpecialUseNames` answers an "invalid" name with an authoritative
+NXDOMAIN for every type, and `DNSClient.Query` asks it before anything else.
+`NameResolution` refuses such a name with its `NameResolutionException` before
+any DNS client is asked. Hermod's own `NameResolutionTests` had counted on the
+old behaviour: they sent each client to a name below `.invalid` and asserted
+that the stand-in DNS client was asked for it. They use `.test` now, which RFC
+6761 §6.2 has a resolver send to its server like any other name, and so does the
+SSH transport's test of the same kind. Merged as
+[`56f2c957`](https://github.com/Vanaheimr/Hermod/commit/56f2c957f43469b54b57c014559cef7de74a6617),
+with finding 101.
+
+Severity was **Low (SHOULD)**.
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
@@ -5970,6 +6090,17 @@ that differ on the wire would then be one name, and the record would look valid
 and be a different record; finding 54 was that shape. The refusal is the
 representation's limit rather than a rule of the DNS, so what the suite pins is
 the refusal and not the limit (`A_Label_That_Is_Not_Valid_Utf8_Is_Refused`).
+
+**A transport client is not a name resolution API.** RFC 6761 §6.3 and §6.4 ask
+"name resolution APIs and libraries" to answer localhost names and "invalid"
+names themselves. `DNSUDPClient`, `DNSTCPClient`, `DNSTLSClient` and
+`DNSHTTPSClient` implement `IDNSClient` too, but each is made for one server and
+carries a query to it, as dig does when it is asked about localhost. The library
+that chooses the servers and keeps the cache is `DNSClient`, and the API Hermod's
+other clients resolve host names through is `NameResolution`. The trackers of
+findings 101 and 102 ask those two. They hand `NameResolution` a transport
+client, so that what `NameResolution` recognizes, it recognizes itself. A
+transport client that sends `localhost.` to its server is not asserted against.
 
 **Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as referring
 to "a prior occurrence of the same name". Hermod accepts forward pointers; the

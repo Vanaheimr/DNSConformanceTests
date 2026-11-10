@@ -1,0 +1,24 @@
+# Gaps of the 'presentation' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why	occurrence
+DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	equivalent		Record is null in InTheClassTheLineStated. Both call sites ask whether the record is null before calling, so the null check inside is one the caller has already made	0
+DNS/ResourceRecords/TXT.cs	530	greater-to-ge	equivalent		SplitText's last string. An empty text returns before the loop, and every other text leaves its last rune in the builder, so the builder is never empty here	0
+DNS/ResourceRecords/TXT.cs	586	less-to-less-or-equal	equivalent		ParseKeyValues. equals is 0 only when the text starts with '=', which the loop skipped five lines earlier	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	equivalent		UseCompression in RDataOf. Serialize is called with no offset table, and DomainName.Serialize starts a fresh empty one per name, so nothing is ever in it to point at	0
+DNS/ResourceRecords/TXT.cs	587	less-to-less-or-equal	equivalent		the same: position zero is unreachable here	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	572	less-to-less-or-equal	equivalent		the owner name of a record RDataOf has just serialized always ends in a root label, so the walk cannot reach the end of the buffer	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	equivalent		UseCompression in ReadBackFromWire. The name is the first thing written into a fresh stream with an empty table	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1130	false-to-true	equivalent		the class check after the RDATA. InTheClassTheLineStated reads a record in another class back through the wire form with the stated class, and TKEY and TSIG are built in it, so a record reaching this line is already in the class the line stated	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1203	le-to-less	equivalent		TypeBitMapContains. A window header at the very end of the buffer carries no bitmap, so entering it and skipping it both end in false	0
+DNS/ResourceRecords/TXT.cs	682	false-to-true	killed	google-text-the-reader-cannot-finish		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1247	less-to-less-or-equal	equivalent		DecodeTypeBitMaps. Entering the loop at the end of the bitmap breaks at the window-header check two lines below	0
+DNS/ResourceRecords/TXT.cs	716	ge-to-greater	killed	google-text-the-reader-cannot-finish		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1250	greater-to-ge	equivalent		DecodeTypeBitMaps. A window header with nothing behind it adds no types whether the loop leaves here or at the bitmap-length check	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1263	less-to-less-or-equal	equivalent		DecodeTypeBitMaps. 0x80 >> 8 is zero, so the ninth pass masks nothing and adds nothing	0
+DNS/ResourceRecords/TXT.cs	735	logical-or-to-and	killed	both-characters-after-the-first-digit		0
+DNS/ResourceRecords/TXT.cs	735	ge-to-greater	killed	google-text-the-reader-cannot-finish		0
+DNS/ResourceRecords/TXT.cs	736	logical-or-to-and	killed	both-characters-after-the-first-digit		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1428	false-to-true	equivalent		UseCompression in the owner rewrite: the new owner goes first, into an empty stream with an empty table	0

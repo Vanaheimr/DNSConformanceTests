@@ -1,0 +1,42 @@
+DNS/ResourceRecords/ADNSResourceRecord.cs	211	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/RRSIG.cs	332	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/SPF.cs	220	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	455	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/URI.cs	313	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	244	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/RRSIG.cs	341	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/SPF.cs	229	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	530	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/URI.cs	322	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	504	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	586	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	567	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	587	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	572	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	621	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	622	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	639	equality-to-inequality	TIMED-OUT	Client was still running after 618 s	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	981	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	646	true-to-false	KILLED-ELSEWHERE	Client: 9 of 262 failed	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	982	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	663	equality-to-inequality	TIMED-OUT	Client was still running after 618 s	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1130	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	675	logical-and-to-or	KILLED-ELSEWHERE	Client: 2 of 262 failed	0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1203	le-to-less	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	682	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1247	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	716	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1250	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	717	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1263	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	735	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1343	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	735	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1348	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	736	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1357	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	739	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/ADNSResourceRecord.cs	1428	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	747	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	770	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/ResourceRecords/TXT.cs	779	true-to-false	SURVIVED-EVERYWHERE		0
