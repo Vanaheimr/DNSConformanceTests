@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -10,7 +11,8 @@ namespace DNSConformance.Client.Tests;
 
 /// <summary>
 /// The names a resolver library answers itself: "localhost." and every name
-/// below it, and "invalid." and every name below it (RFC 6761 §6.3, §6.4).
+/// below it, and "invalid." and every name below it (RFC 6761 §6.3, §6.4), and
+/// the .onion names (RFC 7686 §2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -325,6 +327,47 @@ public class SpecialUseNameTests
     #endregion
 
 
+    #region Every .onion name is NXDOMAIN (RFC 7686 §2)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "7686 §2")]
+    [TestCase("onion.",                    DNSResourceRecordTypes.A,    TestName = "{m}: A of onion.")]
+    [TestCase("hiddenservice.onion.",      DNSResourceRecordTypes.A,    TestName = "{m}: A of hiddenservice.onion.")]
+    [TestCase("www.hiddenservice.onion.",  DNSResourceRecordTypes.AAAA, TestName = "{m}: AAAA of www.hiddenservice.onion.")]
+    [TestCase("a.b.ONION.",                DNSResourceRecordTypes.TXT,  TestName = "{m}: TXT of a.b.ONION., in another case")]
+    public async Task An_Onion_Name_Is_NXDOMAIN(String                  Name,
+                                                DNSResourceRecordTypes  Type)
+    {
+
+        // RFC 7686 §2 item 3: "Resolvers MUST either respond to requests for
+        // .onion names by resolving them according to [tor-rendezvous] or by
+        // responding with NXDOMAIN". DNSClient speaks no Tor, so what it may
+        // answer is NXDOMAIN — not the address the server has for the name.
+        // Whether it asks first is not asserted: item 3 says what the answer is,
+        // and the server answers every name.
+        await using var server = AnswerEveryName();
+        using       var client = ClientOf(server);
+
+        var answer  = await client.Query(DNSServiceName.Parse(Name), [ Type ], Timeout);
+
+        Assert.Multiple(() => {
+
+            Assert.That(answer.Answers, Is.Empty,
+                        "§2 item 3: a .onion name has no records a resolver without Tor could give");
+
+            Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NameError),
+                        "§2 item 3: \"or by responding with NXDOMAIN\"");
+
+        });
+
+        await AssertTheServerWasReachable(client, server);
+
+    }
+
+    #endregion
+
+
     #region NameResolution recognizes both itself (RFC 6761 §6.3, §6.4)
 
     [Test]
@@ -395,6 +438,45 @@ public class SpecialUseNameTests
 
             Assert.That(sent, Is.Zero,
                         "§6.4 item 3: and its server is not asked");
+
+        });
+
+        await AssertTheServerWasReachable(transport, server);
+
+    }
+
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "7686 §2")]
+    [TestCase("hiddenservice.onion",   TestName = "{m}: hiddenservice.onion")]
+    [TestCase("hiddenservice.onion.",  TestName = "{m}: hiddenservice.onion., with the root's dot")]
+    [TestCase("www.HiddenService.Onion", TestName = "{m}: www.HiddenService.Onion, in another case")]
+    public async Task NameResolution_Refuses_An_Onion_Name_Without_Asking(String Host)
+    {
+
+        // RFC 7686 §2 item 3 has a resolver without Tor answer NXDOMAIN, and
+        // item 2 says that applications that do not implement Tor "SHOULD
+        // generate an error upon the use of .onion and SHOULD NOT perform a DNS
+        // lookup".
+        // Hermod's HTTP, SSH and TCP clients are such software, and their
+        // lookups are NameResolution's: the error is its exception, and no DNS
+        // client is asked.
+        await using var server     = AnswerEveryName();
+        await using var transport  = new DNSUDPClient(IPv4Address.Localhost,
+                                                      IPPort.Parse((UInt16) server.Port),
+                                                      QueryTimeout: Timeout);
+
+        var resolved  = await ResolvedOrNull(Host, transport);
+        var sent      = server.Requests.Count;
+
+        Assert.Multiple(() => {
+
+            Assert.That(resolved, Is.Null,
+                        "§2 items 2 and 3: a .onion name resolves to no address without Tor, and NameResolution says so");
+
+            Assert.That(sent, Is.Zero,
+                        "§2 item 2: \"SHOULD NOT perform a DNS lookup\"");
 
         });
 
