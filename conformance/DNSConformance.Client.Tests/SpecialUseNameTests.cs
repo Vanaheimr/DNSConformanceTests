@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -10,8 +11,9 @@ namespace DNSConformance.Client.Tests;
 
 /// <summary>
 /// The names a resolver library answers itself: "localhost." and every name
-/// below it, and "invalid." and every name below it (RFC 6761 §6.3, §6.4), and
-/// the .onion names (RFC 7686 §2).
+/// below it, and "invalid." and every name below it (RFC 6761 §6.3, §6.4), the
+/// .onion names (RFC 7686 §2), and the link-local names of Multicast DNS, which
+/// it does not send to a unicast server (RFC 6762 §22.1).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -360,6 +362,79 @@ public class SpecialUseNameTests
         });
 
         await AssertTheServerWasReachable(client, server);
+
+    }
+
+    #endregion
+
+
+    #region A link-local name is not sent to a unicast server (RFC 6762 §22.1)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "6762 §22.1")]
+    [TestCase("printer.local.",              DNSResourceRecordTypes.A,    TestName = "{m}: A of printer.local.")]
+    [TestCase("local.",                      DNSResourceRecordTypes.A,    TestName = "{m}: A of local.")]
+    [TestCase("My-Printer.LOCAL.",           DNSResourceRecordTypes.AAAA, TestName = "{m}: AAAA of My-Printer.LOCAL., in another case")]
+    [TestCase("_ipp._tcp.local.",            DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of _ipp._tcp.local.")]
+    [TestCase("4.3.254.169.in-addr.arpa.",   DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of 4.3.254.169.in-addr.arpa.")]
+    [TestCase("1.8.e.f.ip6.arpa.",           DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of 1.8.e.f.ip6.arpa.")]
+    [TestCase("F.B.E.F.IP6.ARPA.",           DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of F.B.E.F.IP6.ARPA., in another case")]
+    public async Task A_Link_Local_Name_Is_Not_Sent_To_A_Unicast_Server(String                  Name,
+                                                                        DNSResourceRecordTypes  Type)
+    {
+
+        // RFC 6762 §22.1 makes ".local." and the link-local reverse domains
+        // 254.169.in-addr.arpa. and 8.e.f.ip6.arpa. to b.e.f.ip6.arpa. special,
+        // with every name below them. Item 3: "Name resolution APIs and
+        // libraries SHOULD recognize these names as special and SHOULD NOT send
+        // queries for these names to their configured (unicast) caching DNS
+        // server(s)." They are Multicast DNS names; what a unicast server says
+        // about one is no answer, and only the sending is asserted.
+        await using var server = AnswerEveryName();
+        using       var client = ClientOf(server);
+
+        var answer  = await client.Query(DNSServiceName.Parse(Name), [ Type ], Timeout);
+        var sent    = server.Requests.Count;
+
+        Assert.Multiple(() => {
+
+            Assert.That(sent, Is.Zero,
+                        "§22.1 item 3: \"SHOULD NOT send queries for these names to their configured (unicast) caching DNS server(s)\"");
+
+            Assert.That(answer.Answers, Is.Empty,
+                        "§22.1 item 3: so no unicast server's records come back for one");
+
+        });
+
+        await AssertTheServerWasReachable(client, server);
+
+    }
+
+
+    [Test]
+    [Property("RFC", "6762 §22.1")]
+    [TestCase("local.example.",           TestName = "{m}: local.example.")]
+    [TestCase("notlocal.",                TestName = "{m}: notlocal.")]
+    [TestCase("255.169.in-addr.arpa.",    TestName = "{m}: 255.169.in-addr.arpa.")]
+    [TestCase("254.168.in-addr.arpa.",    TestName = "{m}: 254.168.in-addr.arpa.")]
+    [TestCase("1.1254.169.in-addr.arpa.", TestName = "{m}: 1.1254.169.in-addr.arpa., a longer label")]
+    [TestCase("c.e.f.ip6.arpa.",          TestName = "{m}: c.e.f.ip6.arpa.")]
+    [TestCase("7.e.f.ip6.arpa.",          TestName = "{m}: 7.e.f.ip6.arpa.")]
+    [TestCase("18.e.f.ip6.arpa.",         TestName = "{m}: 18.e.f.ip6.arpa., a longer label")]
+    public async Task A_Name_Beside_The_Link_Local_Ones_Is_Sent(String Name)
+    {
+
+        // The six domains are the whole of it, label by label: a name whose last
+        // labels only look like theirs is an ordinary name and goes to the
+        // server like any other.
+        await using var server = AnswerEveryName();
+        using       var client = ClientOf(server);
+
+        await client.Query(DNSServiceName.Parse(Name), [ DNSResourceRecordTypes.A ], Timeout);
+
+        Assert.That(server.Requests.Count, Is.EqualTo(1),
+                    $"{Name} is no link-local name, and is sent");
 
     }
 

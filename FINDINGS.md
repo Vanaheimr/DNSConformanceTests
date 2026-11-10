@@ -1,11 +1,13 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. One hundred and six RFC deviations in the Hermod DNS
+What this suite caught. One hundred and eight RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last two is fixed and every one is defended by a test
+— so this reads as a record, not a backlog. Findings 107 and 108, the
+link-local names of RFC 6762, are open, and their trackers are red on purpose.
+It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -123,6 +125,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 104 | A test name or a private-address reverse name the server served no zone for was refused | Low (SHOULD) | 6761 §6.1, §6.2 | ✅ fixed |
 | 105 | A .onion name was resolved through the configured server | Medium | 7686 §2 | ✅ fixed |
 | 106 | The server refused .onion names, and served what a zone held at them | Low | 7686 §2 | ✅ fixed |
+| 107 | A link-local name went to the configured unicast server | Low (SHOULD) | 6762 §22.1 | ⏳ **open** |
+| 108 | The server refused link-local names, and served what a zone held at them | Low (SHOULD) | 6762 §22.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6300,6 +6304,94 @@ this server directly or an operator configured what item 6 forbids.
 
 ---
 
+## 107 — A link-local name went to the configured unicast server
+
+*RFC 6762 §22.1* registered the names of Multicast DNS as special-use names:
+".local.", and the link-local reverse domains "254.169.in-addr.arpa." and
+"8.e.f.ip6.arpa." to "b.e.f.ip6.arpa.", with every name below them. Item 3:
+
+> Name resolution APIs and libraries SHOULD recognize these names as special
+> and SHOULD NOT send queries for these names to their configured (unicast)
+> caching DNS server(s).
+
+The reason it gives is the load "caused by queries for which those name servers
+do not have useful non-negative answers to give". *§3* has every query for a
+.local name go to the Multicast DNS address, and adds: "Implementers MAY choose
+to look up such names concurrently via other mechanisms (e.g., Unicast DNS)".
+
+Hermod's `HybridDNSClient` does the first: it hands link-local names to a
+`MulticastDNSClient` and everything else to a unicast client. `DNSClient` itself
+speaks unicast only, and it sent `printer.local.`, `_ipp._tcp.local.` and
+`4.3.254.169.in-addr.arpa.` to its configured servers like any other name, and
+returned what they said.
+
+**What it costs.** Every lookup of a printer or a service on the link goes to
+the configured resolver and on to the root, which item 3 is there to spare. And
+where a unicast server answers a .local name, its answer stands in for the
+device on the link that owns the name.
+
+Some networks do serve ".local" by unicast DNS — Active Directory domains named
+that way are the common case — and *Appendix G* has the RFC "recommend against
+using ".local" as a private Unicast DNS top-level domain". The fix is therefore
+to come with an option that sends link-local names to the servers again, off by
+default.
+
+**How it was found.** With findings 105 and 106, going through IANA's
+special-use registry, in which RFC 6762 has six entries.
+
+**Repro**: seven cases in `SpecialUseNameTests`, red at `6ff76e99`:
+`A_Link_Local_Name_Is_Not_Sent_To_A_Unicast_Server`, the three kinds of
+domain in both cases. Item 3 says what is not to be sent and not what the
+answer is, so the tests assert that the server got nothing and that no records
+came back. `A_Name_Beside_The_Link_Local_Ones_Is_Sent` holds eight names that
+only look link-local at being sent, `1.1254.169.in-addr.arpa.` and
+`18.e.f.ip6.arpa.` among them: the domains are matched label by label.
+
+**The fix**: ⏳ open.
+
+Severity is **Low (SHOULD)**.
+
+---
+
+## 108 — The server refused link-local names, and served what a zone held at them
+
+*RFC 6762 §22.1* item 5:
+
+> Authoritative DNS servers SHOULD NOT by default be configurable to answer
+> queries for these names, and, like caching DNS servers, SHOULD generate
+> immediate NXDOMAIN responses for all such queries they may receive. DNS
+> server software MAY provide a configuration option to override this default,
+> for testing purposes or other specialized uses.
+
+`AuthoritativeDNSRequestHandler` answered them like any name: refused where the
+zone held nothing, and served where it did. The trackers' second server holds
+an A of `192.0.2.100` at `printer.local.` and answered with it.
+
+**What it costs.** Little where resolvers find the server by delegation; where a
+client asks it directly, REFUSED sends the name on, and a .local record in a
+zone answers in the name of a device on the link.
+
+One thing is outside item 5: `DNSServer` joins the Multicast DNS group
+224.0.0.251 by default, on port 6363, and answers what arrives there from the
+same zone. A
+query for a .local name that arrives by multicast is what such names are for.
+The trackers ask over unicast UDP, and the fix is to leave the multicast
+listener's answers as they are.
+
+**How it was found.** With finding 107.
+
+**Repro**: seven cases in `SpecialUseNameServerTests`, red at `6ff76e99`:
+`A_Link_Local_Name_Is_NXDOMAIN`, six names of the three kinds of domain, and
+`A_Configured_Link_Local_Name_Is_Not_Served_By_Default`. Each NXDOMAIN has to
+cite an SOA at or above the name (*RFC 2308 §3*). Six guards join
+`A_Name_Beside_The_Special_Ones_Is_Refused` and pass.
+
+**The fix**: ⏳ open.
+
+Severity is **Low (SHOULD)**.
+
+---
+
 ## Interpretations
 
 Current, not historical. Places where the RFC genuinely permits both readings,
@@ -6330,6 +6422,16 @@ other clients resolve host names through is `NameResolution`. The trackers of
 findings 101 and 102 ask those two. They hand `NameResolution` a transport
 client, so that what `NameResolution` recognizes, it recognizes itself. A
 transport client that sends `localhost.` to its server is not asserted against.
+
+**A link-local name is the DNS client's to resolve.** RFC 6762 §3 sends every
+query for a .local name to the Multicast DNS address, and §22.1 item 3 asks
+name resolution libraries not to send these names to their unicast servers.
+`DNSClient` is a unicast library and has no multicast to send them to; the
+trackers of finding 107 ask it only not to send them to its servers. Hermod's
+answer to §3 is `HybridDNSClient`, which hands link-local names to Multicast
+DNS. `NameResolution` therefore leaves a link-local name to the DNS client it
+is given, unlike an "invalid" or a .onion name: that client may be the one that
+can resolve it.
 
 **Forward compression pointers.** RFC 1035 §4.1.4 defines a pointer as referring
 to "a prior occurrence of the same name". Hermod accepts forward pointers; the
