@@ -4,10 +4,8 @@ What this suite caught. One hundred and four RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them but the last two is fixed and every one is defended by a test
-— so this reads as a record, not a backlog. Findings 103 and 104, the server's
-half of RFC 6761, are open, and their trackers are red on purpose. It stays
-because the tests do not explain
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -121,8 +119,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 100 | Unless every string on a TXT line was quoted, a character-string was read with its escapes and quotes in it | Medium | 1035 §5.1, 7208 §3.3 | ✅ fixed |
 | 101 | A name below localhost, and localhost asked for another type, went to the configured server | Low (SHOULD) | 6761 §6.3 | ✅ fixed |
 | 102 | An "invalid" name went to the configured server | Low (SHOULD) | 6761 §6.4 | ✅ fixed |
-| 103 | The server refused localhost and "invalid" names, and served what a zone held at them | Low (SHOULD) | 6761 §6.3, §6.4 | ⏳ **open** |
-| 104 | A test name or a private-address reverse name the server served no zone for was refused | Low (SHOULD) | 6761 §6.1, §6.2 | ⏳ **open** |
+| 103 | The server refused localhost and "invalid" names, and served what a zone held at them | Low (SHOULD) | 6761 §6.3, §6.4 | ✅ fixed |
+| 104 | A test name or a private-address reverse name the server served no zone for was refused | Low (SHOULD) | 6761 §6.1, §6.2 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6092,31 +6090,32 @@ item 5 says the same of "invalid" names, and item 4 has those answered with
 tells operators that the answers are "defined by protocol specification" and
 "cannot be modified by local configuration".
 
-`AuthoritativeDNSRequestHandler` has nothing for either kind. It asks its zone
-store, and the store knows these names only as names it holds records at:
+`AuthoritativeDNSRequestHandler` had nothing for either kind. It asked its zone
+store, and the store knew these names only as names it held records at:
 
-- **No record at the name.** The name is outside every zone served, and since
-  finding 41 such a name is refused. `localhost.` and `www.localhost.` are
-  REFUSED for A and AAAA, and so are an MX query for `localhost.` and every name
-  below `.invalid`.
-- **A record at the name.** The store serves it. A zone holding an A of
-  `192.0.2.97` at `localhost.` answers that address, and an A at `host.invalid.`
-  makes the name exist.
+- **No record at the name.** The name was outside every zone served, and since
+  finding 41 such a name is refused. `localhost.` and `www.localhost.` were
+  REFUSED for A and AAAA, and so were an MX query for `localhost.` and every
+  name below `.invalid`.
+- **A record at the name.** The store served it. A zone holding an A of
+  `192.0.2.97` at `localhost.` answered that address, and an A at
+  `host.invalid.` made the name exist.
 
-**What it costs.** Little where resolvers find the server by delegation: none of
-them has a reason to ask it about localhost. It costs where a client is pointed
+**What it cost.** Little where resolvers find the server by delegation: none of
+them has a reason to ask it about localhost. It cost where a client is pointed
 at the server directly, as a test network or a small installation does. That
-client gets REFUSED where RFC 6761 promises the loopback address or NXDOMAIN,
-and one that takes REFUSED as "ask the next server" carries the name on, which
-is the load item 4 is there to avoid. And a record at `localhost.` decides where
-every program that asks this server connects when it means its own machine.
+client got REFUSED where RFC 6761 promises the loopback address or NXDOMAIN,
+and one that takes REFUSED as "ask the next server" carried the name on, which
+is the load item 4 is there to avoid. And a record at `localhost.` decided where
+every program that asked this server connected when it meant its own machine.
 
 **How it was found.** After findings 101 and 102, which took item 3 of §6.3 and
 §6.4. The server items of the same sections were the next question, and the
 suite had asked the server about no special-use name.
 
-**Repro**: sixteen cases in `SpecialUseNameServerTests`, red at `56f2c957`:
-`A_Localhost_Name_Is_The_Loopback_Address`, five names and types;
+**Repro**: sixteen cases in `SpecialUseNameServerTests`, red at `56f2c957` and
+passing from `c2f4bdde` on: `A_Localhost_Name_Is_The_Loopback_Address`, five
+names and types;
 `Another_Type_Of_A_Localhost_Name_Is_NoData`, four;
 `An_Invalid_Name_Is_NXDOMAIN`, four;
 `A_Configured_Record_Does_Not_Change_A_Localhost_Name`, two, against a second
@@ -6127,9 +6126,18 @@ for another type is held to NODATA: the name has its addresses, and NXDOMAIN
 would deny them. Every negative answer has to cite an SOA at or above the name,
 as every other negative answer of this server does (*RFC 2308 §3*).
 
-**The fix**: ⏳ open.
+**The fix**: `SpecialUseZones` answers a localhost or an "invalid" name before
+the zone is asked: the loopback address for A, `::1` for AAAA, both for ANY,
+NODATA for any other type, and NXDOMAIN for an "invalid" name. An alias the zone
+holds at a localhost name is not followed. Each negative answer cites the SOA
+that *RFC 6303 §3* gives the empty zone a resolver serves for such a domain,
+`@ 10800 IN SOA @ nobody.invalid. 1 3600 1200 604800 10800`, and the loopback
+addresses carry the same 10800 seconds. A question in a class other than IN and
+ANY is still the zone's. Merged as
+[`c2f4bdde`](https://github.com/Vanaheimr/Hermod/commit/c2f4bddee7cf4471b636034e567dac8b46cb4703),
+with finding 104.
 
-Severity is **Low (SHOULD)**.
+Severity was **Low (SHOULD)**.
 
 ---
 
@@ -6147,8 +6155,8 @@ Severity is **Low (SHOULD)**.
 `168.192.in-addr.arpa.`, "and any names falling within those domains".
 
 A name the server serves is the configuration item 5 leaves room for, and
-Hermod answers it as served: `conformance.test.`, the suite's own zone, is a
-test name. Every other such name is outside every zone, and Hermod refuses it,
+Hermod answered it as served: `conformance.test.`, the suite's own zone, is a
+test name. Every other such name was outside every zone, and Hermod refused it,
 as it has refused `example.com.` since finding 41. RFC 6761 wants a negative
 answer for it.
 
@@ -6159,13 +6167,14 @@ cannot answer `test.` with NXDOMAIN, only with NODATA, and one that holds a PTR
 at `5.1.168.192.in-addr.arpa.` answers `1.168.192.in-addr.arpa.` with NODATA
 too.
 
-**What it costs.** As with finding 103: little where resolvers find the server
-by delegation, and a REFUSED that sends the name on where a client asks the
+**What it cost.** As with finding 103: little where resolvers find the server
+by delegation, and a REFUSED that sent the name on where a client asked the
 server directly.
 
 **How it was found.** With finding 103.
 
-**Repro**: thirteen cases in `SpecialUseNameServerTests`, red at `56f2c957`:
+**Repro**: thirteen cases in `SpecialUseNameServerTests`, red at `56f2c957` and
+passing from `c2f4bdde` on:
 `A_Test_Name_No_Zone_Is_Served_For_Is_A_Negative_Answer`, three names;
 `A_Test_Name_Above_A_Served_Zone_Is_NoData`;
 `A_Private_Address_Reverse_Name_No_Zone_Is_Served_For_Is_A_Negative_Answer`,
@@ -6178,9 +6187,18 @@ holds fifteen names at REFUSED: example names, of which §6.5 item 5 says
 names that only look special, such as `15.172.in-addr.arpa.`,
 `016.172.in-addr.arpa.` and `mylocalhost.`.
 
-**The fix**: ⏳ open.
+**The fix**: where the zone store is not authoritative for a test name or a
+private-address reverse name, `SpecialUseZones` gives the negative answer in
+place of REFUSED, with the domain's RFC 6303 SOA: NXDOMAIN, or NODATA when the
+store holds a name below the one asked. `InMemoryDNSZone` tells that through the
+new `DNSZoneLookupResult.HoldsNamesBelow`, from an index of every name it holds
+records at and every name above one. A label is the octet only as *RFC 1035
+§3.5* writes it, "with leading zeros omitted", so `016.172.in-addr.arpa.` is no
+private-address name. Merged as
+[`c2f4bdde`](https://github.com/Vanaheimr/Hermod/commit/c2f4bddee7cf4471b636034e567dac8b46cb4703),
+with finding 103.
 
-Severity is **Low (SHOULD)**.
+Severity was **Low (SHOULD)**.
 
 ---
 
