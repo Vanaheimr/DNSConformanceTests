@@ -2,7 +2,6 @@ using NUnit.Framework;
 
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -119,7 +118,6 @@ public class RdataNameCaseTests
 
     [Test]
     [Property("RFC", "3597 §7")]
-    [Category(TestCategories.KnownIssue)]
     // The apex NS RRset, whose second name server is "NS2.Example.".
     [TestCase("",           DNSResourceRecordTypes.NS,     TestName = "Rdata_lowercased__NS")]
     [TestCase("cname.",     DNSResourceRecordTypes.CNAME,  TestName = "Rdata_lowercased__CNAME")]

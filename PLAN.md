@@ -433,8 +433,8 @@ side of the connection.
 | 4035 §5.3 | DNSKEY RRset validates under the KSK (the DS→DNSKEY chain link) | ✅ |
 | 4035 §5.3.3 | tampered RDATA and verification under an unrelated key are rejected | ✅ |
 | 4034 §6.3 | canonical ordering applied by the validator (reversed RRset still validates) | ✅ |
-| 4034 §6.3 | the order is the RDATA's alone, not the record's: an RRset whose records sort one way by their octets and the other by their length — `x.y.example.` and `aa.example.` — verifies under BIND's signature, and `dnssec-verify` accepts it signed by Hermod (finding 111) | ❌ |
-| 4034 §6.2, 3597 §7 | names inside RDATA in the canonical form: lowercased for the types on RFC 3597 §7's list and for no others. BIND's signatures over `rdatacase.dnssec.test`, whose RDATA names are in mixed case, verify for NS, CNAME, PTR, MX, RP, AFSDB, NAPTR, KX, SRV and DNAME, and for LP and HIP signed as written; and `dnssec-verify` accepts a zone Hermod signed with such names (finding 110) | ❌ |
+| 4034 §6.3 | the order is the RDATA's alone, not the record's: an RRset whose records sort one way by their octets and the other by their length — `x.y.example.` and `aa.example.` — verifies under BIND's signature, and `dnssec-verify` accepts it signed by Hermod (finding 111) | ✅ |
+| 4034 §6.2, 3597 §7 | names inside RDATA in the canonical form: lowercased for the types on RFC 3597 §7's list and for no others. BIND's signatures over `rdatacase.dnssec.test`, whose RDATA names are in mixed case, verify for NS, CNAME, PTR, MX, RP, AFSDB, NAPTR, KX, SRV and DNAME, and for LP and HIP signed as written; and `dnssec-verify` accepts a zone Hermod signed with such names (finding 110) | ✅ |
 | 4034 §3.1.8 | a **live** cloudflare.com SOA RRSIG validates end-to-end (Online) | ✅ |
 | 4034 §5.1 | **every algorithm the validator claims** — 5, 7, 10, 13, 14, 15, 16 — each against a zone BIND signed with it: key shape, A/AAAA/TXT/SOA/NS RRSIGs, DS digest, tampered RDATA and wrong-key rejection | ✅ |
 | 6605 | ECDSA P-256 (13) and P-384 (14): fixed-width r\|\|s, 64/96-octet keys | ✅ |

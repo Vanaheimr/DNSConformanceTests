@@ -362,24 +362,26 @@ not. Every fixture wrote its names in lowercase, where the rule changes nothing.
 `rdatacase.dnssec.test` writes them in mixed case: Hermod called ten of BIND's
 signatures over it Bogus, and `dnssec-verify` refused a zone Hermod signed with
 such names. The cases are finding 110, ten offline and one under WSL, red at
-ae460483 and marked `KnownIssue`; four guards beside them pass, two of them the LP
-and the HIP, whose names are signed as written.
+ae460483 and passing from 951d3775 on; four guards beside them pass, two of them
+the LP and the HIP, whose names are signed as written.
 
 And the order of an RRset under a signature (RFC 4034 §6.3), which the same
 fixture turned up before the first was fixed: the records sort by their RDATA,
 and Hermod sorted them as whole records, RDLENGTH first. `x.y.example.` sorts
 before `aa.example.`, 01 before 02, though its record is the longer. The cases
-are finding 111, two offline and one under WSL, red at ae460483 and marked
-`KnownIssue`, with a guard that the two orders really disagree. With both
-findings the DNSSEC project is 381 ✅ · 12 ❌, and the offline suite
-2169 ✅ · 12 ❌ · 4 skips.
+are finding 111, two offline and one under WSL, red at ae460483 and passing from
+5bcd11a7 on, with a guard that the two orders really disagree. And
+`CanonicalRDataTests`, eighteen cases, drives every layout of the list with
+hand-built RDATA whose numbers and strings look like capital letters, so that a
+walk which started a name one field early would show. With them the DNSSEC
+project is 411 ✅ · 0 ❌, and the offline suite 2199 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 111 RFC deviations in Hermod. All but the last two are fixed;
+The suite has found 111 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -552,6 +554,7 @@ names it in a `[Property("RFC", …)]` attribute.
 | **4701** | DHCID | §3.1 the identifier type code, digest type code and digest; §3.5 the presentation form, which is base-64 of the whole RDATA block rather than of the digest alone — checked against all three of the RFC's own examples, which between them cover identifier types 0, 1 and 2 |
 | **3597** | Unknown RR types | §2 a type with no parser is kept as opaque data, in requests and in responses, and stepping over it leaves the reader where the next record begins — so it costs no record behind it. §3 the RDATA is served back octet for octet, including RDATA that reads as a compression pointer. §4 the eleven post-1035 types that carry a name in their RDATA emit it uncompressed, and so do KX, HIP and LP, whose own RFCs forbid compression too, while the five RFC 1035 types still compress. §5 the `\#` generic form both ways, `TYPEnnn`/`CLASSnn`, a bare decimal read as a TTL and not a class, and a *known* type written generically re-read as that type. §6 RDATA compared as octets, case sensitively |
 | **4033/4034/4035** | DNSSEC | key tag (App. B) on both IANA root KSKs, DS digests vs. IANA's published anchor, RRSIG validation against BIND-signed RRsets, canonical ordering, Secure/Insecure/Bogus/Indeterminate classification, expired and not-yet-valid signatures, wildcard reconstruction (§5.3.2). The chain of trust link by link (§5.2): every DNSKEY RRset verified under a key an authenticated DS or the anchor names, every DS RRset under its parent's key (finding 67); a signer that encloses the owner (§5.3.1, finding 68); every RRset of an answer covered by a signature that verified (finding 69); and a denial read only from the NSEC records whose signatures did (§5.4, finding 70). Serving side (§3.1): RRSIGs travel with the answer and denial records with the "no", both only for a querier that set the DO bit; a wildcard answer keeps its RRSIG's `labels` field pointing at the wildcard and carries the proof that the queried name was absent; and a DS query at a zone cut is answered by the parent rather than referred (§3.1.4.1) |
+| **4034** §6.2, §6.3, **3597** §7 | Canonical form | what a signature is taken over, measured in both directions against BIND with a zone whose RDATA names are written in mixed case: the names inside the RDATA of the types on RFC 3597 §7's closed list are lowercased, and those of every later type — LP, HIP — are not (finding 110); and an RRset is ordered by its RDATA alone, not by its records, whose RDLENGTH would put a shorter one first whatever its octets say (finding 111). Every layout of the list octet by octet, against hand-built RDATA whose numbers, strings and signatures look like capital letters |
 | **4255** | SSHFP | algorithm × fingerprint-type matrix |
 | **2782** | SRV selection | the algorithm, not just the record. The lowest priority *it can reach*, so an unreachable one is a dead end for that priority and not for the query ✅ (finding 52); weight-0 targets first, an inclusive draw and "greater than or equal", which together are what give a weight 0 the "very small chance" the RFC asks for rather than none at all; and equal weights that actually spread, since all-zero is what the RFC recommends when there is no selection to make. Distributions are asserted seven standard deviations wide — a bound that only asked whether a weight-0 target was *ever* chosen let a mutation through |
 | **4025** | IPSECKEY | §2.3's gateway field, whose meaning is decided by the octet before it: none, four octets of IPv4, sixteen of IPv6, or a wire-encoded name whose length "is implicit" and therefore has to be found by walking labels — the one place in this record where being one octet out produces a shorter key that still decodes and still looks like a key. §2.4 the name uncompressed, asserted by walking the RDATA rather than trusting the serializer. §2.5 a record with no key at all, which is legal and which BIND cannot represent in either the presentation or the generic form. Every expected string is `named-checkzone -D`'s own output |

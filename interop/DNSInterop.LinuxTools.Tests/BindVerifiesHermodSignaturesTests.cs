@@ -350,7 +350,6 @@ public class BindVerifiesHermodSignaturesTests
     [Test]
     [Property("RFC", "4034 §6.2")]
     [Property("RFC", "3597 §7")]
-    [Category(TestCategories.KnownIssue)]
     public void Bind_Verifies_Names_In_Rdata_Signed_In_Their_Canonical_Case()
     {
 
@@ -377,7 +376,6 @@ public class BindVerifiesHermodSignaturesTests
 
     [Test]
     [Property("RFC", "4034 §6.3")]
-    [Category(TestCategories.KnownIssue)]
     public void Bind_Verifies_An_Rrset_Whose_Rdata_Lengths_Sort_Against_Its_Octets()
     {
 

@@ -2,7 +2,6 @@ using NUnit.Framework;
 
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
-using DNSConformance.Core;
 using DNSConformance.Core.Fixtures;
 
 namespace DNSConformance.Dnssec.Tests;
@@ -82,7 +81,6 @@ public class RrsetOrderTests
     #region Bind_Ordered_The_Rrset_By_Its_Rdata()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public void Bind_Ordered_The_Rrset_By_Its_Rdata()
     {
 
@@ -107,7 +105,6 @@ public class RrsetOrderTests
     #region The_Signed_Data_Puts_The_Shorter_Record_Second_When_Its_Octets_Say_So()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public void The_Signed_Data_Puts_The_Shorter_Record_Second_When_Its_Octets_Say_So()
     {
 
