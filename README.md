@@ -305,18 +305,18 @@ for: `localhost.` and the names below it, every name below `.invalid`, the test
 names outside `conformance.test.` and the private-address reverse names. And it
 served what a zone held at `localhost.` or `host.invalid.`, which the RFC fixes
 whatever is configured. The cases are findings 103 and 104, twenty-nine of them,
-red at 56f2c957 and marked `KnownIssue`; sixteen guards beside them pass. With
-them the Server project is 170 ✅ · 29 ❌, and the offline suite
-1980 ✅ · 29 ❌ · 4 skips.
+red at 56f2c957 and passing from c2f4bdde on; sixteen guards beside them pass.
+With them the Server project is 199 ✅ · 0 ❌, and the offline suite
+2009 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 104 RFC deviations in Hermod. All but findings 103 and 104
-are fixed; [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
-change, and the test that pins it.
+The suite has found 104 RFC deviations in Hermod. All are fixed;
+[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
+the test that pins it.
 
 ## Getting started
 

@@ -208,7 +208,6 @@ public class SpecialUseNameServerTests
     #region A_Localhost_Name_Is_The_Loopback_Address(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     [TestCase("localhost.",      RawDnsType.A)]
     [TestCase("www.localhost.",  RawDnsType.A)]
@@ -231,7 +230,6 @@ public class SpecialUseNameServerTests
     #region Another_Type_Of_A_Localhost_Name_Is_NoData(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     [Property("RFC", "2308 §2.2")]
     [TestCase("localhost.",      RawDnsType.MX)]
@@ -259,7 +257,6 @@ public class SpecialUseNameServerTests
     #region An_Invalid_Name_Is_NXDOMAIN(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.4")]
     [TestCase("invalid.",        RawDnsType.A)]
     [TestCase("host.invalid.",   RawDnsType.A)]
@@ -285,7 +282,6 @@ public class SpecialUseNameServerTests
     #region A_Configured_Record_Does_Not_Change_A_Localhost_Name(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.3")]
     [TestCase("localhost.",      RawDnsType.A)]
     [TestCase("www.localhost.",  RawDnsType.AAAA)]
@@ -305,7 +301,6 @@ public class SpecialUseNameServerTests
     #region A_Configured_Record_Does_Not_Make_An_Invalid_Name_Exist()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.4")]
     public async Task A_Configured_Record_Does_Not_Make_An_Invalid_Name_Exist()
     {
@@ -331,7 +326,6 @@ public class SpecialUseNameServerTests
     #region A_Test_Name_No_Zone_Is_Served_For_Is_A_Negative_Answer(Name, Type)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.2")]
     [TestCase("other.test.",      RawDnsType.A)]
     [TestCase("a.b.other.test.",  RawDnsType.AAAA)]
@@ -353,7 +347,6 @@ public class SpecialUseNameServerTests
     #region A_Test_Name_Above_A_Served_Zone_Is_NoData()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.2")]
     [Property("RFC", "8020 §2")]
     public async Task A_Test_Name_Above_A_Served_Zone_Is_NoData()
@@ -379,7 +372,6 @@ public class SpecialUseNameServerTests
     #region A_Private_Address_Reverse_Name_No_Zone_Is_Served_For_Is_A_Negative_Answer(Name)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.1")]
     [TestCase("1.0.0.10.in-addr.arpa.")]
     [TestCase("10.in-addr.arpa.")]
@@ -407,7 +399,6 @@ public class SpecialUseNameServerTests
     #region A_Private_Address_Reverse_Name_Above_A_Served_Name_Is_NoData(Name)
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "6761 §6.1")]
     [Property("RFC", "8020 §2")]
     [TestCase("1.168.192.in-addr.arpa.")]
