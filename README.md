@@ -319,14 +319,23 @@ them a .alt name, which RFC 9476 §3.2 has a server treat like any other. With
 them the Client project is 289 ✅ · 0 ❌, the Server project 207 ✅ · 0 ❌, and
 the offline suite 2024 ✅ · 0 ❌ · 4 skips.
 
+And the link-local names of Multicast DNS (RFC 6762 §22.1): `.local.` and the
+link-local reverse domains, which a library SHOULD NOT send to its unicast
+servers and an authoritative server SHOULD answer with NXDOMAIN by default.
+Hermod's `DNSClient` sent them to its servers, and the server refused them or
+served what a zone held at them. The cases are findings 107 and 108, fourteen
+of them, red at 6ff76e99 and marked `KnownIssue`; fourteen guards beside them
+pass. With them the Client project is 297 ✅ · 7 ❌, the Server project
+213 ✅ · 7 ❌, and the offline suite 2038 ✅ · 14 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 106 RFC deviations in Hermod. All are fixed;
-[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
-the test that pins it.
+The suite has found 108 RFC deviations in Hermod. All but findings 107 and 108
+are fixed; [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
+change, and the test that pins it.
 
 ## Getting started
 
