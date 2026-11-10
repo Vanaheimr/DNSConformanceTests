@@ -237,6 +237,68 @@ public sealed class SignedZoneFixture
                                     UInt16.Parse(rdata[0]), DomainName.Parse(rdata[1].TrimEnd('.')));
                     return true;
 
+                // The types below occur only in rdatacase.dnssec.test, whose RDATA
+                // names are written in mixed case on purpose. Every name keeps the
+                // case BIND wrote it in: lowercasing it here would do the very
+                // thing RFC 4034 §6.2 asks of the code under test, on its behalf.
+
+                case "CNAME":
+                    record = new CNAME(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl, DomainName.Parse(rdata[0].TrimEnd('.')));
+                    return true;
+
+                case "PTR":
+                    record = new PTR(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl, DNSServiceName.Parse(rdata[0].TrimEnd('.')));
+                    return true;
+
+                case "SRV":
+                    record = new SRV(DNSServiceName.Parse(owner), DNSQueryClasses.IN, ttl,
+                                     UInt16.Parse(rdata[0]),
+                                     UInt16.Parse(rdata[1]),
+                                     org.GraphDefined.Vanaheimr.Hermod.IPPort.Parse(UInt16.Parse(rdata[2])),
+                                     DomainName.Parse(rdata[3].TrimEnd('.')));
+                    return true;
+
+                case "AFSDB":
+                    record = new AFSDB(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
+                                       UInt16.Parse(rdata[0]), DomainName.Parse(rdata[1].TrimEnd('.')));
+                    return true;
+
+                case "RP":
+                    record = new RP(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
+                                    DomainName.Parse(rdata[0].TrimEnd('.')), DomainName.Parse(rdata[1].TrimEnd('.')));
+                    return true;
+
+                case "NAPTR":
+                    // "<order> <preference> "<flags>" "<services>" "<regexp>" <replacement>"
+                    // (RFC 3403 §4.1). None of the fixture's strings holds a space.
+                    record = new NAPTR(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
+                                       UInt16.Parse(rdata[0]),
+                                       UInt16.Parse(rdata[1]),
+                                       rdata[2].Trim('"'),
+                                       rdata[3].Trim('"'),
+                                       rdata[4].Trim('"'),
+                                       DomainName.Parse(rdata[5].TrimEnd('.')));
+                    return true;
+
+                case "KX":
+                    record = new KX(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
+                                    UInt16.Parse(rdata[0]), DomainName.Parse(rdata[1].TrimEnd('.')));
+                    return true;
+
+                case "LP":
+                    record = new LP(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
+                                    UInt16.Parse(rdata[0]), DomainName.Parse(rdata[1].TrimEnd('.')));
+                    return true;
+
+                case "HIP":
+                    // "<algorithm> <HIT in hex> <key in base-64> <server>…" (RFC 8005 §6).
+                    record = new HIP(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
+                                     Byte.Parse(rdata[0]),
+                                     Convert.FromHexString(rdata[1]),
+                                     Convert.FromBase64String(rdata[2]),
+                                     [.. rdata[3..].Select(server => DomainName.Parse(server.TrimEnd('.')))]);
+                    return true;
+
                 case "TXT":
                     record = new TXT(DomainName.ParseLenient(owner), DNSQueryClasses.IN, ttl,
                                      String.Join(' ', rdata).Trim('"'));

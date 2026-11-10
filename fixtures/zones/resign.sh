@@ -193,6 +193,43 @@ sign_algorithm_zone "dname.$ZONE"     RSASHA256        "-b 2048"   "RSASHA256 (D
 "redirect     IN  DNAME  target.dname.$ZONE.
 host.target  IN  A      192.0.2.14"
 
+# A zone whose RDATA names are not written in lowercase.
+#
+# RFC 4034 §6.2 item 3 lowercases the names inside the RDATA of the types RFC
+# 3597 §7 lists — NS, CNAME, PTR, MX, RP, AFSDB, SRV, NAPTR, KX, DNAME and the
+# rest of that closed list — before anything is signed, and leaves every later
+# type's names as they were written. Every other fixture writes its names in
+# lowercase, so neither half of that rule could show in any of them: a signer
+# and a validator that both skipped it, or both applied it to every type, would
+# agree with each other and with these files alike.
+#
+# LP (RFC 6742) and HIP (RFC 8005) are here for the second half: they came after
+# RFC 3597, and lowercasing their names breaks a signature just as surely as
+# leaving an MX's alone does.
+#
+# The apex NS RRset gets a second name exactly as long as the first, so that it
+# tests the case and nothing else. "order" is the other thing: an RRset whose
+# records sort one way by their RDATA octets and the other way by their length.
+# RFC 4034 §6.3 orders by the octets alone — x.y.example. before aa.example.,
+# because 01 sorts before 02 — and every RRset of more than one record in the
+# other fixtures has records of equal length, where the two orders agree.
+sign_algorithm_zone "rdatacase.$ZONE" RSASHA256        "-b 2048"   "RSASHA256 (RDATA case)"  "" \
+"@            IN  NS     NS2.RdataCase.$ZONE.
+ns2          IN  A      192.0.2.55
+order        IN  MX     10 x.y.example.
+order        IN  MX     10 aa.example.
+mx           IN  MX     10 Mail.RdataCase.$ZONE.
+kx           IN  KX     10 Mail.RdataCase.$ZONE.
+cname        IN  CNAME  Target.RdataCase.$ZONE.
+ptr          IN  PTR    Host.RdataCase.$ZONE.
+_sip._tcp    IN  SRV    0 5 5060 Sip.RdataCase.$ZONE.
+afsdb        IN  AFSDB  1 Db.RdataCase.$ZONE.
+rp           IN  RP     Mbox.RdataCase.$ZONE. Txt.RdataCase.$ZONE.
+naptr        IN  NAPTR  100 10 \"U\" \"E2U+sip\" \"!^.*\$!sip:x@example.!\" Replacement.RdataCase.$ZONE.
+redirect     IN  DNAME  Target.Example.
+lp           IN  LP     10 L64-Subnet.RdataCase.$ZONE.
+hip          IN  HIP    2 200100107B1A74DF365639CC39F1D578 AwEAAQ== Rvs.RdataCase.$ZONE."
+
 echo
 echo "signed zones written to $OUT"
 ls -1 "$OUT"

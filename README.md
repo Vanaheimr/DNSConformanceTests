@@ -354,12 +354,32 @@ lines of the format zone that `named-checkzone` and Hermod have to read alike.
 With them the ResourceRecords project is 708 ✅ · 0 ❌, the WireFormat project
 139 ✅ · 0 ❌, and the offline suite 2164 ✅ · 0 ❌ · 4 skips.
 
+And a rule of the DNSSEC canonical form that none of the fixtures could show
+(RFC 4034 §6.2 item 3, RFC 3597 §7): the names inside the RDATA of NS, CNAME,
+SOA, PTR, MX, RP, AFSDB, NAPTR, KX, SRV, DNAME and the rest of that closed list
+are lowercased before a signature is made, and the names of every later type are
+not. Every fixture wrote its names in lowercase, where the rule changes nothing.
+`rdatacase.dnssec.test` writes them in mixed case: Hermod called ten of BIND's
+signatures over it Bogus, and `dnssec-verify` refused a zone Hermod signed with
+such names. The cases are finding 110, ten offline and one under WSL, red at
+ae460483 and marked `KnownIssue`; four guards beside them pass, two of them the LP
+and the HIP, whose names are signed as written.
+
+And the order of an RRset under a signature (RFC 4034 §6.3), which the same
+fixture turned up before the first was fixed: the records sort by their RDATA,
+and Hermod sorted them as whole records, RDLENGTH first. `x.y.example.` sorts
+before `aa.example.`, 01 before 02, though its record is the longer. The cases
+are finding 111, two offline and one under WSL, red at ae460483 and marked
+`KnownIssue`, with a guard that the two orders really disagree. With both
+findings the DNSSEC project is 381 ✅ · 12 ❌, and the offline suite
+2169 ✅ · 12 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 109 RFC deviations in Hermod. All are fixed;
+The suite has found 111 RFC deviations in Hermod. All but the last two are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
