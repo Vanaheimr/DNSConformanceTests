@@ -6355,6 +6355,15 @@ caching server do, so `DNSClient` sends none to its servers.
 [`850cab3d`](https://github.com/Vanaheimr/Hermod/commit/850cab3dc499065f70b7e57b11158ec3eb818fc8),
 with finding 108.
 
+That fix answered the names before the cache, and went one step past item 3,
+which keeps them off the servers and not out of the client's own cache. Records
+an application put there with `CacheA` and `CacheSRV`, as into a hosts file,
+were no longer found, and Hermod's own `DNSSRV_Tests_01`, which caches SRV and A
+records for `*.example.local`, turned red. Since
+[`f5866619`](https://github.com/Vanaheimr/Hermod/commit/f5866619004a720fc02a598fb4a076514f9cf949)
+the NXDOMAIN comes after the cache, right before a query would be sent. The
+trackers, whose names the cache does not hold, pass as before.
+
 Severity was **Low (SHOULD)**.
 
 ---
