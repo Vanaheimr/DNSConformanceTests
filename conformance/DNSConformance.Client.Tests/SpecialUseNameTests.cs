@@ -3,6 +3,7 @@ using NUnit.Framework;
 using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
+using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -11,8 +12,9 @@ namespace DNSConformance.Client.Tests;
 /// <summary>
 /// The names a resolver library answers itself: "localhost." and every name
 /// below it, and "invalid." and every name below it (RFC 6761 §6.3, §6.4), the
-/// .onion names (RFC 7686 §2), and the link-local names of Multicast DNS, which
-/// it does not send to a unicast server (RFC 6762 §22.1).
+/// .onion names (RFC 7686 §2), the link-local names of Multicast DNS, which it
+/// does not send to a unicast server (RFC 6762 §22.1), and the two reverse names
+/// of ipv4only.arpa (RFC 8880 §7.2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -458,6 +460,126 @@ public class SpecialUseNameTests
             Assert.That(answer.Answers.OfType<A>().Select(record => record.IPv4Address).ToArray(), Is.EqualTo(new[] { Wrong4 }),
                         "and the server's answer is the answer");
         });
+
+    }
+
+    #endregion
+
+
+    #region The reverse names of ipv4only.arpa are answered locally (RFC 8880 §7.2)
+
+    /// <summary>
+    /// RFC 8880 §7.2 item 3: "Name resolution APIs and libraries SHOULD
+    /// recognize these two reverse mapping names as special and generate the
+    /// required responses locally. For the names '170.0.0.192.in-addr.arpa' and
+    /// '171.0.0.192.in-addr.arpa', PTR queries yield the result
+    /// 'ipv4only.arpa'; all other query types yield a negative ("no error no
+    /// answer") response. For all subdomains of these two reverse mapping
+    /// domains, all queries yield an NXDOMAIN response."
+    /// </summary>
+    private static async Task AssertAnsweredLocally(String                  Name,
+                                                    DNSResourceRecordTypes  Type,
+                                                    Action<DNSInfo>         Assertions)
+    {
+
+        await using var server = AnswerEveryName();
+        using       var client = ClientOf(server);
+
+        var answer  = await client.Query(DNSServiceName.Parse(Name), [ Type ], Timeout);
+        var sent    = server.Requests.Count;
+
+        Assert.Multiple(() => {
+
+            Assertions(answer);
+
+            Assert.That(sent, Is.Zero,
+                        "§7.2 item 3: \"generate the required responses locally\", to avoid \"placing unnecessary load on the authoritative 'in-addr.arpa' name servers\"");
+
+        });
+
+        await AssertTheServerWasReachable(client, server);
+
+    }
+
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "8880 §7.2")]
+    [TestCase("170.0.0.192.in-addr.arpa.",  TestName = "{m}: 170.0.0.192.in-addr.arpa.")]
+    [TestCase("171.0.0.192.IN-ADDR.ARPA.",  TestName = "{m}: 171.0.0.192.IN-ADDR.ARPA., in another case")]
+    public Task An_Ipv4only_Reverse_Name_Points_To_Ipv4only_Arpa(String Name)
+
+        => AssertAnsweredLocally(Name, DNSResourceRecordTypes.PTR, answer => {
+
+               Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NoError),
+                           "§7.2 item 3: \"PTR queries yield the result 'ipv4only.arpa'\"");
+
+               Assert.That(answer.Answers.OfType<PTR>().Select(record => record.Target.FullName.TrimEnd('.').ToLowerInvariant()).ToArray(),
+                           Is.EqualTo(new[] { "ipv4only.arpa" }),
+                           "§7.2 item 3: the one PTR, to ipv4only.arpa");
+
+           });
+
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "8880 §7.2")]
+    [TestCase("170.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.A,   TestName = "{m}: A of 170.0.0.192.in-addr.arpa.")]
+    [TestCase("171.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.TXT, TestName = "{m}: TXT of 171.0.0.192.in-addr.arpa.")]
+    public Task Another_Type_Of_An_Ipv4only_Reverse_Name_Is_NoData(String                  Name,
+                                                                   DNSResourceRecordTypes  Type)
+
+        => AssertAnsweredLocally(Name, Type, answer => {
+
+               Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NoError),
+                           "§7.2 item 3: \"all other query types yield a negative (\"no error no answer\") response\"");
+
+               Assert.That(answer.Answers, Is.Empty,
+                           "§7.2 item 3: no answer");
+
+           });
+
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "8880 §7.2")]
+    [TestCase("x.170.0.0.192.in-addr.arpa.",    DNSResourceRecordTypes.PTR, TestName = "{m}: PTR of x.170.0.0.192.in-addr.arpa.")]
+    [TestCase("a.b.171.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.A,   TestName = "{m}: A of a.b.171.0.0.192.in-addr.arpa.")]
+    public Task A_Name_Below_An_Ipv4only_Reverse_Name_Is_NXDOMAIN(String                  Name,
+                                                                  DNSResourceRecordTypes  Type)
+
+        => AssertAnsweredLocally(Name, Type, answer => {
+
+               Assert.That(answer.ResponseCode, Is.EqualTo(DNSResponseCodes.NameError),
+                           "§7.2 item 3: \"For all subdomains of these two reverse mapping domains, all queries yield an NXDOMAIN response.\"");
+
+               Assert.That(answer.Answers, Is.Empty,
+                           "§7.2 item 3: no answer");
+
+           });
+
+
+    [Test]
+    [Property("RFC", "8880 §7.2")]
+    [TestCase("172.0.0.192.in-addr.arpa.",   TestName = "{m}: 172.0.0.192.in-addr.arpa.")]
+    [TestCase("169.0.0.192.in-addr.arpa.",   TestName = "{m}: 169.0.0.192.in-addr.arpa.")]
+    [TestCase("0.0.192.in-addr.arpa.",       TestName = "{m}: 0.0.192.in-addr.arpa., above them")]
+    [TestCase("170.0.0.193.in-addr.arpa.",   TestName = "{m}: 170.0.0.193.in-addr.arpa.")]
+    [TestCase("1170.0.0.192.in-addr.arpa.",  TestName = "{m}: 1170.0.0.192.in-addr.arpa., a longer label")]
+    [TestCase("ipv4only.arpa.",              TestName = "{m}: ipv4only.arpa., which §7.1 sends to a resolver")]
+    public async Task A_Name_Beside_The_Ipv4only_Reverse_Names_Is_Sent(String Name)
+    {
+
+        // The two names, and what is below them. A name beside them is an
+        // ordinary reverse name, and goes to the server; ipv4only.arpa itself
+        // §7.1 sends to a resolver too, to learn the NAT64 prefix there.
+        await using var server = AnswerEveryName();
+        using       var client = ClientOf(server);
+
+        await client.Query(DNSServiceName.Parse(Name), [ DNSResourceRecordTypes.PTR ], Timeout);
+
+        Assert.That(server.Requests.Count, Is.EqualTo(1),
+                    $"{Name} is sent like any other name");
 
     }
 

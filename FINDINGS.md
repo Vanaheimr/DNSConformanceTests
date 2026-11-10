@@ -1,11 +1,13 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. One hundred and eight RFC deviations in the Hermod DNS
+What this suite caught. One hundred and nine RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 109, the reverse names of
+ipv4only.arpa, is open, and its trackers are red on purpose. It stays because
+the tests do not explain
 themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
@@ -125,6 +127,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 106 | The server refused .onion names, and served what a zone held at them | Low | 7686 §2 | ✅ fixed |
 | 107 | A link-local name went to the configured unicast server | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
 | 108 | The server refused link-local names, and served what a zone held at them | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
+| 109 | The reverse names of ipv4only.arpa went to the configured server | Low (SHOULD) | 8880 §7.2 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6414,6 +6417,51 @@ link-local names from the zone for it either way. Merged as
 with finding 107.
 
 Severity was **Low (SHOULD)**.
+
+---
+
+## 109 — The reverse names of ipv4only.arpa went to the configured server
+
+*RFC 8880 §7.2* makes the reverse names of the two addresses of
+"ipv4only.arpa", 192.0.0.170 and 192.0.0.171, special — and special "only to
+resolver APIs and libraries". Item 3:
+
+> Name resolution APIs and libraries SHOULD recognize these two reverse mapping
+> names as special and generate the required responses locally. For the names
+> '170.0.0.192.in-addr.arpa' and '171.0.0.192.in-addr.arpa', PTR queries yield
+> the result 'ipv4only.arpa'; all other query types yield a negative ("no error
+> no answer") response. For all subdomains of these two reverse mapping
+> domains, all queries yield an NXDOMAIN response.
+
+The reason it gives is the load on "the authoritative 'in-addr.arpa' name
+servers". Recursive resolvers SHOULD NOT treat the names specially (item 4),
+and authoritative server software "need not" (item 5), so the server is not
+asked about here.
+
+`DNSClient` sent `170.0.0.192.in-addr.arpa.` to its server like any other
+reverse name and returned what the server said: the trackers' server answers a
+PTR query with an empty NOERROR, and an A query with an address.
+
+**What it costs.** Little: the RFC itself calls the names "rarely used". A query
+for one goes to the configured resolver and on to the in-addr.arpa servers, and
+the answer is whatever they hold rather than the one the specification fixes.
+
+**How it was found.** The last of IANA's special-use registry, after findings
+105 to 108. RFC 9462's "resolver.arpa" names a feature, Discovery of Designated
+Resolvers, which Hermod does not implement, and asks nothing of an
+authoritative server (§8.2 item 5).
+
+**Repro**: six cases in `SpecialUseNameTests`, red at `f5866619`:
+`An_Ipv4only_Reverse_Name_Points_To_Ipv4only_Arpa`, both names;
+`Another_Type_Of_An_Ipv4only_Reverse_Name_Is_NoData`, two; and
+`A_Name_Below_An_Ipv4only_Reverse_Name_Is_NXDOMAIN`, two. Each asserts that
+nothing was sent. `A_Name_Beside_The_Ipv4only_Reverse_Names_Is_Sent` holds six
+names at being sent, among them `1170.0.0.192.in-addr.arpa.` and
+`ipv4only.arpa.` itself.
+
+**The fix**: ⏳ open.
+
+Severity is **Low (SHOULD)**.
 
 ---
 
