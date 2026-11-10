@@ -10,8 +10,9 @@ using DNSConformance.Core.RawDns;
 namespace DNSConformance.Server.Tests;
 
 /// <summary>
-/// RFC 6761 §6.1 to §6.4, item 5 each — the special-use names an authoritative
-/// server answers whether or not it serves a zone for them.
+/// RFC 6761 §6.1 to §6.4, item 5 each, and RFC 7686 §2 item 5 — the special-use
+/// names an authoritative server answers whether or not it serves a zone for
+/// them.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,6 +37,14 @@ namespace DNSConformance.Server.Tests;
 /// answer is the server's choice, with one exception: NXDOMAIN says that nothing
 /// exists at the name or below it (RFC 8020 §2), so a name above one this server
 /// serves is NODATA.
+/// </para>
+/// <para>
+/// RFC 7686 registered .onion later, and asks more than RFC 6761 does of
+/// "invalid" names: §2 item 5, "Authoritative servers MUST respond to queries
+/// for .onion with NXDOMAIN", and item 6 forbids operators to configure an
+/// answer. RFC 9476 registered .alt the other way round, §3.2 item 5:
+/// "Authoritative DNS servers SHOULD NOT recognize names in the .alt pseudo-TLD
+/// as special". One is among the guards.
 /// </para>
 /// <para>
 /// Every negative answer here cites an SOA, as every other negative answer of
@@ -64,6 +73,7 @@ public class SpecialUseNameServerTests
     private const String ConfiguredLocalhostA   = "192.0.2.97";
     private const String ConfiguredLocalhostAAAA = "2001:db8::97";
     private const String ConfiguredInvalidA     = "192.0.2.98";
+    private const String ConfiguredOnionA       = "192.0.2.99";
 
     private HermodServerFixture server      = null!;
     private HermodServerFixture configured  = null!;
@@ -87,13 +97,16 @@ public class SpecialUseNameServerTests
         server      = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = zone });
 
         // Records at names whose answers RFC 6761 fixes. Item 6 of §6.3 and of
-        // §6.4: those answers "cannot be modified by local configuration".
+        // §6.4: those answers "cannot be modified by local configuration". And
+        // one at a .onion name, which RFC 7686 §2 item 5 has a server answer
+        // with NXDOMAIN whatever it holds.
         var other = ZoneFixtures.CreateStandardZone();
 
         other.Add(
             new A   (DomainName.Parse("localhost."),     DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredLocalhostA)),
             new AAAA(DomainName.Parse("www.localhost."), DNSQueryClasses.IN, ttl, IPv6Address.Parse(ConfiguredLocalhostAAAA)),
-            new A   (DomainName.Parse("host.invalid."),  DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredInvalidA))
+            new A   (DomainName.Parse("host.invalid."),  DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredInvalidA)),
+            new A   (DomainName.Parse("host.onion."),    DNSQueryClasses.IN, ttl, IPv4Address.Parse(ConfiguredOnionA))
         );
 
         configured  = await HermodServerFixture.StartAsync(new HermodServerFixtureOptions { Zone = other });
@@ -421,6 +434,58 @@ public class SpecialUseNameServerTests
     #endregion
 
 
+    // Finding 106: .onion names (RFC 7686 §2, items 5 and 6)
+
+    #region An_Onion_Name_Is_NXDOMAIN(Name, Type)
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "7686 §2")]
+    [TestCase("onion.",                    RawDnsType.A)]
+    [TestCase("hiddenservice.onion.",      RawDnsType.A)]
+    [TestCase("www.hiddenservice.onion.",  RawDnsType.AAAA)]
+    [TestCase("a.b.ONION.",                RawDnsType.TXT)]
+    public async Task An_Onion_Name_Is_NXDOMAIN(String Name, UInt16 Type)
+    {
+
+        // RFC 7686 §2 item 5: "Authoritative servers MUST respond to queries
+        // for .onion with NXDOMAIN."
+        var response = await Ask(server, Name, Type);
+
+        Assert.Multiple(() => {
+            Assert.That(response.RCode,   Is.EqualTo(3), $"{Name} is NXDOMAIN (3), not refused (5)");
+            Assert.That(response.Answers, Is.Empty,      "and has no answer");
+            AssertCitesAnSoa(response, Name);
+        });
+
+    }
+
+    #endregion
+
+    #region A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist()
+
+    [Test]
+    [Category(TestCategories.KnownIssue)]
+    [Property("RFC", "7686 §2")]
+    public async Task A_Configured_Record_Does_Not_Make_An_Onion_Name_Exist()
+    {
+
+        // Item 5 has no exception for a configured record, and item 6 says
+        // "Operators MUST NOT configure an authoritative DNS server to answer
+        // queries for .onion". The zone holds 192.0.2.99 at host.onion.
+        var response = await Ask(configured, "host.onion.", RawDnsType.A);
+
+        Assert.Multiple(() => {
+            Assert.That(response.RCode,   Is.EqualTo(3), "host.onion. is NXDOMAIN (3) with a record configured at it");
+            Assert.That(response.Answers, Is.Empty,      "and the configured record is not served");
+            AssertCitesAnSoa(response, "host.onion.");
+        });
+
+    }
+
+    #endregion
+
+
     // Guards: what is served, and what is not special
 
     #region A_Served_Private_Address_Reverse_Name_Is_Answered()
@@ -449,6 +514,7 @@ public class SpecialUseNameServerTests
 
     [Test]
     [Property("RFC", "6761 §6.5")]
+    [Property("RFC", "9476 §3.2")]
     [Property("RFC", "1034 §4.3.2")]
     [TestCase("example.")]
     [TestCase("www.example.org.")]
@@ -458,6 +524,9 @@ public class SpecialUseNameServerTests
     [TestCase("mylocalhost.")]
     [TestCase("invalidity.")]
     [TestCase("tests.")]
+    [TestCase("onions.")]
+    [TestCase("onion.example.com.")]
+    [TestCase("name.alt.")]
     [TestCase("11.in-addr.arpa.")]
     [TestCase("15.172.in-addr.arpa.")]
     [TestCase("32.172.in-addr.arpa.")]
@@ -469,7 +538,8 @@ public class SpecialUseNameServerTests
     {
 
         // §6.5 item 5: "Authoritative DNS servers SHOULD NOT recognize example
-        // names as special." The others only look like special names: a
+        // names as special." RFC 9476 §3.2 item 5 says the same of .alt names.
+        // The others only look like special names: a
         // special name is one whose last labels are the special ones, and
         // "016" is not the label "16".
         var response = await Ask(server, Name, RawDnsType.A);

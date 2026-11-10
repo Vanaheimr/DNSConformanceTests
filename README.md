@@ -309,14 +309,24 @@ red at 56f2c957 and passing from c2f4bdde on; sixteen guards beside them pass.
 With them the Server project is 199 ✅ · 0 ❌, and the offline suite
 2009 ✅ · 0 ❌ · 4 skips.
 
+And the .onion names of the Tor network (RFC 7686 §2), which a resolver without
+Tor MUST answer with NXDOMAIN, and an authoritative server too. Hermod's
+`DNSClient` sent them to the configured server and took its answer,
+`NameResolution` connected to it, and the server refused them or served what a
+zone held at them. The cases are findings 105 and 106, twelve of them, red at
+c2f4bdde and marked `KnownIssue`. Three guards beside them pass, one of them a
+.alt name, which RFC 9476 §3.2 has a server treat like any other. With them the
+Client project is 282 ✅ · 7 ❌, the Server project 202 ✅ · 5 ❌, and the
+offline suite 2012 ✅ · 12 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 104 RFC deviations in Hermod. All are fixed;
-[FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
-the test that pins it.
+The suite has found 106 RFC deviations in Hermod. All but findings 105 and 106
+are fixed; [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the
+change, and the test that pins it.
 
 ## Getting started
 
