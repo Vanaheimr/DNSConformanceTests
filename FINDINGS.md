@@ -1,12 +1,13 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. One hundred and eleven RFC deviations in the Hermod DNS
+What this suite caught. One hundred and twelve RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
-themselves: several of them look arbitrary until you know which bug they were
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 112, the addresses a KX answer
+owes, is open, and its trackers are red on purpose. It stays because the tests
+do not explain themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
 One section is **current documentation rather than record**:
@@ -128,6 +129,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 109 | The reverse names of ipv4only.arpa went to the configured server | Low (SHOULD) | 8880 §7.2 | ✅ fixed |
 | 110 | Names in the RDATA of the older types were signed and checked in the case they were written | **High** | 4034 §6.2, 3597 §7 | ✅ fixed |
 | 111 | An RRset under a signature was ordered by the length of its records before their RDATA | **High** | 4034 §6.3 | ✅ fixed |
+| 112 | A KX answer came without its exchangers' addresses | Low | 2230 §3.1 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6596,6 +6598,62 @@ a zero octet — and writes the records out whole in that order. Merged as
 [`5bcd11a7`](https://github.com/Vanaheimr/Hermod/commit/5bcd11a7071dfde312955d7ba440f2583c2c3511).
 
 Severity was **High**.
+
+---
+
+## 112 — A KX answer came without its exchangers' addresses
+
+*RFC 2230 §3.1*:
+
+> KX records MUST cause type A additional section processing for the host
+> specified by EXCHANGER. In the event that the host processing the DNS
+> transaction supports IPv6, KX records MUST also cause type AAAA additional
+> section processing.
+
+Additional section processing is *RFC 1034 §4.3.2*'s step 6: "Using local data
+only, attempt to add other RRs which may be useful to the additional section of
+the query." Hermod's authoritative server added records to the additional
+section in one case, the glue of a referral. An answer got none, so a KX answer
+went out without the A and AAAA records of its exchanger, also when the zone
+held them.
+
+Nor could its UDP serializer have carried them safely. A response too large for
+the datagram lost answer records from the end and was marked TC, whatever had
+made it too large — and *RFC 2181 §9* says of exactly that case:
+
+> The TC bit should not be set merely because some extra information could have
+> been included, but there was insufficient room. This includes the results of
+> additional section processing. In such cases the entire RRSet that will not
+> fit in the response should be omitted, and the reply sent as is, with the TC
+> bit clear.
+
+**What it costs.** A round trip: a client about to start a key exchange with the
+exchanger asks for its address separately. KX is rare, and RFC 2230 §4 has a
+client ignore every KX that is not signed, so the cost lands on few clients.
+
+**How it was found.** By the KX record type, taken up from the README's queue:
+RFC 2230 makes the processing a MUST, where RFC 1035 §3.3.9 only says an MX
+"cause[s] type A additional section processing" and RFC 2782 has a client of
+SRV look the addresses up when they are missing. Hermod does none for MX, NS or
+SRV either; that is queued in the README rather than numbered, since nothing
+there is a MUST.
+
+**Repro**: four cases in `ServerAdditionalSectionTests`, red at `5bcd11a7`:
+`A_Kx_Answer_Carries_The_Exchangers_A_And_AAAA`,
+`An_Exchanger_With_Only_An_A_Brings_Only_The_A`,
+`Every_Exchanger_Of_The_Rrset_Is_Processed`, and
+`With_The_DO_Bit_The_Addresses_Come_With_Their_Signatures` (*RFC 4035 §3.1.1*:
+"When placing a signed RRset in the Additional section, the name server MUST
+also place its RRSIG RRs in the Additional section"). Three guards pass beside
+them: an exchanger outside the zone and one without addresses add nothing, and
+`Addresses_That_Do_Not_Fit_Are_Left_Out_And_TC_Stays_Clear` holds §9 — three KX
+records that fit 512 octets, with six addresses that do not fit beside them. A
+fix that added the addresses and left the serializer as it was fails it: a
+planted mutant set TC and cut the answer.
+
+**The fix**: ⏳ open.
+
+Severity is **Low**.
 
 ---
 

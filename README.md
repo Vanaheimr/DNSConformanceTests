@@ -376,12 +376,22 @@ hand-built RDATA whose numbers and strings look like capital letters, so that a
 walk which started a name one field early would show. With them the DNSSEC
 project is 411 ✅ · 0 ❌, and the offline suite 2199 ✅ · 0 ❌ · 4 skips.
 
+And the additional section a KX answer owes (RFC 2230 §3.1): "KX records MUST
+cause type A additional section processing for the host specified by
+EXCHANGER", and AAAA processing where IPv6 is supported. Hermod's server added
+glue to referrals and nothing to any answer, and its UDP serializer would have
+set TC for additional data that did not fit, which RFC 2181 §9 forbids. The
+cases are finding 112, four of them, red at 5bcd11a7 and marked `KnownIssue`;
+three guards beside them pass, one of them §9's: three KX records that fit 512
+octets, with six addresses that do not. With them the Server project is
+224 ✅ · 4 ❌, and the offline suite 2202 ✅ · 4 ❌ · 4 skips.
+
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
 four skips are the RSA public-key exponent cases that Windows CNG cannot import;
 the Linux CI leg covers them.
 
-The suite has found 111 RFC deviations in Hermod. All are fixed;
+The suite has found 112 RFC deviations in Hermod. All but the last are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -625,6 +635,7 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | RFC / area | What is missing | Blocker |
 |------------|-----------------|---------|
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
+| **1035** §3.3.9, **2782** | additional section processing for MX, NS and SRV answers | nothing — but nothing asks for it either: RFC 1035 says an MX "cause[s] type A additional section processing" without a MUST, and RFC 2782 has a client look up the addresses an SRV answer lacks. Hermod's server does it for KX, where RFC 2230 §3.1 makes it a MUST (finding 112), and for no other type |
 
 **TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
 stating rather than discovering.** The exchange is unauthenticated on its own —
@@ -662,13 +673,15 @@ explains — which records a signed zone owes each kind of negative answer — i
 covered under RFC 4035 §3.1 and RFC 5155 §7, and 7129 remains the readable
 account of why those particular records.
 
-One entry, and it is blocked — that column is not decoration. GSS-TSIG needs a
-Kerberos/SPNEGO stack before a single assertion can be written, and sits here
-rather than under *Out of scope* because it is a gap and not a refusal: it is
-what is actually deployed, and a suite that judged Hermod's transaction security
-without saying so would be quietly flattering it. The list had a second entry of
-the other kind — KX, HIP and the four ILNP types, unblocked and deliberately
-deferred — until they were taken up; they are under *Covered* now.
+Two entries, and only the first is blocked — that column is not decoration, and
+neither is an empty one. GSS-TSIG needs a Kerberos/SPNEGO stack before a single
+assertion can be written, and sits here rather than under *Out of scope* because
+it is a gap and not a refusal: it is what is actually deployed, and a suite that
+judged Hermod's transaction security without saying so would be quietly
+flattering it. The additional section of MX, NS and SRV answers is the other
+kind — unblocked, unstarted, and written down so that leaving it is a decision.
+The list had a third entry of that kind — KX, HIP and the four ILNP types —
+until they were taken up; they are under *Covered* now.
 
 ### Out of scope
 

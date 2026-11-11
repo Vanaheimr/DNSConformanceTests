@@ -356,6 +356,7 @@ round-trip where supported.
 | robustness | garbage, absurd counts, pointer loops: server stays healthy | ✅ |
 | 7858 | DoT server: TLS 1.2/1.3, framing, multiple queries per session | ✅ |
 | 1035 §4.2.1 | >512 B UDP answer without EDNS → TC=1 + truncation | ✅ |
+| 2230 §3.1, 2181 §9 | a KX answer carries the A and AAAA records of every exchanger the zone holds addresses for, with their RRSIGs under DO (RFC 4035 §3.1.1); an exchanger outside the zone or without addresses adds nothing; and addresses that do not fit a datagram are left out whole with TC clear, the answer complete (finding 112) | ❌ |
 | 6891 §6.2.5 | answer respects the advertised EDNS payload size | ✅ |
 | 6891 §6.1.1 | OPT record present in responses to EDNS queries | ✅ |
 | 6891 §6.1.3 | EDNS version > 0 → BADVERS | ✅ |
