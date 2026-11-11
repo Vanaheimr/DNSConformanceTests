@@ -161,7 +161,6 @@ public class ServerAdditionalSectionTests
     #region A_Kx_Answer_Carries_The_Exchangers_A_And_AAAA()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Kx_Answer_Carries_The_Exchangers_A_And_AAAA()
     {
 
@@ -186,7 +185,6 @@ public class ServerAdditionalSectionTests
     #region An_Exchanger_With_Only_An_A_Brings_Only_The_A()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task An_Exchanger_With_Only_An_A_Brings_Only_The_A()
     {
 
@@ -199,7 +197,6 @@ public class ServerAdditionalSectionTests
     #region Every_Exchanger_Of_The_Rrset_Is_Processed()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task Every_Exchanger_Of_The_Rrset_Is_Processed()
     {
 
@@ -215,7 +212,6 @@ public class ServerAdditionalSectionTests
     #region With_The_DO_Bit_The_Addresses_Come_With_Their_Signatures()
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     [Property("RFC", "4035 §3.1.1")]
     public async Task With_The_DO_Bit_The_Addresses_Come_With_Their_Signatures()
     {

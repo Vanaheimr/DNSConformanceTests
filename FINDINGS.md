@@ -4,10 +4,9 @@ What this suite caught. One hundred and twelve RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 112, the addresses a KX answer
-owes, is open, and its trackers are red on purpose. It stays because the tests
-do not explain themselves: several of them look arbitrary until you know which bug they were
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
+themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
 One section is **current documentation rather than record**:
@@ -129,7 +128,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 109 | The reverse names of ipv4only.arpa went to the configured server | Low (SHOULD) | 8880 §7.2 | ✅ fixed |
 | 110 | Names in the RDATA of the older types were signed and checked in the case they were written | **High** | 4034 §6.2, 3597 §7 | ✅ fixed |
 | 111 | An RRset under a signature was ordered by the length of its records before their RDATA | **High** | 4034 §6.3 | ✅ fixed |
-| 112 | A KX answer came without its exchangers' addresses | Low | 2230 §3.1 | ⏳ **open** |
+| 112 | A KX answer came without its exchangers' addresses | Low | 2230 §3.1 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6627,8 +6626,8 @@ made it too large — and *RFC 2181 §9* says of exactly that case:
 > fit in the response should be omitted, and the reply sent as is, with the TC
 > bit clear.
 
-**What it costs.** A round trip: a client about to start a key exchange with the
-exchanger asks for its address separately. KX is rare, and RFC 2230 §4 has a
+**What it cost.** A round trip: a client about to start a key exchange with the
+exchanger asked for its address separately. KX is rare, and RFC 2230 §4 has a
 client ignore every KX that is not signed, so the cost lands on few clients.
 
 **How it was found.** By the KX record type, taken up from the README's queue:
@@ -6638,7 +6637,8 @@ SRV look the addresses up when they are missing. Hermod does none for MX, NS or
 SRV either; that is queued in the README rather than numbered, since nothing
 there is a MUST.
 
-**Repro**: four cases in `ServerAdditionalSectionTests`, red at `5bcd11a7`:
+**Repro**: four cases in `ServerAdditionalSectionTests`, red at `5bcd11a7` and
+passing from `e219c371` on:
 `A_Kx_Answer_Carries_The_Exchangers_A_And_AAAA`,
 `An_Exchanger_With_Only_An_A_Brings_Only_The_A`,
 `Every_Exchanger_Of_The_Rrset_Is_Processed`, and
@@ -6651,9 +6651,16 @@ records that fit 512 octets, with six addresses that do not fit beside them. A
 fix that added the addresses and left the serializer as it was fails it: a
 planted mutant set TC and cut the answer.
 
-**The fix**: ⏳ open.
+**The fix**: `AuthoritativeDNSRequestHandler` looks up the A and AAAA records of
+every exchanger a KX answer names, in the zones the server holds, and adds what
+it finds — with the RRSIGs under DO, never an RRset the response already has,
+and nothing for a referral. `DNSMessagePipeline.SerializeDatagramResponse`
+leaves out an authoritative answer's additional RRsets from the last, each with
+its RRSIGs, before it touches an answer, and sends what fits with TC clear; a
+referral, whose additional section is its glue, keeps the old rule. Merged as
+[`e219c371`](https://github.com/Vanaheimr/Hermod/commit/e219c371279c5370264b54f2f30a434faea8c07f).
 
-Severity is **Low**.
+Severity was **Low**.
 
 ---
 
