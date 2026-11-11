@@ -299,6 +299,111 @@ public class BindVerifiesHermodSignaturesTests
 
     #endregion
 
+    #region Bind_Verifies_Names_In_Rdata_Signed_In_Their_Canonical_Case()
+
+    /// <summary>
+    /// The zone again, with every name inside RDATA written in mixed case — for
+    /// the types whose names RFC 4034 §6.2 lowercases before signing, and for LP
+    /// and HIP, whose names it must not touch.
+    /// </summary>
+    private static List<IDNSResourceRecord> ZoneWithMixedCaseRdata()
+    {
+
+        var zone = UnsignedZone().Where(record => record.Type != DNSResourceRecordTypes.SOA &&
+                                                  record.Type != DNSResourceRecordTypes.MX).ToList();
+
+        var ttl  = TimeSpan.FromHours(1);
+
+        DomainName At(String Label) => DomainName.Parse(Label + "." + Zone);
+
+        // SOA: two names, then twenty octets of numbers behind them.
+        zone.Add(new SOA  (DomainName.Parse(Zone), DNSQueryClasses.IN, ttl,
+                           DomainName.Parse("NS1.Signed-By-Hermod.test."),
+                           SimpleEMailAddress.Parse("hostmaster@" + Zone.TrimEnd('.')),
+                           2026091401, TimeSpan.FromHours(2), TimeSpan.FromHours(1),
+                           TimeSpan.FromDays(14), TimeSpan.FromHours(1)));
+
+        // A second name server exactly as long as ns1, so that the apex NS RRset
+        // is about case alone and not also about RFC 4034 §6.3's order (see
+        // Bind_Verifies_An_Rrset_Whose_Rdata_Lengths_Sort_Against_Its_Octets).
+        zone.Add(new NS   (DomainName.Parse(Zone), DNSQueryClasses.IN, ttl, DomainName.Parse("NS2.Signed-By-Hermod.test.")));
+        zone.Add(new A    (At("ns2"),    DNSQueryClasses.IN, ttl, IPv4Address.Parse("192.0.2.54")));
+        zone.Add(new MX   (At("mx"),     DNSQueryClasses.IN, ttl, 10, DomainName.Parse("Mail.Signed-By-Hermod.test.")));
+        zone.Add(new KX   (At("kx"),     DNSQueryClasses.IN, ttl, 10, DomainName.Parse("Mail.Signed-By-Hermod.test.")));
+        zone.Add(new CNAME(At("cname"),  DNSQueryClasses.IN, ttl, DomainName.Parse("Target.Signed-By-Hermod.test.")));
+        zone.Add(new PTR  (At("ptr"),    DNSQueryClasses.IN, ttl, DNSServiceName.Parse("Host.Signed-By-Hermod.test.")));
+        zone.Add(new AFSDB(At("afsdb"),  DNSQueryClasses.IN, ttl, 1, DomainName.Parse("Db.Signed-By-Hermod.test.")));
+        zone.Add(new RP   (At("rp"),     DNSQueryClasses.IN, ttl, DomainName.Parse("Mbox.Signed-By-Hermod.test."), DomainName.Parse("Txt.Signed-By-Hermod.test.")));
+        zone.Add(new NAPTR(At("naptr"),  DNSQueryClasses.IN, ttl, 100, 10, "U", "E2U+sip", "!^.*$!sip:x@example.!", DomainName.Parse("Replacement.Signed-By-Hermod.test.")));
+        zone.Add(new SRV  (DNSServiceName.Parse("_sip._tcp." + Zone), DNSQueryClasses.IN, ttl, 0, 5, IPPort.Parse(5060), DomainName.Parse("Sip.Signed-By-Hermod.test.")));
+        zone.Add(new DNAME(At("redirect"), DNSQueryClasses.IN, ttl, DomainName.Parse("Target.Example.")));
+
+        // The two that came after RFC 3597, whose names are signed as written.
+        zone.Add(new LP   (At("lp"),     DNSQueryClasses.IN, ttl, 10, DomainName.Parse("L64-Subnet.Signed-By-Hermod.test.")));
+        zone.Add(new HIP  (At("hip"),    DNSQueryClasses.IN, ttl, 2, Convert.FromHexString("200100107B1A74DF365639CC39F1D578"),
+                           Convert.FromBase64String("AwEAAQ=="), [ DomainName.Parse("Rvs.Signed-By-Hermod.test.") ]));
+
+        return zone;
+
+    }
+
+    [Test]
+    [Property("RFC", "4034 §6.2")]
+    [Property("RFC", "3597 §7")]
+    public void Bind_Verifies_Names_In_Rdata_Signed_In_Their_Canonical_Case()
+    {
+
+        // Item 3 of RFC 4034 §6.2 lowercases the names in the RDATA of the types
+        // RFC 3597 §7 lists, and RFC 3597 §7 forbids it for every type after it.
+        // dnssec-verify applies both halves to every RRset of the zone, so a
+        // signer that skips the first or overdoes the second fails here on the
+        // RRset that shows it, with BIND naming it.
+        using var ksk = DNSSECSigningKey.Generate(DomainName.Parse(Zone), 13, KeySigningKey: true);
+        using var zsk = DNSSECSigningKey.Generate(DomainName.Parse(Zone), 13);
+
+        var signed = DNSSECZoneSigner.Sign(ZoneWithMixedCaseRdata(), DomainName.Parse(Zone), [ ksk, zsk ]);
+
+        var (success, output) = Verify(signed);
+
+        Assert.That(success, Is.True,
+                    "dnssec-verify must accept names in RDATA signed in their canonical case:" + Environment.NewLine + output);
+
+    }
+
+    #endregion
+
+    #region Bind_Verifies_An_Rrset_Whose_Rdata_Lengths_Sort_Against_Its_Octets()
+
+    [Test]
+    [Property("RFC", "4034 §6.3")]
+    public void Bind_Verifies_An_Rrset_Whose_Rdata_Lengths_Sort_Against_Its_Octets()
+    {
+
+        // RFC 4034 §6.3 orders an RRset by "the RDATA portion of the canonical
+        // form of each RR". x.y.example. sorts before aa.example. — its first
+        // label is one octet long, aa's is two — although its record is the
+        // longer. A signer that sorted whole records would put aa.example. first,
+        // because RDLENGTH stands in front of the RDATA, and sign octets nobody
+        // else puts together. The names are lowercase: this is the order alone.
+        using var ksk = DNSSECSigningKey.Generate(DomainName.Parse(Zone), 13, KeySigningKey: true);
+        using var zsk = DNSSECSigningKey.Generate(DomainName.Parse(Zone), 13);
+
+        var zone = UnsignedZone();
+
+        zone.Add(new MX(DomainName.Parse("order." + Zone), DNSQueryClasses.IN, TimeSpan.FromHours(1), 10, DomainName.Parse("x.y.example.")));
+        zone.Add(new MX(DomainName.Parse("order." + Zone), DNSQueryClasses.IN, TimeSpan.FromHours(1), 10, DomainName.Parse("aa.example.")));
+
+        var signed = DNSSECZoneSigner.Sign(zone, DomainName.Parse(Zone), [ ksk, zsk ]);
+
+        var (success, output) = Verify(signed);
+
+        Assert.That(success, Is.True,
+                    "dnssec-verify must accept an RRset ordered by its RDATA:" + Environment.NewLine + output);
+
+    }
+
+    #endregion
+
     #region The_Delegation_Signer_Matches_What_Bind_Computes()
 
     [Test]

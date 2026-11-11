@@ -1,6 +1,6 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. One hundred and nine RFC deviations in the Hermod DNS
+What this suite caught. One hundred and eleven RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
@@ -126,6 +126,8 @@ what is queued, what is out of scope — are not here at all; they live in
 | 107 | A link-local name went to the configured unicast server | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
 | 108 | The server refused link-local names, and served what a zone held at them | Low (SHOULD) | 6762 §22.1 | ✅ fixed |
 | 109 | The reverse names of ipv4only.arpa went to the configured server | Low (SHOULD) | 8880 §7.2 | ✅ fixed |
+| 110 | Names in the RDATA of the older types were signed and checked in the case they were written | **High** | 4034 §6.2, 3597 §7 | ✅ fixed |
+| 111 | An RRset under a signature was ordered by the length of its records before their RDATA | **High** | 4034 §6.3 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6466,6 +6468,134 @@ of them. Merged as
 [`88540b71`](https://github.com/Vanaheimr/Hermod/commit/88540b714fa71a66e099a00d172ec2ecf269aa5f).
 
 Severity was **Low (SHOULD)**.
+
+---
+
+## 110 — Names in the RDATA of the older types were signed and checked in the case they were written
+
+*RFC 4034 §6.2* defines the canonical form a signature is taken over. Item 3:
+
+> if the type of the RR is NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR, HINFO,
+> MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX, SRV, DNAME, A6,
+> RRSIG, or NSEC, all uppercase US-ASCII letters in the DNS names contained
+> within the RDATA are replaced by the corresponding lowercase US-ASCII letters;
+
+*RFC 6840 §5.1* takes two types off that list: NSEC, whose names are not
+lowercased, and HINFO, since "HINFO records contain no domain names". And
+*RFC 3597 §7* closes it:
+
+> This document specifies that for all other RR types (whether treated as
+> unknown types or treated as known types according to an RR type definition
+> RFC more recent than RFC 3597), the canonical form is such that no downcasing
+> of embedded domain names takes place
+
+`DNSSECCanonical.SignedData` builds the signed data for the validator and the
+signer alike, and it took each record's RDATA as the record serialized it. Since
+finding 1, a name keeps the case it was written or received in. So an MX whose
+exchanger was written `Mail.Example.com.` was hashed as `Mail.Example.com.`, where
+BIND hashes `mail.example.com.` — and the same held for every type on the list.
+
+**What it cost.** Both directions of DNSSEC, for every zone with a capital
+letter in a name inside RDATA, which a hand-written zone may well have and which
+nothing on the way changes: a server answers with the case it stored. The
+validator called such an answer Bogus — an MX, CNAME, SRV, NS or SOA RRset that
+BIND signed correctly failed to verify, and a validating resolver built on
+Hermod answered SERVFAIL for it. The signer, `DNSSECZoneSigner` and with it
+`InMemoryDNSZone.Sign`, signed the same RRsets over octets no other validator
+hashes, so every validating resolver called them forged.
+
+**How it was found.** By the record types the README had queued. KX (RFC 2230)
+is on item 3's list, and LP (RFC 6742) and HIP (RFC 8005) came after RFC 3597, so
+the rule is something a new type has to be told — and the test written to tell
+it found that none of the types on the list had been. Every DNSSEC fixture of the
+suite wrote its names in lowercase, where lowercasing changes nothing, so neither
+the validator's tests against BIND's signatures nor `dnssec-verify` judging
+Hermod's could show it.
+
+**Repro**: `rdatacase.dnssec.test`, a fixture zone BIND signed, whose RDATA names
+are written in mixed case. Ten cases in `RdataNameCaseTests`, red at `ae460483`
+and passing from `951d3775` on:
+`A_Name_In_The_Rdata_Of_A_Type_On_The_List_Is_Signed_In_Lowercase` for NS,
+CNAME, PTR, MX, RP, AFSDB, NAPTR, KX, SRV and DNAME, each a signature of BIND's
+that Hermod called Bogus. `A_Name_In_The_Rdata_Of_A_Later_Type_Is_Signed_As_Written`
+holds LP and HIP at Secure — the half a fix for the first could break — and
+`An_Answer_Without_Names_In_Its_Rdata_Validates` is the control. The other
+direction is `Bind_Verifies_Names_In_Rdata_Signed_In_Their_Canonical_Case`
+(WSL): `dnssec-verify` refused a zone Hermod signed and named its eleven RRsets
+whose names should have been lowercased — SOA, NS, SRV, AFSDB, CNAME, KX, MX,
+NAPTR, PTR, DNAME, RP — and neither the LP nor the HIP.
+
+**The fix**: `DNSSECCanonical.CanonicalRData` puts each record's RDATA into the
+canonical form before `SignedData` hashes it, for the validator and the signer
+alike. It works on the type code and the octets rather than on a record class,
+because RFC 3597 §7 applies to the old types whether or not a build has a parser
+for them: the list is closed, so each of its types is written out with its
+layout — one name (NS, MD, MF, CNAME, MB, MG, MR, PTR, DNAME, NXT), two (SOA,
+MINFO, RP), a 16-bit field and a name (MX, AFSDB, RT, KX), PX's preference and
+two names, SRV's three numbers and its target, NAPTR's two numbers and three
+character-strings and its replacement, SIG's and RRSIG's eighteen octets and
+the signer, A6's prefix name behind the suffix its length leaves — and only the
+letters A to Z inside those names are changed. NSEC and HINFO stay off it (RFC
+6840 §5.1), and every other type keeps its RDATA as it is. Merged as
+[`951d3775`](https://github.com/Vanaheimr/Hermod/commit/951d37755cb41912ed34cf16fc008c57248a369f).
+
+`CanonicalRDataTests` drives every layout with hand-built RDATA whose numbers,
+strings and signatures are octets in the range of capital letters — a
+preference of `MA`, a port of `EF`, NAPTR flags of `U` — which have to come out
+unchanged while the names come out lowercased.
+
+Severity was **High**.
+
+---
+
+## 111 — An RRset under a signature was ordered by the length of its records before their RDATA
+
+*RFC 4034 §6.3*:
+
+> For the purposes of DNS security, RRs with the same owner name, class, and type
+> are sorted by treating the RDATA portion of the canonical form of each RR as a
+> left-justified unsigned octet sequence in which the absence of an octet sorts
+> before a zero octet.
+
+`DNSSECCanonical.SignedData` sorted the canonical records whole, on the reasoning
+its comment gave — "after the identical prefix above" sorting the records means
+sorting their RDATA. The prefix is not identical: RDLENGTH stands in front of the
+RDATA, so a shorter record came first whatever its octets said. For an MX RRset
+of `x.y.example.` and `aa.example.` the RFC puts `x.y` first, because its first
+label is one octet long and `aa` is two; Hermod put `aa` first, because its
+record is the shorter.
+
+**What it cost.** The same two directions as finding 110, for every RRset of
+records whose lengths sort one way and whose octets the other — an NS RRset of
+two providers' name servers, `ns.provider.example.` beside `dns1.p.net.`, is
+enough. The validator called BIND's signature over it Bogus, and the signer
+signed it over octets no validator puts together.
+
+**How it was found.** By finding 110's fixture, before its fix: the second name
+server of `rdatacase.dnssec.test`'s apex NS RRset, `NS2.Example.`, was shorter
+than the first, and the NS case stayed red with the case of its names fixed.
+In the other fixtures the two orders agree for every RRset of more than one
+record: three A records of equal length, and DNSKEY RRsets whose zone signing
+key sorts first either way — its flags, 256, come before the key signing key's
+257, and it is never the longer of the two.
+The fixture now separates the two: its apex NS names are of equal length, and
+`order` holds the two MX records above, both in lowercase.
+
+**Repro**: two cases in `RrsetOrderTests`, red at `ae460483` and passing from
+`5bcd11a7` on:
+`Bind_Ordered_The_Rrset_By_Its_Rdata`, BIND's signature over `order` called
+Bogus, and `The_Signed_Data_Puts_The_Shorter_Record_Second_When_Its_Octets_Say_So`,
+which reads the order off the signed data for both orders the RRset can be handed
+in. `The_Two_Orders_Disagree_For_This_Rrset` is the guard that makes either of
+them mean something. Under WSL, `Bind_Verifies_An_Rrset_Whose_Rdata_Lengths_Sort_Against_Its_Octets`:
+`dnssec-verify` refused the zone Hermod signed, naming `order` and nothing else.
+
+**The fix**: `SignedData` keeps each record's canonical RDATA beside the record,
+sorts by the RDATA alone with §6.3's comparison — the absence of an octet before
+a zero octet — and writes the records out whole in that order. Merged as
+[`5bcd11a7`](https://github.com/Vanaheimr/Hermod/commit/5bcd11a7071dfde312955d7ba440f2583c2c3511).
+
+Severity was **High**.
 
 ---
 

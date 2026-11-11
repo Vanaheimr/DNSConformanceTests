@@ -1,0 +1,28 @@
+$TTL 3600
+@       IN  SOA ns1.rdatacase.dnssec.test. hostmaster.rdatacase.dnssec.test. (
+                2026072501 ; serial
+                7200       ; refresh
+                3600       ; retry
+                1209600    ; expire
+                3600 )     ; minimum
+@       IN  NS   ns1.rdatacase.dnssec.test.
+ns1     IN  A    192.0.2.54
+a       IN  A    192.0.2.13
+aaaa    IN  AAAA 2001:db8::13
+txt     IN  TXT  "signed by BIND with RSASHA256 (RDATA case)"
+*.wild  IN  A    192.0.2.77
+@            IN  NS     NS2.RdataCase.dnssec.test.
+ns2          IN  A      192.0.2.55
+order        IN  MX     10 x.y.example.
+order        IN  MX     10 aa.example.
+mx           IN  MX     10 Mail.RdataCase.dnssec.test.
+kx           IN  KX     10 Mail.RdataCase.dnssec.test.
+cname        IN  CNAME  Target.RdataCase.dnssec.test.
+ptr          IN  PTR    Host.RdataCase.dnssec.test.
+_sip._tcp    IN  SRV    0 5 5060 Sip.RdataCase.dnssec.test.
+afsdb        IN  AFSDB  1 Db.RdataCase.dnssec.test.
+rp           IN  RP     Mbox.RdataCase.dnssec.test. Txt.RdataCase.dnssec.test.
+naptr        IN  NAPTR  100 10 "U" "E2U+sip" "!^.*$!sip:x@example.!" Replacement.RdataCase.dnssec.test.
+redirect     IN  DNAME  Target.Example.
+lp           IN  LP     10 L64-Subnet.RdataCase.dnssec.test.
+hip          IN  HIP    2 200100107B1A74DF365639CC39F1D578 AwEAAQ== Rvs.RdataCase.dnssec.test.

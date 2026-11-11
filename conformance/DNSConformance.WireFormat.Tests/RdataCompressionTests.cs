@@ -80,8 +80,23 @@ public class RdataCompressionTests
                                         CharacterString("!^.*$!sip:x@example.!").
                                         Bytes(Name).ToArray(),
 
+               // RFC 2230 §3.1: "The KX RDATA field MUST NOT be compressed." KX
+               // is older than RFC 3597, and its shape is MX's — which is exactly
+               // why it needs saying: MX may compress, and KX may not.
+               RawDnsType.KX     => new RawDnsWriter().U16(10).Bytes(Name).ToArray(),
+
                // RFC 6672 — DNAME's target.
                RawDnsType.DNAME  => Name,
+
+               // RFC 8005 §5.6 — HIP's rendezvous servers, "MUST NOT be
+               // compressed". A one-octet HIT, a two-octet key, and the server
+               // last, where the RDATA ends.
+               RawDnsType.HIP    => new RawDnsWriter().U8(1).U8(2).U16(2).Hex("ab").Hex("0102").
+                                        Bytes(Name).ToArray(),
+
+               // RFC 6742 §2.4.1.2 — LP's FQDN: "A sender MUST NOT use DNS name
+               // compression on the FQDN field".
+               RawDnsType.LP     => new RawDnsWriter().U16(10).Bytes(Name).ToArray(),
 
                // RFC 4034 §3.1.7 — the RRSIG signer's name. The one that fires in
                // practice: the signer is the zone apex, which is already on the
@@ -178,7 +193,10 @@ public class RdataCompressionTests
     [TestCase(RawDnsType.RP,    TestName = "Rdata_uncompressed__RP_mailbox")]
     [TestCase(RawDnsType.SRV,   TestName = "Rdata_uncompressed__SRV_target")]
     [TestCase(RawDnsType.NAPTR, TestName = "Rdata_uncompressed__NAPTR_replacement")]
+    [TestCase(RawDnsType.KX,    TestName = "Rdata_uncompressed__KX_exchanger")]
     [TestCase(RawDnsType.DNAME, TestName = "Rdata_uncompressed__DNAME_target")]
+    [TestCase(RawDnsType.HIP,   TestName = "Rdata_uncompressed__HIP_rendezvous_server")]
+    [TestCase(RawDnsType.LP,    TestName = "Rdata_uncompressed__LP_fqdn")]
     [TestCase(RawDnsType.RRSIG, TestName = "Rdata_uncompressed__RRSIG_signer_name")]
     [TestCase(RawDnsType.NSEC,  TestName = "Rdata_uncompressed__NSEC_next_domain_name")]
     [TestCase(RawDnsType.SVCB,  TestName = "Rdata_uncompressed__SVCB_target")]
