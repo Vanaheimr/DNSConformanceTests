@@ -10,16 +10,32 @@ using org.GraphDefined.Vanaheimr.Hermod.DNS;
 
 using DNSConformance.Core.Fixtures;
 using DNSConformance.Core.RawDns;
+using DNSConformance.Core.Scripted;
 
 namespace DNSConformance.Client.Tests;
 
 /// <summary>
-/// A TCP or DoT server that does nothing on its own. Every query it reads, on
-/// every connection, goes to the test together with the connection it came on,
-/// and answering it, holding it, cutting the answer off, closing the connection
-/// or resetting it is the test's move.
+/// A TCP, DoT or DNS over SSH server that does nothing on its own. Every query
+/// it reads, on every connection, goes to the test together with the connection
+/// it came on, and answering it, holding it, cutting the answer off, closing the
+/// connection or resetting it is the test's move.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Over SSH a "connection" here is a channel of the subsystem
+/// "dns@open.charging.cloud". Section 3.6 of the white paper "DNS over SSH" maps
+/// the one onto the other - what a TLS session is to DNS over TLS, the channel is
+/// over SSH - and sections 3.3 to 3.5 carry the rules of RFC 7766 and RFC 7828
+/// over with "channel" where they say "connection": the idle timeout is the
+/// channel's, the queries left unanswered on a closed channel are asked again on
+/// a new one. So the tests that count connections count channels, and a
+/// connection that is closed is a channel the server ended with exit-status 0,
+/// EOF and CLOSE while the SSH connection stays. Only a reset has no channel to
+/// happen to: it is the SSH connection's TCP connection that is reset, and the
+/// channel goes with it. The server underneath is a
+/// <see cref="ScriptedSshServer"/>, which says what of it is Hermod's and what is
+/// not.
+/// </para>
 /// <para>
 /// The scripted servers answer a query before they read the next one and treat
 /// every connection alike. What the tests here need is the opposite on both
@@ -44,7 +60,8 @@ internal sealed class StreamScriptServer : IAsyncDisposable
     internal sealed class Connection
     {
 
-        private readonly TcpClient              client;
+        private readonly TcpClient?             client;
+        private readonly ScriptedSshChannel?    channel;
         private readonly SemaphoreSlim          write   = new(1, 1);
         private readonly ConcurrentQueue<String> names  = new();
 
@@ -54,6 +71,12 @@ internal sealed class StreamScriptServer : IAsyncDisposable
         {
             this.Number  = Number;
             this.client  = Client;
+        }
+
+        internal Connection(Int32 Number, ScriptedSshChannel Channel)
+        {
+            this.Number   = Number;
+            this.channel  = Channel;
         }
 
         /// <summary>The connection's place in the order they were accepted, from 1.</summary>
@@ -87,10 +110,22 @@ internal sealed class StreamScriptServer : IAsyncDisposable
         }
 
         /// <summary>Close the connection: a FIN, and nothing more is read or written.</summary>
+        /// <remarks>
+        /// Over SSH the channel is ended, as section 3.5 of the white paper has a
+        /// server end it - exit-status 0, EOF, CLOSE - and the SSH connection stays.
+        /// </remarks>
         public void Close()
         {
-            try { client.Client.Shutdown(SocketShutdown.Both); } catch { }
-            client.Close();
+
+            if (channel is not null)
+            {
+                channel.EndAsync(0).GetAwaiter().GetResult();
+                return;
+            }
+
+            try { client!.Client.Shutdown(SocketShutdown.Both); } catch { }
+            client!.Close();
+
         }
 
         /// <summary>Reset the connection: a RST rather than a FIN.</summary>
@@ -100,15 +135,44 @@ internal sealed class StreamScriptServer : IAsyncDisposable
         /// for an orderly close: its next read returns 0 and its next write goes
         /// through, and only the RST sent back for that write fails the one
         /// after it.
+        /// <para>
+        /// Over SSH it is the TCP connection of the SSH connection that is reset.
+        /// A channel cannot be: it ends with a CLOSE or with its connection.
+        /// </para>
         /// </remarks>
         public void Reset()
         {
-            try { client.Client.Close(0); } catch { }
-            client.Close();
+
+            if (channel is not null)
+            {
+                channel.ResetConnection();
+                return;
+            }
+
+            try { client!.Client.Close(0); } catch { }
+            client!.Close();
+
         }
 
         private async Task Send(Byte[] Octets)
         {
+            if (channel is not null)
+            {
+
+                // One channel write for all of it; the channel keeps its own
+                // writers apart. Whatever a channel that ended throws is the
+                // IOException of a socket that closed.
+                try
+                {
+                    await channel.WriteAsync(Octets);
+                }
+                catch (Exception)
+                { }
+
+                return;
+
+            }
+
             await write.WaitAsync();
             try
             {
@@ -130,12 +194,13 @@ internal sealed class StreamScriptServer : IAsyncDisposable
 
     #region Data
 
-    /// <summary>The two transports, by the names the test cases carry.</summary>
-    public static readonly String[] Transports = [ "TCP", "DoT" ];
+    /// <summary>The three transports, by the names the test cases carry.</summary>
+    public static readonly String[] Transports = [ "TCP", "DoT", "SSH" ];
 
     private readonly Func<Connection, Byte[], Task>  onQuery;
     private readonly X509Certificate2?               certificate;
-    private readonly TcpListener                     listener;
+    private readonly TcpListener?                    listener;
+    private readonly ScriptedSshServer?              ssh;
     private readonly CancellationTokenSource         cts          = new();
     private readonly ConcurrentQueue<Connection>     connections  = new();
 
@@ -154,7 +219,7 @@ internal sealed class StreamScriptServer : IAsyncDisposable
 
     #region Constructor(s)
 
-    /// <param name="Transport">"TCP", or "DoT" for TLS on every connection (RFC 7858).</param>
+    /// <param name="Transport">"TCP", "DoT" for TLS on every connection (RFC 7858), or "SSH" for a channel of the subsystem "dns@open.charging.cloud" as every connection.</param>
     /// <param name="OnQuery">What to do with a query, given the connection it came on. Not awaited by the reader.</param>
     /// <param name="Port">The port to listen on, or 0 for one the system picks.</param>
     public StreamScriptServer(String                          Transport,
@@ -167,8 +232,17 @@ internal sealed class StreamScriptServer : IAsyncDisposable
         certificate     = Transport switch {
                               "TCP"  => null,
                               "DoT"  => TestCertificate.CreateServerCertificate(),
+                              "SSH"  => null,
                               _      => throw new ArgumentException($"No such stream transport: {Transport}", nameof(Transport))
                           };
+
+        if (Transport == "SSH")
+        {
+            ssh        = new ScriptedSshServer(ServeChannel, FixedPort: Port);
+            this.Port  = ssh.Port;
+            return;
+        }
+
         listener     = new TcpListener(System.Net.IPAddress.Loopback, Port);
         listener.Start();
         this.Port    = ((IPEndPoint) listener.LocalEndpoint).Port;
@@ -189,16 +263,24 @@ internal sealed class StreamScriptServer : IAsyncDisposable
     /// <summary>A client of the given transport, pointed at a port on the loopback address - whether anything listens there or not.</summary>
     public static IDNSClient NewClient(String Transport, Int32 Port, TimeSpan QueryTimeout)
 
-        => Transport == "TCP"
+        => Transport switch {
 
-               ? new DNSTCPClient(IPv4Address.Localhost,
-                                  Port:                        IPPort.Parse((UInt16) Port),
-                                  QueryTimeout:                QueryTimeout)
+               "TCP"  => new DNSTCPClient(IPv4Address.Localhost,
+                                          Port:                        IPPort.Parse((UInt16) Port),
+                                          QueryTimeout:                QueryTimeout),
 
-               : new DNSTLSClient(IPv4Address.Localhost,
-                                  TCPPort:                     IPPort.Parse((UInt16) Port),
-                                  QueryTimeout:                QueryTimeout,
-                                  RemoteCertificateValidator:  (_, _, _, _, _) => TLSValidationResult.Success());
+               "DoT"  => new DNSTLSClient(IPv4Address.Localhost,
+                                          TCPPort:                     IPPort.Parse((UInt16) Port),
+                                          QueryTimeout:                QueryTimeout,
+                                          RemoteCertificateValidator:  (_, _, _, _, _) => TLSValidationResult.Success()),
+
+               // An SSH connection of the client's own, with the key every
+               // scripted SSH server accepts, and its host key pinned.
+               "SSH"  => ScriptedSshServer.NewClient(Port, QueryTimeout),
+
+               _      => throw new ArgumentException($"No such stream transport: {Transport}", nameof(Transport))
+
+           };
 
     #endregion
 
@@ -239,7 +321,28 @@ internal sealed class StreamScriptServer : IAsyncDisposable
 
     #endregion
 
-    #region (private) AcceptLoop() / Serve(Client)
+    #region (private) AcceptLoop() / Serve(Client) / ServeChannel(Channel, CancellationToken)
+
+    /// <summary>
+    /// What <see cref="Serve"/> does with a connection, for a channel of the DNS
+    /// subsystem: counted when it is opened, read as the queries arrive.
+    /// </summary>
+    private async Task ServeChannel(ScriptedSshChannel Channel, CancellationToken CancellationToken)
+    {
+
+        var connection = new Connection(Interlocked.Increment(ref accepted), Channel);
+        connections.Enqueue(connection);
+
+        while (await Channel.ReadMessageAsync(CancellationToken) is Byte[] query)
+        {
+
+            connection.Saw(NameOf(query));
+
+            _ = Handle(connection, query);
+
+        }
+
+    }
 
     private async Task AcceptLoop()
     {
@@ -247,7 +350,7 @@ internal sealed class StreamScriptServer : IAsyncDisposable
         {
             while (!cts.IsCancellationRequested)
             {
-                var client = await listener.AcceptTcpClientAsync(cts.Token);
+                var client = await listener!.AcceptTcpClientAsync(cts.Token);
                 _ = Task.Run(() => Serve(client));
             }
         }
@@ -348,7 +451,15 @@ internal sealed class StreamScriptServer : IAsyncDisposable
     {
 
         cts.Cancel();
-        listener.Stop();
+
+        if (ssh is not null)
+        {
+            await ssh.DisposeAsync();
+            cts.Dispose();
+            return;
+        }
+
+        listener!.Stop();
 
         foreach (var connection in connections)
             connection.Close();

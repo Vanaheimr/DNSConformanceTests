@@ -419,6 +419,23 @@ first, and across the 9p bridge that lookup took 17 to 60 seconds in a folder of
 a quarter of a million entries, against a limit of 30. The sender now runs with
 `python3 -I`, which leaves that folder off the module path, and takes a second.
 
+Then DNS over SSH: Hermod c5240c06 has a client that asks over the subsystem
+`dns@open.charging.cloud` of an SSH connection, which carries the byte stream of
+DNS over TCP unchanged (the white paper "DNS over SSH"), and the pin moved to
+it. No verdict changed with the pin. The client is asked what the clients of TCP
+and DoT are asked, in the same tests, with a channel where they say connection,
+and 26 cases of its own: the octets of the first query, three queries
+outstanding on one channel, an answer in a thousand small writes, a channel that
+ends while the connection stays, padding, a refused subsystem, a host key that
+is not the pinned one, a connection it was handed. They run against a scripted
+subsystem behind Hermod's own SSH server, there being no other to run
+in-process; four more run against OpenSSH, `socat` and BIND in WSL, where
+nothing but the client is Hermod's. Eight mutants planted in the client were
+all killed. With them the Client project is 359 ✅ · 0 ❌, and the offline suite
+2247 ✅ · 0 ❌ · 4 skips. The full run was not repeated at c5240c06: the public
+resolvers, the containers and the multicast tests were last measured at
+3ec1d3ae.
+
 The suite has found 112 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.

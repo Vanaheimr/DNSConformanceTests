@@ -148,6 +148,28 @@ public class TimeoutReportingTests
 
     #endregion
 
+    #region A_Dns_Over_Ssh_Query_That_Runs_Out_Of_Time_Says_So()
+
+    [Test]
+    public async Task A_Dns_Over_Ssh_Query_That_Runs_Out_Of_Time_Says_So()
+    {
+
+        await using var server = new ScriptedSshServer(_ => (Byte[]?) null);
+
+        await using var client = server.NewClient(Timeout);
+
+        // The connection, the login and the channel first, so that what runs
+        // out of time is the query: the server has it and does not answer.
+        await client.ConnectAsync();
+
+        AssertTimedOut(await client.Query<A>(DomainName.Parse("silent.example."), Timeout: Timeout), "SSH");
+
+        Assert.That(server.Requests, Has.Count.EqualTo(1), "SSH: the query the server did not answer had reached it");
+
+    }
+
+    #endregion
+
     #region A_Doh_Query_That_Runs_Out_Of_Time_Says_So()
 
     [Test]

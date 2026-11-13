@@ -9,7 +9,7 @@ using DNSConformance.Core.Scripted;
 namespace DNSConformance.Client.Tests;
 
 /// <summary>
-/// What the two stream transports put on the wire, and what they accept back.
+/// What the stream transports put on the wire, and what they accept back.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,6 +25,12 @@ namespace DNSConformance.Client.Tests;
 /// test here therefore runs twice, which is the honest way round: a rule asserted
 /// for one of two parallel implementations says nothing about the other, and the
 /// sweep reports them as separate lines because they are.
+/// </para>
+/// <para>
+/// `DNSSSHClient` is the third such copy. The white paper "DNS over SSH", section
+/// 3.2, has a channel of the subsystem "dns@open.charging.cloud" carry "what a TCP
+/// connection carries for DNS", so the message inside the frame is held to the
+/// same rules, and every test here asks it of that client as well.
 /// </para>
 /// </remarks>
 [TestFixture]
@@ -132,6 +138,51 @@ public class FramedTransportQueryTests
     }
 
 
+    /// <summary>The same over SSH.</summary>
+    private static async Task<UInt16[]> TypesAskedOverSsh(DNSResourceRecordTypes[] Types)
+    {
+
+        await using var server = new ScriptedSshServer(AnAnswer);
+
+        await using var client = server.NewClient(Timeout);
+
+        await client.Query(DNSServiceName.Parse("framed.example."), Types, Timeout);
+
+        return [.. server.Requests.SelectMany(request => RawDnsReader.Parse(request).Questions.Select(question => question.Type))];
+
+    }
+
+
+    /// <summary>The same over SSH.</summary>
+    private static async Task<RawDnsMessage> OverSsh(Boolean?                   ClientRecursion        = null,
+                                                     Boolean                    ClearClientRecursion   = false,
+                                                     Boolean?                   CallRecursion          = null,
+                                                     DNSResourceRecordTypes[]?  Types                  = null)
+    {
+
+        await using var server = new ScriptedSshServer(AnAnswer);
+
+        await using var client = new DNSSSHClient("127.0.0.1",
+                                                  server.ClientOptions(),
+                                                  IPPort.Parse((UInt16) server.Port),
+                                                  RecursionDesired:  ClientRecursion,
+                                                  QueryTimeout:      Timeout);
+
+        if (ClearClientRecursion)
+            client.RecursionDesired = null;
+
+        await client.Query(DNSServiceName.Parse("framed.example."),
+                           Types ?? OneType,
+                           Timeout,
+                           CallRecursion);
+
+        Assert.That(server.Requests.TryDequeue(out var request), Is.True, "the query reached the server");
+
+        return RawDnsReader.Parse(request!);
+
+    }
+
+
     /// <summary>The same over DoT.</summary>
     private static async Task<RawDnsMessage> OverTls(Boolean?                   ClientRecursion        = null,
                                                      Boolean                    ClearClientRecursion   = false,
@@ -186,6 +237,8 @@ public class FramedTransportQueryTests
         var tcpOff      = (await OverTcp(ClientRecursion: false)).RD;
         var tlsDefault  = (await OverTls()).RD;
         var tlsOff      = (await OverTls(ClientRecursion: false)).RD;
+        var sshDefault  = (await OverSsh()).RD;
+        var sshOff      = (await OverSsh(ClientRecursion: false)).RD;
 
         Assert.Multiple(() => {
 
@@ -193,6 +246,8 @@ public class FramedTransportQueryTests
             Assert.That(tcpOff,     Is.False, "TCP, switched off at construction: the bit is clear");
             Assert.That(tlsDefault, Is.True,  "DoT, nothing said");
             Assert.That(tlsOff,     Is.False, "DoT, switched off at construction");
+            Assert.That(sshDefault, Is.True,  "SSH, nothing said");
+            Assert.That(sshOff,     Is.False, "SSH, switched off at construction");
 
         });
 
@@ -212,6 +267,7 @@ public class FramedTransportQueryTests
         // for a stub and the one the parameter's own default already states.
         var overTcp = (await OverTcp(ClearClientRecursion: true, CallRecursion: null)).RD;
         var overTls = (await OverTls(ClearClientRecursion: true, CallRecursion: null)).RD;
+        var overSsh = (await OverSsh(ClearClientRecursion: true, CallRecursion: null)).RD;
 
         Assert.Multiple(() => {
 
@@ -219,6 +275,8 @@ public class FramedTransportQueryTests
                         "TCP: unset at the client and unset at the call still means recursion");
 
             Assert.That(overTls, Is.True, "DoT: the same");
+
+            Assert.That(overSsh, Is.True, "SSH: the same");
 
         });
 
@@ -243,6 +301,7 @@ public class FramedTransportQueryTests
         // where the larger answer is never truncated to make it obvious.
         var overTcp = await TypesAskedOverTcp(TwoTypes);
         var overTls = await TypesAskedOverTls(TwoTypes);
+        var overSsh = await TypesAskedOverSsh(TwoTypes);
 
         Assert.Multiple(() => {
 
@@ -251,6 +310,9 @@ public class FramedTransportQueryTests
 
             Assert.That(overTls, Is.EquivalentTo(new UInt16[] { RawDnsType.A, RawDnsType.AAAA }),
                         "and so does DoT");
+
+            Assert.That(overSsh, Is.EquivalentTo(new UInt16[] { RawDnsType.A, RawDnsType.AAAA }),
+                        "and so does DNS over SSH");
 
         });
 
@@ -301,6 +363,12 @@ public class FramedTransportQueryTests
 
         var overTls = await tlsClient.Query(DNSServiceName.Parse("framed.example."), OneType, Timeout);
 
+        await using var sshServer = new ScriptedSshServer(_ => header);
+
+        await using var sshClient = sshServer.NewClient(Timeout);
+
+        var overSsh = await sshClient.Query(DNSServiceName.Parse("framed.example."), OneType, Timeout);
+
         Assert.Multiple(() => {
 
             Assert.That(overTcp.IsValid, Is.False,
@@ -308,6 +376,9 @@ public class FramedTransportQueryTests
 
             Assert.That(overTls.IsValid, Is.False,
                         "and the same over DoT");
+
+            Assert.That(overSsh.IsValid, Is.False,
+                        "and over SSH, where the channel carries the same stream");
 
         });
 

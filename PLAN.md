@@ -37,7 +37,7 @@ unbiased referee, and be run against any Hermod revision.
 | Wire codec | `DNSPacket.Serialize/ToByteArray` (optional name compression), `DNSPacket.Parse` (server-side request parsing), `DNSInfo.ReadResponse` (client-side, reflection-based RR registry), `DNSTools` (names, compression pointers with loop detection, character-strings) |
 | Resource records | ~45 types: A, AAAA, NS, CNAME, DNAME, SOA, PTR, MX, TXT, SPF, HINFO, RP, AFSDB, LOC, SRV, NAPTR, URI, CAA, EUI48/64, TLSA, SMIMEA, CERT, SSHFP, OPENPGPKEY, DS, DNSKEY, RRSIG, NSEC, NSEC3, NSEC3PARAM, CDS, CDNSKEY, CSYNC, ZONEMD, SVCB, HTTPS, OPT, TSIG, TKEY, KEY — each with wire parse/serialize, zone-file presentation (`ToZoneFileString`, `ParseZoneFileString`), and DoH-JSON parsing |
 | EDNS0 | OPT pseudo-RR (payload size, ext-RCODE, version, DO bit), typed options: Client Subnet (7871), Cookie (7873), TCP Keepalive (7828), Padding (7830), Extended DNS Errors (8914); extended-RCODE combining on receive |
-| Client transports | `DNSUDPClient` (with TCP fallback on TC), `DNSTCPClient`, `DNSTLSClient` (DoT, custom cert validation), `DNSHTTPSClient` (DoH: GET base64url, POST binary, Google/Cloudflare JSON; plain-HTTP test modes) |
+| Client transports | `DNSUDPClient` (with TCP fallback on TC), `DNSTCPClient`, `DNSTLSClient` (DoT, custom cert validation), `DNSHTTPSClient` (DoH: GET base64url, POST binary, Google/Cloudflare JSON; plain-HTTP test modes), `DNSSSHClient` (DNS over SSH: the subsystem `dns@open.charging.cloud` on a session channel, on an SSH connection of its own or one it is handed; a server of a mixed `DNSClient` through `DNSServerConfig.OverSSH`) |
 | Client orchestration | `DNSClient`: multi-server race, SERVFAIL retry, pooling, positive cache, NODATA negative cache (2308), aggressive NSEC cache (8198), CNAME/DNAME chasing with loop detection (6672), auto DNS Cookies, auto Client Subnet, DNSSEC validation hook |
 | Server | `DNSServer`: UDP unicast + multicast, TCP, **TLS (DoT server)**, **HTTPS (DoH server, RFC 8484)**; `AuthoritativeDNSRequestHandler` + `InMemoryDNSZone` (`Add/Set/Remove/AddZoneFileString`); opcode≠0 → NOTIMP, zero questions → FORMERR, NXDOMAIN vs NODATA. Every transport shares one `DNSMessagePipeline` — signature verification, padding and serialization have a single implementation, so a transport decides how a message arrives and never what a valid signature is |
 | DoH server | `DNSOverHTTPSServer` (HTTP/1.1) and `DNSOverHTTP2Server` (HTTP/2, the version §5.2 recommends), standalone or as `DNSServer` listeners, both rendering one `DNSOverHTTPSResource`: GET `?dns=` base64url and POST `application/dns-message` on `/dns-query`; any valid DNS response (NXDOMAIN, SERVFAIL) carried by 200 (§4.2.1), 404/405/406/415/400 for requests that never became a DNS question, `cache-control: max-age` from the smallest Answer TTL or the SOA MINIMUM (§5.1), and the requestor's EDNS(0) payload size ignored as §6 requires — so it caps neither the answer nor its padding |
@@ -103,7 +103,8 @@ independent `RawDns` codec and RFC-published vectors. No sockets.
 
 ### Layer 2 — Behavioral conformance (offline, loopback sockets)
 Hermod client ⇄ scripted fake servers (raw UDP/TCP/TLS/HTTP listeners that
-replay hand-crafted bytes), and raw socket clients ⇄ real Hermod `DNSServer`.
+replay hand-crafted bytes, and a scripted subsystem behind an SSH listener),
+and raw socket clients ⇄ real Hermod `DNSServer`.
 Verifies protocol *behavior*: retries, TCP fallback, framing, RCODEs,
 truncation, EDNS negotiation, robustness against malformed input.
 
@@ -338,6 +339,18 @@ round-trip where supported.
 | 2931 §3.1 | the client signs its query, and signs the TCP retry too — finding 19 was that the retry went out unsigned and nothing reported it | ✅ |
 | 2931 §3.2 | a response signature that does not verify is discarded; one that cannot be checked is ignored without error | ✅ |
 | 8945, 2931 (transports) | both mechanisms over DoT and DoH: the message read back out of the TLS framing and out of a `?dns=` parameter, signature present, last, and verifying; an unconfigured client signs nothing | ✅ |
+| DNS over SSH §3.1, §3.2, 4254 §6.5, 7766 §8 | `DNSSSHClient` against a scripted subsystem `dns@open.charging.cloud` (white paper "DNS over SSH"): the client writes first and the channel begins with the length of its query — appendix A.1 octet for octet behind the ID, asked for under the name of A.4 — and length and message go to the channel in one write, which the server sees as reads that are each one query whole | ✅ |
+| DNS over SSH §3.3 (T2), 7766 §6.2.1.1, §7, 7858 §3.3 | three queries outstanding at once on one channel, answered third, first, second, each handed to its own caller; a message with the ID of one query and the question of another answers neither; a message with an ID nobody waits for is skipped for the answer behind it, and with nothing behind it the query runs out of time | ✅ |
+| DNS over SSH §3.2 (T3), 7766 §8 | SSH packets do not delimit messages: an answer of 60,000 octets written 997 at a time, its length an octet at a time, arrives whole, and so do two answers when one channel write holds the end of the first and the start of the second | ✅ |
+| DNS over SSH §3.3, §3.5 (T19), 7766 §6.2.4, 4254 §6.10 | a channel ends, the connection stays: after the server ended the idle channel — exit-status 0, EOF, CLOSE — the next query opens a new channel on the same SSH connection, one TCP connection and one login in all; a query in flight when its channel ends, with exit-status 0 or 1, or whose answer was cut off in its middle, is asked again once on a new channel of that connection; and a server that ends every channel gets the query twice, not a client that dials again | ✅ |
+| DNS over SSH §3.4, 7828 §3.2.2 | the idle timeout a server advertises is the channel's: the client ends the channel before it expires and keeps the SSH connection, on which the next query opens a new one | ✅ |
+| DNS over SSH §3.4 (T22), 8467 §4.1, 7830 §3 | queries are padded to the closest multiple of 128 octets — 128, 128 and 256 for three names — by one Padding option of zero octets, and the same queries from a client told not to pad are the control | ✅ |
+| DNS over SSH §3.1 (T11), 4254 §6.5 | a refused subsystem is a failure and not a timeout, `LastConnectionError` says it was the refusal, it is asked for once per query, and not an octet of a query is sent — the server's count of the connection, the login and the request being the control. The connection stays for the next attempt. A served subsystem that does not answer is the timeout, and leaves no connection error | ✅ |
+| DNS over SSH §4.1 (T5) | a host key that is not the pinned one: no login attempt, no channel, no query — with the TCP connection the relay counted, and a second client that pins the right key and is answered, as the controls | ✅ |
+| DNS over SSH §3.5, §6.3 (T12) | a connection the client was handed is not closed when the client is disposed of, and carries a second client's channel afterwards under the one login; a connection the client dialled itself is closed with it | ✅ |
+| DNS over SSH §7.1, §4.1 | a server over SSH among the servers of a `DNSClient`: it answers beside a UDP server that does not, the UDP server answers beside it when it does not, and a server named with the transport SSH and no word on how its connection is had is refused by the constructor and by `SetDNSServers`, which leaves the servers as they were | ✅ |
+| DNS over SSH §3.5, 7766 §7 | a length of 0, or a message too short for a header, in front of an answer does not desynchronise the channel: it is consumed, the answer behind it is read and the channel kept, as `DNSTCPClient` is held to. §3.5's "protocol errors end the channel" is read as the server's rule — see the test for the reading | 📋 |
+| DNS over SSH §3.3–§3.6 | the stream rows above, asked of `DNSSSHClient` in the same tests with a channel where they say connection: a channel closed, reset with its connection or cut off under a query (7766 §6.2.4), TIMEOUT 0 with an answer outstanding and what follows it (7828 §3.2.2, §3.1), the answer sent first handed over first (7766 §7), a refused connect that is not held on to, disposal twice and a query after it, a query disposed of in flight, the one deadline of a two-type query, a failure's runtime, a timeout that says so, the recursion bit, the types sent, and a bare header that is no answer | ✅ |
 
 ### 4.5 Server behavior (`DNSConformance.Server.Tests`) — raw sockets vs. `DNSServer`
 
@@ -412,6 +425,7 @@ round-trip where supported.
 | 7828 §3.2.2 | a response with TIMEOUT 0 ends the session rather than being stored and ignored — on DoT ✅ (finding 35) and on plain TCP ✅ (finding 36), counted in handshakes and accepted connections | ✅ |
 | 7828 §3.2.2, §3 | an advertised idle timeout is honoured: the session ends *before* it expires rather than eventually, the deadline is re-armed after every exchange, and a session well inside its timeout is still reused ✅ (finding 37) | ✅ |
 | JSON APIs | Google/Cloudflare `application/dns-json` (covered live against Cloudflare) | 🟡 |
+| DNS over SSH | the third encrypted transport: SSH in place of TLS, a channel in place of the TLS session, the host key pin in place of the certificate. Only the client is measured so far, and all of it is the client's, so its rows are §4.4's — padding to 128 octets (8467 §4.1) among them — and its tests live in `DNSConformance.Client.Tests`. The subsystem a `DNSServer` serves is not yet under test | 🟡 |
 
 DoH client tests run against a scripted in-process HTTP listener speaking
 RFC 8484 (both directions verified with RawDns). DoH *server* tests run the
@@ -422,7 +436,14 @@ cleartext for the same reason the scripted one does, with one test over TLS
 through a real `DNSServer` for the deployed shape. DoT tests use Hermod's own
 DoT server where a real peer is needed, plus a scripted TLS listener for
 byte-level assertions — but conformance judgments always come from the RawDns
-side of the connection.
+side of the connection. DNS over SSH tests run against `ScriptedSshServer`:
+Hermod's `SshServer` underneath, because there is no other SSH implementation
+to run in-process, and the suite's own script in the subsystem — never
+`DNSServer.ServeSSHSubsystemAsync` — so the framing is read and written by the
+suite and every message is RawDns's. A relay in front of it counts the TCP
+connections and can end one, which is what tells "the channel ended" from "the
+connection ended". Whether the client's SSH is anybody's but Hermod's is
+answered in §4.9, against OpenSSH.
 
 ### 4.7 DNSSEC (`DNSConformance.Dnssec.Tests`)
 
@@ -524,6 +545,7 @@ BIND `named` in WSL serving the fixture zone; Hermod is the client:
 | NXDOMAIN from BIND; TCP transport | ✅ |
 | multi-character-string TXT served by BIND | ✅ |
 | **Zonemaster** undelegated against the fixture zone: its ERROR tags asserted as an exact set, so a tag that vanishes fails the test as loudly as a new one. Ten are properties of a laboratory — private and documentation addresses, one name server where registries want two, glue that is the bridge rather than what the zone publishes — and the eleventh was finding 41, whose fix emptied it out of the list ✅ |  ✅ |
+| **DNS over SSH against OpenSSH**: `sshd` in WSL with a `Subsystem dns@open.charging.cloud` line that runs `socat` to the BIND above, a throwaway host key and user key — appendix B of the white paper, and nothing of Hermod's on the server side. `DNSSSHClient` gets the same answer as over TCP from the same BIND (T1), has six queries of five kinds on one channel at once and each answered with its own (T2), takes `sshd`'s refusal of a subsystem it was not configured with for the refusal it is (T11), and does not sign in under a host key that is not the pinned one, by `sshd`'s own log (T5) | ✅ |
 | **Knot, CoreDNS and Unbound** serving BIND's own interop zone, byte for byte, with Hermod as the client against each: A, an RRset of three, AAAA, MX in preference order, TXT, SRV, SOA, CAA, NXDOMAIN, and the same record again over TCP. The point is not that Hermod can read Knot — it is that four encoders putting the same zone file on the wire agree, which is what separates a property of the protocol from a habit of BIND's ✅ | ✅ |
 
 **`DNSInterop.Multicast.Tests`** (category `Multicast`) — 2 ✅
@@ -558,11 +580,13 @@ DNSConformanceTests/
 │       │   ├── ScriptedUdpServer.cs     ← canned/computed UDP responder
 │       │   ├── ScriptedTcpServer.cs     ← framing-aware TCP responder
 │       │   ├── ScriptedTlsServer.cs     ← DoT-speaking TLS responder
+│       │   ├── ScriptedSshServer.cs     ← DNS-over-SSH subsystem responder behind Hermod's SshServer
 │       │   └── ScriptedDoHServer.cs     ← RFC 8484 HttpListener responder
 │       ├── Fixtures/
 │       │   ├── HermodServerFixture.cs   ← DNSServer on ephemeral ports
 │       │   ├── HermodDoHFixture.cs      ← RFC 8484 endpoint: HTTP/1.1 or h2, cleartext or TLS
 │       │   ├── TestCertificate.cs       ← self-signed cert factory
+│       │   ├── OpenSshDnsFixture.cs     ← sshd + socat in front of BIND, in WSL (white paper appendix B)
 │       │   └── ZoneFixtures.cs          ← fixture zone loading
 │       ├── RawDoHProbe.cs               ← independent RFC 8484 client (own base64url, pinned version)
 │       ├── Wsl.cs                       ← WSL bridge (run tool, host IP discovery)

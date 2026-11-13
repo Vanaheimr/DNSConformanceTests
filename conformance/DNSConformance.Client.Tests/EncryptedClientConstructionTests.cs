@@ -193,7 +193,15 @@ public class EncryptedClientConstructionTests
         using var dotByAddress  = new DNSTLSClient  (IPv4Address.Localhost, IPPort.Parse((UInt16) 1));
         using var dotByURL      = new DNSTLSClient  (URL.Parse("tls://127.0.0.1:1"));
 
+        // And the two of DNS over SSH, which share one more copy of it: a
+        // connection of the client's own, and one it is handed. Neither is
+        // dialled or asked for before a query.
+        using var sshByHost     = ScriptedSshServer.NewClient(1, Timeout);
+        using var sshByHandover = new DNSSSHClient(_ => throw new InvalidOperationException("never asked for"));
+
         Assert.Multiple(() => {
+            Assert.That(sshByHost.    RecursionDesired, Is.True, "DNSSSHClient(host, login, ...)");
+            Assert.That(sshByHandover.RecursionDesired, Is.True, "DNSSSHClient(connection, ...)");
             Assert.That(dohByPort.   RecursionDesired, Is.True, "DNSHTTPSClient(port, ...)");
             Assert.That(dohByAddress.RecursionDesired, Is.True, "DNSHTTPSClient(address, ...)");
             Assert.That(dohByURL.    RecursionDesired, Is.True, "DNSHTTPSClient(URL, ...)");
