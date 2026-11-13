@@ -6,6 +6,7 @@ DNS/Client/DNSClient.cs	216	true-to-false	noise-region	#region DNSClient(DNSServ
 DNS/Client/NameResolution.cs	82	equality-to-inequality	branch	dotNetIPv6.AddressFamily == AddressFamily.InterNetworkV6)	0
 DNS/Client/SpecialUseNames.cs	132	ge-to-greater	boundary	=> IPv4OnlyReverseDepth(Name) >= 0;	0
 DNS/Client/DNSClient.cs	249	true-to-false	noise-region	#region DNSClient(DNSServers, Port = null, QueryTimeout = null, UseQueryCache = true, ...)	0
+DNS/Client/NameResolution.cs	85	true-to-false	branch	return true;	0
 DNS/Client/DNSClient.cs	281	true-to-false	noise-region	#region DNSClient(                  QueryTimeout = null, SearchForIPv4DNSServers = true, SearchForIPv6DNSServers = true, UseQueryCache = true, ...)	0
 DNS/Client/NameResolution.cs	97	true-to-false	branch	return true;	0
 DNS/Client/DNSClient.cs	281	true-to-false	noise-region	#region DNSClient(                  QueryTimeout = null, SearchForIPv4DNSServers = true, SearchForIPv6DNSServers = true, UseQueryCache = true, ...)	1

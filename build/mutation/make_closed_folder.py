@@ -1739,10 +1739,12 @@ PRESENTATION_SUPERSEDED = {}
 # measured at cf1e9954, before any of it existed. Line numbers are 3ec1d3ae's;
 # the three files did not change between 88540b71 and there.
 #
-# 229 mutants, 40 not viable. 132 die in pass 1 and 12 more in pass 2; 44
-# survive everywhere, one crashes the test host in pass 1 and is killed by
-# SecureTransports in pass 2 (DNSClient 690), and one does not end (the race
-# below). A first pass 1 at 88540b71 on .NET 10, before NameResolutionTests
+# 229 mutants, 40 not viable. 132 die in pass 1 and 12 more in pass 2, one of
+# them planted by hand (SpecialUseNames 225); 45 survive everywhere. One
+# crashes the test host in pass 1 and is killed by SecureTransports in pass 2
+# (DNSClient 690), and one does not end (the race below). Pass 2 called
+# NameResolution 85 killed by Multicast; planted by hand twice it survives,
+# and the file as measured is beside the corrected one. A first pass 1 at 88540b71 on .NET 10, before NameResolutionTests
 # existed, is in results/specialuse-client-88540b71/: 121 killed and 66
 # survived there, and the eleven rows that changed are the nine NameResolution
 # lines those tests kill and two boundaries of the link-local reverse domains.

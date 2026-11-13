@@ -1,0 +1,10 @@
+DNS/Client/DNSClient.cs	216	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	64	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	132	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	249	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	71	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	225	greater-to-ge	KILLED-ELSEWHERE	Server: 1 of 221 failed	0
+DNS/Client/DNSClient.cs	281	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	76	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	245	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	281	true-to-false	SURVIVED-EVERYWHERE		1
