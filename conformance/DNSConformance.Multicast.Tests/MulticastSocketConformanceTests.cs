@@ -720,7 +720,12 @@ public sealed class MulticastSocketConformanceTests
 
             File.WriteAllText(script, RawSender.Replace("\r\n", "\n"));
 
-            var result = Wsl.Run($"python3 {Wsl.ToWslPath(script)} {Source} {Destination} {Port.ToInt32()} {Convert.ToHexString(Payload)}",
+            // -I, because without it Python puts the script's folder first on its module
+            // path and asks it for "socket" and "struct". That folder is the Windows
+            // temp folder, read across the 9p bridge: with a quarter of a million
+            // entries in it the two lookups took 17 to 60 seconds, and the sender
+            // ran into the timeout below before it had sent anything.
+            var result = Wsl.Run($"python3 -I {Wsl.ToWslPath(script)} {Source} {Destination} {Port.ToInt32()} {Convert.ToHexString(Payload)}",
                                  TimeSpan.FromSeconds(30),
                                  asRoot: true);
 
