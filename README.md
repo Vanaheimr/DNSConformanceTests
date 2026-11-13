@@ -3,7 +3,7 @@
 [![CI](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/ci.yml)
 [![Nightly](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/nightly.yml/badge.svg)](https://github.com/Vanaheimr/DNSConformanceTests/actions/workflows/nightly.yml)
 
-An independent .NET 10 test solution that measures the DNS client and server of
+An independent .NET 11 test solution that measures the DNS client and server of
 [Vanaheimr Hermod](https://github.com/Vanaheimr/Hermod) against the DNS RFCs,
 and against real implementations: ISC BIND, Knot DNS, NLnet Labs ldns, native
 DNS-SD implementations and the public resolvers.
@@ -385,6 +385,12 @@ cases are finding 112, four of them, red at 5bcd11a7 and passing from e219c371 o
 three guards beside them pass, one of them §9's: three KX records that fit 512
 octets, with six addresses that do not. With them the Server project is
 228 ✅ · 0 ❌, and the offline suite 2206 ✅ · 0 ❌ · 4 skips.
+
+Then the suite moved to .NET 11, behind Hermod (62704cc1) and Styx (2874a327).
+The nightly's run against Hermod master had stopped building on 2026-11-11,
+with a 10.0 SDK that cannot target net11.0, and the pins moved with the target:
+Hermod 3ec1d3ae, Styx a6b9f9fb. No count changed with it. On .NET 11 at 3ec1d3ae
+the offline suite is 2206 ✅ · 0 ❌ · 4 skips.
 
 That full run exercised all twelve test projects and every category, including
 the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The

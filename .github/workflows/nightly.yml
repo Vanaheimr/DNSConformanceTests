@@ -86,7 +86,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       # The committed DNSSEC fixtures carry real BIND signatures, and real
       # signatures expire — a month after they were made. Re-signing here means
@@ -289,7 +289,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
@@ -367,7 +367,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
@@ -586,7 +586,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       # Re-signed with the UPSTREAM BIND, deliberately. dnssec-signzone is one
       # of the tools this lane is about, so if a newer signer emits something

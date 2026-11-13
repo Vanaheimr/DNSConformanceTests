@@ -70,7 +70,7 @@ def run(cmd, timeout=1800):
 
 def dll_of(proj):
     return os.path.join(ROOT, os.path.dirname(proj),
-                        "bin", "Debug", "net10.0", "org.GraphDefined.Vanaheimr.Hermod.dll")
+                        "bin", "Debug", "net11.0", "org.GraphDefined.Vanaheimr.Hermod.dll")
 
 
 def read(path):

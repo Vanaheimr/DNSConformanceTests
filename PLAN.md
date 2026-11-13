@@ -1,6 +1,6 @@
 # Hermod DNS Conformance & Interoperability Test Suite — Plan
 
-Goal: an independent .NET 10 test solution that measures **Vanaheimr Hermod**'s DNS
+Goal: an independent .NET 11 test solution that measures **Vanaheimr Hermod**'s DNS
 client and server implementation against the DNS RFCs, and validates it against
 real-world implementations (BIND, Knot, ldns, public resolvers).
 

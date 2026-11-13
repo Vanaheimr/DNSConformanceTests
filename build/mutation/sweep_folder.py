@@ -51,7 +51,7 @@ def project(name):
 def assembly(name):
     return os.path.join(CONFORMANCE,
                         "DNSConformance.%s.Tests" % name,
-                        r"bin\Debug\net10.0\org.GraphDefined.Vanaheimr.Hermod.dll")
+                        r"bin\Debug\net11.0\org.GraphDefined.Vanaheimr.Hermod.dll")
 
 
 # Every part of the DNS code, which folder it is, and the cheapest project that
