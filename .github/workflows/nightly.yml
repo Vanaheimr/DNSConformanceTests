@@ -86,7 +86,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       # The committed DNSSEC fixtures carry real BIND signatures, and real
       # signatures expire — a month after they were made. Re-signing here means
@@ -160,13 +160,22 @@ jobs:
       # assembly and no total. Summing cannot flip the verdict either way: all
       # zeroes sum to zero, and a future SDK that printed both would only
       # overstate a number that was already non-zero.
+      #
+      # The Multicast category is left out of this filter. Two tests of
+      # MulticastSocketConformanceTests carry WSL as well, and mean something
+      # else by it: not a tool, but a second host to send from off the link,
+      # which on Windows is the WSL virtual machine and in this container is
+      # nothing. They skip here whatever is installed, and from 2026-11-07 to
+      # 2026-11-12 those two skips failed this step on nights when every check
+      # against the tools had passed. The multicast step below still runs them,
+      # where a skip is honest reporting.
       - name: Test (interop against dig, kdig, drill, BIND)
         timeout-minutes: 45
         shell: bash
         run: |
           set +e
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
-            --filter "TestCategory=WSL" \
+            --filter "TestCategory=WSL&TestCategory!=Multicast" \
             --logger "console;verbosity=normal" \
             --logger "trx;LogFilePrefix=interop" \
             --results-directory artifacts > interop.out 2>&1
@@ -280,7 +289,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
@@ -358,7 +367,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
@@ -577,7 +586,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       # Re-signed with the UPSTREAM BIND, deliberately. dnssec-signzone is one
       # of the tools this lane is about, so if a newer signer emits something
@@ -660,14 +669,15 @@ jobs:
       # smoke test above exists. The counts are summed rather than read from a
       # grand total because this filter spans two assemblies and the SDK prints
       # one summary each; summing cannot flip the verdict, since zeroes sum to
-      # zero.
+      # zero. Multicast is left out for the reason given there: its two WSL
+      # tests need a second host rather than a tool, and skip in a container.
       - name: Test (interop against the upstream tools)
         timeout-minutes: 45
         shell: bash
         run: |
           set +e
           dotnet test DNSConformanceTests.slnx --configuration Release --no-build \
-            --filter "TestCategory=WSL" \
+            --filter "TestCategory=WSL&TestCategory!=Multicast" \
             --logger "console;verbosity=normal" \
             --logger "trx;LogFilePrefix=upstream-interop" \
             --results-directory artifacts > "${RUNNER_TEMP}/interop.out" 2>&1

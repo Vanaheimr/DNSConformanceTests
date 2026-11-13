@@ -36,7 +36,7 @@ SRCROOT = os.path.join(ROOT, r"libs\Hermod\Hermod")
 RECORDS = os.path.join(SRCROOT, r"DNS\ResourceRecords")
 
 PROJ = os.path.join(ROOT, r"conformance\DNSConformance.ResourceRecords.Tests\DNSConformance.ResourceRecords.Tests.csproj")
-DLL  = os.path.join(ROOT, r"conformance\DNSConformance.ResourceRecords.Tests\bin\Debug\net10.0\org.GraphDefined.Vanaheimr.Hermod.dll")
+DLL  = os.path.join(ROOT, r"conformance\DNSConformance.ResourceRecords.Tests\bin\Debug\net11.0\org.GraphDefined.Vanaheimr.Hermod.dll")
 
 RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", "records-pass1.tsv")
 
