@@ -227,6 +227,25 @@ public class NameResolutionTests
 
     }
 
+
+    [Test]
+    [TestCase("localhost6",  TestName = "{m}: localhost6")]
+    [TestCase("LocalHost6",  TestName = "{m}: LocalHost6, in another case")]
+    public async Task Localhost6_Is_The_IPv6_Loopback_Address_Without_A_DNS_Client(String Host)
+    {
+
+        // No RFC: "localhost6" is what a hosts file calls ::1 on many systems,
+        // and NameResolution knows it as that. It is no name below
+        // "localhost.", so RFC 6761 does not make it the loopback address, and
+        // without this branch it would be a host name that needs a DNS client.
+        var resolved = await ResolvedOrNull(Host, null);
+
+        Assert.That(resolved, Is.Not.Null, $"'{Host}' needs no DNS client");
+        Assert.That(resolved, Is.EqualTo(new[] { IPAddress.IPv6Loopback }),
+                    $"'{Host}' is the IPv6 loopback address alone");
+
+    }
+
     #endregion
 
 

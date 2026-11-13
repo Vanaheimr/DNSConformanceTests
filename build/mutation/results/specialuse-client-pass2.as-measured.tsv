@@ -1,0 +1,57 @@
+DNS/Client/DNSClient.cs	216	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	82	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	132	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	249	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	85	true-to-false	KILLED-ELSEWHERE	Multicast: 2 of 220 failed	0
+DNS/Client/SpecialUseNames.cs	225	greater-to-ge	PARSE-ERROR	no summary line from Edns	0
+DNS/Client/DNSClient.cs	281	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	97	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	284	logical-or-to-and	KILLED-ELSEWHERE	Server: 1 of 228 failed	0
+DNS/Client/DNSClient.cs	281	true-to-false	SURVIVED-EVERYWHERE		1
+DNS/Client/NameResolution.cs	163	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	284	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 1 of 228 failed	0
+DNS/Client/DNSClient.cs	281	true-to-false	SURVIVED-EVERYWHERE		2
+DNS/Client/NameResolution.cs	194	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	285	logical-or-to-and	KILLED-ELSEWHERE	Server: 1 of 228 failed	0
+DNS/Client/DNSClient.cs	313	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	196	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	293	equality-to-inequality	KILLED-ELSEWHERE	Server: 17 of 228 failed	0
+DNS/Client/DNSClient.cs	313	true-to-false	SURVIVED-EVERYWHERE		1
+DNS/Client/NameResolution.cs	220	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	296	less-to-less-or-equal	KILLED-ELSEWHERE	Server: 2 of 228 failed	0
+DNS/Client/DNSClient.cs	313	true-to-false	SURVIVED-EVERYWHERE		2
+DNS/Client/NameResolution.cs	222	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	301	logical-and-to-or	KILLED-ELSEWHERE	Server: 3 of 228 failed	0
+DNS/Client/DNSClient.cs	364	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	243	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	301	equality-to-inequality	KILLED-ELSEWHERE	Server: 3 of 228 failed	0
+DNS/Client/DNSClient.cs	468	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	252	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	304	logical-and-to-or	KILLED-ELSEWHERE	Server: 2 of 228 failed	0
+DNS/Client/DNSClient.cs	515	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/NameResolution.cs	256	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	304	equality-to-inequality	KILLED-ELSEWHERE	Server: 5 of 228 failed	0
+DNS/Client/DNSClient.cs	544	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	304	equality-to-inequality	KILLED-ELSEWHERE	Server: 5 of 228 failed	1
+DNS/Client/DNSClient.cs	690	greater-to-ge	KILLED-ELSEWHERE	SecureTransports: the test count moved from 167 to 120	0
+DNS/Client/SpecialUseNames.cs	362	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	699	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	364	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	851	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	390	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	892	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	469	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	897	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	470	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	926	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	472	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1032	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	477	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1035	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/SpecialUseNames.cs	478	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1154	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1486	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1609	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1611	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1687	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Client/DNSClient.cs	1882	true-to-false	SURVIVED-EVERYWHERE		0

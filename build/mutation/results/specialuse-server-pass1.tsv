@@ -20,10 +20,10 @@ DNS/Server/DNSServer.cs	330	equality-to-inequality	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	331	logical-and-to-or	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	332	less-to-less-or-equal	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	341	true-to-false	SURVIVED	0 of 228 failed	0
-DNS/Server/DNSServer.cs	374	equality-to-inequality	TIMED-OUT	the judge was still running after 165 s	0
+DNS/Server/DNSServer.cs	374	equality-to-inequality	KILLED	12 of 12 failed in ServerWildcardTests, run on its own after 127 s: every bind throws and the fixture retries each server, so the whole project does not go red within the 165 s a mutant gets	0
 DNS/Server/DNSServer.cs	378	logical-and-to-or	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	378	less-to-less-or-equal	SURVIVED	0 of 228 failed	0
-DNS/Server/DNSServer.cs	427	equality-to-inequality	TIMED-OUT	the judge was still running after 165 s	0
+DNS/Server/DNSServer.cs	427	equality-to-inequality	KILLED	12 of 12 failed in ServerWildcardTests, run on its own after 127 s: every bind throws and the fixture retries each server, so the whole project does not go red within the 165 s a mutant gets	0
 DNS/Server/DNSServer.cs	428	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	458	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	460	false-to-true	SURVIVED	0 of 228 failed	0
@@ -49,7 +49,7 @@ DNS/Server/DNSServer.cs	649	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	658	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	668	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	670	false-to-true	SURVIVED	0 of 228 failed	0
-DNS/Server/DNSServer.cs	722	equality-to-inequality	TIMED-OUT	the judge was still running after 165 s	0
+DNS/Server/DNSServer.cs	722	equality-to-inequality	KILLED	12 of 12 failed in ServerWildcardTests, run on its own after 127 s: every bind throws and the fixture retries each server, so the whole project does not go red within the 165 s a mutant gets	0
 DNS/Server/DNSServer.cs	723	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	756	false-to-true	SURVIVED	0 of 228 failed	0
 DNS/Server/DNSServer.cs	758	false-to-true	SURVIVED	0 of 228 failed	0

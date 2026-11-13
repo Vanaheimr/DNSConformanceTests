@@ -1,0 +1,117 @@
+# Every mutant of the 'specialuse-server' block that survived every project,
+# classified against Hermod 3ec1d3ae — the revision the sweep measured.
+# Line numbers move; this file does not.
+# file	line	operator	kind	source	occurrence
+DNS/Server/AuthoritativeDNSRequestHandler.cs	105	false-to-true	noise-default	Boolean        RequireDNSCookies    = false,	0
+DNS/Server/DNSServer.cs	290	equality-to-inequality	branch	var portChosenBySystem = LocalSocket.Port.ToUInt16() == 0;	0
+DNS/Server/IDNSZoneStore.cs	88	false-to-true	noise-default	Boolean                         HoldsNamesBelow   = false)	0
+DNS/Server/SpecialUseZones.cs	90	true-to-false	noise-default	Boolean      AnswerLinkLocalNames   = true)	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	106	false-to-true	noise-default	Boolean        ServeLinkLocalNames  = false)	0
+DNS/Server/IDNSZoneStore.cs	138	false-to-true	branch	public static DNSZoneLookupResult NotAuthoritative(Boolean HoldsNamesBelow = false)	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	205	false-to-true	rejection	return false;	0
+DNS/Server/DNSServer.cs	318	logical-or-to-and	branch	catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressFamilyNotSupported ||	0
+DNS/Server/IDNSZoneStore.cs	194	false-to-true	noise-default	Boolean            DNSSECOK            = false,	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	254	logical-or-to-and	branch	if (Question.QueryType == DNSResourceRecordTypes.CNAME ||	0
+DNS/Server/DNSServer.cs	330	logical-and-to-or	branch	catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressAlreadyInUse &&	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	268	less-to-less-or-equal	boundary	for (var depth = 0; depth < MaxCanonicalNameChainLength; depth++)	0
+DNS/Server/DNSServer.cs	330	equality-to-inequality	branch	catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressAlreadyInUse &&	0
+DNS/Server/InMemoryDNSZone.cs	269	logical-and-to-or	branch	(!ResourceRecordType.HasValue || resourceRecord.Type  == ResourceRecordType.Value) &&	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	279	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	331	logical-and-to-or	branch	portChosenBySystem &&	0
+DNS/Server/InMemoryDNSZone.cs	269	logical-or-to-and	branch	(!ResourceRecordType.HasValue || resourceRecord.Type  == ResourceRecordType.Value) &&	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	305	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	332	less-to-less-or-equal	boundary	attempt < attempts)	0
+DNS/Server/InMemoryDNSZone.cs	269	equality-to-inequality	branch	(!ResourceRecordType.HasValue || resourceRecord.Type  == ResourceRecordType.Value) &&	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	359	logical-and-to-or	branch	Where   (kx => kx.UnparsedRData is null &&	0
+DNS/Server/DNSServer.cs	341	true-to-false	branch	retry = true;	0
+DNS/Server/InMemoryDNSZone.cs	270	logical-or-to-and	branch	(!QueryClass.        HasValue || resourceRecord.Class == QueryClass.        Value)	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	360	greater-to-ge	boundary	kx.Exchanger.FullName.TrimEnd('.').Length > 0).	0
+DNS/Server/InMemoryDNSZone.cs	270	equality-to-inequality	branch	(!QueryClass.        HasValue || resourceRecord.Class == QueryClass.        Value)	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	392	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	378	logical-and-to-or	branch	if (bound.Count < endPoints.Count && !portChosenBySystem)	0
+DNS/Server/InMemoryDNSZone.cs	273	equality-to-inequality	branch	if (existingRecords.Count == 0)	0
+DNS/Server/DNSServer.cs	378	less-to-less-or-equal	boundary	if (bound.Count < endPoints.Count && !portChosenBySystem)	0
+DNS/Server/InMemoryDNSZone.cs	495	logical-or-to-and	branch	if (signingKeys is null || !SignaturesExpireAt.HasValue)	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	516	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	428	false-to-true	branch	listener.Client.DualMode = false;	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	528	true-to-false	branch	specialUse   = true;	0
+DNS/Server/DNSServer.cs	458	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/InMemoryDNSZone.cs	499	greater-to-ge	boundary	SignaturesExpireAt.Value - DateTime.UtcNow > Before)	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	549	ge-to-greater	boundary	if (dname is null || redirection >= MaxRedirectionChainLength)	0
+DNS/Server/DNSServer.cs	460	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	615	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	466	false-to-true	host-only	await Task.WhenAll(loops).ConfigureAwait(false);	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	660	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	490	false-to-true	host-only	var dnsPacket = await udpUnicastListener.ReceiveAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Server/InMemoryDNSZone.cs	513	false-to-true	noise-region	#region Lookup(Question, DNSSECOK = false, CancellationToken = default)	0
+DNS/Server/DNSServer.cs	500	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/InMemoryDNSZone.cs	516	false-to-true	noise-default	Boolean            DNSSECOK            = false,	0
+DNS/Server/DNSServer.cs	532	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	546	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	548	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	551	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	559	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	569	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	571	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	596	false-to-true	branch	ExclusiveAddressUse = false	0
+DNS/Server/DNSServer.cs	598	true-to-false	branch	udpMulticastListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);	0
+DNS/Server/InMemoryDNSZone.cs	903	greater-to-ge	boundary	return Records.Length > 0;	0
+DNS/Server/DNSServer.cs	614	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/InMemoryDNSZone.cs	1130	le-to-less	boundary	for (var skip = 0; skip <= labels.Length; skip++)	0
+DNS/Server/DNSServer.cs	616	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	624	false-to-true	host-only	var dnsPacket   = await udpMulticastListener.ReceiveAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	634	true-to-false	branch	dnsRequest.ReceivedViaMulticast = true;	0
+DNS/Server/DNSServer.cs	644	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	646	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	649	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	658	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	668	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	670	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	723	false-to-true	branch	tcpListener.Server.DualMode = false;	0
+DNS/Server/DNSServer.cs	756	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	758	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	764	false-to-true	host-only	await Task.WhenAll(loops).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	793	false-to-true	host-only	var tcpClient = await tcpListener.AcceptTcpClientAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	806	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	865	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	919	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	921	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	928	false-to-true	host-only	var tcpClient = await tlsListener.AcceptTcpClientAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	941	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	990	false-to-true	branch	leaveInnerStreamOpen: false,	0
+DNS/Server/DNSServer.cs	993	false-to-true	host-only	await using var sslStreamScope = sslStream.ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1005	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1013	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1048	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1066	greater-to-ge	boundary	if (length > sharedBuffer.Length)	0
+DNS/Server/DNSServer.cs	1070	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1080	false-to-true	host-only	await Stream.WriteAsync(new Byte[] { (Byte) (tsigError.Length >> 8), (Byte) tsigError.Length }, CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1081	false-to-true	host-only	await Stream.WriteAsync(tsigError, CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1082	false-to-true	host-only	await Stream.FlushAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1103	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	1105	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1108	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1117	false-to-true	host-only	await Stream.WriteAsync(responseBytes, 0, responseBytes.Length, CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1118	false-to-true	host-only	await Stream.FlushAsync(CancellationToken).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1128	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	1130	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1155	greater-to-ge	boundary	if (Options.TCPReadTimeout > TimeSpan.Zero)	0
+DNS/Server/DNSServer.cs	1166	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1248	false-to-true	host-only	await dohServer.Start().ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1265	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	1267	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1334	false-to-true	host-only	await doh2Server.Start().ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1351	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	1353	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1393	equality-to-inequality	branch	Options.HTTPSUnicastSocket.Port == Options.HTTP2UnicastSocket.Port &&	0
+DNS/Server/DNSServer.cs	1394	inequality-to-equality	branch	Options.HTTPSUnicastSocket.Port != IPPort.Zero)	0
+DNS/Server/DNSServer.cs	1422	false-to-true	host-only	await StartHTTPSUnicastAsync(cancellationTokenSource.Token).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1425	false-to-true	host-only	await StartHTTP2UnicastAsync(cancellationTokenSource.Token).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1433	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	1435	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1456	false-to-true	host-only	).ConfigureAwait(false),	0
+DNS/Server/DNSServer.cs	1458	false-to-true	host-only	).ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1481	false-to-true	host-only	await httpsUnicastListener.DisposeAsync().ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1493	false-to-true	host-only	await http2UnicastListener.DisposeAsync().ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	1504	false-to-true	host-only	ConfigureAwait(false);	0
+DNS/Server/DNSServer.cs	297	false-to-true	unmeasured-timeout	var retry  = false;	0

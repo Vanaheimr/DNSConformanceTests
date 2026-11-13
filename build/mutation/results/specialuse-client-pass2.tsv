@@ -3,7 +3,7 @@ DNS/Client/NameResolution.cs	82	equality-to-inequality	SURVIVED-EVERYWHERE		0
 DNS/Client/SpecialUseNames.cs	132	ge-to-greater	SURVIVED-EVERYWHERE		0
 DNS/Client/DNSClient.cs	249	true-to-false	SURVIVED-EVERYWHERE		0
 DNS/Client/NameResolution.cs	85	true-to-false	KILLED-ELSEWHERE	Multicast: 2 of 220 failed	0
-DNS/Client/SpecialUseNames.cs	225	greater-to-ge	PARSE-ERROR	no summary line from Edns	0
+DNS/Client/SpecialUseNames.cs	225	greater-to-ge	KILLED-ELSEWHERE	Server: 1 of 229 failed, planted by hand: A_Name_Outside_Every_Served_Zone_Is_Refused("."). The sweep had no summary line from Edns	0
 DNS/Client/DNSClient.cs	281	true-to-false	SURVIVED-EVERYWHERE		0
 DNS/Client/NameResolution.cs	97	true-to-false	SURVIVED-EVERYWHERE		0
 DNS/Client/SpecialUseNames.cs	284	logical-or-to-and	KILLED-ELSEWHERE	Server: 1 of 228 failed	0
