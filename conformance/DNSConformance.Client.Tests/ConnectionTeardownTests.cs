@@ -31,6 +31,13 @@ namespace DNSConformance.Client.Tests;
 /// Every test here runs over TCP and over DoT, against a server that reads
 /// queries as they arrive and tells its connections apart.
 /// </para>
+/// <para>
+/// And over SSH, where what ends is a channel. The white paper "DNS over SSH",
+/// section 3.3: "a client re-sends the queries left unanswered on a closed
+/// channel over a new one" - so the connections counted here are channels of
+/// the subsystem, closed by the server with exit-status 0, EOF and CLOSE. That
+/// the SSH connection under them stays is DnsOverSshTests' to show.
+/// </para>
 /// </remarks>
 [TestFixture]
 [Property("RFC", "7766 §6.2.4")]

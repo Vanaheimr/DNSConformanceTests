@@ -199,12 +199,22 @@ public class ClientLifecycleTests
         await tcp.Query(DNSServiceName.Parse("twice.example."), [ DNSResourceRecordTypes.A ], Timeout);
         await tls.Query(DNSServiceName.Parse("twice.example."), [ DNSResourceRecordTypes.A ], Timeout);
 
+        // The third stream client: a channel and an SSH connection of its own
+        // to let go of, and the same two owners.
+        await using var sshServer = new ScriptedSshServer(OneAddress);
+
+        var ssh = sshServer.NewClient(Timeout);
+
+        await ssh.Query(DNSServiceName.Parse("twice.example."), [ DNSResourceRecordTypes.A ], Timeout);
+
         await tcp.DisposeAsync();
         await tls.DisposeAsync();
+        await ssh.DisposeAsync();
 
         Assert.Multiple(() => {
             Assert.That(async () => await tcp.DisposeAsync(), Throws.Nothing, "DNSTCPClient");
             Assert.That(async () => await tls.DisposeAsync(), Throws.Nothing, "DNSTLSClient");
+            Assert.That(async () => await ssh.DisposeAsync(), Throws.Nothing, "DNSSSHClient");
         });
 
     }
@@ -239,10 +249,24 @@ public class ClientLifecycleTests
         await tcp.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], Timeout);
         await tls.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], Timeout);
 
+        await using var sshServer = new ScriptedSshServer(OneAddress);
+
+        var ssh = sshServer.NewClient(Timeout);
+
+        await ssh.Query(DNSServiceName.Parse("before.example."), [ DNSResourceRecordTypes.A ], Timeout);
+
         await tcp.DisposeAsync();
         await tls.DisposeAsync();
+        await ssh.DisposeAsync();
 
         Assert.Multiple(() => {
+
+            Assert.That(async () => await ssh.Query(DNSServiceName.Parse("after.example."), [ DNSResourceRecordTypes.A ], Timeout),
+                        Throws.InstanceOf<ObjectDisposedException>(), "DNSSSHClient refuses the query");
+
+            Assert.That(sshServer.Requests.Count,     Is.EqualTo(1), "and nothing more reached the SSH server's subsystem");
+            Assert.That(sshServer.ChannelsOpened,     Is.EqualTo(1), "on no further channel");
+            Assert.That(sshServer.ConnectionCount,    Is.EqualTo(1), "of no further connection");
 
             Assert.That(async () => await tcp.Query(DNSServiceName.Parse("after.example."), [ DNSResourceRecordTypes.A ], Timeout),
                         Throws.InstanceOf<ObjectDisposedException>(), "DNSTCPClient refuses the query");

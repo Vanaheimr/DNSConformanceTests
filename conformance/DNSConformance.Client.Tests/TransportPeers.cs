@@ -10,13 +10,13 @@ using DNSConformance.Core.Scripted;
 namespace DNSConformance.Client.Tests;
 
 /// <summary>
-/// One client per transport, for the tests that ask the same thing of all four.
+/// One client per transport, for the tests that ask the same thing of all five.
 /// </summary>
 internal static class TransportPeers
 {
 
-    /// <summary>The four transports, by the names the test cases carry.</summary>
-    public static readonly String[] Transports = [ "UDP", "TCP", "DoT", "DoH" ];
+    /// <summary>The five transports, by the names the test cases carry.</summary>
+    public static readonly String[] Transports = [ "UDP", "TCP", "DoT", "DoH", "SSH" ];
 
 
     /// <summary>
@@ -79,6 +79,20 @@ internal static class TransportPeers
 
             }
 
+            case "SSH":
+            {
+
+                // The subsystem "dns@open.charging.cloud" of the white paper "DNS
+                // over SSH", read and never answered. The query is on the wire
+                // once the connection is made, the login accepted and the channel
+                // opened, all of which the deadline pays for.
+                var server = new ScriptedSshServer(_ => (Byte[]?) null);
+                return new SilentPeer(server,
+                                      server.NewClient(QueryTimeout),
+                                      () => server.Requests.Count);
+
+            }
+
             default:
                 throw new ArgumentException($"No such transport: {Transport}", nameof(Transport));
 
@@ -109,6 +123,8 @@ internal static class TransportPeers
 
                "DoH"  => new DNSHTTPSClient(URL.Parse($"http://127.0.0.1:{ClosedTcpPort()}/dns-query"),
                                             QueryTimeout: QueryTimeout),
+
+               "SSH"  => ScriptedSshServer.NewClient(ClosedTcpPort(), QueryTimeout),
 
                _      => throw new ArgumentException($"No such transport: {Transport}", nameof(Transport))
 
