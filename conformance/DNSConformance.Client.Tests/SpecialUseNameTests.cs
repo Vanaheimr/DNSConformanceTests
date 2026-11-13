@@ -379,6 +379,9 @@ public class SpecialUseNameTests
     [TestCase("4.3.254.169.in-addr.arpa.",   DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of 4.3.254.169.in-addr.arpa.")]
     [TestCase("1.8.e.f.ip6.arpa.",           DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of 1.8.e.f.ip6.arpa.")]
     [TestCase("F.B.E.F.IP6.ARPA.",           DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of F.B.E.F.IP6.ARPA., in another case")]
+    [TestCase("254.169.in-addr.arpa.",       DNSResourceRecordTypes.SOA,  TestName = "{m}: SOA of 254.169.in-addr.arpa., the domain itself")]
+    [TestCase("8.e.f.ip6.arpa.",             DNSResourceRecordTypes.SOA,  TestName = "{m}: SOA of 8.e.f.ip6.arpa., the domain itself")]
+    [TestCase("B.E.F.IP6.ARPA.",             DNSResourceRecordTypes.NS,   TestName = "{m}: NS of B.E.F.IP6.ARPA., the domain itself, in another case")]
     public async Task A_Link_Local_Name_Is_Not_Sent_To_A_Unicast_Server(String                  Name,
                                                                         DNSResourceRecordTypes  Type)
     {
