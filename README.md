@@ -17,7 +17,7 @@ be pointed at any Hermod revision and acts as an unbiased referee.
 - **[FINDINGS.md](FINDINGS.md)** — the record of what this suite caught, and the
   RFC ambiguities it had to rule on
 
-**Current verified status on Windows (2026-10-28): 1639 ✅ · 0 ❌ · 4 skips** — the
+**Current verified status on Windows (2026-11-13): 2356 ✅ · 0 ❌ · 4 skips** — the
 four are platform-specific: Windows CNG refuses RSA public exponents of 255
 octets and more, so RFC 3110's long exponent form is covered by the Linux leg.
 The thirty-three tests that need container images ran this time. `cznic/knot`,
@@ -31,7 +31,10 @@ doing. That daemon does not start by itself (see
 thirty-three skip and say so.
 
 Nothing is excluded from that figure, and it has no red tracker tests: when it was
-measured there was no open finding for one to track. Findings 64 to 66 were opened and
+measured there was no open finding for one to track. The full run before it was
+that of 2026-10-28, at 925c80d5 on .NET 10: 1639 ✅ · 0 ❌ · 4 skips. What follows
+is how the suite got from there to here, in the order it happened, and every
+test it names is in today's figure. Findings 64 to 66 were opened and
 closed on the same day: their four tracker cases were red at 360c8e28
 (1587 ✅ otherwise). So was finding 67, whose fix Vanaheimr/Hermod#148 was
 written in parallel with its tracker: its four cases — the tracker in two, and two
@@ -48,10 +51,10 @@ correct: their eight cases were red at the previous pin (b64479e9, DNSSEC 342 �
 4 skips and client 156 ✅ otherwise). So were findings 76 and 77, a root zone
 signed with NSEC3, which the second DNSSEC mutation round found on 2026-10-28 and
 Vanaheimr/Hermod#162 fixed: their five trackers were red at bbbf88b6 (DNSSEC
-370 ✅ · 5 ❌ · 4 skips otherwise) and pass from 925c80d5 on. All of them are among
-the 1639 now, and so are the tests of that round. Of the 1643 tests, 1512 are the
-offline suite as `ci.yml` runs it — every project, with the Online, WSL, Docker
-and Multicast categories left out — which is 1508 ✅ · 0 ❌ · 4 skips.
+370 ✅ · 5 ❌ · 4 skips otherwise) and pass from 925c80d5 on. All of them were among
+the 1639 of 2026-10-28, and so were the tests of that round. Of its 1643 tests,
+1512 were the offline suite as `ci.yml` runs it — every project, with the Online,
+WSL, Docker and Multicast categories left out — which was 1508 ✅ · 0 ❌ · 4 skips.
 
 The Multicast DNS querier tests came after that run: 66 cases for the client and
 the browser, nine of them the trackers of findings 78 to 85, red at 925c80d5 and
@@ -392,10 +395,29 @@ with a 10.0 SDK that cannot target net11.0, and the pins moved with the target:
 Hermod 3ec1d3ae, Styx a6b9f9fb. No count changed with it. On .NET 11 at 3ec1d3ae
 the offline suite is 2206 ✅ · 0 ❌ · 4 skips.
 
-That full run exercised all twelve test projects and every category, including
-the public resolvers, WSL tools, Docker servers and native multicast DNS-SD. The
-four skips are the RSA public-key exponent cases that Windows CNG cannot import;
-the Linux CI leg covers them.
+The full run of 2026-11-13 is that state measured whole: b9fc047, Hermod
+3ec1d3ae, SDK 11.0.100, all twelve test projects and every category, with no
+filter. 2360 tests, 2356 ✅ · 0 ❌ · 4 skips. The offline suite is 2210 of them;
+the other 150 need something outside the process: 23 the public resolvers, 77
+the tools and servers in WSL, 33 of those a container image as well, 19 a
+multicast socket on a real interface, and a few more than one of these. The four
+skips are the RSA public-key exponent cases that Windows CNG cannot import; the
+Linux CI leg covers them.
+
+Two things about that run are worth knowing before the next one. The first run
+of a test host that Windows has not seen listening before skips whatever a tool
+in WSL has to reach on the Windows side: the firewall's allow rules name the path
+of each `testhost.exe`, every such path changed from `net10.0` to `net11.0`, and
+the rule for a new one appears only after it has listened once. The first
+LinuxTools run on .NET 11 was 30 ✅ and 32 skips for that reason, and the second
+62 ✅. One rule on the interface that faces WSL, instead of one per path, would
+end that. And the two RFC
+6762 §11 tests that send from WSL as a second host were red in the first full
+run, with nothing wrong in Hermod: their raw sender is a Python script written to
+the Windows temp folder, Python looks for its imports in the script's folder
+first, and across the 9p bridge that lookup took 17 to 60 seconds in a folder of
+a quarter of a million entries, against a limit of 30. The sender now runs with
+`python3 -I`, which leaves that folder off the module path, and takes a second.
 
 The suite has found 112 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
@@ -703,7 +725,7 @@ the feature, the entry moves up a list — none of these are refusals on princip
 | **6147** DNS64, RPZ, filtering | Not features Hermod has, and not ones it is trying to have. |
 | **7626**, **9076** privacy considerations | Informational — no testable requirement to assert. |
 | **7671**/**7672**/**7673** DANE usage | The suite asserts the TLSA/SMIMEA *record*. What a mail or web client does with it is above the DNS layer. |
-| **9250** DoQ, DNS over HTTP/3 | No QUIC in Hermod at all. |
+| **9250** DoQ, DNS over HTTP/3 | Hermod has QUIC and HTTP/3 (since July 2026), and its DNS stack uses neither: no DoQ client or listener, a DoH server over HTTP/1.1 and HTTP/2, a DoH client over HTTP/1.1. The transport is there; DNS over it is not. |
 
 ## Projects
 

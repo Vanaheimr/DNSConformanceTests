@@ -50,10 +50,12 @@ unbiased referee, and be run against any Hermod revision.
 
 ### Deviations found, and their fate
 
-The suite has confirmed fifty-seven deviations so far, and all of them are now
-fixed in Hermod. They are not restated here — [FINDINGS.md](FINDINGS.md) is the
+Every deviation the suite has confirmed is fixed in Hermod. They are not restated
+here, and neither is how many there are — [FINDINGS.md](FINDINGS.md) is the
 single record, with chapter and verse, the mechanism, the change, and the test
-that pins each one. The summary table at the top of that file is the fastest way in.
+that pins each one, and its first line keeps the count. This paragraph used to
+keep it too, and still said fifty-seven when that line said a hundred and twelve. The
+summary table at the top of that file is the fastest way in.
 
 **The escape asymmetry is answered.** This plan used to record that RFC 1035 §5.1's
 own example of an escape is `\.` placing a dot inside a label, while `DomainName`
@@ -150,8 +152,8 @@ Focus column = what the suite asserts. Status legend:
 | ⬜ | planned, not implemented yet |
 | 📋 | tested, but reported as an observation rather than asserted (SHOULD-level or genuinely ambiguous) |
 
-Counts as of the full 2026-09-15 Windows run: **1072 tests, 1068 ✅, 0 ❌, 4
-skipped**. All twelve test projects and every category ran, including the public
+Counts as of the full 2026-11-13 Windows run, on .NET 11 at Hermod 3ec1d3ae:
+**2360 tests, 2356 ✅, 0 ❌, 4 skipped**. All twelve test projects and every category ran, including the public
 resolvers, WSL tools, Docker servers and native multicast DNS-SD. The four skips
 are RSA public-key exponent cases that Windows CNG cannot import; the Linux CI
 leg covers them. Every deviation the suite has found is fixed; see
@@ -463,7 +465,7 @@ side of the connection.
 | 2931 | SIG(0): the §3 record shape, the §3.1 signed data for both the request and the transaction form, ARCOUNT taken before the record was appended, tampering and foreign keys and the validity window all rejected | ✅ |
 | 3110 §2, 6605 §4 | public key encodings: RSA's length-prefixed exponent then modulus — **both** forms, the one octet for 1..255 and the zero octet plus two-octet length beyond, with 255 itself pinned as the last short one; no leading zero octet in either field; ECDSA's bare curve point with no 0x04 marker | ✅ |
 
-### 4.8 Multicast DNS (`DNSConformance.Multicast.Tests`) — 4 ✅
+### 4.8 Multicast DNS (`DNSConformance.Multicast.Tests`) — 220 ✅
 
 | Focus | Status |
 |-------|:--:|
@@ -496,7 +498,7 @@ side of the connection.
 | live root DNSKEY contains the IANA KSK; live RRSIG validates | ✅ |
 | deliberately bogus zone (dnssec-failed.org) does not resolve | ✅ |
 
-**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 39 ✅
+**`DNSInterop.LinuxTools.Tests`** (category `WSL`) — 62 ✅
 Hermod's `DNSServer` bound to all interfaces, interrogated from WSL:
 
 | Focus | Status |

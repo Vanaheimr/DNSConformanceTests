@@ -20,7 +20,7 @@ round; naming it twice only guarantees one of the two goes stale.
 
 ---
 
-## Seven blocks, six measured
+## Seven blocks, all measured
 
 The DNS code lives in seven folders and the sweep started with one of them. That
 was not a judgement about the others — it was where the work began, and saying so
