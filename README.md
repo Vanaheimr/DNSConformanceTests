@@ -436,6 +436,20 @@ all killed. With them the Client project is 359 ✅ · 0 ❌, and the offline su
 resolvers, the containers and the multicast tests were last measured at
 3ec1d3ae.
 
+Then the first mutation sweep on .NET 11: the eight files that findings 101 to
+109 and 112 changed for the special-use names, in two slices at 3ec1d3ae
+(MUTATION.md, *The result: the special-use names of findings 101 to 109*). It
+found `NameResolution` untested, as the client block had, and 28 cases now ask
+it and `SpecialUseNames` what no test did: an address as itself with a URL's
+brackets and zone, "localhost" without a DNS client, a host name asked with
+recursion desired, the handler that connects only to an allowed address, the
+link-local reverse domains themselves, and the header bits of an answer the
+client makes itself. One case asks the server's multicast listener for a .local
+name, which the zone answers there while the unicast listener says NXDOMAIN
+(RFC 6762 §22.1 item 5). No finding came of it. With them the Client project is
+387 ✅ · 0 ❌, the Server project 229 ✅ · 0 ❌, and the offline suite
+2276 ✅ · 0 ❌ · 4 skips.
+
 The suite has found 112 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.

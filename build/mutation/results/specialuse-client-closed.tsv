@@ -1,0 +1,20 @@
+# Gaps of the 'specialuse-client' block that are no longer gaps, keyed to the same
+# revision as the verdicts.
+# 'killed' means a mutation taken from this sweep's output now fails a test.
+# 'equivalent' means the mutation is real and the program is the same either way.
+# 'superseded' means the line the verdict belongs to was replaced by a fix.
+# file	line	operator	state	round	why	occurrence
+DNS/Client/SpecialUseNames.cs	132	ge-to-greater	killed	special-use-names-asked-directly		0
+DNS/Client/NameResolution.cs	97	true-to-false	killed	localhost6		0
+DNS/Client/DNSClient.cs	468	logical-or-to-and	equivalent		DomainName.IsNullOrEmpty() || DNSInformation is null, the guard on AddToCache. The four call sites (908, 937, 952, 1145) were read again: the name is either the query name, which the guard at the top of Query has already proved non-empty, or a parsed record's owner name, which is never null and is '.' at its shortest; and the response is non-null at each site by the condition that leads there. Both operands are false wherever this runs, so || and && do the same nothing	0
+DNS/Client/SpecialUseNames.cs	364	true-to-false	killed	special-use-names-asked-directly		0
+DNS/Client/DNSClient.cs	851	greater-to-ge	equivalent		EDNSOptions.Count > 0 ? EDNSOptions : null, building the query DNSClient hands on. [] and null make the same OPT record - OPT's constructor does `Options ?? []` (OPT.cs 183), and the record exists because UDPPayloadSize > 0 (DNSPacket 381), not because the list is non-null. Beyond that this query's options never reach the wire: QueryDNSServerAsync assigns effectiveQuery (1468), rebuilds it with the per-server cookie (1494) and never reads it again, and the transport takes the options from its own EDNSOptions	0
+DNS/Client/SpecialUseNames.cs	469	true-to-false	killed	special-use-names-asked-directly		0
+DNS/Client/SpecialUseNames.cs	470	false-to-true	killed	special-use-names-asked-directly		0
+DNS/Client/DNSClient.cs	926	greater-to-ge	equivalent		nsecRecords.Count > 0, feeding the RFC 8198 denial cache. The block is guarded by firstResponse?.DNSSECStatus == DNSSECValidationResult.Secure, and DNSSECStatus is assigned nowhere in Hermod/DNS - it is a settable property the caller fills in after the fact, and the object read here was created inside this call. The comment above it says so: the path 'stays dormant. It is meant to'. Dead by design, so the mutant cannot be reached	0
+DNS/Client/SpecialUseNames.cs	472	false-to-true	killed	special-use-names-asked-directly		0
+DNS/Client/DNSClient.cs	1032	greater-to-ge	killed	a-race-that-does-not-end		0
+DNS/Client/SpecialUseNames.cs	477	true-to-false	killed	special-use-names-asked-directly		0
+DNS/Client/SpecialUseNames.cs	478	false-to-true	killed	special-use-names-asked-directly		0
+DNS/Client/DNSClient.cs	1609	false-to-true	equivalent		the `false` handed to transportClient.Query as its ForceUpdate. Grepped across the client folder at d906af2d: DNSClient.cs:682 is the only line that reads ForceUpdate. The transports declare the parameter and forward it, and none of them acts on it - they have no cache to bypass	0
+DNS/Client/DNSClient.cs	1882	true-to-false	equivalent		disposedValue = true, the flag that makes Dispose idempotent. The body it guards already is: DNSCache.Dispose() is `cleanUpTimer.Dispose()` and a Timer tolerates being disposed twice, and transportClients is cleared on the first pass, so the second finds nothing. A second Dispose with the flag never set does the same nothing the flag prevents	0

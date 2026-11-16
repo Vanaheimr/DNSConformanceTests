@@ -1,0 +1,135 @@
+DNS/Server/AuthoritativeDNSRequestHandler.cs	105	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	290	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Server/IDNSZoneStore.cs	88	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	135	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 415 failed	0
+DNS/Server/SpecialUseZones.cs	90	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	106	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	297	false-to-true	TIMED-OUT	Dnssec was still running after 120 s	0
+DNS/Server/IDNSZoneStore.cs	138	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	135	true-to-false	KILLED-ELSEWHERE	Dnssec: 2 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	205	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	318	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Server/IDNSZoneStore.cs	194	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	177	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 5 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	254	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	330	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	178	inequality-to-equality	KILLED-ELSEWHERE	Dnssec: 4 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	268	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	330	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	269	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	279	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	331	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	269	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	305	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	332	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	269	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	359	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	341	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	270	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	360	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	374	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s	0
+DNS/Server/InMemoryDNSZone.cs	270	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	392	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	378	logical-and-to-or	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	273	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	415	inequality-to-equality	KILLED-ELSEWHERE	Dnssec: 27 of 415 failed	0
+DNS/Server/DNSServer.cs	378	less-to-less-or-equal	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	495	logical-or-to-and	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	453	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 27 of 415 failed	0
+DNS/Server/DNSServer.cs	427	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s	0
+DNS/Server/InMemoryDNSZone.cs	496	false-to-true	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	516	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	428	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	498	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 2 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	528	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	458	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	499	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	549	ge-to-greater	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	460	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	501	false-to-true	KILLED-ELSEWHERE	Dnssec: 2 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	615	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	466	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	506	true-to-false	KILLED-ELSEWHERE	Dnssec: 2 of 415 failed	0
+DNS/Server/AuthoritativeDNSRequestHandler.cs	660	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	490	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	513	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	500	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	516	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	532	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	681	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	546	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	693	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	548	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	706	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	551	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	727	logical-and-to-or	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	559	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	760	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 2 of 415 failed	0
+DNS/Server/DNSServer.cs	569	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	762	greater-to-ge	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	571	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	763	true-to-false	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	596	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	886	equality-to-inequality	KILLED-ELSEWHERE	Dnssec: 1 of 415 failed	0
+DNS/Server/DNSServer.cs	598	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	903	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	614	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/InMemoryDNSZone.cs	1130	le-to-less	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	616	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	624	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	634	true-to-false	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	644	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	646	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	649	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	658	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	668	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	670	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	722	equality-to-inequality	TIMED-OUT	Dnssec was still running after 120 s	0
+DNS/Server/DNSServer.cs	723	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	756	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	758	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	764	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	793	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	806	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	865	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	919	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	921	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	928	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	941	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	990	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	993	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1005	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1013	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1048	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1066	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1070	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1080	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1081	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1082	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1103	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1105	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1108	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1117	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1118	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1128	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1130	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1155	greater-to-ge	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1166	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1248	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1265	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1267	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1334	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1351	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1353	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1391	logical-and-to-or	KILLED-ELSEWHERE	SecureTransports: 1 of 167 failed	0
+DNS/Server/DNSServer.cs	1393	equality-to-inequality	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1394	inequality-to-equality	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1422	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1425	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1433	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1435	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1456	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1458	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1481	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1493	false-to-true	SURVIVED-EVERYWHERE		0
+DNS/Server/DNSServer.cs	1504	false-to-true	SURVIVED-EVERYWHERE		0

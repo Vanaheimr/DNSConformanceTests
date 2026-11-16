@@ -39,8 +39,10 @@ test project that exercises each:
 | `svcparam` | `SVCB.cs`, `HTTPS.cs` and `SVCParameterPresentation.cs` in `DNS/ResourceRecords` | ResourceRecords | 131 | a slice, measured twice, **1 open**, 3 that never finish |
 | `streams` | `DNSTCPClient.cs`, `DNSTLSClient.cs`, `DNSStreamPipeline.cs` and `DNSKeepalivePolicy.cs` in `DNS/Client` | Client | 168 | a slice, measured three times, **9 open** |
 | `presentation` | `ADNSResourceRecord.cs`, `RRSIG.cs`, `SPF.cs`, `TXT.cs` and `URI.cs` in `DNS/ResourceRecords` | ResourceRecords | 190 | a slice, measured once, **closed**, 5 that never finish |
+| `specialuse-client` | `SpecialUseNames.cs`, `NameResolution.cs` and `DNSClient.cs` in `DNS/Client` | Client | 229 | a slice, measured once on .NET 11, **4 open** |
+| `specialuse-server` | `SpecialUseZones.cs`, `AuthoritativeDNSRequestHandler.cs`, `InMemoryDNSZone.cs`, `IDNSZoneStore.cs` and `DNSServer.cs` in `DNS/Server` | Server | 276 | a slice, measured once on .NET 11, **24 open**, 22 of them the `server` block's, 1 never measured |
 
-The last three rows are not blocks. They are the files a fix rewrote after its
+The last five rows are not blocks. They are the files a fix rewrote after its
 block had been measured, swept again at the fix's revision with the block's
 judge, and given ledgers of their own: findings 88 and 89 rewrote the SvcParam
 presentation, and finding 87 the TCP and TLS clients' queries. Findings 90 to
@@ -48,8 +50,12 @@ presentation, and finding 87 the TCP and TLS clients' queries. Findings 90 to
 Vanaheimr/Hermod#219 changed the stream clients a third time, and the `streams`
 slice was swept again at its revision. Findings 98 to 100 changed five files of
 the `records` block after its second measurement, and the `presentation` slice
-measured them at the fixes' revision. The counts in the table are each slice's
-latest measurement. See *The result: the presentation readers of findings 98 to
+measured them at the fixes' revision. Findings 101 to 109 brought the special-use
+names to the client and the server after both blocks had been measured, and the
+two `specialuse` slices measured the eight files at `3ec1d3ae`, the first sweep
+on .NET 11. The counts in the table are each slice's
+latest measurement. See *The result: the special-use names of findings 101 to
+109*, *The result: the presentation readers of findings 98 to
 100*, *The result: the stream clients after #219*, *The result: both slices
 again, after findings 90 to 92*, and before them *The result: the stream
 clients, measured* and *The result: the SvcParam presentation, measured again*.
@@ -163,6 +169,8 @@ neither.
 | `client` | 77 | **27** | 64 |
 | `streams` | 26 | **9** | 43 |
 | `multicast` | 236 | **54** | 83 |
+| `specialuse-client` | 18 | **4** | 15 |
+| `specialuse-server` | 37 | **24** | 68 |
 
 The DNSSEC block had been carrying **nine** open lines for months. Eight were
 these. What was actually left there was one: the depth limit of the chain walk,
@@ -640,6 +648,226 @@ and `NameResolution.cs`'s fourteen go with them.
 `d906af2d`, and its line numbers are that revision's. Its rounds, its
 equivalents and its account of the stack overflow stand. Its 13 open rows are
 the 13 of *Where the 27 are* that lie outside `NameResolution.cs`.
+
+
+## The result: the special-use names of findings 101 to 109
+
+Hermod `56f2c957` to `88540b71` fixed findings 101 to 109 after the `client`
+and the `server` block had been measured, and the code they brought had not
+been swept:
+- `SpecialUseNames.cs`, the names of RFC 6761, RFC 7686, RFC 6762 §22.1 and
+  RFC 8880 §7.2 and the answers a client makes for them itself;
+- `SpecialUseZones.cs`, the answers an authoritative server gives for them;
+- the places that consult the two: `DNSClient.cs`, `NameResolution.cs`,
+  `AuthoritativeDNSRequestHandler.cs`, `InMemoryDNSZone.cs`,
+  `IDNSZoneStore.cs` and the multicast listener of `DNSServer.cs`.
+
+`NameResolution.cs` was a gap of its own before that: the client block's third
+measurement found it called by no test. Finding 112 then added the KX
+additional section processing to the handler.
+
+Two slices measure these eight files, `specialuse-client` with the Client
+project as its judge and `specialuse-server` with the Server project, both at
+`3ec1d3ae` on .NET 11 and with the same two passes as a block. The `client`
+ledger stays keyed to `cf1e9954` and the `server` ledger to `38f6a355`, and
+their rows on these files are true of the code they were measured on.
+
+| | `specialuse-client` | `specialuse-server` |
+|---|---:|---:|
+| mutants | 229 | 276 |
+| not viable (would not compile) | 40 | 43 |
+| killed by the judge, pass 1 | 132 | 101 |
+| no verdict in pass 1 | 2 | 4 |
+| killed by another project | 12 | 19 |
+| survived everywhere | 45 | 112 |
+| no verdict at all | 0 | 1 |
+| not really code | 12 | 7 |
+| host-only (`ConfigureAwait`) | 15 | 68 |
+| real gaps | **18** | **37** |
+| killed by a test written for them | 9 | 1 |
+| equivalent | 5 | 12 |
+| open | **4** | **24** |
+
+By file:
+
+| file | mutants |
+|---|---:|
+| `DNSClient.cs` | 136 |
+| `SpecialUseNames.cs` | 67 |
+| `NameResolution.cs` | 26 |
+| `DNSServer.cs` | 116 |
+| `InMemoryDNSZone.cs` | 71 |
+| `AuthoritativeDNSRequestHandler.cs` | 70 |
+| `IDNSZoneStore.cs` | 13 |
+| `SpecialUseZones.cs` | 6 |
+
+`SpecialUseZones.cs` loses five of its six in pass 1, and the sixth is a
+parameter default. The 24 open rows of the server slice are not what the
+special-use names brought: 22 of them are open in the `server` block as well,
+on the same code, and are counted there.
+
+### Measured twice, and what the tests between changed
+
+The client slice had a first pass 1 at `88540b71` on .NET 10, on 2026-11-10,
+before `NameResolutionTests` existed. A Visual Studio update replaced the SDK
+under the running sweep, pass 2 stopped after 10 of 68 rows, and the suite then
+moved to .NET 11. The files of that run are in
+`results/specialuse-client-88540b71/`. The three client files did not change
+between `88540b71` and `3ec1d3ae`, so the two runs measure the same lines:
+
+| pass 1 | `88540b71`, .NET 10 | `3ec1d3ae`, .NET 11 |
+|---|---:|---:|
+| killed | 121 | 132 |
+| survived | 66 | 55 |
+| no verdict | 2 | 2 |
+
+Eleven rows changed, all from survived to killed, and no row changed the other
+way. Nine are lines of `NameResolution.cs` that `NameResolutionTests` reaches:
+an address as itself, the brackets and the zone of a URL, "localhost", a host
+name asked with recursion desired, and the handler that connects only to an
+address it was allowed. Two are the `>=` of the link-local reverse domains in
+`SpecialUseNames.cs` (245 and 254), which the three rows for the domains
+themselves kill: every row before them asked a name below one.
+
+The move to .NET 11 changed no verdict on its own.
+
+### Five rows without a verdict, and one with the wrong one
+
+A mutant gets ten times the clean run. Five rows of the two slices ended
+without a verdict, and all five were planted again by hand:
+
+- `SpecialUseNames.cs:225`, `Name.Labels.Count > 0` read as `>= 0`, survived
+  the Client project, and in pass 2 the Edns project printed no summary line.
+  Planted by hand, the Server project fails 1 of 229:
+  `A_Name_Outside_Every_Served_Zone_Is_Refused(".")`, where the root has no
+  last label to read.
+- `DNSServer.cs:374`, `427` and `722` make every bind throw. The fixture
+  retries each server, so the Server project does not go red within the 165 s
+  a mutant gets. `ServerWildcardTests` run on its own fails 12 of 12 after
+  127 s, for each of the three. The `server` block recorded the same three the
+  same way at `38f6a355`.
+- `DNSServer.cs:297`, `var retry = false` read as `true`, starts the bind loop
+  with its retry flag set. It did not finish at `38f6a355` either, and it is
+  the one row of the two slices that has no verdict.
+
+`DNSClient.cs:690` crashes the Client project's host with a stack overflow, as
+it did on its old line at `cf1e9954`, and SecureTransports kills it in pass 2.
+
+One row had a verdict and the wrong one. Pass 2 recorded
+`NameResolution.cs:85` as killed by the Multicast project, 2 of 220, while the
+condition two lines above it survived every project, and the two guard the same
+branch. Planted by hand twice, the Multicast project passes 220 of 220 both
+times. Other sessions were building on the machine during the sweep, and the
+two failures were theirs. The row is open, and the file as measured is beside
+the corrected one.
+
+That made every kill of pass 2 that rested on a single test doubtful. There
+are twelve in the two slices, and each was planted again by hand and run
+against the project that had killed it. All twelve fail the one test again:
+three in `SpecialUseNames.cs` against the Server project, eight in
+`InMemoryDNSZone.cs` against Dnssec, and `DNSServer.cs:1391` against
+SecureTransports.
+
+### What the client slice left
+
+Eighteen real gaps.
+
+**Nine are closed by tests.** Seven are `SpecialUseNames` asked directly:
+
+- `IsIPv4OnlyReverse` has no caller in Hermod, so nothing said whether the two
+  reverse names themselves are ones (132).
+  `SpecialUseNames_Knows_The_Ipv4only_Reverse_Names` asks it the name, a name
+  below, one beside and one above.
+- The overload of `TryAnswer` that takes no opinion on link-local names has no
+  caller either: `DNSClient` hands its own option to the other. With its `true`
+  read as `false` it leaves a .local name to the servers (364).
+  `SpecialUseNames_Answers_A_Link_Local_Name_Unless_Told_Not_To` asks both
+  overloads, the second as the control.
+- The header bits of an answer made here (469 to 478): valid, no timeout,
+  authoritative, not truncated, no recursion offered.
+  `An_Answer_Made_Here_Says_That_Nothing_Was_Sent` asserts the five on an
+  NXDOMAIN, an address and a PTR.
+
+The eighth is "localhost6", which `NameResolution` takes for `::1`
+(`NameResolution.cs:97`). No RFC says so, and it is no name below "localhost.",
+so nothing else catches it.
+`Localhost6_Is_The_IPv6_Loopback_Address_Without_A_DNS_Client` says what
+Hermod does with it. The ninth is the client block's race on its new line
+(1032), killed by not ending.
+
+Each of the eight mutants was planted again and fails the test written for
+it, and no other.
+
+**Five are equivalent**: the client block's five in `DNSClient.cs`, on their
+new lines. They were read again against `88540b71` when the fixes landed.
+
+**Four are open.**
+
+- `NameResolution.cs:82` and `85`, the family check and the `return true` of
+  the branch that hands a text with a colon to .NET's parser after Hermod's own
+  has refused it. `2001:db8::1`, `::ffff:192.0.2.1`, `fe80::1%14` and
+  `fe80::1%014` were tried, with brackets and without, and Hermod's parser
+  takes every one of them. No text was found that reaches the branch, and
+  without one it cannot be called dead either.
+- `NameResolution.cs:252`, `NoDelay = true` on the socket the HTTP handler
+  connects. It changes when segments leave, and no test of what arrives sees
+  it.
+- `DNSClient.cs:364`, the `OperationalStatus.Up` filter on the host's network
+  interfaces, open in the `client` block as well.
+
+### What the server slice left
+
+Thirty-seven real gaps.
+
+**One is closed by a test.** RFC 6762 §22.1 item 5 is about the unicast queries
+an authoritative server receives: by default it answers a .local name
+NXDOMAIN. What arrives on the server's multicast listener is the other
+question, and `DNSServer.cs:634` marks the request so that the zone answers
+it. Read as `false`, that listener answers NXDOMAIN like the unicast one, and
+no test asked the multicast listener anything.
+`A_Link_Local_Name_Asked_On_The_Multicast_Listener_Is_Answered_From_The_Zone`
+starts one server in its default configuration with a record at
+`printer.local.` and asks both listeners. The multicast one answers with the
+record, and the unicast one, the control, with NXDOMAIN.
+
+**Twelve are equivalent.** Nine are the server block's on their new lines.
+Three are new:
+
+- `AuthoritativeDNSRequestHandler.cs:528`, `specialUse = true` after a
+  NotAuthoritative answer was replaced by the negative one. The flag keeps
+  `FollowCanonicalNames` from running, and run anyway that method asks the
+  store for a CNAME at a name the store has just called NotAuthoritative, and
+  returns.
+- `IDNSZoneStore.cs:138`, the default of `NotAuthoritative`'s parameter. Its
+  one caller names the argument.
+- `InMemoryDNSZone.cs:1130`, the last round of the loop that collects every
+  owner name and everything above it. It adds the root, and the set is read
+  only for test names and private-address reverse names.
+
+**Twenty-four are open**, and 22 of them are the `server` block's:
+
+| file | lines | what |
+|---|---|---|
+| `DNSServer.cs` | 290, 318, 330 (two), 331, 332, 341 | the bind retry |
+| `DNSServer.cs` | 596, 598 | the multicast listener's socket options |
+| `DNSServer.cs` | 990, 1155, 1393, 1394 | the TLS stream's ownership, the read timeout, the DoH port check |
+| `InMemoryDNSZone.cs` | 269 (three), 270 (two), 273 | `Remove` |
+| `InMemoryDNSZone.cs` | 499 | the signature refresh |
+| `AuthoritativeDNSRequestHandler.cs` | 268, 549 | the two chain limits |
+
+The two that are new are `AuthoritativeDNSRequestHandler.cs:359` and `360`,
+in the KX additional section processing of finding 112. Both mutants look up
+the addresses of an exchanger that is the root, which the original leaves out.
+A zone of the root with a KX that names the root and an address at the root
+would tell them apart. RFC 2230 §3.1 asks for the addresses "for the host
+specified by EXCHANGER" and does not say what a root exchanger is, so a test
+would pin a choice of Hermod's and no rule. They are left open.
+
+### What these slices do not measure
+
+Both are keyed to `3ec1d3ae`. Hermod `c5240c06`, the suite's pin since DNS over
+SSH, added code to `DNSClient.cs` and `DNSServer.cs`, and that code is in no
+measurement. The other six files are unchanged there.
 
 
 ## The result: the presentation readers of findings 98 to 100

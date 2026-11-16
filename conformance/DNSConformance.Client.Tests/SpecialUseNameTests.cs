@@ -379,6 +379,9 @@ public class SpecialUseNameTests
     [TestCase("4.3.254.169.in-addr.arpa.",   DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of 4.3.254.169.in-addr.arpa.")]
     [TestCase("1.8.e.f.ip6.arpa.",           DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of 1.8.e.f.ip6.arpa.")]
     [TestCase("F.B.E.F.IP6.ARPA.",           DNSResourceRecordTypes.PTR,  TestName = "{m}: PTR of F.B.E.F.IP6.ARPA., in another case")]
+    [TestCase("254.169.in-addr.arpa.",       DNSResourceRecordTypes.SOA,  TestName = "{m}: SOA of 254.169.in-addr.arpa., the domain itself")]
+    [TestCase("8.e.f.ip6.arpa.",             DNSResourceRecordTypes.SOA,  TestName = "{m}: SOA of 8.e.f.ip6.arpa., the domain itself")]
+    [TestCase("B.E.F.IP6.ARPA.",             DNSResourceRecordTypes.NS,   TestName = "{m}: NS of B.E.F.IP6.ARPA., the domain itself, in another case")]
     public async Task A_Link_Local_Name_Is_Not_Sent_To_A_Unicast_Server(String                  Name,
                                                                         DNSResourceRecordTypes  Type)
     {
@@ -576,6 +579,85 @@ public class SpecialUseNameTests
 
         Assert.That(server.Requests.Count, Is.EqualTo(1),
                     $"{Name} is sent like any other name");
+
+    }
+
+    #endregion
+
+
+    #region What an answer made here says of itself, and SpecialUseNames asked directly
+
+    [Test]
+    [Property("RFC", "1035 §4.1.1")]
+    [TestCase("host.invalid.",              DNSResourceRecordTypes.A,   TestName = "{m}: A of host.invalid., NXDOMAIN")]
+    [TestCase("www.localhost.",             DNSResourceRecordTypes.A,   TestName = "{m}: A of www.localhost., an address")]
+    [TestCase("170.0.0.192.in-addr.arpa.",  DNSResourceRecordTypes.PTR, TestName = "{m}: PTR of 170.0.0.192.in-addr.arpa., a PTR")]
+    public Task An_Answer_Made_Here_Says_That_Nothing_Was_Sent(String                  Name,
+                                                               DNSResourceRecordTypes  Type)
+
+        // The header bits of RFC 1035 §4.1.1 as the client hands them on. The
+        // answer comes from the specification and from no server: it is valid
+        // and no timeout, as authoritative as the specification is, and nothing
+        // was truncated and no server offered recursion, because there was none.
+        => AssertAnsweredLocally(Name, Type, answer => {
+
+               Assert.That(answer.IsValid,             Is.True,  "an answer made here is an answer");
+               Assert.That(answer.IsTimeout,           Is.False, "nothing was sent, so no clock ran out");
+               Assert.That(answer.AuthoritativeAnswer, Is.True,  "§4.1.1 AA: no zone anybody serves could contradict the specification");
+               Assert.That(answer.IsTruncated,         Is.False, "§4.1.1 TC: nothing was sent, so nothing was truncated");
+               Assert.That(answer.RecursionAvailable,  Is.False, "§4.1.1 RA: no server offered recursion");
+
+           });
+
+
+    [Test]
+    [Property("RFC", "8880 §7.2")]
+    [TestCase("170.0.0.192.in-addr.arpa.",    true,  TestName = "{m}: 170.0.0.192.in-addr.arpa., the name itself")]
+    [TestCase("171.0.0.192.IN-ADDR.ARPA.",    true,  TestName = "{m}: 171.0.0.192.IN-ADDR.ARPA., in another case")]
+    [TestCase("x.170.0.0.192.in-addr.arpa.",  true,  TestName = "{m}: x.170.0.0.192.in-addr.arpa., below it")]
+    [TestCase("172.0.0.192.in-addr.arpa.",    false, TestName = "{m}: 172.0.0.192.in-addr.arpa., beside it")]
+    [TestCase("0.0.192.in-addr.arpa.",        false, TestName = "{m}: 0.0.192.in-addr.arpa., above it")]
+    public void SpecialUseNames_Knows_The_Ipv4only_Reverse_Names(String   Name,
+                                                                 Boolean  Expected)
+    {
+
+        // The predicate the other four stand beside. Nothing in Hermod calls
+        // it, so only asking it says whether the name itself is one of them.
+        Assert.That(SpecialUseNames.IsIPv4OnlyReverse(DNSServiceName.Parse(Name)), Is.EqualTo(Expected),
+                    "§7.2: the two reverse mapping domains and \"all subdomains\" of them");
+
+    }
+
+
+    [Test]
+    [Property("RFC", "6762 §22.1")]
+    public void SpecialUseNames_Answers_A_Link_Local_Name_Unless_Told_Not_To()
+    {
+
+        var name      = DNSServiceName.Parse("printer.local.");
+        var types     = new[] { DNSResourceRecordTypes.A };
+
+        // Without an opinion a link-local name is answered here: item 3 has it
+        // not sent to a unicast server. The client hands its own option in, and
+        // the overload that takes none must not read as "leave it to the servers".
+        var byDefault = SpecialUseNames.TryAnswer(name, types, true, Timeout, TimeSpan.Zero,        out var answer);
+        var toldNotTo = SpecialUseNames.TryAnswer(name, types, true, Timeout, TimeSpan.Zero, false, out var none);
+
+        Assert.Multiple(() => {
+
+            Assert.That(byDefault,             Is.True,
+                        "§22.1 item 3: a name ending in \"local.\" is not sent to a unicast server unless the caller says so");
+
+            Assert.That(answer?.ResponseCode,  Is.EqualTo(DNSResponseCodes.NameError),
+                        "§22.1 item 4: NXDOMAIN is what such a name is answered with");
+
+            Assert.That(toldNotTo,             Is.False,
+                        "the control: told to leave link-local names to the servers, it has no answer");
+
+            Assert.That(none,                  Is.Null,
+                        "and hands none out");
+
+        });
 
     }
 

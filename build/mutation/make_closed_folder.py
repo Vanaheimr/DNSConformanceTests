@@ -1732,6 +1732,163 @@ PRESENTATION_EQUIVALENT = {
 PRESENTATION_SUPERSEDED = {}
 
 
+# The 'specialuse-client' slice: SpecialUseNames.cs, NameResolution.cs and
+# DNSClient.cs swept at 3ec1d3ae on .NET 11, after Hermod's fixes for findings
+# 101 to 109 (56f2c957 to 88540b71) gave the client the special-use names of
+# RFC 6761, 7686, 6762 section 22.1 and 8880 section 7.2. The client block was
+# measured at cf1e9954, before any of it existed. Line numbers are 3ec1d3ae's;
+# the three files did not change between 88540b71 and there.
+#
+# 229 mutants, 40 not viable. 132 die in pass 1 and 12 more in pass 2, one of
+# them planted by hand (SpecialUseNames 225); 45 survive everywhere. One
+# crashes the test host in pass 1 and is killed by SecureTransports in pass 2
+# (DNSClient 690), and one does not end (the race below). Pass 2 called
+# NameResolution 85 killed by Multicast; planted by hand twice it survives,
+# and the file as measured is beside the corrected one. A first pass 1 at 88540b71 on .NET 10, before NameResolutionTests
+# existed, is in results/specialuse-client-88540b71/: 121 killed and 66
+# survived there, and the eleven rows that changed are the nine NameResolution
+# lines those tests kill and two boundaries of the link-local reverse domains.
+#
+# DNSClient's equivalents are the client block's, read again there against
+# 88540b71 and found unchanged; each entry below is that block's text on its
+# new line, and the line numbers inside the texts are cf1e9954's.
+
+SPECIALUSE_CLIENT_KILLED = {
+
+    # The client block's race, on its new line (982 at cf1e9954). Pass 1 stopped
+    # the judge after 687 s.
+    "a-race-that-does-not-end": {
+        "DNS/Client/DNSClient.cs": {1032},
+    },
+
+    # What the sweep left of SpecialUseNames itself. The predicate for the
+    # reverse names of ipv4only.arpa has no caller in Hermod, and neither has
+    # the overload of TryAnswer that takes no opinion on link-local names -
+    # DNSClient hands its own option to the other - so only asking them says
+    # what they answer. And the header bits of an answer made here: valid, no
+    # timeout, authoritative, not truncated, no recursion offered. Each of the
+    # seven was planted again and fails the test written for it:
+    # SpecialUseNames_Knows_The_Ipv4only_Reverse_Names (132),
+    # SpecialUseNames_Answers_A_Link_Local_Name_Unless_Told_Not_To (364) and
+    # An_Answer_Made_Here_Says_That_Nothing_Was_Sent (469 to 478).
+    "special-use-names-asked-directly": {
+        "DNS/Client/SpecialUseNames.cs": {132, 364, 469, 470, 472, 477, 478},
+    },
+
+    # "localhost6", which NameResolution takes for ::1 as many a hosts file does.
+    # No RFC, and no name below "localhost.", so nothing else in TryLiteral
+    # catches it: with the branch's `return true` read as false it is a host
+    # name that needs a DNS client. Localhost6_Is_The_IPv6_Loopback_Address_
+    # Without_A_DNS_Client fails on the mutant planted again.
+    "localhost6": {
+        "DNS/Client/NameResolution.cs": {97},
+    },
+
+}
+
+SPECIALUSE_CLIENT_EQUIVALENT = {
+
+    "DNS/Client/DNSClient.cs": {
+        468:  CLIENT_EQUIVALENT["DNS/Client/DNSClient.cs"][456],
+        851:  CLIENT_EQUIVALENT["DNS/Client/DNSClient.cs"][801],
+        926:  CLIENT_EQUIVALENT["DNS/Client/DNSClient.cs"][876],
+        1609: CLIENT_EQUIVALENT["DNS/Client/DNSClient.cs"][1559],
+        1882: CLIENT_EQUIVALENT["DNS/Client/DNSClient.cs"][1832],
+    },
+
+}
+
+SPECIALUSE_CLIENT_SUPERSEDED = {}
+
+
+# The 'specialuse-server' slice: SpecialUseZones.cs, AuthoritativeDNSRequestHandler.cs,
+# InMemoryDNSZone.cs, IDNSZoneStore.cs and DNSServer.cs swept at 3ec1d3ae on
+# .NET 11. The server block was measured at 38f6a355, before the special-use
+# zones (findings 103 to 108) and the KX additional section processing of
+# finding 112 existed. Line numbers are 3ec1d3ae's.
+#
+# 276 mutants, 43 not viable. 98 die in pass 1 and 19 more in pass 2; 112
+# survive everywhere, and four never finish in either pass. Three of the four
+# - DNSServer 374, 427 and 722 - make every bind throw, and were killed at
+# 38f6a355 by ServerWildcardTests run on its own. Planted again the same way
+# here, each fails all twelve after 127 s, and pass 1's file says so; the
+# file as measured is beside it. The fourth, 297, starts the bind loop with
+# its retry flag set and did not finish at 38f6a355 either.
+#
+# Of the 37 real gaps, nine are the server block's equivalents on their new
+# lines, and each entry below is that block's text. Three are new code that
+# is the same either way, and one is new code a test now kills. The rest are
+# gaps the server block left open and are open here as well - the bind retry,
+# the multicast listener's socket options, the store's Remove, the signature
+# refresh - and two of the KX additional section processing, which MUTATION.md
+# names.
+
+SPECIALUSE_SERVER_KILLED = {
+
+    # RFC 6762 section 22.1, item 5, is about the unicast queries a server
+    # receives; a .local name asked on its multicast listener is answered from
+    # the zone. `dnsRequest.ReceivedViaMulticast = true` read as false has that
+    # listener answer NXDOMAIN like the unicast one. No test asked the multicast
+    # listener anything. A_Link_Local_Name_Asked_On_The_Multicast_Listener_Is_
+    # Answered_From_The_Zone asks both listeners of one server, the unicast one
+    # as the control.
+    "the-multicast-listener": {
+        "DNS/Server/DNSServer.cs": {634},
+    },
+
+}
+
+SPECIALUSE_SERVER_EQUIVALENT = {
+
+    "DNS/Server/AuthoritativeDNSRequestHandler.cs": {
+
+        205: SERVER_EQUIVALENT["DNS/Server/AuthoritativeDNSRequestHandler.cs"][188],
+        254: SERVER_EQUIVALENT["DNS/Server/AuthoritativeDNSRequestHandler.cs"][237],
+
+        528: "specialUse = true after NegativeUnlessServed replaced a NotAuthoritative "
+             "answer. The flag is read once, at 609, where it keeps FollowCanonicalNames "
+             "from running on a NoData answer. Run anyway, that method asks the store for "
+             "a CNAME at the same name - the name the store has just called "
+             "NotAuthoritative, which it calls any type at a name outside its zones - and "
+             "returns at the first lookup that is not Found. Nothing is added either way",
+
+    },
+
+    "DNS/Server/IDNSZoneStore.cs": {
+
+        138: "HoldsNamesBelow = false, the default of NotAuthoritative's parameter. The "
+             "method has one caller in Hermod, InMemoryDNSZone 559, and it names the "
+             "argument. A default nothing takes",
+
+    },
+
+    "DNS/Server/InMemoryDNSZone.cs": {
+
+        495: SERVER_EQUIVALENT["DNS/Server/InMemoryDNSZone.cs"][489],
+        903: SERVER_EQUIVALENT["DNS/Server/InMemoryDNSZone.cs"][894],
+
+        1130: "skip <= labels.Length, building the set of every owner name and everything "
+              "above it. The last round adds the root, and without it the set says of the "
+              "root alone that nothing is held below it. The set is read at 559 for a name "
+              "outside every zone, and the handler reads the answer in NegativeUnlessServed, "
+              "which returns null before looking at it unless the name is a test name or a "
+              "private-address reverse name. The root is neither",
+
+    },
+
+    "DNS/Server/DNSServer.cs": {
+        378:  SERVER_EQUIVALENT["DNS/Server/DNSServer.cs"][378],
+        428:  SERVER_EQUIVALENT["DNS/Server/DNSServer.cs"][428],
+        723:  "tcpListener.Server.DualMode = false on the TCP side, for the reason 428 "
+              "gives for the UDP side",
+        1066: SERVER_EQUIVALENT["DNS/Server/DNSServer.cs"][1062],
+    },
+
+}
+
+SPECIALUSE_SERVER_SUPERSEDED = {}
+
+
 LEDGERS = {
     "core": (CORE_KILLED, CORE_EQUIVALENT, CORE_SUPERSEDED),
     "tsig": (TSIG_KILLED, TSIG_EQUIVALENT, TSIG_SUPERSEDED),
@@ -1742,6 +1899,8 @@ LEDGERS = {
     "svcparam": (SVCPARAM_KILLED, SVCPARAM_EQUIVALENT, SVCPARAM_SUPERSEDED),
     "streams": (STREAMS_KILLED, STREAMS_EQUIVALENT, STREAMS_SUPERSEDED),
     "presentation": (PRESENTATION_KILLED, PRESENTATION_EQUIVALENT, PRESENTATION_SUPERSEDED),
+    "specialuse-client": (SPECIALUSE_CLIENT_KILLED, SPECIALUSE_CLIENT_EQUIVALENT, SPECIALUSE_CLIENT_SUPERSEDED),
+    "specialuse-server": (SPECIALUSE_SERVER_KILLED, SPECIALUSE_SERVER_EQUIVALENT, SPECIALUSE_SERVER_SUPERSEDED),
 }
 
 

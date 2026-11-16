@@ -102,6 +102,21 @@ BLOCKS = {
     "presentation": dict(root=r"DNS\ResourceRecords", exclude=(), judge="ResourceRecords",
                          only=("ADNSResourceRecord.cs", "RRSIG.cs", "SPF.cs", "TXT.cs", "URI.cs")),
 
+    # The files Hermod's fixes for findings 101 to 109 changed, 56f2c957 to
+    # 88540b71: the special-use names of RFC 6761, 7686, 6762 section 22.1 and
+    # 8880 section 7.2. On the client's side a new file of their own, the
+    # DNSClient that consults it, and NameResolution, which the client block's
+    # third measurement at cf1e9954 found untested. On the server's, the new
+    # special-use zones, the handler that answers from them, the zone that says
+    # which names it holds below a name, and the listener that marks a multicast
+    # request. DNSPacket's new property carries no mutant.
+    # Measured at 3ec1d3ae on .NET 11, where finding 112 had grown the handler.
+    "specialuse-client": dict(root=r"DNS\Client", exclude=(), judge="Client",
+                              only=("SpecialUseNames.cs", "NameResolution.cs", "DNSClient.cs")),
+    "specialuse-server": dict(root=r"DNS\Server", exclude=(), judge="Server",
+                              only=("SpecialUseZones.cs", "AuthoritativeDNSRequestHandler.cs",
+                                    "InMemoryDNSZone.cs", "IDNSZoneStore.cs", "DNSServer.cs")),
+
 }
 
 FAILED = re.compile(r"(?:Fehler|Failed):\s*(\d+)")

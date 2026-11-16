@@ -576,6 +576,80 @@ public class SpecialUseNameServerTests
 
     #endregion
 
+    #region A_Link_Local_Name_Asked_On_The_Multicast_Listener_Is_Answered_From_The_Zone()
+
+    [Test]
+    [Property("RFC", "6762 §22.1")]
+    public async Task A_Link_Local_Name_Asked_On_The_Multicast_Listener_Is_Answered_From_The_Zone()
+    {
+
+        // §22.1 item 5 is about the queries an authoritative server receives by
+        // unicast: "by default" it answers them NXDOMAIN, because a .local name
+        // is asked by multicast. What arrives on the server's multicast
+        // listener is that other question, and the zone answers it. One server
+        // in its default configuration, the same record, both listeners: the
+        // unicast one is the control that the option was not what answered.
+        var zone = ZoneFixtures.CreateStandardZone();
+
+        zone.Add(new A(DomainName.Parse("printer.local."), DNSQueryClasses.IN, ZoneFixtures.DefaultTtl, IPv4Address.Parse(ConfiguredLocalA)));
+
+        var dnsServer = new DNSServer(
+                            new AuthoritativeDNSRequestHandler(zone),
+                            new DNSServerOptions {
+                                EnableUDPUnicast    = true,
+                                UDPUnicastSocket    = new IPSocket(IPv4Address.Localhost, IPPort.Zero),
+                                EnableUDPMulticast  = true,
+                                UDPMulticastSocket  = new IPSocket(IPv4Address.Any,       IPPort.Zero),
+                                EnableTCPUnicast    = false,
+                                EnableTLSUnicast    = false
+                            }
+                        );
+
+        await dnsServer.Start();
+
+        try
+        {
+            // The multicast listener reports its socket once it is bound.
+            for (var i = 0; i < 100 && dnsServer.ActiveUDPMulticastSocket is null; i++)
+                await Task.Delay(50);
+
+            Assert.That(dnsServer.ActiveUDPMulticastSocket, Is.Not.Null, "the multicast listener must be up");
+            Assert.That(dnsServer.ActiveUDPUnicastSocket,   Is.Not.Null, "the unicast listener must be up");
+
+            var viaMulticastListener = await RawDnsProbe.UdpAsync(dnsServer.ActiveUDPMulticastSocket!.Value.Port.ToUInt16(),
+                                                                  RawDnsWriter.Query(nextId++, "printer.local.", RawDnsType.A));
+
+            var viaUnicastListener   = await RawDnsProbe.UdpAsync(dnsServer.ActiveUDPUnicastSocket!.  Value.Port.ToUInt16(),
+                                                                  RawDnsWriter.Query(nextId++, "printer.local.", RawDnsType.A));
+
+            Assert.That(viaMulticastListener, Is.Not.Null, "the multicast listener must answer");
+            Assert.That(viaUnicastListener,   Is.Not.Null, "the unicast listener must answer");
+
+            var multicast = RawDnsReader.Parse(viaMulticastListener!);
+            var unicast   = RawDnsReader.Parse(viaUnicastListener!);
+
+            Assert.Multiple(() => {
+
+                Assert.That(multicast.RCode,   Is.Zero,              "asked on the multicast listener, printer.local. is answered from the zone");
+                Assert.That(multicast.Answers, Has.Count.EqualTo(1), "with the record configured at it");
+                if (multicast.Answers.Count == 1)
+                    Assert.That(multicast.Answers[0].Rdata, Is.EqualTo(RawDnsWriter.IPv4(ConfiguredLocalA)));
+
+                Assert.That(unicast.RCode,     Is.EqualTo(3),        "the control: the same server answers the unicast query NXDOMAIN (3), §22.1 item 5's default");
+                Assert.That(unicast.Answers,   Is.Empty,             "and without the record");
+
+            });
+
+        }
+        finally
+        {
+            await dnsServer.Stop();
+        }
+
+    }
+
+    #endregion
+
 
     // Guards: what is served, and what is not special
 
