@@ -532,6 +532,18 @@ Verified by `Repeated_Nodata_Query_Is_Served_From_The_Cache` and
 `Referral_Is_Not_Cached_As_Nodata`, both counting datagrams that actually reached
 the socket rather than asking the cache what it believes.
 
+**The referral half came back once, on Hermod master only.** The guard sat in
+`DNSCache.Add`, and `DNSClient` still called `AddNoData` for every NOERROR answer
+without answers, referrals included. That entry was reachable only behind one
+for the name, which `Add` never made of a response without an SOA. Hermod
+b6f7ff63 (2026-11-18) let a NODATA kept on its own answer a query, and the
+nightly's lane against Hermod master went red on `Referral_Is_Not_Cached_As_Nodata`
+the same day: one request where two were due. f5f7640d moved the guard to where
+the NODATA is kept — only an answer with an SOA in its authority section, as RFC
+2308 §2.2 tells the two apart and §5 says "Negative responses without SOA records
+SHOULD NOT be cached" — and `DNSClientNoDataCache_Tests.A_Referral_Is_Not_Kept_As_A_NODATA`
+pins it in Hermod. The suite's pin never carried the regression.
+
 ## 15 — The negative TTL ignored the SOA MINIMUM
 
 *RFC 2308 §4:* the TTL of a negative answer is the minimum of the SOA's **MINIMUM

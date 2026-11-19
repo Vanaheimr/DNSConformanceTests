@@ -450,6 +450,18 @@ name, which the zone answers there while the unicast listener says NXDOMAIN
 387 ✅ · 0 ❌, the Server project 229 ✅ · 0 ❌, and the offline suite
 2276 ✅ · 0 ❌ · 4 skips.
 
+Then the nightly, red on Linux every night since DNS over SSH. Two of its
+three reasons were the suite's: neither Linux lane installed OpenSSH, so the
+four OpenSSH interop tests skipped and the lanes' zero-skip checks failed, and
+one SSH test read the scripted server's count of ended channels before the
+server had heard of the close. The third was Hermod master's. Since b6f7ff63 a
+NODATA kept in the DNS cache answers on its own, and `DNSClient` kept a
+referral as one, so `Referral_Is_Not_Cached_As_Nodata` (finding 14) failed
+against master. Hermod f5f7640d keeps only an answer with an SOA as a NODATA
+(RFC 2308 §2.2 and §5), and the pin moved to it. No verdict changed with the
+pin: the offline suite is 2276 ✅ · 0 ❌ · 4 skips, and the interop against the
+tools in WSL, OpenSSH included, 79 ✅ · 0 ❌ · 0 skips.
+
 The suite has found 112 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
