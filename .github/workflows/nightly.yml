@@ -65,9 +65,15 @@ jobs:
       # test, so the 38 interop tests skip. Here they are native, on the same
       # loopback as the server, with nothing in between — which is the main
       # reason this workflow is worth having at all.
+      #
+      # OpenSSH is here for DNS over SSH: OpenSshSubsystemInteropTests start an
+      # sshd whose subsystem hands the channel to socat and on to the BIND
+      # fixture, and ssh-keygen makes its host key. Without them those four
+      # tests skipped every night from 2026-11-13 on, and the skip check below
+      # failed the step.
       - name: Install the DNS tools (Debian container)
         if: runner.os == 'Linux'
-        run: apt-get install -y --no-install-recommends bind9-dnsutils knot-dnsutils ldnsutils bind9 bind9utils
+        run: apt-get install -y --no-install-recommends bind9-dnsutils knot-dnsutils ldnsutils bind9 bind9utils openssh-server openssh-client
 
       # ISC's genreport is the one verdict in this suite that the suite does not
       # reach itself, so a nightly where it silently skips is a nightly that
@@ -122,10 +128,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -e
-          for tool in dig kdig drill delv named named-checkconf named-checkzone genreport; do
+          for tool in dig kdig drill delv named named-checkconf named-checkzone genreport sshd ssh-keygen socat; do
             command -v "${tool}"
           done
           named -V | head -1
+          sshd -V 2>&1 | head -1
 
       - name: Build
         run: dotnet build DNSConformanceTests.slnx --configuration Release
@@ -485,6 +492,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             bind9-dnsutils knot-dnsutils ldnsutils bind9 bind9utils \
             gcc libc6-dev make autoconf automake pkg-config libssl-dev socat \
+            openssh-server openssh-client \
             apt-transport-https wget
 
       # BIND and Knot both ship signed Debian repositories, so they arrive as
@@ -613,7 +621,10 @@ jobs:
       - name: Smoke-test that every tool answers and named serves
         run: |
           set -e
-          for tool in dig delv kdig drill named named-checkconf named-checkzone genreport; do
+          # sshd, ssh-keygen and socat for DNS over SSH: OpenSSH in front of the
+          # BIND fixture, as the full-suite job installs them. They are the
+          # distro's; this lane upgrades the DNS tools and nothing else.
+          for tool in dig delv kdig drill named named-checkconf named-checkzone genreport sshd ssh-keygen socat; do
             command -v "${tool}" > /dev/null || { echo "FAIL: ${tool} is not on PATH"; exit 1; }
           done
 
