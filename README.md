@@ -462,7 +462,19 @@ against master. Hermod f5f7640d keeps only an answer with an SOA as a NODATA
 pin: the offline suite is 2276 ✅ · 0 ❌ · 4 skips, and the interop against the
 tools in WSL, OpenSSH included, 79 ✅ · 0 ❌ · 0 skips.
 
-The suite has found 112 RFC deviations in Hermod. All are fixed;
+The nightly was not all green even then. Its public-resolver step reports
+without failing, and its four DoH tests against dns.google and
+cloudflare-dns.com had been red on both runners since at least 2026-11-06, as
+SERVFAIL. Hermod's TCP client dialled one of a server's addresses, for the
+default preference an IPv6 one, and gave up when it failed. The runners have no
+IPv6 route. RFC 8305 §4 has a client sort the addresses and interleave the
+families, and §5 has it go on to the next. The cases are finding 113, five of
+them, red at f5f7640d and marked `KnownIssue`: TCP, DoT and DoH, by address and
+by name, with one loopback open and the other refusing. Four guards beside them
+pass: the preferred family alone when both are open, and "only" meaning only.
+With them the Client project is 391 ✅ · 5 ❌, and the offline suite 2280 ✅ · 5 ❌ · 4 skips.
+
+The suite has found 113 RFC deviations in Hermod. All but the last are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 
@@ -706,6 +718,7 @@ and requires it to refuse — otherwise "fully validated" would only prove that
 | RFC / area | What is missing | Blocker |
 |------------|-----------------|---------|
 | **2930** (GSS mode) | GSS-TSIG, the TKEY mode that is actually deployed | needs a Kerberos/SPNEGO stack, which is not something a DNS library grows on its own |
+| **8305** §5 | the Connection Attempt Delay: the next address tried while the attempt to the first one still hangs | a connect that hangs, which one host's loopbacks cannot make: a closed port refuses at once. Hermod's own test sends its first attempt to 2001:db8::1 instead (finding 113) |
 | **1035** §3.3.9, **2782** | additional section processing for MX, NS and SRV answers | nothing — but nothing asks for it either: RFC 1035 says an MX "cause[s] type A additional section processing" without a MUST, and RFC 2782 has a client look up the addresses an SRV answer lacks. Hermod's server does it for KX, where RFC 2230 §3.1 makes it a MUST (finding 112), and for no other type |
 
 **TKEY's Diffie-Hellman mode is covered, and comes with three caveats worth
@@ -744,12 +757,14 @@ explains — which records a signed zone owes each kind of negative answer — i
 covered under RFC 4035 §3.1 and RFC 5155 §7, and 7129 remains the readable
 account of why those particular records.
 
-Two entries, and only the first is blocked — that column is not decoration, and
+Three entries, and two are blocked — that column is not decoration, and
 neither is an empty one. GSS-TSIG needs a Kerberos/SPNEGO stack before a single
 assertion can be written, and sits here rather than under *Out of scope* because
 it is a gap and not a refusal: it is what is actually deployed, and a suite that
 judged Hermod's transaction security without saying so would be quietly
-flattering it. The additional section of MX, NS and SRV answers is the other
+flattering it. The Connection Attempt Delay is blocked on the machine rather
+than the library: the suite's peers live on loopbacks, which refuse a connect
+and never leave it hanging. The additional section of MX, NS and SRV answers is the other
 kind — unblocked, unstarted, and written down so that leaving it is a decision.
 The list had a third entry of that kind — KX, HIP and the four ILNP types —
 until they were taken up; they are under *Covered* now.

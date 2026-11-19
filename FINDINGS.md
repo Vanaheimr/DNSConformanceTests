@@ -1,12 +1,13 @@
 # Conformance Findings — Hermod DNS
 
-What this suite caught. One hundred and twelve RFC deviations in the Hermod DNS
+What this suite caught. One hundred and thirteen RFC deviations in the Hermod DNS
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them is fixed and every one is defended by a test — so this reads
-as a record, not a backlog. It stays because the tests do not explain
-themselves: several of them look arbitrary until you know which bug they were
+Every one of them but the last is fixed and every one is defended by a test —
+so this reads as a record, not a backlog. Finding 113, the one address a client
+dialled, is open, and its trackers are red on purpose. It stays because the tests
+do not explain themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
 One section is **current documentation rather than record**:
@@ -129,6 +130,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 110 | Names in the RDATA of the older types were signed and checked in the case they were written | **High** | 4034 §6.2, 3597 §7 | ✅ fixed |
 | 111 | An RRset under a signature was ordered by the length of its records before their RDATA | **High** | 4034 §6.3 | ✅ fixed |
 | 112 | A KX answer came without its exchangers' addresses | Low | 2230 §3.1 | ✅ fixed |
+| 113 | A client dialled one of a server's addresses and gave up when it failed | **High** | 8305 §4, §5 | ⏳ **open** |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6673,6 +6675,69 @@ referral, whose additional section is its glue, keeps the old rule. Merged as
 [`e219c371`](https://github.com/Vanaheimr/Hermod/commit/e219c371279c5370264b54f2f30a434faea8c07f).
 
 Severity was **Low**.
+
+---
+
+## 113 — A client dialled one of a server's addresses and gave up when it failed
+
+*RFC 8305 §4*:
+
+> First, the client MUST sort the addresses received up to this point using
+> Destination Address Selection ([RFC6724], Section 6).
+
+> Next, the client SHOULD modify the ordered list to interleave address
+> families.
+
+*§5*:
+
+> In order to avoid unreasonable network load, connection attempts SHOULD NOT
+> be made simultaneously. Instead, one connection attempt to a single address
+> is started first, followed by the others in the list, one at a time.
+> Starting a new connection attempt does not affect previous attempts, as
+> multiple connection attempts may occur in parallel.
+
+Hermod's TCP client, under DoH, DoT, DNS over TCP and every HTTP client alike,
+connected to one address. The preference picked it: for `PreferIPv6`, the
+default, an IPv6 address whenever the server had one. When that connect failed,
+so did the connection, and the addresses of the other family were never tried.
+RFC 6724's first rule of destination selection, "Avoid unusable destinations",
+is the one that would have put them first.
+
+**What it costs.** A host without an IPv6 route cannot reach a dual-stack server
+at all. That is every GitHub runner, and many containers and corporate networks.
+DoH to dns.google and to cloudflare-dns.com failed there in a few milliseconds
+with "Network is unreachable", and the DoH client reported it as SERVFAIL.
+
+**How it was found.** By the nightly. Its public-resolver step reports and does
+not fail, and its four DoH tests had been red on both runners, Windows and
+Debian, since at least 2026-11-06. On this machine, which has IPv6, they pass. In
+WSL, which has no IPv6 route, they fail as on the runners, and pass there with
+`PreferIPv4` set. Hermod's own test fixtures had met the same wall:
+`ATCPClient` carries the comment that the DoH fixtures "stayed flaky after being
+set to IPv4Only", and `EncryptedClientConstructionTests` here sets `PreferIPv4`
+on its port-only DoH client because "the constructor dials [::1] unless told
+otherwise".
+
+**Repro**: five cases in `ConnectionAttemptTests`, red at `f5f7640d`. A peer
+listens on one loopback alone, the same port on the other one refuses, and the
+test checks that refusal itself before it asks. By address, over TCP to both
+loopbacks (`IPvXAddress.Localhost`): `PreferIPv6` going on to 127.0.0.1, no
+preference at all going on to 127.0.0.1, and `PreferIPv4` going on to ::1. By
+name, through a scripted resolver that gives `dual.attempts.test` A 127.0.0.1
+and AAAA ::1: a DoH client and a DoT client, each going on to 127.0.0.1. Four
+guards pass beside them. With both loopbacks open, the preferred family is
+dialled and the other one never is; a fix that raced both at once, against §5's
+"SHOULD NOT be made simultaneously", would fail them. And `IPv4Only` and
+`IPv6Only` never dial the family they rule out, even when theirs is refused,
+with a client of the other "only" reaching the same peer as the control.
+
+What the offline cases cannot show is the Connection Attempt Delay: the next
+attempt started while the first one still hangs. A loopback refuses at once and
+never hangs, so that part of §5 is queued in the README.
+
+**The fix**: ⏳ open.
+
+Severity is **High**.
 
 ---
 
