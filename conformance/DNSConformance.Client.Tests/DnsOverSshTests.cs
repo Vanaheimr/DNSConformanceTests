@@ -1046,8 +1046,13 @@ public class DnsOverSshTests
         Assert.Multiple(() => {
             Assert.That(closed,                Is.True,        "disposing the client closed the connection it had dialled");
             Assert.That(client.Connection,     Is.Null,        "and it has none any more");
-            Assert.That(server.ChannelsEnded,  Is.EqualTo(1),  "its channel ended with it");
         });
+
+        // The client's side of the connection is closed when its Closed task
+        // completes; the server hears of it a moment later, on its own task.
+        // On the Linux runners that moment was enough for the count to be read
+        // as 0 on five nights out of six.
+        await Eventually(() => server.ChannelsEnded == 1, "The end of the client's own channel");
 
     }
 
