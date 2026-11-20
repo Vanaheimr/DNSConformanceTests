@@ -469,12 +469,16 @@ SERVFAIL. Hermod's TCP client dialled one of a server's addresses, for the
 default preference an IPv6 one, and gave up when it failed. The runners have no
 IPv6 route. RFC 8305 §4 has a client sort the addresses and interleave the
 families, and §5 has it go on to the next. The cases are finding 113, five of
-them, red at f5f7640d and marked `KnownIssue`: TCP, DoT and DoH, by address and
-by name, with one loopback open and the other refusing. Four guards beside them
-pass: the preferred family alone when both are open, and "only" meaning only.
-With them the Client project is 391 ✅ · 5 ❌, and the offline suite 2280 ✅ · 5 ❌ · 4 skips.
+them, red at f5f7640d and passing from b59bb613 on: TCP, DoT and DoH, by
+address and by name, with one loopback open and the other refusing. Four guards
+beside them pass: the preferred family alone when both are open, and "only"
+meaning only. Hermod b59bb613 tries the addresses one after another, the next
+one after 250 ms or as soon as the last one fails, and the pin moved to it. In
+WSL, which has no IPv6 route, the four DoH tests against the public resolvers
+pass now. With them the Client project is 396 ✅ · 0 ❌, and the offline suite
+2285 ✅ · 0 ❌ · 4 skips.
 
-The suite has found 113 RFC deviations in Hermod. All but the last are fixed;
+The suite has found 113 RFC deviations in Hermod. All are fixed;
 [FINDINGS.md](FINDINGS.md) records each with chapter and verse, the change, and
 the test that pins it.
 

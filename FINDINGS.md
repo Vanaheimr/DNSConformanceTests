@@ -4,10 +4,9 @@ What this suite caught. One hundred and thirteen RFC deviations in the Hermod DN
 stack, each with chapter and verse, the mechanism, the fix, and the test that now
 pins it.
 
-Every one of them but the last is fixed and every one is defended by a test —
-so this reads as a record, not a backlog. Finding 113, the one address a client
-dialled, is open, and its trackers are red on purpose. It stays because the tests
-do not explain themselves: several of them look arbitrary until you know which bug they were
+Every one of them is fixed and every one is defended by a test — so this reads
+as a record, not a backlog. It stays because the tests do not explain
+themselves: several of them look arbitrary until you know which bug they were
 shaped to catch, and that reasoning lives here.
 
 One section is **current documentation rather than record**:
@@ -130,7 +129,7 @@ what is queued, what is out of scope — are not here at all; they live in
 | 110 | Names in the RDATA of the older types were signed and checked in the case they were written | **High** | 4034 §6.2, 3597 §7 | ✅ fixed |
 | 111 | An RRset under a signature was ordered by the length of its records before their RDATA | **High** | 4034 §6.3 | ✅ fixed |
 | 112 | A KX answer came without its exchangers' addresses | Low | 2230 §3.1 | ✅ fixed |
-| 113 | A client dialled one of a server's addresses and gave up when it failed | **High** | 8305 §4, §5 | ⏳ **open** |
+| 113 | A client dialled one of a server's addresses and gave up when it failed | **High** | 8305 §4, §5 | ✅ fixed |
 
 The Status column was uniform until finding 58, which is the first to land
 **open** — documented here, with its test left red as the tracking signal that
@@ -6703,7 +6702,7 @@ so did the connection, and the addresses of the other family were never tried.
 RFC 6724's first rule of destination selection, "Avoid unusable destinations",
 is the one that would have put them first.
 
-**What it costs.** A host without an IPv6 route cannot reach a dual-stack server
+**What it cost.** A host without an IPv6 route could not reach a dual-stack server
 at all. That is every GitHub runner, and many containers and corporate networks.
 DoH to dns.google and to cloudflare-dns.com failed there in a few milliseconds
 with "Network is unreachable", and the DoH client reported it as SERVFAIL.
@@ -6718,7 +6717,8 @@ set to IPv4Only", and `EncryptedClientConstructionTests` here sets `PreferIPv4`
 on its port-only DoH client because "the constructor dials [::1] unless told
 otherwise".
 
-**Repro**: five cases in `ConnectionAttemptTests`, red at `f5f7640d`. A peer
+**Repro**: five cases in `ConnectionAttemptTests`, red at `f5f7640d` and passing
+from `b59bb613` on. A peer
 listens on one loopback alone, the same port on the other one refuses, and the
 test checks that refusal itself before it asks. By address, over TCP to both
 loopbacks (`IPvXAddress.Localhost`): `PreferIPv6` going on to 127.0.0.1, no
@@ -6733,11 +6733,29 @@ with a client of the other "only" reaching the same peer as the control.
 
 What the offline cases cannot show is the Connection Attempt Delay: the next
 attempt started while the first one still hangs. A loopback refuses at once and
-never hangs, so that part of §5 is queued in the README.
+never hangs, so that part of §5 is queued in the README. Hermod's own
+`IPVersionPreferenceTests` covers it, with 2001:db8::1 as the first address and
+a ConnectTimeout of 10 s. On a host that routes the address, its SYN goes
+unanswered: without the fix the connect took the whole 10 s, and with it the
+client was through on 127.0.0.1 after the delay.
 
-**The fix**: ⏳ open.
+**The fix**: `ATCPClient` puts the resolved addresses in order: the preferred
+family first, the families interleaved, and in no particular order within a
+family, as the pick at random was before. It then tries them one at a time. The
+next attempt starts as soon as the last one has failed, or after the Connection
+Attempt Delay of 250 ms (§5's recommendation, kept between 10 ms and 2 s) beside
+it. The first attempt that gets through is the connection, and the others are
+cancelled. `IPv4Only` and `IPv6Only` try their own family alone. A close during
+the connect still ends it as one: the newest attempt's socket is the one
+`Close()` finds, and each attempt takes that place from the one before it only
+if it is still there. Merged as
+[`cc67b89e`](https://github.com/Vanaheimr/Hermod/commit/cc67b89e) and
+[`76642b20`](https://github.com/Vanaheimr/Hermod/commit/76642b20), on Hermod
+master from
+[`b59bb613`](https://github.com/Vanaheimr/Hermod/commit/b59bb613) on. With it the
+nightly's four DoH tests pass in WSL, which has no IPv6 route, as on the runners.
 
-Severity is **High**.
+Severity was **High**.
 
 ---
 

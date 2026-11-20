@@ -8,7 +8,6 @@ using org.GraphDefined.Vanaheimr.Hermod;
 using org.GraphDefined.Vanaheimr.Hermod.DNS;
 using org.GraphDefined.Vanaheimr.Hermod.HTTP;
 
-using DNSConformance.Core;
 using DNSConformance.Core.RawDns;
 using DNSConformance.Core.Scripted;
 
@@ -289,7 +288,6 @@ public class ConnectionAttemptTests
     // is the address to go on to.
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Client_Preferring_IPv6_Goes_On_To_IPv4_When_IPv6_Is_Refused()
     {
 
@@ -315,7 +313,6 @@ public class ConnectionAttemptTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Client_Preferring_IPv4_Goes_On_To_IPv6_When_IPv4_Is_Refused()
     {
 
@@ -341,7 +338,6 @@ public class ConnectionAttemptTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Client_Naming_No_Preference_Goes_On_To_IPv4_When_IPv6_Is_Refused()
     {
 
@@ -373,7 +369,6 @@ public class ConnectionAttemptTests
     #region By name: a resolver published with an A and an AAAA record
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Doh_Client_Reaches_A_Dual_Stack_Resolver_Over_IPv4_When_IPv6_Is_Refused()
     {
 
@@ -403,7 +398,6 @@ public class ConnectionAttemptTests
 
 
     [Test]
-    [Category(TestCategories.KnownIssue)]
     public async Task A_Dot_Client_Reaches_A_Dual_Stack_Resolver_Over_IPv4_When_IPv6_Is_Refused()
     {
 
